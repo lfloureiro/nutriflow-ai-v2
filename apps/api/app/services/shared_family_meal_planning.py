@@ -1,3 +1,4 @@
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -100,11 +101,11 @@ def _load_composition(
             "Each shared-family participant candidate must reference exactly one composition."
         )
 
+    if food_composition is not None and food_composition.id is None:
+        raise SharedFamilyMealPlanningError(
+            "Shared-family Food composition must be persisted before materialization."
+        )
     if food_composition is not None:
-        if food_composition.id is None:
-            raise SharedFamilyMealPlanningError(
-                "Shared-family Food composition must be persisted before materialization."
-            )
         persisted_food = session.get(FoodCompositionSnapshot, food_composition.id)
         if persisted_food is None:
             raise SharedFamilyMealPlanningError(
@@ -153,7 +154,7 @@ def _validate_participant_candidate(
 def _validate_composition_identity(
     selected: SharedMealCandidateEvaluation,
     composition: FoodCompositionSnapshot | RecipeCompositionSnapshot,
-    family_id: object,
+    family_id: uuid.UUID,
 ) -> None:
     if isinstance(composition, FoodCompositionSnapshot):
         food_item = composition.food_item
@@ -214,8 +215,8 @@ def materialize_shared_family_recommendation(
             FoodCompositionSnapshot | RecipeCompositionSnapshot,
         ]
     ] = []
-    family_id = None
-    seen_person_ids: set[object] = set()
+    family_id: uuid.UUID | None = None
+    seen_person_ids: set[uuid.UUID] = set()
     for participant in selected.participant_evaluations:
         _validate_participant_candidate(selected, participant)
         person = _load_person(session, participant)
