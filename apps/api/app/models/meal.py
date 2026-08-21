@@ -21,7 +21,12 @@ from app.models.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from app.models.family import Family
-    from app.models.food_catalog import FoodItem, Recipe
+    from app.models.food_catalog import (
+        FoodCompositionSnapshot,
+        FoodItem,
+        Recipe,
+        RecipeCompositionSnapshot,
+    )
     from app.models.person import Person
 
 
@@ -181,6 +186,10 @@ class Serving(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             "food_item_id IS NULL OR recipe_id IS NULL",
             name="ck_servings_single_catalog_reference",
         ),
+        CheckConstraint(
+            "food_composition_snapshot_id IS NULL OR recipe_composition_snapshot_id IS NULL",
+            name="ck_servings_single_composition_reference",
+        ),
         Index(
             "ix_servings_participant_status",
             "meal_participant_id",
@@ -193,6 +202,8 @@ class Serving(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
         Index("ix_servings_food_item", "food_item_id"),
         Index("ix_servings_recipe", "recipe_id"),
+        Index("ix_servings_food_composition", "food_composition_snapshot_id"),
+        Index("ix_servings_recipe_composition", "recipe_composition_snapshot_id"),
     )
 
     meal_participant_id: Mapped[uuid.UUID] = mapped_column(
@@ -208,6 +219,16 @@ class Serving(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     recipe_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("recipes.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    food_composition_snapshot_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("food_composition_snapshots.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    recipe_composition_snapshot_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("recipe_composition_snapshots.id", ondelete="SET NULL"),
         nullable=True,
     )
 
@@ -231,6 +252,7 @@ class Serving(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=False,
         default="estimated",
     )
+    nutrition_calculation_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     source_reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
     consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -238,6 +260,8 @@ class Serving(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     meal_participant: Mapped[MealParticipant] = relationship(back_populates="servings")
     food_item: Mapped["FoodItem | None"] = relationship()
     recipe: Mapped["Recipe | None"] = relationship()
+    food_composition_snapshot: Mapped["FoodCompositionSnapshot | None"] = relationship()
+    recipe_composition_snapshot: Mapped["RecipeCompositionSnapshot | None"] = relationship()
     nutrition_components: Mapped[list["ServingNutritionComponent"]] = relationship(
         back_populates="serving",
         cascade="all, delete-orphan",
