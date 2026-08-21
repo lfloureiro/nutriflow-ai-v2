@@ -87,6 +87,7 @@ The current backend foundation includes:
 - optional Serving links to FoodItem or Recipe while preserving historical serving snapshots;
 - explicit Serving nutrition calculation from versioned catalogue composition with conservative unit conversion and persisted calculation provenance;
 - deterministic meal recommendation ranking with hard-rule-first safety, nutrition fit, preferences and explainable scoring;
+- persisted recommendation runs/options and append-only accepted/rejected/modified feedback events for future learning;
 - PostgreSQL persistence with Alembic migrations;
 - pytest coverage with warnings treated as errors;
 - Ruff static validation.

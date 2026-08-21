@@ -19,6 +19,7 @@ from app.models.nutrition_constraint import NutritionConstraint
 from app.models.nutrition_goal import NutritionGoal
 from app.models.nutrition_target import NutritionTarget
 from app.models.person_profile import PersonProfile
+from app.models.recommendation_feedback import MealRecommendationRun
 from app.models.schedule_entry import ScheduleEntry
 
 if TYPE_CHECKING:
@@ -133,4 +134,10 @@ class Person(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="person",
         cascade="all, delete-orphan",
         order_by=MealParticipant.created_at,
+    )
+
+    meal_recommendation_runs: Mapped[list[MealRecommendationRun]] = relationship(
+        back_populates="person",
+        cascade="all, delete-orphan",
+        order_by=lambda: (MealRecommendationRun.planning_date, MealRecommendationRun.created_at),
     )
