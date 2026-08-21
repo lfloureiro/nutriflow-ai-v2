@@ -17,7 +17,8 @@ Key concepts:
 - professional nutrition constraints;
 - schedules;
 - locale and units;
-- health-data connections.
+- health-data connections;
+- recommendation history and feedback.
 
 ### Family
 
@@ -179,6 +180,37 @@ It stores calculation version/input provenance so NutriFlow can explain which Fo
 
 RecipeNutrientComponent provides extensible nutrient values.
 
+### MealRecommendationRun
+
+Person-scoped record of one recommendation-engine execution for one planning date.
+
+It preserves the engine version, optional DailyNutritionState reference, optional meal type and context used to produce the recommendation set.
+
+### MealRecommendationOption
+
+Historical snapshot of one candidate evaluated during a MealRecommendationRun.
+
+It preserves:
+
+- candidate identity and quantity;
+- eligibility;
+- rank and score when eligible;
+- score breakdown and explanations;
+- mandatory exclusion reasons;
+- candidate subjects used by rule matching;
+- the nutrition snapshot used for evaluation;
+- optional FoodItem/Recipe and composition-snapshot provenance.
+
+Excluded options remain in history for auditability but are not user-feedback targets.
+
+### MealRecommendationFeedback
+
+Append-only accepted/rejected/modified event attached to an eligible MealRecommendationOption.
+
+It may link to the resulting Serving when an accepted or modified recommendation has already been materialized.
+
+Feedback is a learning signal, not an eligibility rule.
+
 ### Pantry / Inventory
 
 Shared household availability of food/product items.
@@ -205,6 +237,7 @@ Person
   1 -> many DailyHealthStates
   1 -> many DailyNutritionStates
   1 -> many MealParticipants
+  1 -> many MealRecommendationRuns
 
 FoodItem
   1 -> many FoodCompositionSnapshots
@@ -232,6 +265,19 @@ Serving
   optionally -> one FoodItem OR one Recipe
   1 -> many ServingNutritionComponents
 
+MealRecommendationRun
+  belongs to one Person
+  optionally -> one DailyNutritionState
+  1 -> many MealRecommendationOptions
+
+MealRecommendationOption
+  optionally -> one FoodItem OR one Recipe
+  optionally -> one FoodCompositionSnapshot OR one RecipeCompositionSnapshot
+  1 -> many MealRecommendationFeedback events
+
+MealRecommendationFeedback
+  optionally -> one resulting Serving
+
 Family
   1 -> shared Pantry
   1 -> many ShoppingLists
@@ -245,6 +291,14 @@ A future family dinner can therefore influence an earlier individual lunch or sn
 
 The meal occasion may be shared while portions remain individual.
 
+## Recommendation history rule
+
+Recommendation output is historical decision data.
+
+A recommendation option copies the candidate identity, nutrition snapshot, eligibility and explanation used at recommendation time. Later catalogue updates or algorithm changes must not rewrite what the person actually saw.
+
+Feedback is append-only so a later modification does not erase an earlier acceptance.
+
 ## Catalogue history rule
 
 Current Food/Recipe knowledge and historical intake are separate responsibilities.
@@ -256,3 +310,5 @@ Changing a FoodItem, FoodCompositionSnapshot selection or Recipe composition lat
 ## Safety rule
 
 Hard constraints are evaluated before ranking or ML. An option that violates a mandatory allergy or clinician constraint is excluded, not merely down-ranked.
+
+Recommendation feedback and future learned ranking may influence ordering only among candidates that already passed deterministic eligibility checks.
