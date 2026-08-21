@@ -127,7 +127,7 @@ Implemented:
 - historical ordering by validity start date;
 - persistence and tests.
 
-Nutrition targets are derived outputs. They remain separate from NutritionGoal, NutritionConstraint and future DailyNutritionState concepts.
+Nutrition targets are derived outputs. They remain separate from NutritionGoal, NutritionConstraint and DailyNutritionState concepts.
 
 Detailed semantics are documented in `docs/domain/nutrition-target-model.md` and ADR-008.
 
@@ -171,13 +171,37 @@ Implemented:
 - database validation for temporal shape and non-empty deduplication identity;
 - persistence and tests, including duplicate-path rejection.
 
-Normalized health measurements are source observations. They are intentionally separate from provider payloads, specialized anthropometric history and future derived DailyHealthState summaries.
+Normalized health measurements are source observations. They are intentionally separate from provider payloads, specialized anthropometric history and derived DailyHealthState summaries.
 
 Detailed semantics are documented in `docs/domain/health-measurement-model.md` and ADR-010.
 
+### Daily health and nutrition state
+
+Implemented:
+
+- versioned DailyHealthState snapshots per Person and local calendar date;
+- explicit timezone semantics for daily boundaries;
+- typed health context for weight, weight trends, steps, energy, sleep, resting heart rate, HRV and training load;
+- optional source-window timestamps and confidence score;
+- versioned DailyNutritionState snapshots per Person and local calendar date;
+- optional linkage to the NutritionTarget used for calculation;
+- consumed, planned and remaining energy values;
+- optional adherence and confidence scores;
+- extensible DailyNutritionStateComponent records for nutrient-level consumed, planned and remaining values;
+- negative remaining values so target overruns remain visible;
+- calculation version, calculation-input metadata and computation timestamp for both state types;
+- uniqueness by Person, state date and calculation version so algorithm evolution does not erase previous semantics;
+- deterministic Person relationship ordering;
+- database validation for ranges and component uniqueness;
+- persistence and tests, including multiple calculation versions for one date.
+
+Daily states are materialized derived data. They are recalculable from authoritative source history and must not replace HealthMeasurement, AnthropometricMeasurement, NutritionTarget or future meal/serving records.
+
+Detailed semantics are documented in `docs/domain/daily-state-model.md` and ADR-011.
+
 ## Current database migration chain
 
-The implemented schema includes migrations through HealthMeasurement, following the Family/Person, profile/anthropometric, nutrition goal, nutrition constraint, food preference/adverse reaction, schedule, NutritionTarget and HealthConnection migrations.
+The implemented schema includes migrations through DailyHealthState, DailyNutritionState and DailyNutritionStateComponent, following the Family/Person, profile/anthropometric, nutrition goal, nutrition constraint, food preference/adverse reaction, schedule, NutritionTarget, HealthConnection and HealthMeasurement migrations.
 
 Alembic migrations are expected to be applied from an empty PostgreSQL database in CI and checked for model/schema drift.
 
@@ -185,8 +209,7 @@ Alembic migrations are expected to be applied from an empty PostgreSQL database 
 
 Current sequence after the implemented foundation:
 
-1. DailyHealthState and DailyNutritionState;
-2. meal events, shared meals and individual servings;
-3. adaptive planning and recommendation layers.
+1. meal events, shared meals and individual servings;
+2. adaptive planning and recommendation layers.
 
 This list is directional. Each increment must be designed, documented, tested locally and validated in CI before integration into `main`.
