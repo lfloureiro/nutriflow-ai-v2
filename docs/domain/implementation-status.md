@@ -1,6 +1,6 @@
 # Domain implementation status
 
-This document tracks the implemented domain baseline so the code and domain documentation evolve together.
+This document tracks the implemented domain baseline so code, migrations, tests and domain documentation evolve together.
 
 ## Implemented foundation
 
@@ -14,252 +14,178 @@ Implemented:
 - API routes and services for Family and Person;
 - persistence and tests.
 
-### Person profile
+### Person profile and anthropometric history
 
 Implemented:
 
 - one-to-one PersonProfile;
-- sex used for energy calculations;
-- measurement system;
-- energy unit;
-- persistence and tests.
-
-### Anthropometric history
-
-Implemented:
-
+- energy-calculation sex, measurement system and energy unit;
 - historical AnthropometricMeasurement records;
-- metric, value, unit and measured timestamp;
-- provenance fields for provider/device/external identifiers;
-- ordered Person relationship;
+- metric, value, unit, observed time and provenance;
 - persistence and tests.
 
-### Nutrition goals
+### Nutrition goals and constraints
 
 Implemented:
 
 - historical NutritionGoal records;
-- goal type;
-- optional target weight;
-- optional target rate;
-- start and target dates;
-- status, source and notes;
-- database validation for positive target values and valid date ordering;
+- target weight/rate and validity semantics;
+- NutritionConstraint rules with minimum/maximum/exclusion semantics;
+- mandatory versus advisory constraints;
+- professional provenance and validity periods;
+- database validation, persistence and tests.
+
+### Food preferences and adverse reactions
+
+Implemented separately:
+
+- FoodPreference records for likes/dislikes and intensity;
+- FoodAdverseReaction records for allergy/intolerance safety semantics;
+- provenance and validity dates;
 - persistence and tests.
 
-### Nutrition constraints
-
-Implemented:
-
-- NutritionConstraint records per Person;
-- constraint and target types;
-- target key and operator;
-- minimum/maximum values and units;
-- severity and mandatory/advisory distinction;
-- provenance including professional source metadata;
-- optional validity period;
-- database validation for numeric ranges and date ordering;
-- persistence and tests.
-
-### Food preferences
-
-Implemented:
-
-- FoodPreference records per Person;
-- subject type and normalized subject key;
-- like/dislike preference type;
-- preference intensity;
-- provenance and optional validity dates;
-- persistence and tests.
-
-### Food adverse reactions
-
-Implemented separately from preferences:
-
-- FoodAdverseReaction records per Person;
-- allergy/intolerance reaction type;
-- subject type and normalized subject key;
-- severity;
-- mandatory safety flag;
-- provenance including professional source metadata;
-- optional validity dates;
-- persistence and tests.
-
-The separation between preferences and adverse reactions is intentional: preference ranking must never be confused with food safety restrictions.
+Preference ranking is intentionally separate from food-safety exclusion.
 
 ### Person schedule
 
 Implemented:
 
-- ScheduleEntry records per Person;
-- separate recurring and one-off entry shapes;
-- extensible event types;
-- explicit availability effects;
-- RFC 5545-style recurrence-rule storage;
-- recurring local times with validity dates;
-- timezone-aware one-off timestamps;
-- explicit timezone context;
-- non-negative flexibility in minutes;
-- optional location, source reference and notes;
-- database validation for entry shape, date ranges, timestamp ranges and availability values;
-- persistence and tests.
+- recurring and one-off ScheduleEntry shapes;
+- availability effects;
+- recurrence-rule storage;
+- timezone-aware date/time semantics;
+- flexibility, location, provenance and notes;
+- database validation, persistence and tests.
 
-Date-specific one-off entries are more specific than recurring patterns when planning logic resolves conflicting availability.
-
-Detailed schedule semantics are documented in `docs/domain/schedule-model.md`.
+Detailed semantics: `docs/domain/schedule-model.md`.
 
 ### Nutrition targets
 
 Implemented:
 
 - versioned NutritionTarget snapshots per Person;
-- optional relationship to the NutritionGoal that informed the calculation;
-- explicit validity period and lifecycle status;
-- BMR estimate and calculation method;
-- TDEE estimate and calculation method;
+- optional relationship to NutritionGoal;
+- BMR/TDEE estimates and methods;
 - target energy range;
-- calculation-version identifier;
-- calculation-input provenance for explainability;
-- extensible NutritionTargetComponent child records for nutrient targets;
-- minimum, maximum and point-target component values;
-- database validation for positive energy values, valid ranges and non-empty components;
-- uniqueness of target type/key within each snapshot;
-- historical ordering by validity start date;
-- persistence and tests.
+- calculation version and input provenance;
+- extensible NutritionTargetComponent nutrient targets;
+- historical validity and persistence tests.
 
-Nutrition targets are derived outputs. They remain separate from NutritionGoal, NutritionConstraint and DailyNutritionState concepts.
+Detailed semantics: `docs/domain/nutrition-target-model.md` and ADR-008.
 
-Detailed semantics are documented in `docs/domain/nutrition-target-model.md` and ADR-008.
-
-### Health connections
+### Health connections and normalized measurements
 
 Implemented:
 
-- HealthConnection records owned by one Person;
-- extensible provider keys for HealthKit, Health Connect, Garmin, Oura, Withings, Fitbit and future providers;
-- stable connection keys that permit multiple paths/accounts for the same provider;
-- device-bridge and cloud-API connection kinds;
-- pending, active, paused, error and revoked lifecycle states;
-- normalized granted permissions;
-- optional provider account identity and non-secret provider metadata;
-- opaque sync cursor plus last-attempt and last-success timestamps;
-- explicit revocation timestamp;
-- optional credential reference without storing raw access/refresh tokens in the domain table;
-- database uniqueness and lifecycle validation;
+- Person-scoped HealthConnection records;
+- provider-agnostic connection lifecycle, permissions and sync metadata;
+- secret-free credential references;
+- normalized HealthMeasurement records;
+- point and interval measurement shapes;
+- provider/origin/source-chain provenance;
+- deterministic cross-path deduplication;
+- historical preservation when a connection is removed;
 - persistence and tests.
 
-HealthConnection describes how health data enters NutriFlow.
-
-Detailed semantics are documented in `docs/domain/health-connection-model.md` and ADR-009.
-
-### Normalized health measurements
-
-Implemented:
-
-- person-scoped HealthMeasurement records;
-- optional linkage to the HealthConnection used for ingestion;
-- stable normalized metric keys, values and units;
-- mutually exclusive point-in-time and interval temporal shapes;
-- ingestion provider and underlying origin-provider provenance;
-- source device, source application and source-kind metadata;
-- ingestion and origin external identifiers;
-- explicit source-chain metadata for bridge paths;
-- versioned normalization semantics;
-- deterministic deduplication keys;
-- uniqueness of `(person_id, deduplication_key)` to prevent duplicate counting across ingestion paths;
-- preservation of historical measurements when a HealthConnection is removed through `ON DELETE SET NULL`;
-- database validation for temporal shape and non-empty deduplication identity;
-- persistence and tests, including duplicate-path rejection.
-
-Normalized health measurements are source observations. They are intentionally separate from provider payloads, specialized anthropometric history and derived DailyHealthState summaries.
-
-Detailed semantics are documented in `docs/domain/health-measurement-model.md` and ADR-010.
+Detailed semantics: `docs/domain/health-connection-model.md`, `docs/domain/health-measurement-model.md`, ADR-009 and ADR-010.
 
 ### Daily health and nutrition state
 
 Implemented:
 
-- versioned DailyHealthState snapshots per Person and local calendar date;
-- explicit timezone semantics for daily boundaries;
-- typed health context for weight, weight trends, steps, energy, sleep, resting heart rate, HRV and training load;
-- optional source-window timestamps and confidence score;
-- versioned DailyNutritionState snapshots per Person and local calendar date;
-- optional linkage to the NutritionTarget used for calculation;
-- consumed, planned and remaining energy values;
-- optional adherence and confidence scores;
-- extensible DailyNutritionStateComponent records for nutrient-level consumed, planned and remaining values;
-- negative remaining values so target overruns remain visible;
-- calculation version, calculation-input metadata and computation timestamp for both state types;
-- uniqueness by Person, state date and calculation version so algorithm evolution does not erase previous semantics;
-- deterministic Person relationship ordering;
-- database validation for ranges and component uniqueness;
-- persistence and tests, including multiple calculation versions for one date.
+- versioned DailyHealthState snapshots per Person/local date;
+- weight, activity, energy, sleep, heart-rate/HRV and training context;
+- confidence and source-window metadata;
+- versioned DailyNutritionState snapshots;
+- consumed, planned and remaining energy;
+- nutrient-level DailyNutritionStateComponent values;
+- calculation versions and explainable inputs;
+- persistence and tests.
 
-Daily states are materialized derived data. They are recalculable from authoritative source history and must not replace HealthMeasurement, AnthropometricMeasurement, NutritionTarget or meal/serving records.
+Daily states remain recalculable derived data rather than authoritative source history.
 
-Detailed semantics are documented in `docs/domain/daily-state-model.md` and ADR-011.
+Detailed semantics: `docs/domain/daily-state-model.md` and ADR-011.
 
 ### Meal events, participants and servings
 
 Implemented:
 
-- Family-scoped MealEvent records for individual and shared eating occasions;
-- one shared MealEvent with multiple MealParticipant records instead of duplicating the meal per Person;
-- event lifecycle states for planned, prepared, served, completed, cancelled and replaced meals;
-- optional replacement linkage that preserves superseded meal-plan history;
-- person-specific MealParticipant states for planned, served, consumed, partial, skipped and replaced outcomes;
-- unique Person participation within each MealEvent;
-- Serving records owned by MealParticipant so Person and MealEvent identity cannot diverge;
-- multiple servings/items per participant within one meal;
-- planned, served and consumed quantities;
-- planned, served and consumed energy;
-- person-specific partial-consumption tracking;
-- extensible ServingNutritionComponent records for planned, served and consumed nutrient values;
-- database validation for lifecycle values, non-negative quantities/energy, consumed-versus-served quantities and nutrient component uniqueness;
-- persistence and tests using one shared family dinner with different portions and actual intake per Person.
+- Family-scoped MealEvent records;
+- one shared MealEvent with multiple MealParticipant records;
+- person-specific participation states;
+- multiple Serving records per participant;
+- planned, served and consumed quantities and energy;
+- ServingNutritionComponent nutrient values;
+- replacement history and partial-consumption tracking;
+- database constraints, persistence and tests.
 
-There is intentionally no separate SharedMeal table. A MealEvent becomes shared through multiple participants, while nutrition remains person-specific through Serving.
+There is intentionally no separate SharedMeal table. Shared context lives on MealEvent while nutrition remains person-specific through Serving.
 
-Detailed semantics are documented in `docs/domain/meal-model.md` and ADR-012.
+Detailed semantics: `docs/domain/meal-model.md` and ADR-012.
 
 ### Food, ingredient and recipe catalogue
 
 Implemented:
 
-- FoodItem catalogue identities for ingredients, products, dishes, beverages, supplements and generic foods;
-- optional Family ownership for household-specific catalogue records while allowing shared/global records;
-- globally stable catalogue keys, source metadata and soft-active lifecycle state;
-- versioned FoodCompositionSnapshot records with reference quantity/unit, energy and source/version provenance;
-- extensible FoodNutrientComponent records with one nutrient key per composition snapshot;
-- Recipe records with optional Family ownership, stable recipe keys, yield and serving-count metadata;
-- RecipeIngredient records linking recipes to FoodItem quantities with explicit units and ordering;
-- versioned RecipeCompositionSnapshot records with calculation version and calculation-input provenance;
-- extensible RecipeNutrientComponent records;
-- optional Serving foreign keys to either FoodItem or Recipe, never both at the same time;
-- `ON DELETE SET NULL` catalogue references so Serving history survives catalogue cleanup;
-- retention of Serving item-name/key and nutrition snapshots so later catalogue corrections do not rewrite historical intake;
-- database validation for positive reference/yield/ingredient values, catalogue kinds, version uniqueness and nutrient uniqueness;
-- persistence tests covering multiple Food composition versions, recipe ingredients, derived recipe composition and a Serving linked to the Recipe.
+- FoodItem identities for ingredients, products, dishes, beverages, supplements and generic foods;
+- global or Family-specific catalogue records;
+- versioned FoodCompositionSnapshot records;
+- extensible FoodNutrientComponent records;
+- Recipe and RecipeIngredient records;
+- versioned RecipeCompositionSnapshot and RecipeNutrientComponent records;
+- optional Serving links to either FoodItem or Recipe;
+- historical Serving values protected from later catalogue corrections;
+- persistence and tests.
 
-Food and recipe composition is versioned deliberately. Catalogue updates create new composition snapshots instead of overwriting the basis of earlier plans or meals.
+Detailed semantics: `docs/domain/food-catalog-model.md` and ADR-013.
 
-Detailed semantics are documented in `docs/domain/food-catalog-model.md` and ADR-013.
+### Serving nutrition calculation
+
+Implemented on the current feature branch:
+
+- calculation of planned, served and consumed Serving energy from an explicitly selected FoodCompositionSnapshot or RecipeCompositionSnapshot;
+- scaling of all nutrient components from the same versioned composition;
+- Decimal arithmetic with explicit persisted precision;
+- safe mass conversion between `mg`, `g` and `kg`;
+- safe volume conversion between `ml` and `l`;
+- exact-unit support for other units without implicit conversion;
+- rejection of cross-dimension conversions and inferred density;
+- validation that the selected composition belongs to the Serving FoodItem or Recipe;
+- persisted composition-snapshot provenance on Serving;
+- persisted `nutrition_calculation_version`;
+- recalculation replacing stale materialized nutrient components only when explicitly requested;
+- tests for scaling, unit conversion safety and catalogue mismatch rejection.
+
+Detailed semantics: `docs/domain/serving-nutrition-calculation.md` and ADR-014.
 
 ## Current database migration chain
 
-The implemented schema includes migrations through FoodItem, FoodCompositionSnapshot, FoodNutrientComponent, Recipe, RecipeIngredient, RecipeCompositionSnapshot and RecipeNutrientComponent, following the Family/Person, profile/anthropometric history, nutrition goals, nutrition constraints, food preferences/adverse reactions, schedules, NutritionTarget, HealthConnection, HealthMeasurement, daily-state and meal/serving migrations.
+The schema currently progresses through:
 
-Alembic migrations are expected to be applied from an empty PostgreSQL database in CI and checked for model/schema drift.
+1. Family/Person;
+2. Person profile and anthropometric history;
+3. nutrition goals and constraints;
+4. food preferences/adverse reactions;
+5. schedules;
+6. NutritionTarget;
+7. HealthConnection;
+8. HealthMeasurement;
+9. DailyHealthState/DailyNutritionState;
+10. MealEvent/MealParticipant/Serving;
+11. Food/Recipe catalogue composition;
+12. Serving composition provenance.
+
+Alembic migrations are expected to apply from an empty PostgreSQL database in CI and `alembic check` must report no model/schema drift.
 
 ## Next planned domain increments
 
-Current sequence after the implemented foundation:
+Current sequence after the serving-nutrition calculation layer:
 
-1. serving-nutrition calculation from catalogue composition, including explicit unit conversion;
-2. adaptive meal planning and recommendation services;
+1. adaptive meal planning and recommendation services;
+2. automatic DailyNutritionState recalculation from authoritative Serving history;
 3. restaurant and delivery meal sources;
 4. pantry and shopping integration;
 5. API and UI vertical slices over the completed planning flow;
-6. multilingual catalogue presentation and richer food metadata.
+6. richer catalogue metadata, multilingual presentation and explicit household-unit/density conversions.
 
-This list is directional. Each increment must be designed, documented, tested locally and validated in CI before integration into `main`.
+Each increment must be developed on a focused branch, documented, tested locally with zero warnings, validated by CI and merged only after all checks are green.
