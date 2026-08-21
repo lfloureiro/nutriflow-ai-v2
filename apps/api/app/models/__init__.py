@@ -6,6 +6,7 @@ from app.models.nutrition_constraint import NutritionConstraint
 from app.models.nutrition_goal import NutritionGoal
 from app.models.person import Person
 from app.models.person_profile import PersonProfile
+from app.models.schedule_entry import ScheduleEntry
 
 __all__ = [
     "AnthropometricMeasurement",
@@ -16,4 +17,5 @@ __all__ = [
     "NutritionGoal",
     "Person",
     "PersonProfile",
+    "ScheduleEntry",
 ]
