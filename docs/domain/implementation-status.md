@@ -241,7 +241,7 @@ Detailed semantics: `docs/domain/daily-nutrition-recalculation.md`, `docs/domain
 
 ### Recommendation practical context
 
-Implemented on the current feature branch:
+Implemented:
 
 - request-specific PracticalMealContext with timezone-aware intended meal instant;
 - ScheduleEntry evaluation at the requested instant;
@@ -262,6 +262,26 @@ Implemented on the current feature branch:
 
 Detailed semantics: `docs/domain/recommendation-practical-context.md`, `docs/domain/schedule-model.md` and ADR-019.
 
+### Shared-family meal optimization
+
+Implemented on the current feature branch:
+
+- one common FoodItem/Recipe candidate can be evaluated for multiple Persons in the same Family;
+- each participant receives an explicit person-specific quantity and unit;
+- every participant's DailyNutritionState is checked against the corresponding Person;
+- Family-specific catalogue candidates are rejected when they belong to another Family;
+- existing practical-context, adverse-reaction, mandatory-constraint, nutrition and preference logic is reused independently per Person;
+- a shared candidate is eligible only when every participant is individually eligible;
+- participant-specific exclusion reasons are preserved in the family-level result;
+- unsupported mandatory rules continue to fail closed through the existing engines;
+- family ranking first maximizes the minimum participant score and then the average score;
+- candidate key provides deterministic final tie-breaking;
+- default shared engine version is `shared-family-meal-v1`;
+- no new SharedMeal table or schema is introduced;
+- tests cover person-specific portions, one-person hard exclusion, fairness-first ranking, one-person schedule exclusion, Family integrity and complete portion coverage.
+
+Detailed semantics: `docs/domain/shared-family-meal-optimization.md` and ADR-020.
+
 ## Current database migration chain
 
 The schema currently progresses through:
@@ -280,20 +300,21 @@ The schema currently progresses through:
 12. Serving composition provenance;
 13. recommendation run/option/feedback history.
 
-Recommendation materialization, DailyNutritionState recalculation and practical-context filtering do not add database tables. They operate on the existing authoritative meal, schedule and derived-state schema.
+Recommendation materialization, DailyNutritionState recalculation, practical-context filtering and shared-family optimization do not add database tables. They operate on the existing authoritative meal, schedule, catalogue and derived-state schema.
 
 Alembic migrations are expected to apply from an empty PostgreSQL database in CI and `alembic check` must report no model/schema drift.
 
 ## Next planned domain increments
 
-Current sequence after practical-context filtering:
+Current sequence after shared-family meal optimization:
 
-1. shared-family meal optimization with person-specific portions and hard constraints evaluated per Person;
+1. materialize an accepted shared recommendation into one MealEvent with multiple MealParticipants and person-specific Servings;
 2. replacement/idempotency semantics for later edits and API retries;
 3. restaurant/delivery, pantry and shopping context plus stable persisted practical metadata;
 4. API and UI vertical slices over the completed planning flow;
 5. background/event-driven DailyNutritionState refresh and target-selection policy;
 6. fuller recurrence/calendar override support;
-7. learned ranking from feedback only after deterministic hard-rule, practical and nutrition layers remain authoritative.
+7. persisted family-level recommendation audit history;
+8. learned ranking from feedback only after deterministic hard-rule, practical and nutrition layers remain authoritative.
 
 Each increment must be developed on a focused branch, documented, tested locally with zero warnings, validated by CI and merged only after all checks are green.
