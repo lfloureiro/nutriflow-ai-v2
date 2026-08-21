@@ -11,7 +11,7 @@ from app.models.recommendation_feedback import (
     MealRecommendationOption,
     MealRecommendationRun,
 )
-from app.services.meal_recommendation import RecommendationResult
+from app.services.meal_recommendation import MealCandidate, RecommendationResult
 
 
 class RecommendationPersistenceError(ValueError):
@@ -37,8 +37,8 @@ def _decimal_text(value: Decimal | None) -> str | None:
     return None if value is None else str(value)
 
 
-def _nutrition_snapshot(evaluation_option: object) -> dict[str, object]:
-    nutrition = getattr(evaluation_option, "nutrition")
+def _nutrition_snapshot(candidate: MealCandidate) -> dict[str, object]:
+    nutrition = candidate.nutrition
     return {
         "energy_kcal": _decimal_text(nutrition.energy_kcal),
         "nutrients": {
@@ -67,11 +67,14 @@ def persist_recommendation_run(
             raise RecommendationPersistenceError(
                 "DailyNutritionState belongs to a different Person than the recommendation run."
             )
-        if daily_state.person_id is not None and person.id is not None:
-            if daily_state.person_id != person.id:
-                raise RecommendationPersistenceError(
-                    "DailyNutritionState belongs to a different Person than the recommendation run."
-                )
+        if (
+            daily_state.person_id is not None
+            and person.id is not None
+            and daily_state.person_id != person.id
+        ):
+            raise RecommendationPersistenceError(
+                "DailyNutritionState belongs to a different Person than the recommendation run."
+            )
 
     run = MealRecommendationRun(
         person=person,
