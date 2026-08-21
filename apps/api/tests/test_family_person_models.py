@@ -37,3 +37,4 @@ def test_family_person_relationship(db_session: Session) -> None:
     assert saved_person is not None
     assert saved_person.family.id == family.id
     assert saved_person.family.name == "Test Family"
+

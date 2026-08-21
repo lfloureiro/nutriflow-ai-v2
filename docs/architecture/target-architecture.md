@@ -2,7 +2,7 @@
 
 ## Architecture goals
 
-NutriFlow AI v2 is a clean v2 codebase with selective reuse from NutriFlow v1. The architecture must support person-centric nutrition, family planning, health-data integrations, responsive UI, internationalisation and future mobile/native capabilities.
+NutriFlow AI v2 is an independent product with its own domain model, database schema, API and user experience. The architecture must support person-centric nutrition, family planning, health-data integrations, responsive UI, internationalisation and future mobile/native capabilities.
 
 ## Repository shape
 
@@ -23,7 +23,6 @@ packages/
 database/
   migrations/
   seeds/
-  legacy-v1/
 
 docs/
   vision/
@@ -164,20 +163,11 @@ Health connections belong to a Person and require explicit authorisation.
 
 Family membership must not automatically grant access to another person's sensitive health measurements. Sharing and professional access require explicit permission models.
 
-## v1 migration strategy
+## Independence
 
-Do not fork the v1 domain wholesale.
+NutriFlow AI v2 defines its own runtime, schema, API and architecture without external legacy dependencies.
 
-For each v1 component classify it as:
-
-- reuse unchanged;
-- port and adapt;
-- migrate data only;
-- replace;
-- retire.
-
-`database/legacy-v1/` holds migration notes, mapping scripts and compatibility artefacts, not a second live data model.
-
+Previous projects are not part of this product's domain model and no backward compatibility is assumed.
 ## Delivery sequence
 
 Recommended sequence:
@@ -185,10 +175,12 @@ Recommended sequence:
 1. repository and architecture baseline;
 2. Person + Family domain;
 3. profiles, goals, constraints and schedules;
-4. Recipe/Ingredient migration from v1;
+4. Recipe and Ingredient domain;
 5. Meal Event + Serving + Daily Nutrition State;
-6. Pantry + Shopping migration;
-7. planner/heuristics/ML migration;
+6. Pantry + Shopping;
+7. planner, heuristics and ML;
 8. Health Data Hub and first provider;
 9. Adaptive Nutrition Engine;
 10. native mobile health integration and broader providers.
+
+

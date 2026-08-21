@@ -24,3 +24,4 @@ class Family(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="family",
         cascade="all, delete-orphan",
     )
+

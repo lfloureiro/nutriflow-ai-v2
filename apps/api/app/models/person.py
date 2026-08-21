@@ -39,3 +39,4 @@ class Person(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     family: Mapped["Family"] = relationship(back_populates="persons")
+

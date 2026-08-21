@@ -1,33 +1,41 @@
-# ADR-002 â€” NutriFlow v2 uses an independent repository
+# ADR-002 — NutriFlow AI v2 is a standalone product
 
 ## Status
+
 Accepted
 
 ## Decision
 
-NutriFlow AI v2 is developed in a new repository and directory rather than as an in-place rewrite of NutriFlow v1.
+NutriFlow AI v2 is developed as a completely independent product.
 
-NutriFlow v1 remains available as a working reference and source of proven functionality.
+It has its own repository, source tree, domain model, database schema, migrations, API contracts, user interface and product lifecycle.
+
+No backward-compatibility requirements are assumed or required.
 
 ## Rationale
 
-The v2 domain model changes fundamental concepts including Person, Family, MealEvent, Serving and health/adaptive state. Building directly over the v1 structure would increase migration risk and preserve unnecessary legacy coupling.
+NutriFlow AI v2 is being designed around its own product requirements:
 
-## Migration approach
+- Person as a core domain entity;
+- Family context;
+- individual and shared Meal Events;
+- per-person Servings;
+- health-data integrations;
+- adaptive nutrition state;
+- multilingual operation;
+- responsive desktop and mobile experiences;
+- Light, Dark and System themes.
 
-Every v1 component is explicitly classified as one of:
-
-- reuse unchanged;
-- port and adapt;
-- migrate data only;
-- replace;
-- retire.
-
-Reuse is based on continued correctness, not on minimising code changes.
+Treating another implementation as an architectural ancestor would introduce constraints that are not required by the new product.
 
 ## Consequences
 
-- v1 can remain stable while v2 develops;
-- v2 gets a clean schema and architecture;
-- migration work must be tracked explicitly;
-- duplicated functionality may temporarily exist during transition.
+- database migrations begin from the NutriFlow AI v2 baseline;
+- API contracts are designed solely for this product;
+- no legacy compatibility layer is required;
+- no previous database schema is imported;
+- no previous source tree is considered authoritative;
+- architectural decisions are made according to current product requirements.
+
+Previous software may be examined independently for ideas when useful, in the same way any external reference might be examined, but it is not a dependency or migration source for NutriFlow AI v2.
+

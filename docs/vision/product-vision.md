@@ -2,7 +2,7 @@
 
 ## Purpose
 
-NutriFlow AI v2 evolves NutriFlow from a meal-planning application into a person-centric adaptive nutrition platform for individuals and families.
+NutriFlow AI v2 is a standalone person-centric adaptive nutrition platform for individuals and families.
 
 The central question is no longer only "what should we eat this week?". The product should answer:
 
@@ -177,25 +177,6 @@ The platform may apply medical or dietetic constraints provided by the user or a
 
 This boundary must be reviewed whenever new clinical features are proposed.
 
-## Reuse from NutriFlow v1
-
-NutriFlow v1 remains a reference implementation and source of proven components.
-
-Likely reusable/adaptable areas include:
-
-- recipes;
-- ingredients and food normalisation;
-- pantry;
-- shopping;
-- meal scoring;
-- heuristics;
-- selected ML components;
-- restaurant/delivery data.
-
-Core v1 entities such as User, Household and MealPlan must not be copied automatically where the v2 domain model has changed.
-
-Migration is selective: reuse behaviour that remains correct, not legacy structure for its own sake.
-
 ## Platform requirements from day one
 
 These are architectural requirements, not future polish:
@@ -223,3 +204,4 @@ NutriFlow AI v2 succeeds if it can make nutrition planning more practical while 
 - need recommendations that adapt to observed results rather than remain static.
 
 The product should reduce planning effort while increasing the quality, personal relevance and explainability of nutrition decisions.
+

@@ -20,3 +20,4 @@ def health_check() -> HealthResponse:
         application=settings.app_name,
         environment=settings.app_env,
     )
+

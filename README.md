@@ -1,6 +1,6 @@
 # NutriFlow AI v2
 
-NutriFlow AI v2 is the next-generation, person-centric evolution of NutriFlow.
+NutriFlow AI v2 is a standalone, person-centric adaptive nutrition platform for individuals and families.
 
 ## Product direction
 
@@ -53,7 +53,6 @@ packages/
 database/
   migrations/
   seeds/
-  legacy-v1/
 
 docs/
   vision/
@@ -68,4 +67,4 @@ tools/
 ## Status
 
 Initial architecture and product definition.
-NutriFlow v1 remains the reference implementation for proven functionality that may be selectively migrated into v2.
+

@@ -8,7 +8,11 @@ from app.db.session import engine
 def db_session():
     connection = engine.connect()
     transaction = connection.begin()
-    session = Session(bind=connection)
+
+    session = Session(
+        bind=connection,
+        join_transaction_mode="create_savepoint",
+    )
 
     try:
         yield session
@@ -16,3 +20,4 @@ def db_session():
         session.close()
         transaction.rollback()
         connection.close()
+

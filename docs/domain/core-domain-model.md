@@ -137,7 +137,7 @@ Possible derived fields:
 
 ### Recipe / Ingredient / Food
 
-Food model reused or adapted from NutriFlow v1 after review.
+Food is a native NutriFlow AI v2 domain covering recipes, ingredients, products and external meal sources.
 
 ### Pantry / Inventory
 
@@ -184,3 +184,4 @@ A future family dinner can therefore influence an earlier individual lunch or sn
 ## Safety rule
 
 Hard constraints are evaluated before ranking or ML. An option that violates a mandatory allergy or clinician constraint is excluded, not merely down-ranked.
+
