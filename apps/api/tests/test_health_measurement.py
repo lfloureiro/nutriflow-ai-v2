@@ -93,24 +93,26 @@ def test_health_measurements_preserve_provenance_and_prevent_duplicate_paths(
     db_session.expire(person, ["health_measurements"])
     assert len(person.health_measurements) == 2
 
-    duplicate_via_direct_garmin = HealthMeasurement(
-        person=person,
-        metric="active_energy",
-        value=Decimal("450.0000"),
-        unit="kcal",
-        period_start_at=datetime(2026, 8, 21, 8, 0, tzinfo=UTC),
-        period_end_at=datetime(2026, 8, 21, 12, 0, tzinfo=UTC),
-        provider="garmin",
-        origin_provider="garmin",
-        source_kind="provider",
-        external_id="garmin-activity-456",
-        origin_external_id="garmin-activity-456",
-        deduplication_key="garmin:activity:456",
-        source_chain=["garmin_connect"],
-        normalization_version="health-v1",
-    )
-
     with pytest.raises(IntegrityError):
         with db_session.begin_nested():
+            duplicate_via_direct_garmin = HealthMeasurement(
+                person_id=person.id,
+                metric="active_energy",
+                value=Decimal("450.0000"),
+                unit="kcal",
+                period_start_at=datetime(2026, 8, 21, 8, 0, tzinfo=UTC),
+                period_end_at=datetime(2026, 8, 21, 12, 0, tzinfo=UTC),
+                provider="garmin",
+                origin_provider="garmin",
+                source_kind="provider",
+                external_id="garmin-activity-456",
+                origin_external_id="garmin-activity-456",
+                deduplication_key="garmin:activity:456",
+                source_chain=["garmin_connect"],
+                normalization_version="health-v1",
+            )
             db_session.add(duplicate_via_direct_garmin)
             db_session.flush()
+
+    db_session.expire(person, ["health_measurements"])
+    assert len(person.health_measurements) == 2
