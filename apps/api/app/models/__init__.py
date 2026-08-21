@@ -20,6 +20,7 @@ from app.models.meal_candidate_availability import MealCandidateAvailability
 from app.models.nutrition_constraint import NutritionConstraint
 from app.models.nutrition_goal import NutritionGoal
 from app.models.nutrition_target import NutritionTarget, NutritionTargetComponent
+from app.models.pantry_stock import PantryStockLot
 from app.models.person import Person
 from app.models.person_profile import PersonProfile
 from app.models.recommendation_feedback import (
@@ -52,6 +53,7 @@ __all__ = [
     "NutritionGoal",
     "NutritionTarget",
     "NutritionTargetComponent",
+    "PantryStockLot",
     "Person",
     "PersonProfile",
     "Recipe",
