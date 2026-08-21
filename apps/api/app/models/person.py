@@ -7,6 +7,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.models.anthropometric_measurement import AnthropometricMeasurement
+from app.models.daily_health_state import DailyHealthState
+from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.food_adverse_reaction import FoodAdverseReaction
 from app.models.food_preference import FoodPreference
 from app.models.health_connection import HealthConnection
@@ -109,4 +111,16 @@ class Person(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="person",
         cascade="all, delete-orphan",
         order_by=HealthMeasurement.created_at,
+    )
+
+    daily_health_states: Mapped[list[DailyHealthState]] = relationship(
+        back_populates="person",
+        cascade="all, delete-orphan",
+        order_by=DailyHealthState.state_date,
+    )
+
+    daily_nutrition_states: Mapped[list[DailyNutritionState]] = relationship(
+        back_populates="person",
+        cascade="all, delete-orphan",
+        order_by=DailyNutritionState.state_date,
     )
