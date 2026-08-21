@@ -4,6 +4,7 @@ from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.meal import MealEvent
 from app.models.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
@@ -25,3 +26,8 @@ class Family(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         cascade="all, delete-orphan",
     )
 
+    meal_events: Mapped[list[MealEvent]] = relationship(
+        back_populates="family",
+        cascade="all, delete-orphan",
+        order_by=MealEvent.scheduled_at,
+    )
