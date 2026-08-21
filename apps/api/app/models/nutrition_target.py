@@ -4,11 +4,11 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    JSON,
     CheckConstraint,
     Date,
     ForeignKey,
     Index,
-    JSON,
     Numeric,
     String,
     Text,
