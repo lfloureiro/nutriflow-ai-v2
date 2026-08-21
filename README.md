@@ -82,6 +82,9 @@ The current backend foundation includes:
 - versioned DailyHealthState and DailyNutritionState snapshots with extensible nutrient progress components;
 - family-scoped MealEvent records with MealParticipant associations;
 - person-specific Serving records with planned, served and consumed quantities and nutrition components;
+- FoodItem catalogue records with versioned FoodCompositionSnapshot nutrition data;
+- Recipe and RecipeIngredient records with versioned RecipeCompositionSnapshot nutrition data;
+- optional Serving links to FoodItem or Recipe while preserving historical serving snapshots;
 - PostgreSQL persistence with Alembic migrations;
 - pytest coverage with warnings treated as errors;
 - Ruff static validation.
