@@ -59,6 +59,10 @@ jobs:
       - name: Verify migration metadata
         run: python -m alembic check
 
+      - name: Run Ruff
+        working-directory: apps/api
+        run: python -m ruff check .
+
       - name: Run API tests
         working-directory: apps/api
         run: python -m pytest -q

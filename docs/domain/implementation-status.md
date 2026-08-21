@@ -87,9 +87,30 @@ Implemented separately from preferences:
 
 The separation between preferences and adverse reactions is intentional: preference ranking must never be confused with food safety restrictions.
 
+### Person schedule
+
+Implemented:
+
+- ScheduleEntry records per Person;
+- separate recurring and one-off entry shapes;
+- extensible event types;
+- explicit availability effects;
+- RFC 5545-style recurrence-rule storage;
+- recurring local times with validity dates;
+- timezone-aware one-off timestamps;
+- explicit timezone context;
+- non-negative flexibility in minutes;
+- optional location, source reference and notes;
+- database validation for entry shape, date ranges, timestamp ranges and availability values;
+- persistence and tests.
+
+Date-specific one-off entries are more specific than recurring patterns when planning logic resolves conflicting availability.
+
+Detailed schedule semantics are documented in `docs/domain/schedule-model.md`.
+
 ## Current database migration chain
 
-The implemented schema includes migrations through food preferences and adverse reactions, following the Family/Person, profile/anthropometric, nutrition goal and nutrition constraint migrations.
+The implemented schema includes migrations through ScheduleEntry, following the Family/Person, profile/anthropometric, nutrition goal, nutrition constraint, food preference and adverse reaction migrations.
 
 Alembic migrations are expected to be applied from an empty PostgreSQL database in CI and checked for model/schema drift.
 
@@ -97,12 +118,11 @@ Alembic migrations are expected to be applied from an empty PostgreSQL database 
 
 Current sequence after the implemented foundation:
 
-1. schedules and recurring/date-specific availability;
-2. derived/versioned nutrition targets;
-3. health-provider connections;
-4. normalized health measurements with provenance and deduplication;
-5. DailyHealthState and DailyNutritionState;
-6. meal events, shared meals and individual servings;
-7. adaptive planning and recommendation layers.
+1. derived/versioned nutrition targets;
+2. health-provider connections;
+3. normalized health measurements with provenance and deduplication;
+4. DailyHealthState and DailyNutritionState;
+5. meal events, shared meals and individual servings;
+6. adaptive planning and recommendation layers.
 
 This list is directional. Each increment must be designed, documented, tested locally and validated in CI before integration into `main`.

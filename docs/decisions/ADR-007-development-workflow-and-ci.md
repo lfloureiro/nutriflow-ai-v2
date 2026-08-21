@@ -10,7 +10,7 @@ NutriFlow AI v2 is being developed incrementally across domain, persistence, API
 
 Direct changes to `main` make it harder to validate a coherent change set before it becomes part of the stable baseline. Database migrations also require local verification against PostgreSQL before they are accepted.
 
-Documentation and automated tests must evolve together with the implementation so that architecture decisions and current behaviour remain traceable.
+Documentation, automated tests and static checks must evolve together with the implementation so that architecture decisions and current behaviour remain traceable.
 
 ## Decision
 
@@ -24,7 +24,7 @@ The normal workflow is:
 4. add or update tests for the changed behaviour;
 5. generate and inspect Alembic migrations when persistence changes;
 6. run the change locally against PostgreSQL;
-7. require the complete local test suite to pass with zero warnings;
+7. require Ruff and the complete local test suite to pass with zero warnings;
 8. only then merge the validated branch into `main`;
 9. verify the resulting `main` commit and CI status.
 
@@ -42,6 +42,7 @@ The API CI workflow must:
 - install the API including development/test dependencies;
 - apply all Alembic migrations from an empty database;
 - run `alembic check` to detect model/schema drift;
+- run Ruff across the API package and tests;
 - run the full API pytest suite;
 - fail on Python warnings because pytest is configured with `filterwarnings = ["error"]`.
 
@@ -58,7 +59,7 @@ Relevant domain documents, ADRs, architecture documents and repository status do
 Benefits:
 
 - `main` remains a validated baseline;
-- regressions are caught before integration;
+- regressions and lint violations are caught before integration;
 - migrations are tested both locally and from a clean CI database;
 - documentation stays aligned with implementation;
 - each domain increment has a reviewable and reversible history.
@@ -67,4 +68,4 @@ Costs:
 
 - changes require an additional branch and validation step;
 - database-related work requires both local PostgreSQL and CI verification;
-- documentation is part of the definition of done rather than a later cleanup task.
+- documentation and static checks are part of the definition of done rather than later cleanup tasks.

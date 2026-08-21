@@ -3,7 +3,6 @@ from pydantic import BaseModel
 
 from app.core.config import settings
 
-
 router = APIRouter(tags=["system"])
 
 
@@ -20,4 +19,3 @@ def health_check() -> HealthResponse:
         application=settings.app_name,
         environment=settings.app_env,
     )
-

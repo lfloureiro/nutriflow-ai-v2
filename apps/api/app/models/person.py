@@ -13,6 +13,7 @@ from app.models.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 from app.models.nutrition_constraint import NutritionConstraint
 from app.models.nutrition_goal import NutritionGoal
 from app.models.person_profile import PersonProfile
+from app.models.schedule_entry import ScheduleEntry
 
 if TYPE_CHECKING:
     from app.models.family import Family
@@ -81,4 +82,10 @@ class Person(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="person",
         cascade="all, delete-orphan",
         order_by=FoodAdverseReaction.created_at,
+    )
+
+    schedule_entries: Mapped[list[ScheduleEntry]] = relationship(
+        back_populates="person",
+        cascade="all, delete-orphan",
+        order_by=ScheduleEntry.created_at,
     )
