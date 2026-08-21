@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 from app.models.anthropometric_measurement import AnthropometricMeasurement
 from app.models.mixins import TimestampMixin, UUIDPrimaryKeyMixin
+from app.models.nutrition_goal import NutritionGoal
 from app.models.person_profile import PersonProfile
 
 if TYPE_CHECKING:
@@ -53,4 +54,10 @@ class Person(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="person",
         cascade="all, delete-orphan",
         order_by=AnthropometricMeasurement.measured_at,
+    )
+
+    nutrition_goals: Mapped[list[NutritionGoal]] = relationship(
+        back_populates="person",
+        cascade="all, delete-orphan",
+        order_by=NutritionGoal.start_date,
     )
