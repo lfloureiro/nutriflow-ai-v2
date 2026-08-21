@@ -45,6 +45,15 @@ class MealEvent(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             "replaces_meal_event_id IS NULL OR replaces_meal_event_id <> id",
             name="ck_meal_events_not_self_replacing",
         ),
+        CheckConstraint(
+            "idempotency_key IS NULL OR length(idempotency_key) > 0",
+            name="ck_meal_events_idempotency_key_nonempty",
+        ),
+        UniqueConstraint(
+            "family_id",
+            "idempotency_key",
+            name="uq_meal_events_family_idempotency_key",
+        ),
         Index(
             "ix_meal_events_family_scheduled_at",
             "family_id",
@@ -80,6 +89,7 @@ class MealEvent(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     location: Mapped[str | None] = mapped_column(String(160), nullable=True)
     source: Mapped[str] = mapped_column(String(32), nullable=False, default="user")
     source_reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(160), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     family: Mapped["Family"] = relationship(back_populates="meal_events")
