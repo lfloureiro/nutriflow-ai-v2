@@ -25,6 +25,8 @@ Represents a group of people who share household and meal context.
 
 A Person may belong to a Family, but nutrition requirements remain person-specific.
 
+Family can also own household-specific FoodItems and Recipes while globally reusable catalogue entries remain unscoped.
+
 ### PersonSchedule
 
 Represents recurring and exceptional availability/context such as:
@@ -98,6 +100,8 @@ Serving keeps planned, served and consumed quantities and energy separate so Nut
 
 Serving belongs to MealParticipant rather than independently storing MealEvent and Person foreign keys. MealParticipant already defines both identities and therefore prevents inconsistent combinations.
 
+A Serving may optionally reference one FoodItem or one Recipe. It still stores its own historical item identity and nutrition snapshot so future catalogue updates do not rewrite past intake.
+
 ### ServingNutritionComponent
 
 Stores extensible nutrient-level planned, served and consumed values for a Serving.
@@ -141,11 +145,39 @@ Possible fields include:
 - resting HR/HRV context;
 - data completeness/confidence.
 
-### Recipe / Ingredient / Food
+### FoodItem
 
-Food is a native NutriFlow AI v2 domain covering recipes, ingredients, products and external meal sources.
+Stable catalogue identity for an ingredient, packaged product, dish, beverage, supplement or generic food.
 
-The Food/Recipe catalogue is a separate next domain layer. Meal history must remain stable even when catalogue data changes later.
+FoodItem can be global or Family-specific and has a stable catalogue key plus source metadata.
+
+Nutrition values are not mutable fields on FoodItem.
+
+### FoodCompositionSnapshot
+
+Versioned nutrition composition for one FoodItem reference quantity/unit.
+
+It stores energy directly and extensible FoodNutrientComponent children for nutrient values.
+
+A new source version creates a new snapshot rather than changing historical composition.
+
+### Recipe
+
+Reusable preparation definition containing yield metadata and ordered RecipeIngredient records.
+
+Recipes can be global or Family-specific.
+
+### RecipeIngredient
+
+Links a Recipe to a FoodItem quantity and unit.
+
+### RecipeCompositionSnapshot
+
+Versioned derived composition for a Recipe reference quantity/unit.
+
+It stores calculation version/input provenance so NutriFlow can explain which Food composition versions produced a recipe result.
+
+RecipeNutrientComponent provides extensible nutrient values.
 
 ### Pantry / Inventory
 
@@ -161,6 +193,8 @@ Derived or user-managed shopping requirements supporting planned meals and pantr
 Family
   1 -> many Person memberships
   1 -> many MealEvents
+  1 -> many household FoodItems
+  1 -> many household Recipes
 
 Person
   1 -> many Goals
@@ -172,6 +206,20 @@ Person
   1 -> many DailyNutritionStates
   1 -> many MealParticipants
 
+FoodItem
+  1 -> many FoodCompositionSnapshots
+  1 -> many RecipeIngredients
+
+FoodCompositionSnapshot
+  1 -> many FoodNutrientComponents
+
+Recipe
+  1 -> many RecipeIngredients
+  1 -> many RecipeCompositionSnapshots
+
+RecipeCompositionSnapshot
+  1 -> many RecipeNutrientComponents
+
 MealEvent
   1 -> many MealParticipants
 
@@ -181,6 +229,7 @@ MealParticipant
   1 -> many Servings
 
 Serving
+  optionally -> one FoodItem OR one Recipe
   1 -> many ServingNutritionComponents
 
 Family
@@ -195,6 +244,14 @@ The planner should optimise across the person's day and family context, not trea
 A future family dinner can therefore influence an earlier individual lunch or snack because planned person-specific Servings contribute to DailyNutritionState.
 
 The meal occasion may be shared while portions remain individual.
+
+## Catalogue history rule
+
+Current Food/Recipe knowledge and historical intake are separate responsibilities.
+
+Catalogue composition is versioned. A Serving copies the nutrition values used for that planned/served/consumed portion and may retain a catalogue reference for provenance.
+
+Changing a FoodItem, FoodCompositionSnapshot selection or Recipe composition later must not silently alter old Serving records.
 
 ## Safety rule
 
