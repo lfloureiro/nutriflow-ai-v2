@@ -37,6 +37,7 @@ class UnsupportedRecurrenceRuleError(PracticalRecommendationError):
 @dataclass(frozen=True)
 class CandidatePracticalProfile:
     candidate_key: str
+    is_available: bool | None = None
     available_locations: frozenset[str] | None = None
     preparation_minutes: int | None = None
     requires_kitchen: bool = False
@@ -263,6 +264,9 @@ def _practical_exclusions(
 
     if profile is None:
         return tuple(exclusions)
+
+    if profile.is_available is False:
+        exclusions.append("candidate_unavailable")
 
     location = _resolved_location(context, schedule)
     if (
