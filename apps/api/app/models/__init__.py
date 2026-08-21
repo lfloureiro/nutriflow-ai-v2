@@ -1,4 +1,6 @@
 from app.models.anthropometric_measurement import AnthropometricMeasurement
+from app.models.daily_health_state import DailyHealthState
+from app.models.daily_nutrition_state import DailyNutritionState, DailyNutritionStateComponent
 from app.models.family import Family
 from app.models.food_adverse_reaction import FoodAdverseReaction
 from app.models.food_preference import FoodPreference
@@ -13,6 +15,9 @@ from app.models.schedule_entry import ScheduleEntry
 
 __all__ = [
     "AnthropometricMeasurement",
+    "DailyHealthState",
+    "DailyNutritionState",
+    "DailyNutritionStateComponent",
     "Family",
     "FoodAdverseReaction",
     "FoodPreference",
