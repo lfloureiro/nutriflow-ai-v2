@@ -93,6 +93,7 @@ The current backend foundation includes:
 - deterministic recommendation practical-context filtering from ScheduleEntry, location, preparation-window and kitchen availability inputs;
 - fairness-first shared-family meal recommendation with person-specific portions and per-Person hard-rule evaluation;
 - materialization of accepted shared-family recommendations into one planned MealEvent with person-specific MealParticipant and Serving records;
+- Family-scoped MealEvent idempotency and immutable planned-meal replacement history for safe retries and later edits;
 - PostgreSQL persistence with Alembic migrations;
 - pytest coverage with warnings treated as errors;
 - Ruff static validation.
