@@ -102,18 +102,22 @@ The current backend foundation includes:
 
 Detailed domain status is maintained in `docs/domain/implementation-status.md`.
 
+For a later development session, start with `docs/development-continuity.md`. It records the current checkpoint, exact resumption procedure, migration/test baseline and next safe development step.
+
 ## Development workflow
 
 Changes are developed on focused branches rather than directly on `main`.
 
 Before a branch is integrated it must:
 
-- update relevant documentation;
+- update relevant documentation and the continuity checkpoint;
 - include or update tests;
 - validate migrations locally when the database changes;
 - pass Ruff and the complete local test suite with zero warnings;
-- pass CI verification.
+- open a PR only after local validation is green;
+- pass CI on the exact PR head SHA;
+- be squash-merged only after the tested head is confirmed unchanged.
 
-The workflow decision is documented in `docs/decisions/ADR-007-development-workflow-and-ci.md`.
+The authoritative workflow decision is documented in `docs/decisions/ADR-007-development-workflow-and-ci.md`.
 
 GitHub Actions runs Ruff, the API test suite against PostgreSQL, and verifies that the Alembic migration chain is current.
