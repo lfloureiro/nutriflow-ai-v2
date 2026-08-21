@@ -1,4 +1,4 @@
-from datetime import date, datetime, time, timezone
+from datetime import UTC, date, datetime, time
 
 from sqlalchemy.orm import Session
 
@@ -41,8 +41,8 @@ def test_person_schedule_supports_recurring_and_one_off_entries(db_session: Sess
         person=person,
         entry_type="one_off",
         event_type="training",
-        starts_at=datetime(2026, 8, 25, 18, 0, tzinfo=timezone.utc),
-        ends_at=datetime(2026, 8, 25, 19, 0, tzinfo=timezone.utc),
+        starts_at=datetime(2026, 8, 25, 18, 0, tzinfo=UTC),
+        ends_at=datetime(2026, 8, 25, 19, 0, tzinfo=UTC),
         timezone="Europe/Lisbon",
         notes="Indoor cycling",
     )
