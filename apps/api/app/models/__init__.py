@@ -3,6 +3,15 @@ from app.models.daily_health_state import DailyHealthState
 from app.models.daily_nutrition_state import DailyNutritionState, DailyNutritionStateComponent
 from app.models.family import Family
 from app.models.food_adverse_reaction import FoodAdverseReaction
+from app.models.food_catalog import (
+    FoodCompositionSnapshot,
+    FoodItem,
+    FoodNutrientComponent,
+    Recipe,
+    RecipeCompositionSnapshot,
+    RecipeIngredient,
+    RecipeNutrientComponent,
+)
 from app.models.food_preference import FoodPreference
 from app.models.health_connection import HealthConnection
 from app.models.health_measurement import HealthMeasurement
@@ -21,6 +30,9 @@ __all__ = [
     "DailyNutritionStateComponent",
     "Family",
     "FoodAdverseReaction",
+    "FoodCompositionSnapshot",
+    "FoodItem",
+    "FoodNutrientComponent",
     "FoodPreference",
     "HealthConnection",
     "HealthMeasurement",
@@ -32,6 +44,10 @@ __all__ = [
     "NutritionTargetComponent",
     "Person",
     "PersonProfile",
+    "Recipe",
+    "RecipeCompositionSnapshot",
+    "RecipeIngredient",
+    "RecipeNutrientComponent",
     "ScheduleEntry",
     "Serving",
     "ServingNutritionComponent",
