@@ -131,9 +131,30 @@ Nutrition targets are derived outputs. They remain separate from NutritionGoal, 
 
 Detailed semantics are documented in `docs/domain/nutrition-target-model.md` and ADR-008.
 
+### Health connections
+
+Implemented:
+
+- HealthConnection records owned by one Person;
+- extensible provider keys for HealthKit, Health Connect, Garmin, Oura, Withings, Fitbit and future providers;
+- stable connection keys that permit multiple paths/accounts for the same provider;
+- device-bridge and cloud-API connection kinds;
+- pending, active, paused, error and revoked lifecycle states;
+- normalized granted permissions;
+- optional provider account identity and non-secret provider metadata;
+- opaque sync cursor plus last-attempt and last-success timestamps;
+- explicit revocation timestamp;
+- optional credential reference without storing raw access/refresh tokens in the domain table;
+- database uniqueness and lifecycle validation;
+- persistence and tests.
+
+HealthConnection describes how health data enters NutriFlow. Normalized health measurements and cross-provider/path deduplication remain a separate next layer.
+
+Detailed semantics are documented in `docs/domain/health-connection-model.md` and ADR-009.
+
 ## Current database migration chain
 
-The implemented schema includes migrations through NutritionTarget and NutritionTargetComponent, following the Family/Person, profile/anthropometric, nutrition goal, nutrition constraint, food preference/adverse reaction and schedule migrations.
+The implemented schema includes migrations through HealthConnection, following the Family/Person, profile/anthropometric, nutrition goal, nutrition constraint, food preference/adverse reaction, schedule and NutritionTarget migrations.
 
 Alembic migrations are expected to be applied from an empty PostgreSQL database in CI and checked for model/schema drift.
 
@@ -141,10 +162,9 @@ Alembic migrations are expected to be applied from an empty PostgreSQL database 
 
 Current sequence after the implemented foundation:
 
-1. health-provider connections;
-2. normalized health measurements with provenance and deduplication;
-3. DailyHealthState and DailyNutritionState;
-4. meal events, shared meals and individual servings;
-5. adaptive planning and recommendation layers.
+1. normalized health measurements with provenance and deduplication;
+2. DailyHealthState and DailyNutritionState;
+3. meal events, shared meals and individual servings;
+4. adaptive planning and recommendation layers.
 
 This list is directional. Each increment must be designed, documented, tested locally and validated in CI before integration into `main`.
