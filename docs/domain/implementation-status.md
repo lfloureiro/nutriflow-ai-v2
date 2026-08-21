@@ -217,7 +217,7 @@ Detailed semantics: `docs/domain/recommendation-to-meal-plan.md` and ADR-017.
 
 ### DailyNutritionState recalculation from Serving history
 
-Implemented on the current feature branch:
+Implemented:
 
 - deterministic recalculation for one Person and one explicit local calendar date;
 - IANA timezone local midnight-to-midnight source windows;
@@ -239,6 +239,29 @@ Implemented on the current feature branch:
 
 Detailed semantics: `docs/domain/daily-nutrition-recalculation.md`, `docs/domain/daily-state-model.md` and ADR-018.
 
+### Recommendation practical context
+
+Implemented on the current feature branch:
+
+- request-specific PracticalMealContext with timezone-aware intended meal instant;
+- ScheduleEntry evaluation at the requested instant;
+- one-off non-neutral availability effects take precedence over recurring effects;
+- recurring DAILY/WEEKLY rules with optional BYDAY and INTERVAL=1;
+- overnight recurring intervals use the date on which the interval begins;
+- unsupported recurrence semantics raise explicitly rather than being ignored;
+- unavailable schedule windows exclude candidates before ranking;
+- preferred/available windows remain explainable in recommendation output;
+- explicit request location or unambiguous schedule location can constrain candidate feasibility;
+- CandidatePracticalProfile supports available locations, preparation time and kitchen requirement without changing catalogue schema;
+- candidates can be excluded for location, insufficient preparation time or unavailable kitchen facilities;
+- candidates lacking practical metadata are not excluded merely because metadata is unknown;
+- remaining candidates pass through the existing deterministic safety/nutrition recommendation engine;
+- practical exclusions remain normal CandidateEvaluation records and are therefore persistable by the existing recommendation-history layer;
+- default practical-context engine version is `meal-recommendation-practical-v1`;
+- tests cover one-off precedence, recurring preferred windows, location filtering, preparation/kitchen filtering and explicit failure for unsupported recurrence rules.
+
+Detailed semantics: `docs/domain/recommendation-practical-context.md`, `docs/domain/schedule-model.md` and ADR-019.
+
 ## Current database migration chain
 
 The schema currently progresses through:
@@ -257,19 +280,20 @@ The schema currently progresses through:
 12. Serving composition provenance;
 13. recommendation run/option/feedback history.
 
-The recommendation-materialization and DailyNutritionState-recalculation increments do not add database tables. They operate on the existing authoritative meal and derived-state schema.
+Recommendation materialization, DailyNutritionState recalculation and practical-context filtering do not add database tables. They operate on the existing authoritative meal, schedule and derived-state schema.
 
 Alembic migrations are expected to apply from an empty PostgreSQL database in CI and `alembic check` must report no model/schema drift.
 
 ## Next planned domain increments
 
-Current sequence after DailyNutritionState recalculation:
+Current sequence after practical-context filtering:
 
-1. schedule/practical-context filtering and shared-family meal optimization;
+1. shared-family meal optimization with person-specific portions and hard constraints evaluated per Person;
 2. replacement/idempotency semantics for later edits and API retries;
-3. restaurant/delivery, pantry and shopping context;
+3. restaurant/delivery, pantry and shopping context plus stable persisted practical metadata;
 4. API and UI vertical slices over the completed planning flow;
 5. background/event-driven DailyNutritionState refresh and target-selection policy;
-6. learned ranking from feedback only after deterministic hard-rule and nutrition layers remain authoritative.
+6. fuller recurrence/calendar override support;
+7. learned ranking from feedback only after deterministic hard-rule, practical and nutrition layers remain authoritative.
 
 Each increment must be developed on a focused branch, documented, tested locally with zero warnings, validated by CI and merged only after all checks are green.
