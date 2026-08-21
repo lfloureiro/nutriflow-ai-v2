@@ -280,6 +280,27 @@ The family shares the eating occasion and recipe context, while portions and nut
 
 ---
 
+## Shared-family recommendation semantics
+
+The recommendation layer now mirrors this same separation.
+
+A shared-family candidate uses one common FoodItem or Recipe identity, while every Person receives an explicit portion and is evaluated independently against their own:
+
+- DailyNutritionState;
+- mandatory reactions and constraints;
+- preferences;
+- practical and schedule context.
+
+A shared candidate is eligible only if every participant is individually eligible. Family-level ranking cannot override a Person's hard exclusion.
+
+Eligible shared candidates are ranked fairness-first by the minimum participant score and then by the average participant score.
+
+This optimization layer does not introduce a SharedMeal persistence table. Accepted shared recommendations can be materialized later using the existing one-MealEvent/multiple-MealParticipant structure.
+
+Detailed semantics are documented in `docs/domain/shared-family-meal-optimization.md` and ADR-020.
+
+---
+
 ## Relationship to DailyNutritionState
 
 MealEvent, MealParticipant, Serving and ServingNutritionComponent are authoritative planning/intake records.
@@ -303,11 +324,9 @@ DailyNutritionState may be recalculated. Historical serving records must not be 
 
 ## Next layer
 
-With the catalogue now available, the next increments are:
+The next meal-domain increments are:
 
-1. calculation of Serving energy/nutrients from versioned Food/Recipe composition;
-2. explicit safe unit conversion and serving-size support;
-3. planning and recommendation services;
-4. restaurant and delivery meal sources;
-5. pantry and shopping integration;
-6. adaptive feedback from planned versus actual intake.
+1. materialize an accepted shared recommendation into one MealEvent with multiple MealParticipants and person-specific Servings;
+2. add replacement and idempotency semantics for plan edits and API retries;
+3. add restaurant/delivery, pantry and shopping context;
+4. persist family-level recommendation audit history when its ownership semantics are explicit.
