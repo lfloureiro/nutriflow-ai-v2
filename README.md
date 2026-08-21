@@ -76,6 +76,7 @@ The current backend foundation includes:
 - FoodPreference records;
 - FoodAdverseReaction records for allergies and intolerances;
 - ScheduleEntry records for recurring and one-off availability context;
+- versioned NutritionTarget snapshots with extensible nutrient components;
 - PostgreSQL persistence with Alembic migrations;
 - pytest coverage with warnings treated as errors;
 - Ruff static validation.
