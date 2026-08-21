@@ -177,18 +177,18 @@ One known area for a future dedicated safety-hardening increment is the behaviou
 
 ## Next planned increments
 
-After the current pantry-stock branch is locally validated, PR-tested and merged, the planned sequence is:
+After the current pantry-stock branch is locally validated, PR-tested and merged, the planned sequence is synchronized with `docs/domain/implementation-status.md`:
 
-1. persist shopping-list/request lifecycle from the calculated missing pantry quantities rather than returning only transient requirement objects;
-2. add restaurant/delivery commercial context such as price, opening hours, provider/source synchronization and eventually real-time availability boundaries;
-3. expose coherent API and UI vertical slices over the completed planning flow;
+1. add restaurant/delivery commercial context such as price, opening hours and provider synchronization;
+2. expose coherent API and UI vertical slices over the completed planning flow;
+3. persist shopping-list lifecycle when API/UI workflows require durable shopping state;
 4. add background/event-driven DailyNutritionState refresh and explicit target-selection policy;
 5. extend recurrence/calendar override support;
 6. persist family-level recommendation audit history where needed;
 7. harden transaction-level idempotency races at the write API boundary;
 8. introduce learned ranking from feedback only after deterministic safety, practical and nutrition layers remain authoritative.
 
-The exact next increment may be reordered deliberately, but any change to this sequence must be reflected in `docs/domain/implementation-status.md` and this continuity document.
+The exact next increment may be reordered deliberately, but any change to this sequence must be reflected in both `docs/domain/implementation-status.md` and this continuity document.
 
 ## How to resume safely in a later session
 
