@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:18.4
+    container_name: nutriflow-v2-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nutriflow
+      POSTGRES_USER: nutriflow
+      POSTGRES_PASSWORD: nutriflow_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - nutriflow_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nutriflow -d nutriflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  nutriflow_postgres_data:
