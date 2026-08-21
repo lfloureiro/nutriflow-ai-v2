@@ -197,7 +197,7 @@ def test_materialization_requires_timezone_aware_schedule(db_session: Session) -
             db_session,
             recommendation=recommendation,
             candidate_key="family:shared:pasta",
-            scheduled_at=datetime(2026, 8, 22, 19, 30),
+            scheduled_at=datetime.fromisoformat("2026-08-22T19:30:00"),
             timezone="Europe/Lisbon",
             meal_type="dinner",
         )
