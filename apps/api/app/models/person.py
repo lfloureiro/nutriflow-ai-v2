@@ -116,11 +116,14 @@ class Person(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     daily_health_states: Mapped[list[DailyHealthState]] = relationship(
         back_populates="person",
         cascade="all, delete-orphan",
-        order_by=DailyHealthState.state_date,
+        order_by=lambda: (DailyHealthState.state_date, DailyHealthState.calculation_version),
     )
 
     daily_nutrition_states: Mapped[list[DailyNutritionState]] = relationship(
         back_populates="person",
         cascade="all, delete-orphan",
-        order_by=DailyNutritionState.state_date,
+        order_by=lambda: (
+            DailyNutritionState.state_date,
+            DailyNutritionState.calculation_version,
+        ),
     )
