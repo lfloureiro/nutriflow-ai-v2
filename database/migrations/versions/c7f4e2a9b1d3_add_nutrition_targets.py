@@ -133,6 +133,14 @@ def upgrade() -> None:
             name="ck_nutrition_target_components_value_range_valid",
         ),
         sa.CheckConstraint(
+            "value_target IS NULL OR value_min IS NULL OR value_target >= value_min",
+            name="ck_nutrition_target_components_target_above_min",
+        ),
+        sa.CheckConstraint(
+            "value_target IS NULL OR value_max IS NULL OR value_target <= value_max",
+            name="ck_nutrition_target_components_target_below_max",
+        ),
+        sa.CheckConstraint(
             "value_min IS NOT NULL OR value_max IS NOT NULL OR value_target IS NOT NULL",
             name="ck_nutrition_target_components_has_value",
         ),
