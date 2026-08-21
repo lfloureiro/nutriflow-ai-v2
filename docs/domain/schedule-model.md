@@ -150,16 +150,37 @@ The database enforces:
 - mutually exclusive recurring and one-off time representations;
 - cascade deletion when the owning Person is removed.
 
+## Recommendation practical-context evaluation
+
+The recommendation practical-context service now consumes ScheduleEntry records for an explicit timezone-aware meal instant.
+
+Current behaviour includes:
+
+- matching one-off intervals directly by timestamp;
+- matching recurring DAILY/WEEKLY rules in each entry's timezone;
+- optional recurring `BYDAY` weekday lists;
+- `INTERVAL=1` only;
+- overnight recurring intervals where the recurrence date is the interval start date;
+- matching one-off non-neutral availability effects taking precedence over recurring effects;
+- `unavailable` blocking recommendation at that instant;
+- `available` and `preferred` marking a usable window;
+- `neutral` entries contributing context such as location without independently declaring availability;
+- one-off location context taking precedence over recurring location context when present.
+
+The recurrence evaluator is deliberately conservative. Rules outside the supported subset raise an explicit error rather than being silently ignored.
+
+Detailed semantics are documented in `docs/domain/recommendation-practical-context.md` and ADR-019.
+
 ## Future integration
 
-The schedule model will later provide context to:
+The schedule model will later provide further context to:
 
 - derived nutrition targets;
-- meal planning;
-- shared family meals;
+- shared family meal optimization;
 - individual Serving timing;
 - workout-aware recommendations;
 - restaurant/delivery planning;
-- external calendar synchronization.
+- external calendar synchronization;
+- automatic derivation of feasible preparation windows between surrounding events.
 
 Schedule data describes planning context. It does not itself calculate calorie or nutrient targets.

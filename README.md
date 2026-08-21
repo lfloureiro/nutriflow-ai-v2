@@ -90,6 +90,7 @@ The current backend foundation includes:
 - persisted recommendation runs/options and append-only accepted/rejected/modified feedback events for future learning;
 - materialization of accepted/modified recommendations into normal planned MealEvent, MealParticipant and Serving records using the exact recommendation composition snapshot;
 - deterministic DailyNutritionState recalculation from authoritative Serving history using explicit local-day and target semantics;
+- deterministic recommendation practical-context filtering from ScheduleEntry, location, preparation-window and kitchen availability inputs;
 - PostgreSQL persistence with Alembic migrations;
 - pytest coverage with warnings treated as errors;
 - Ruff static validation.
