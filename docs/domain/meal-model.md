@@ -140,6 +140,8 @@ Dinner
 Implemented serving fields include:
 
 - `meal_participant_id`;
+- optional `food_item_id`;
+- optional `recipe_id`;
 - `item_type`;
 - `item_key`;
 - `item_name`;
@@ -152,6 +154,8 @@ Implemented serving fields include:
 - `consumed_at`;
 - `notes`;
 - timestamps.
+
+At most one direct catalogue reference may be populated: FoodItem or Recipe.
 
 ### Serving lifecycle
 
@@ -178,7 +182,7 @@ served:    350 g
 consumed:  300 g
 ```
 
-This is more useful than storing a single quantity because it supports:
+This supports:
 
 - meal planning;
 - portion preparation;
@@ -223,19 +227,32 @@ Only one record for a nutrient key is allowed per Serving.
 
 ## Food and recipe references
 
-The meal domain does not define the Food/Recipe catalogue itself.
+The Food/Recipe catalogue is now implemented as a separate domain layer.
 
-`item_type`, `item_key`, `item_name`, `nutrition_source` and `source_reference` allow servings to exist before that catalogue is implemented and later reference:
+Serving may reference:
 
-- recipes;
-- ingredients;
-- packaged foods;
-- restaurant dishes;
-- delivery meals;
-- manual entries;
-- external food databases.
+- a `FoodItem`; or
+- a `Recipe`.
 
-The meal record is historical intake/planning data. Future catalogue edits must not silently rewrite what was actually planned or consumed.
+The catalogue relationship is optional because historical/manual/external meals may exist without a native catalogue record.
+
+Catalogue foreign keys use `ON DELETE SET NULL`, preserving the meal even if a referenced catalogue record is later removed.
+
+The Serving still stores:
+
+- item type;
+- item key;
+- item name;
+- quantity snapshots;
+- energy snapshots;
+- ServingNutritionComponent snapshots;
+- nutrition source/reference.
+
+These values describe the meal as it was planned/served/consumed. They are not dynamically read from the current Food/Recipe record.
+
+Therefore later catalogue edits or composition corrections cannot silently rewrite historical intake.
+
+Detailed catalogue semantics are documented in `docs/domain/food-catalog-model.md` and ADR-013.
 
 ---
 
@@ -245,21 +262,21 @@ The meal record is historical intake/planning data. Future catalogue edits must 
 MealEvent: family dinner - spaghetti bolognese
 
 MealParticipant: Person A
-  Serving
+  Serving -> Recipe: spaghetti bolognese
     planned quantity: 350 g
     consumed quantity: 300 g
     consumed energy: 560 kcal
     protein consumed: 27.5 g
 
 MealParticipant: Person B
-  Serving
+  Serving -> Recipe: spaghetti bolognese
     planned quantity: 250 g
     consumed quantity: 250 g
     consumed energy: 465 kcal
     protein consumed: 23 g
 ```
 
-The family shares the eating occasion and dish context, while portions and nutrition remain individual.
+The family shares the eating occasion and recipe context, while portions and nutrition remain individual.
 
 ---
 
@@ -286,10 +303,10 @@ DailyNutritionState may be recalculated. Historical serving records must not be 
 
 ## Next layer
 
-The meal model enables the next increments:
+With the catalogue now available, the next increments are:
 
-1. Food / Ingredient / Recipe catalogue;
-2. calculation of serving nutrition from food composition;
+1. calculation of Serving energy/nutrients from versioned Food/Recipe composition;
+2. explicit safe unit conversion and serving-size support;
 3. planning and recommendation services;
 4. restaurant and delivery meal sources;
 5. pantry and shopping integration;
