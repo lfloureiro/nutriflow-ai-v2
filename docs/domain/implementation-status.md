@@ -148,13 +148,36 @@ Implemented:
 - database uniqueness and lifecycle validation;
 - persistence and tests.
 
-HealthConnection describes how health data enters NutriFlow. Normalized health measurements and cross-provider/path deduplication remain a separate next layer.
+HealthConnection describes how health data enters NutriFlow.
 
 Detailed semantics are documented in `docs/domain/health-connection-model.md` and ADR-009.
 
+### Normalized health measurements
+
+Implemented:
+
+- person-scoped HealthMeasurement records;
+- optional linkage to the HealthConnection used for ingestion;
+- stable normalized metric keys, values and units;
+- mutually exclusive point-in-time and interval temporal shapes;
+- ingestion provider and underlying origin-provider provenance;
+- source device, source application and source-kind metadata;
+- ingestion and origin external identifiers;
+- explicit source-chain metadata for bridge paths;
+- versioned normalization semantics;
+- deterministic deduplication keys;
+- uniqueness of `(person_id, deduplication_key)` to prevent duplicate counting across ingestion paths;
+- preservation of historical measurements when a HealthConnection is removed through `ON DELETE SET NULL`;
+- database validation for temporal shape and non-empty deduplication identity;
+- persistence and tests, including duplicate-path rejection.
+
+Normalized health measurements are source observations. They are intentionally separate from provider payloads, specialized anthropometric history and future derived DailyHealthState summaries.
+
+Detailed semantics are documented in `docs/domain/health-measurement-model.md` and ADR-010.
+
 ## Current database migration chain
 
-The implemented schema includes migrations through HealthConnection, following the Family/Person, profile/anthropometric, nutrition goal, nutrition constraint, food preference/adverse reaction, schedule and NutritionTarget migrations.
+The implemented schema includes migrations through HealthMeasurement, following the Family/Person, profile/anthropometric, nutrition goal, nutrition constraint, food preference/adverse reaction, schedule, NutritionTarget and HealthConnection migrations.
 
 Alembic migrations are expected to be applied from an empty PostgreSQL database in CI and checked for model/schema drift.
 
@@ -162,9 +185,8 @@ Alembic migrations are expected to be applied from an empty PostgreSQL database 
 
 Current sequence after the implemented foundation:
 
-1. normalized health measurements with provenance and deduplication;
-2. DailyHealthState and DailyNutritionState;
-3. meal events, shared meals and individual servings;
-4. adaptive planning and recommendation layers.
+1. DailyHealthState and DailyNutritionState;
+2. meal events, shared meals and individual servings;
+3. adaptive planning and recommendation layers.
 
 This list is directional. Each increment must be designed, documented, tested locally and validated in CI before integration into `main`.
