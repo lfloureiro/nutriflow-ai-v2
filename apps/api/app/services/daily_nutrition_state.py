@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -222,10 +223,39 @@ def _build_components(
     return result
 
 
+def _apply_components(
+    state: DailyNutritionState,
+    calculated: list[DailyNutritionStateComponent],
+) -> None:
+    existing = {
+        (component.target_type, component.target_key): component for component in state.components
+    }
+    desired_keys: set[tuple[str, str]] = set()
+
+    for calculated_component in calculated:
+        key = (calculated_component.target_type, calculated_component.target_key)
+        desired_keys.add(key)
+        current = existing.get(key)
+        if current is None:
+            state.components.append(calculated_component)
+            continue
+
+        current.consumed_value = calculated_component.consumed_value
+        current.planned_value = calculated_component.planned_value
+        current.remaining_min = calculated_component.remaining_min
+        current.remaining_max = calculated_component.remaining_max
+        current.unit = calculated_component.unit
+
+    for current in list(state.components):
+        key = (current.target_type, current.target_key)
+        if key not in desired_keys:
+            state.components.remove(current)
+
+
 def _existing_state(
     session: Session,
     *,
-    person_id: object,
+    person_id: uuid.UUID,
     state_date: date,
     calculation_version: str,
 ) -> DailyNutritionState | None:
@@ -322,6 +352,6 @@ def recalculate_daily_nutrition_state(
         "aggregation_policy": "consumed_else_served_else_planned",
     }
     state.computed_at = datetime.now(UTC)
-    state.components[:] = _build_components(servings, nutrition_target)
+    _apply_components(state, _build_components(servings, nutrition_target))
 
     return state
