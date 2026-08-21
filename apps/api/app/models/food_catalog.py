@@ -49,7 +49,7 @@ class FoodItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=True,
     )
 
-    catalog_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    catalog_key: Mapped[str] = mapped_column(String(120), nullable=False)
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     food_kind: Mapped[str] = mapped_column(String(32), nullable=False, default="ingredient")
     brand: Mapped[str | None] = mapped_column(String(120), nullable=True)
@@ -174,7 +174,7 @@ class Recipe(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=True,
     )
 
-    recipe_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    recipe_key: Mapped[str] = mapped_column(String(120), nullable=False)
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
