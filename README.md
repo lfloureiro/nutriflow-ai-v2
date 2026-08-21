@@ -78,6 +78,7 @@ The current backend foundation includes:
 - ScheduleEntry records for recurring and one-off availability context;
 - versioned NutritionTarget snapshots with extensible nutrient components;
 - person-scoped HealthConnection records for health-provider integrations;
+- normalized HealthMeasurement records with provenance and cross-path deduplication identity;
 - PostgreSQL persistence with Alembic migrations;
 - pytest coverage with warnings treated as errors;
 - Ruff static validation.
