@@ -21,7 +21,7 @@ def upgrade() -> None:
     op.create_table(
         "food_items",
         sa.Column("family_id", sa.Uuid(), nullable=True),
-        sa.Column("catalog_key", sa.String(length=160), nullable=False),
+        sa.Column("catalog_key", sa.String(length=120), nullable=False),
         sa.Column("name", sa.String(length=160), nullable=False),
         sa.Column("food_kind", sa.String(length=32), nullable=False),
         sa.Column("brand", sa.String(length=120), nullable=True),
@@ -70,7 +70,7 @@ def upgrade() -> None:
     op.create_table(
         "recipes",
         sa.Column("family_id", sa.Uuid(), nullable=True),
-        sa.Column("recipe_key", sa.String(length=160), nullable=False),
+        sa.Column("recipe_key", sa.String(length=120), nullable=False),
         sa.Column("name", sa.String(length=160), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("yield_quantity", sa.Numeric(precision=14, scale=4), nullable=True),
