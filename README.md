@@ -95,6 +95,7 @@ The current backend foundation includes:
 - materialization of accepted shared-family recommendations into one planned MealEvent with person-specific MealParticipant and Serving records;
 - Family-scoped MealEvent idempotency and immutable planned-meal replacement history for safe retries and later edits;
 - persisted Family-scoped practical availability for home, pantry, restaurant, delivery and store meal sources;
+- quantity-aware Family pantry stock with expiry, Recipe ingredient sufficiency and exact shopping requirements for missing quantities;
 - PostgreSQL persistence with Alembic migrations;
 - pytest coverage with warnings treated as errors;
 - Ruff static validation.
