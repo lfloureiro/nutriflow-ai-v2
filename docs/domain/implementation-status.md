@@ -143,17 +143,11 @@ Detailed semantics: `docs/domain/food-catalog-model.md` and ADR-013.
 
 Implemented:
 
-- calculation of planned, served and consumed Serving energy from an explicitly selected FoodCompositionSnapshot or RecipeCompositionSnapshot;
-- scaling of all nutrient components from the same versioned composition;
+- planned, served and consumed Serving nutrition calculated from explicitly selected versioned Food/Recipe composition;
 - Decimal arithmetic with explicit persisted precision;
-- safe mass conversion between `mg`, `g` and `kg`;
-- safe volume conversion between `ml` and `l`;
-- exact-unit support for other units without implicit conversion;
-- rejection of cross-dimension conversions and inferred density;
-- validation that the selected composition belongs to the Serving FoodItem or Recipe;
-- persisted composition-snapshot provenance on Serving;
-- persisted `nutrition_calculation_version`;
-- recalculation replacing stale materialized nutrient components only when explicitly requested;
+- safe mass (`mg`, `g`, `kg`) and volume (`ml`, `l`) conversion;
+- rejection of unsafe cross-dimension conversions and inferred density;
+- persisted exact composition provenance and calculation version;
 - reusable composition scaling for recommendation logic;
 - tests for scaling, unit conversion safety and catalogue mismatch rejection.
 
@@ -161,25 +155,48 @@ Detailed semantics: `docs/domain/serving-nutrition-calculation.md` and ADR-014.
 
 ### Adaptive meal recommendation foundation
 
-Implemented on the current feature branch:
+Implemented:
 
 - deterministic person-scoped ranking of FoodItem and Recipe candidates;
-- candidate nutrition generated from the same versioned composition-scaling logic used by Serving calculation;
-- ingredient-aware Recipe subject expansion so ingredient-level safety rules apply before ranking;
+- candidate nutrition generated from the same versioned composition logic used by Serving calculation;
+- ingredient-aware Recipe subject expansion;
 - active-date handling for preferences, adverse reactions and constraints;
-- mandatory adverse-reaction exclusion before scoring;
-- mandatory food/ingredient/recipe exclusions before scoring;
-- mandatory nutrient-maximum checks against consumed + already-planned + candidate nutrition;
+- mandatory adverse-reaction and food/ingredient/recipe exclusion before ranking;
+- mandatory nutrient maxima checked against consumed + already-planned + candidate nutrition;
 - fail-closed behaviour for unsupported mandatory constraints or unsafe required unit conversions;
-- explainable energy-fit and nutrient-deficit scoring;
-- user like/dislike scoring and advisory adverse-reaction penalties;
-- deterministic rank ordering and explicit score breakdowns/exclusion reasons;
-- engine-version identifier for future scoring evolution;
-- tests proving allergies cannot be overridden by ranking, nutrient maxima exclude candidates, preferences/nutrient deficits affect rank and unknown mandatory rules stop recommendation.
+- explainable energy-fit, nutrient-deficit, preference and advisory-reaction scoring;
+- deterministic rank ordering, score breakdowns and exclusion reasons;
+- versioned recommendation engine identifier;
+- tests proving safety rules cannot be overridden by ranking.
 
-The engine does not yet persist recommendation decisions, create MealEvents automatically, perform multi-person family optimization or use ML.
+Learned ranking is not part of eligibility. Mandatory rules remain authoritative.
 
 Detailed semantics: `docs/domain/adaptive-meal-recommendation.md` and ADR-015.
+
+### Recommendation history and feedback
+
+Implemented on the current feature branch:
+
+- person-scoped MealRecommendationRun records for one recommendation execution;
+- optional link to the DailyNutritionState used as context;
+- engine version, planning date, optional meal type and JSON context;
+- MealRecommendationOption snapshots for every eligible and excluded candidate;
+- persisted candidate identity, quantity, subjects and exact nutrition snapshot;
+- persisted eligibility, rank, score breakdown, exclusion reasons and explanations;
+- optional traceability links to FoodItem/Recipe and exact composition snapshots;
+- catalogue/composition links use `ON DELETE SET NULL` while historical snapshots remain intact;
+- append-only MealRecommendationFeedback events;
+- explicit `accepted`, `rejected` and `modified` actions;
+- optional link from feedback to the resulting Serving;
+- validation that user feedback only targets eligible options;
+- validation that a resulting Serving belongs to the same Person as the recommendation run;
+- rejection feedback cannot reference a resulting Serving;
+- exact Decimal recommendation values serialized as strings inside JSON snapshots;
+- persistence tests for ranked/excluded options and modified feedback.
+
+Feedback is designed as a future learning signal only. It cannot make a candidate eligible or bypass deterministic safety/nutrition rules.
+
+Detailed semantics: `docs/domain/recommendation-feedback-model.md` and ADR-016.
 
 ## Current database migration chain
 
@@ -196,22 +213,20 @@ The schema currently progresses through:
 9. DailyHealthState/DailyNutritionState;
 10. MealEvent/MealParticipant/Serving;
 11. Food/Recipe catalogue composition;
-12. Serving composition provenance.
-
-This recommendation increment does not add database tables. It consumes the existing authoritative and derived domain records.
+12. Serving composition provenance;
+13. recommendation run/option/feedback history.
 
 Alembic migrations are expected to apply from an empty PostgreSQL database in CI and `alembic check` must report no model/schema drift.
 
 ## Next planned domain increments
 
-Current sequence after the deterministic recommendation foundation:
+Current sequence after recommendation feedback persistence:
 
-1. persist recommendation decisions and accept/reject/modify feedback;
-2. turn accepted recommendations into planned MealEvent/Serving records;
-3. automatic DailyNutritionState recalculation from authoritative Serving history;
-4. schedule/practical-context filtering and shared-family meal optimization;
-5. restaurant/delivery, pantry and shopping context;
-6. API and UI vertical slices over the completed planning flow;
-7. learned ranking only after deterministic hard-rule and nutrition layers remain authoritative.
+1. turn accepted/modified recommendations into planned MealEvent/MealParticipant/Serving records;
+2. automatic DailyNutritionState recalculation from authoritative Serving history;
+3. schedule/practical-context filtering and shared-family meal optimization;
+4. restaurant/delivery, pantry and shopping context;
+5. API and UI vertical slices over the completed planning flow;
+6. learned ranking from feedback only after deterministic hard-rule and nutrition layers remain authoritative.
 
 Each increment must be developed on a focused branch, documented, tested locally with zero warnings, validated by CI and merged only after all checks are green.
