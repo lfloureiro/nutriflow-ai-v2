@@ -80,12 +80,12 @@ class DailyNutritionState(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     energy_consumed_kcal: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
-        default=Decimal("0"),
+        default=Decimal(0),
     )
     energy_planned_kcal: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
-        default=Decimal("0"),
+        default=Decimal(0),
     )
     energy_remaining_min_kcal: Mapped[Decimal | None] = mapped_column(
         Numeric(10, 2),
