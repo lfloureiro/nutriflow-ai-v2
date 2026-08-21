@@ -2,7 +2,6 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 
 
@@ -24,4 +23,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
