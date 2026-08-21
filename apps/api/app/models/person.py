@@ -6,7 +6,9 @@ from sqlalchemy import Date, ForeignKey, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.anthropometric_measurement import AnthropometricMeasurement
 from app.models.mixins import TimestampMixin, UUIDPrimaryKeyMixin
+from app.models.person_profile import PersonProfile
 
 if TYPE_CHECKING:
     from app.models.family import Family
@@ -40,3 +42,15 @@ class Person(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     family: Mapped["Family"] = relationship(back_populates="persons")
 
+    profile: Mapped[PersonProfile | None] = relationship(
+        back_populates="person",
+        cascade="all, delete-orphan",
+        single_parent=True,
+        uselist=False,
+    )
+
+    anthropometric_measurements: Mapped[list[AnthropometricMeasurement]] = relationship(
+        back_populates="person",
+        cascade="all, delete-orphan",
+        order_by=AnthropometricMeasurement.measured_at,
+    )
