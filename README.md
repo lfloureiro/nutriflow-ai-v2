@@ -77,7 +77,8 @@ The current backend foundation includes:
 - FoodAdverseReaction records for allergies and intolerances;
 - ScheduleEntry records for recurring and one-off availability context;
 - PostgreSQL persistence with Alembic migrations;
-- pytest coverage with warnings treated as errors.
+- pytest coverage with warnings treated as errors;
+- Ruff static validation.
 
 Detailed domain status is maintained in `docs/domain/implementation-status.md`.
 
@@ -90,9 +91,9 @@ Before a branch is integrated it must:
 - update relevant documentation;
 - include or update tests;
 - validate migrations locally when the database changes;
-- pass the complete local test suite with zero warnings;
+- pass Ruff and the complete local test suite with zero warnings;
 - pass CI verification.
 
 The workflow decision is documented in `docs/decisions/ADR-007-development-workflow-and-ci.md`.
 
-GitHub Actions runs the API test suite against PostgreSQL and verifies that the Alembic migration chain is current.
+GitHub Actions runs Ruff, the API test suite against PostgreSQL, and verifies that the Alembic migration chain is current.
