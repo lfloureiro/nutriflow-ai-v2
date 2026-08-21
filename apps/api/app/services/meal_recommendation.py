@@ -4,7 +4,12 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.food_adverse_reaction import FoodAdverseReaction
-from app.models.food_catalog import FoodCompositionSnapshot, FoodItem, Recipe, RecipeCompositionSnapshot
+from app.models.food_catalog import (
+    FoodCompositionSnapshot,
+    FoodItem,
+    Recipe,
+    RecipeCompositionSnapshot,
+)
 from app.models.food_preference import FoodPreference
 from app.models.nutrition_constraint import NutritionConstraint
 from app.services.serving_nutrition import (
@@ -308,10 +313,13 @@ def _nutrient_score(
             if contribution > ZERO:
                 reasons.append(f"supports_deficit:{component.target_key}")
 
-        if component.remaining_max is not None and component.remaining_max >= ZERO:
-            if value > component.remaining_max:
-                score -= ONE
-                reasons.append(f"exceeds_remaining_max:{component.target_key}")
+        if (
+            component.remaining_max is not None
+            and component.remaining_max >= ZERO
+            and value > component.remaining_max
+        ):
+            score -= ONE
+            reasons.append(f"exceeds_remaining_max:{component.target_key}")
 
     return score, reasons
 
