@@ -16,6 +16,7 @@ from app.models.food_preference import FoodPreference
 from app.models.health_connection import HealthConnection
 from app.models.health_measurement import HealthMeasurement
 from app.models.meal import MealEvent, MealParticipant, Serving, ServingNutritionComponent
+from app.models.meal_candidate_availability import MealCandidateAvailability
 from app.models.nutrition_constraint import NutritionConstraint
 from app.models.nutrition_goal import NutritionGoal
 from app.models.nutrition_target import NutritionTarget, NutritionTargetComponent
@@ -41,6 +42,7 @@ __all__ = [
     "FoodPreference",
     "HealthConnection",
     "HealthMeasurement",
+    "MealCandidateAvailability",
     "MealEvent",
     "MealParticipant",
     "MealRecommendationFeedback",

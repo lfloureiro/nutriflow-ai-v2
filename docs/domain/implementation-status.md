@@ -252,8 +252,8 @@ Implemented:
 - unavailable schedule windows exclude candidates before ranking;
 - preferred/available windows remain explainable in recommendation output;
 - explicit request location or unambiguous schedule location can constrain candidate feasibility;
-- CandidatePracticalProfile supports available locations, preparation time and kitchen requirement without changing catalogue schema;
-- candidates can be excluded for location, insufficient preparation time or unavailable kitchen facilities;
+- CandidatePracticalProfile supports explicit availability, available locations, preparation time and kitchen requirement;
+- candidates can be excluded for explicit unavailability, location, insufficient preparation time or unavailable kitchen facilities;
 - candidates lacking practical metadata are not excluded merely because metadata is unknown;
 - remaining candidates pass through the existing deterministic safety/nutrition recommendation engine;
 - practical exclusions remain normal CandidateEvaluation records and are therefore persistable by the existing recommendation-history layer;
@@ -303,7 +303,7 @@ Detailed semantics: `docs/domain/shared-family-meal-materialization.md` and ADR-
 
 ### Meal replacement and idempotency
 
-Implemented on the current feature branch:
+Implemented:
 
 - optional MealEvent `idempotency_key` scoped uniquely by Family;
 - database-level duplicate prevention for non-null Family/idempotency-key pairs;
@@ -322,6 +322,27 @@ Implemented on the current feature branch:
 
 Detailed semantics: `docs/domain/meal-replacement-idempotency.md` and ADR-022.
 
+### Persisted practical meal availability
+
+Implemented on the current feature branch:
+
+- Family-scoped `MealCandidateAvailability` operational records;
+- exactly one FoodItem or Recipe per availability row;
+- normalized source kinds for `home`, `pantry`, `restaurant`, `delivery` and `store`;
+- stable source key, optional location, preparation/lead time, kitchen requirement and explicit availability state;
+- provenance fields for source/provider synchronization;
+- deterministic adaptation into the existing `CandidatePracticalProfile` interface;
+- optional source-kind filtering, including delivery-only or pantry-only planning;
+- minimum available preparation time across usable sources;
+- kitchen requirement only when every usable source requires a kitchen;
+- location restriction only when every usable source is explicitly location-bound;
+- candidates with no persisted availability remain unknown rather than being excluded;
+- candidates with modeled but unavailable requested sources are excluded as `candidate_unavailable`;
+- Family-specific catalogue candidates from another Family are rejected before availability lookup;
+- tests cover source aggregation, delivery-only filtering, explicit unavailability, unknown metadata, Family isolation and unsupported source kinds.
+
+Detailed semantics: `docs/domain/persisted-practical-availability.md` and ADR-023.
+
 ## Current database migration chain
 
 The schema currently progresses through:
@@ -339,22 +360,25 @@ The schema currently progresses through:
 11. Food/Recipe catalogue composition;
 12. Serving composition provenance;
 13. recommendation run/option/feedback history;
-14. MealEvent Family-scoped idempotency key.
+14. MealEvent Family-scoped idempotency key;
+15. Family-scoped meal candidate availability sources.
 
-Recommendation materialization, DailyNutritionState recalculation, practical-context filtering, shared-family optimization and shared-family materialization use the authoritative meal, schedule, catalogue and derived-state schema. Meal replacement/idempotency adds only the MealEvent idempotency key and integrity constraints needed for safe writes.
+Recommendation materialization, DailyNutritionState recalculation, practical-context filtering, shared-family optimization and shared-family materialization use the authoritative meal, schedule, catalogue and derived-state schema. Meal replacement/idempotency adds the write-safety key and persisted practical availability adds operational source state without changing historical Serving or recommendation evidence.
 
 Alembic migrations are expected to apply from an empty PostgreSQL database in CI and `alembic check` must report no model/schema drift.
 
 ## Next planned domain increments
 
-Current sequence after MealEvent replacement/idempotency:
+Current sequence after persisted practical availability:
 
-1. restaurant/delivery, pantry and shopping context plus stable persisted practical metadata;
-2. API and UI vertical slices over the completed planning flow;
-3. background/event-driven DailyNutritionState refresh and target-selection policy;
-4. fuller recurrence/calendar override support;
-5. persisted family-level recommendation audit history;
-6. transaction-level idempotency-race handling at the future write API boundary;
-7. learned ranking from feedback only after deterministic hard-rule, practical and nutrition layers remain authoritative.
+1. quantity-aware Family pantry stock, expiry and recipe ingredient sufficiency;
+2. shopping requirements generated from missing pantry quantities;
+3. restaurant/delivery commercial context such as price, opening hours and provider synchronization;
+4. API and UI vertical slices over the completed planning flow;
+5. background/event-driven DailyNutritionState refresh and target-selection policy;
+6. fuller recurrence/calendar override support;
+7. persisted family-level recommendation audit history;
+8. transaction-level idempotency-race handling at the future write API boundary;
+9. learned ranking from feedback only after deterministic hard-rule, practical and nutrition layers remain authoritative.
 
 Each increment must be developed on a focused branch, documented, tested locally with zero warnings, validated by CI and merged only after all checks are green.
