@@ -2,6 +2,7 @@ from app.models.anthropometric_measurement import AnthropometricMeasurement
 from app.models.family import Family
 from app.models.food_adverse_reaction import FoodAdverseReaction
 from app.models.food_preference import FoodPreference
+from app.models.health_connection import HealthConnection
 from app.models.nutrition_constraint import NutritionConstraint
 from app.models.nutrition_goal import NutritionGoal
 from app.models.nutrition_target import NutritionTarget, NutritionTargetComponent
@@ -14,6 +15,7 @@ __all__ = [
     "Family",
     "FoodAdverseReaction",
     "FoodPreference",
+    "HealthConnection",
     "NutritionConstraint",
     "NutritionGoal",
     "NutritionTarget",
