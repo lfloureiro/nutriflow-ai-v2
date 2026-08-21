@@ -195,13 +195,37 @@ Implemented:
 - database validation for ranges and component uniqueness;
 - persistence and tests, including multiple calculation versions for one date.
 
-Daily states are materialized derived data. They are recalculable from authoritative source history and must not replace HealthMeasurement, AnthropometricMeasurement, NutritionTarget or future meal/serving records.
+Daily states are materialized derived data. They are recalculable from authoritative source history and must not replace HealthMeasurement, AnthropometricMeasurement, NutritionTarget or meal/serving records.
 
 Detailed semantics are documented in `docs/domain/daily-state-model.md` and ADR-011.
 
+### Meal events, participants and servings
+
+Implemented:
+
+- Family-scoped MealEvent records for individual and shared eating occasions;
+- one shared MealEvent with multiple MealParticipant records instead of duplicating the meal per Person;
+- event lifecycle states for planned, prepared, served, completed, cancelled and replaced meals;
+- optional replacement linkage that preserves superseded meal-plan history;
+- person-specific MealParticipant states for planned, served, consumed, partial, skipped and replaced outcomes;
+- unique Person participation within each MealEvent;
+- Serving records owned by MealParticipant so Person and MealEvent identity cannot diverge;
+- multiple servings/items per participant within one meal;
+- planned, served and consumed quantities;
+- planned, served and consumed energy;
+- person-specific partial-consumption tracking;
+- generic item keys and source references that can later connect to Food, Recipe, restaurant or external food catalogues;
+- extensible ServingNutritionComponent records for planned, served and consumed nutrient values;
+- database validation for lifecycle values, non-negative quantities/energy, consumed-versus-served quantities and nutrient component uniqueness;
+- persistence and tests using one shared family dinner with different portions and actual intake per Person.
+
+There is intentionally no separate SharedMeal table. A MealEvent becomes shared through multiple participants, while nutrition remains person-specific through Serving.
+
+Detailed semantics are documented in `docs/domain/meal-model.md` and ADR-012.
+
 ## Current database migration chain
 
-The implemented schema includes migrations through DailyHealthState, DailyNutritionState and DailyNutritionStateComponent, following the Family/Person, profile/anthropometric, nutrition goal, nutrition constraint, food preference/adverse reaction, schedule, NutritionTarget, HealthConnection and HealthMeasurement migrations.
+The implemented schema includes migrations through MealEvent, MealParticipant, Serving and ServingNutritionComponent, following Family/Person, profile/anthropometric history, nutrition goals, nutrition constraints, food preferences/adverse reactions, schedules, NutritionTarget, HealthConnection, HealthMeasurement and the daily-state models.
 
 Alembic migrations are expected to be applied from an empty PostgreSQL database in CI and checked for model/schema drift.
 
@@ -209,7 +233,11 @@ Alembic migrations are expected to be applied from an empty PostgreSQL database 
 
 Current sequence after the implemented foundation:
 
-1. meal events, shared meals and individual servings;
-2. adaptive planning and recommendation layers.
+1. Food / Ingredient / Recipe catalogue and nutrition composition;
+2. serving-nutrition calculation from catalogue composition;
+3. adaptive meal planning and recommendation services;
+4. restaurant and delivery meal sources;
+5. pantry and shopping integration;
+6. API and UI vertical slices over the completed planning flow.
 
 This list is directional. Each increment must be designed, documented, tested locally and validated in CI before integration into `main`.

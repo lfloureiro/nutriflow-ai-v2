@@ -41,49 +41,68 @@ Schedule data helps determine whether a meal is individual or shared and what pr
 
 Structured rule rather than free text.
 
-Suggested fields:
+Core fields include:
 
 - person_id;
-- constraint_type;
+- constraint type;
 - nutrient/food target where applicable;
-- operator (min/max/exclude/etc.);
+- operator;
 - value and unit;
 - severity/priority;
 - source (`user`, `doctor`, `nutritionist`, `system`);
-- start/end dates;
-- notes;
-- active flag.
+- validity dates;
+- notes.
 
 ### Goal
 
 A time-aware goal such as weight loss, maintenance, muscle gain or performance.
 
-Goals should preserve assumptions and expected rate/range instead of only a final calorie number.
+Goals preserve assumptions and expected rate/range instead of only a final calorie number.
 
 ### MealEvent
 
-Represents an eating occasion.
+Represents one eating occasion in Family context.
 
-Suggested fields:
+A MealEvent may be individual or shared.
 
-- date/time;
+Shared meals are not a separate entity: one MealEvent becomes shared when it has multiple MealParticipant records.
+
+Core fields include:
+
+- family_id;
+- scheduled date/time and timezone;
 - meal type;
-- participants;
+- title;
+- lifecycle status;
+- served/completed timestamps;
+- replacement linkage;
 - location;
-- source;
-- recipe/food reference;
-- status (planned, consumed, skipped, replaced);
+- source/reference;
 - notes.
 
 ### MealParticipant
 
-Links a Person to a MealEvent and holds participation-specific state.
+Links one Person to one MealEvent and holds person-specific participation state.
+
+Examples include planned, served, consumed, partial, skipped and replaced.
+
+One Person may occur only once in the same MealEvent.
 
 ### Serving
 
-The portion assigned/planned/consumed by one person for one MealEvent.
+Represents one person-specific food/dish portion for a MealParticipant.
 
-Allows a shared family recipe to produce different quantities and nutrition for different participants.
+A participant may have multiple Servings in one meal.
+
+Serving keeps planned, served and consumed quantities and energy separate so NutriFlow can compare intent, preparation and actual intake.
+
+Serving belongs to MealParticipant rather than independently storing MealEvent and Person foreign keys. MealParticipant already defines both identities and therefore prevents inconsistent combinations.
+
+### ServingNutritionComponent
+
+Stores extensible nutrient-level planned, served and consumed values for a Serving.
+
+Energy remains directly available on Serving for frequent daily aggregation, while nutrients such as protein, fibre or sodium use component records.
 
 ### DailyNutritionState
 
@@ -96,6 +115,8 @@ Derived per-person state for one day, including:
 - activity/training context;
 - confidence/adherence signals.
 
+DailyNutritionState is recalculable from NutritionTarget plus authoritative meal/serving history.
+
 ### HealthDataConnection
 
 One Person's authorised connection to an external health provider.
@@ -104,40 +125,27 @@ Examples: Apple Health, Health Connect, Garmin, Withings, Oura, Fitbit.
 
 ### HealthMeasurement
 
-Normalised observation imported from a provider.
-
-Suggested fields:
-
-- person_id;
-- metric_type;
-- value/unit;
-- measured_at;
-- provider;
-- source_device/source_app;
-- external_id;
-- imported_at;
-- quality/confidence;
-- deduplication metadata.
+Normalised observation imported from a provider with provenance and deduplication identity.
 
 ### DailyHealthState
 
 Derived health context used by planning rather than raw provider records.
 
-Possible derived fields:
+Possible fields include:
 
 - latest weight;
 - 7/28-day weight trend;
-- body composition trend;
-- active energy/activity trend;
-- workouts/training load context;
-- sleep duration/consistency trend;
-- resting HR/HRV context where justified;
-- observed energy-balance estimate;
+- active energy/activity context;
+- workouts/training load;
+- sleep context;
+- resting HR/HRV context;
 - data completeness/confidence.
 
 ### Recipe / Ingredient / Food
 
 Food is a native NutriFlow AI v2 domain covering recipes, ingredients, products and external meal sources.
+
+The Food/Recipe catalogue is a separate next domain layer. Meal history must remain stable even when catalogue data changes later.
 
 ### Pantry / Inventory
 
@@ -152,6 +160,7 @@ Derived or user-managed shopping requirements supporting planned meals and pantr
 ```text
 Family
   1 -> many Person memberships
+  1 -> many MealEvents
 
 Person
   1 -> many Goals
@@ -161,27 +170,32 @@ Person
   1 -> many HealthMeasurements
   1 -> many DailyHealthStates
   1 -> many DailyNutritionStates
+  1 -> many MealParticipants
 
 MealEvent
-  many <-> many Person via MealParticipant
+  1 -> many MealParticipants
+
+MealParticipant
+  belongs to one MealEvent
+  belongs to one Person
   1 -> many Servings
 
 Serving
-  belongs to one MealEvent
-  belongs to one Person
+  1 -> many ServingNutritionComponents
 
 Family
   1 -> shared Pantry
   1 -> many ShoppingLists
 ```
 
-## Planning rule
+## Meal planning rule
 
 The planner should optimise across the person's day and family context, not treat each meal slot independently.
 
-A future family dinner can therefore influence an earlier individual lunch or snack because planned nutrition is included in the DailyNutritionState.
+A future family dinner can therefore influence an earlier individual lunch or snack because planned person-specific Servings contribute to DailyNutritionState.
+
+The meal occasion may be shared while portions remain individual.
 
 ## Safety rule
 
 Hard constraints are evaluated before ranking or ML. An option that violates a mandatory allergy or clinician constraint is excluded, not merely down-ranked.
-
