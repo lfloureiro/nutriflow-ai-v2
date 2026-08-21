@@ -108,9 +108,32 @@ Date-specific one-off entries are more specific than recurring patterns when pla
 
 Detailed schedule semantics are documented in `docs/domain/schedule-model.md`.
 
+### Nutrition targets
+
+Implemented:
+
+- versioned NutritionTarget snapshots per Person;
+- optional relationship to the NutritionGoal that informed the calculation;
+- explicit validity period and lifecycle status;
+- BMR estimate and calculation method;
+- TDEE estimate and calculation method;
+- target energy range;
+- calculation-version identifier;
+- calculation-input provenance for explainability;
+- extensible NutritionTargetComponent child records for nutrient targets;
+- minimum, maximum and point-target component values;
+- database validation for positive energy values, valid ranges and non-empty components;
+- uniqueness of target type/key within each snapshot;
+- historical ordering by validity start date;
+- persistence and tests.
+
+Nutrition targets are derived outputs. They remain separate from NutritionGoal, NutritionConstraint and future DailyNutritionState concepts.
+
+Detailed semantics are documented in `docs/domain/nutrition-target-model.md` and ADR-008.
+
 ## Current database migration chain
 
-The implemented schema includes migrations through ScheduleEntry, following the Family/Person, profile/anthropometric, nutrition goal, nutrition constraint, food preference and adverse reaction migrations.
+The implemented schema includes migrations through NutritionTarget and NutritionTargetComponent, following the Family/Person, profile/anthropometric, nutrition goal, nutrition constraint, food preference/adverse reaction and schedule migrations.
 
 Alembic migrations are expected to be applied from an empty PostgreSQL database in CI and checked for model/schema drift.
 
@@ -118,11 +141,10 @@ Alembic migrations are expected to be applied from an empty PostgreSQL database 
 
 Current sequence after the implemented foundation:
 
-1. derived/versioned nutrition targets;
-2. health-provider connections;
-3. normalized health measurements with provenance and deduplication;
-4. DailyHealthState and DailyNutritionState;
-5. meal events, shared meals and individual servings;
-6. adaptive planning and recommendation layers.
+1. health-provider connections;
+2. normalized health measurements with provenance and deduplication;
+3. DailyHealthState and DailyNutritionState;
+4. meal events, shared meals and individual servings;
+5. adaptive planning and recommendation layers.
 
 This list is directional. Each increment must be designed, documented, tested locally and validated in CI before integration into `main`.
