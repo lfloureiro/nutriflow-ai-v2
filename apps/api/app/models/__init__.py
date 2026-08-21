@@ -4,6 +4,7 @@ from app.models.food_adverse_reaction import FoodAdverseReaction
 from app.models.food_preference import FoodPreference
 from app.models.nutrition_constraint import NutritionConstraint
 from app.models.nutrition_goal import NutritionGoal
+from app.models.nutrition_target import NutritionTarget, NutritionTargetComponent
 from app.models.person import Person
 from app.models.person_profile import PersonProfile
 from app.models.schedule_entry import ScheduleEntry
@@ -15,6 +16,8 @@ __all__ = [
     "FoodPreference",
     "NutritionConstraint",
     "NutritionGoal",
+    "NutritionTarget",
+    "NutritionTargetComponent",
     "Person",
     "PersonProfile",
     "ScheduleEntry",
