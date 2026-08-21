@@ -79,6 +79,7 @@ The current backend foundation includes:
 - versioned NutritionTarget snapshots with extensible nutrient components;
 - person-scoped HealthConnection records for health-provider integrations;
 - normalized HealthMeasurement records with provenance and cross-path deduplication identity;
+- versioned DailyHealthState and DailyNutritionState snapshots with extensible nutrient progress components;
 - PostgreSQL persistence with Alembic migrations;
 - pytest coverage with warnings treated as errors;
 - Ruff static validation.
