@@ -264,7 +264,7 @@ Detailed semantics: `docs/domain/recommendation-practical-context.md`, `docs/dom
 
 ### Shared-family meal optimization
 
-Implemented on the current feature branch:
+Implemented:
 
 - one common FoodItem/Recipe candidate can be evaluated for multiple Persons in the same Family;
 - each participant receives an explicit person-specific quantity and unit;
@@ -281,6 +281,25 @@ Implemented on the current feature branch:
 - tests cover person-specific portions, one-person hard exclusion, fairness-first ranking, one-person schedule exclusion, Family integrity and complete portion coverage.
 
 Detailed semantics: `docs/domain/shared-family-meal-optimization.md` and ADR-020.
+
+### Shared-family meal materialization
+
+Implemented on the current feature branch:
+
+- an accepted eligible shared-family recommendation materializes into exactly one planned MealEvent;
+- every recommended Person receives one planned MealParticipant and one planned Serving;
+- person-specific recommended quantity and unit are preserved exactly;
+- planned energy and nutrient snapshots are recalculated through the existing serving-nutrition service;
+- the exact persisted FoodCompositionSnapshot or RecipeCompositionSnapshot used by the recommendation is reloaded and reused;
+- Persons and composition snapshots must already be persisted, preventing accidental catalogue insertion during meal creation;
+- all participants must still belong to one Family and Family-specific catalogue objects must match that Family;
+- participant candidate identity and portion values must match the selected family recommendation;
+- ineligible family candidates or ineligible participant evaluations cannot be materialized;
+- generated MealEvent and Serving records retain recommendation provenance;
+- no new SharedMeal table or database migration is introduced;
+- tests cover one-event/multi-participant materialization, person-specific nutrition, ineligible-candidate rejection, timezone validation and persisted-composition requirements.
+
+Detailed semantics: `docs/domain/shared-family-meal-materialization.md` and ADR-021.
 
 ## Current database migration chain
 
@@ -300,21 +319,20 @@ The schema currently progresses through:
 12. Serving composition provenance;
 13. recommendation run/option/feedback history.
 
-Recommendation materialization, DailyNutritionState recalculation, practical-context filtering and shared-family optimization do not add database tables. They operate on the existing authoritative meal, schedule, catalogue and derived-state schema.
+Recommendation materialization, DailyNutritionState recalculation, practical-context filtering, shared-family optimization and shared-family materialization do not add database tables. They operate on the existing authoritative meal, schedule, catalogue and derived-state schema.
 
 Alembic migrations are expected to apply from an empty PostgreSQL database in CI and `alembic check` must report no model/schema drift.
 
 ## Next planned domain increments
 
-Current sequence after shared-family meal optimization:
+Current sequence after shared-family meal materialization:
 
-1. materialize an accepted shared recommendation into one MealEvent with multiple MealParticipants and person-specific Servings;
-2. replacement/idempotency semantics for later edits and API retries;
-3. restaurant/delivery, pantry and shopping context plus stable persisted practical metadata;
-4. API and UI vertical slices over the completed planning flow;
-5. background/event-driven DailyNutritionState refresh and target-selection policy;
-6. fuller recurrence/calendar override support;
-7. persisted family-level recommendation audit history;
-8. learned ranking from feedback only after deterministic hard-rule, practical and nutrition layers remain authoritative.
+1. replacement/idempotency semantics for later edits and API retries;
+2. restaurant/delivery, pantry and shopping context plus stable persisted practical metadata;
+3. API and UI vertical slices over the completed planning flow;
+4. background/event-driven DailyNutritionState refresh and target-selection policy;
+5. fuller recurrence/calendar override support;
+6. persisted family-level recommendation audit history;
+7. learned ranking from feedback only after deterministic hard-rule, practical and nutrition layers remain authoritative.
 
 Each increment must be developed on a focused branch, documented, tested locally with zero warnings, validated by CI and merged only after all checks are green.
