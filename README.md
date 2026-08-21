@@ -85,6 +85,7 @@ The current backend foundation includes:
 - FoodItem catalogue records with versioned FoodCompositionSnapshot nutrition data;
 - Recipe and RecipeIngredient records with versioned RecipeCompositionSnapshot nutrition data;
 - optional Serving links to FoodItem or Recipe while preserving historical serving snapshots;
+- explicit Serving nutrition calculation from versioned catalogue composition with conservative unit conversion and persisted calculation provenance;
 - PostgreSQL persistence with Alembic migrations;
 - pytest coverage with warnings treated as errors;
 - Ruff static validation.
