@@ -304,6 +304,9 @@ def test_pantry_profiles_scale_recipe_candidate_against_recipe_yield(
         source="test",
         effective_at=AS_OF - timedelta(days=1),
     )
+    db_session.add(food_composition)
+    db_session.flush()
+
     recipe = _persist_recipe(
         db_session,
         family,
@@ -321,7 +324,7 @@ def test_pantry_profiles_scale_recipe_candidate_against_recipe_yield(
         calculation_version="test-v1",
         computed_at=AS_OF - timedelta(days=1),
     )
-    db_session.add_all([food_composition, recipe_composition])
+    db_session.add(recipe_composition)
     db_session.flush()
 
     food_candidate = build_food_candidate(
