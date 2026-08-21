@@ -31,6 +31,8 @@ The unique key is intentionally `(person_id, state_date, calculation_version)` r
 
 Derived states may be recomputed from their authoritative inputs. The calculation version and calculation-input metadata make the result explainable and reproducible.
 
+For DailyNutritionState, rerunning the same calculation version updates that derived snapshot in place. Changing the calculation version creates a separate snapshot with different algorithm semantics.
+
 ## Timezone semantics
 
 `state_date` is a local calendar date interpreted in the explicit `timezone` stored on the state.
@@ -38,6 +40,8 @@ Derived states may be recomputed from their authoritative inputs. The calculatio
 This is important because health and meal observations may be stored as timezone-aware timestamps while daily planning is calendar-day based.
 
 A state must not infer its day boundary from the database server timezone.
+
+The Serving-based DailyNutritionState recalculation service builds explicit local midnight-to-midnight boundaries from the supplied IANA timezone.
 
 ## DailyHealthState
 
@@ -96,6 +100,20 @@ It also stores:
 - `calculation_inputs`;
 - `computed_at`.
 
+### Serving-derived recalculation
+
+Persisted Serving history is now the authoritative source for DailyNutritionState meal accounting.
+
+Cancelled/replaced MealEvents, skipped/replaced MealParticipants and skipped/replaced Servings are excluded.
+
+A realized Serving contributes consumed values and no longer contributes its old planned values. For a non-realized Serving already in `served` state, served values are preferred over planned values when available. Other included non-realized Servings contribute planned values.
+
+This prevents the same portion from being counted both as consumed and as future planned intake.
+
+When a NutritionTarget is supplied, it must belong to the same Person and be valid on the state date. Nutrient values are converted into the target component unit only through explicit safe conversions. Unsafe required conversions cause recalculation to fail rather than silently undercounting intake.
+
+Detailed aggregation semantics are documented in `docs/domain/daily-nutrition-recalculation.md` and ADR-018.
+
 ### Remaining values may be negative
 
 Remaining energy and nutrient values are allowed to be negative.
@@ -127,14 +145,16 @@ The combination `(daily_nutrition_state_id, target_type, target_key)` is unique.
 
 Consumed and planned values are non-negative. Remaining values may be negative because they describe the distance to a target boundary rather than an amount consumed.
 
+The current recalculation service materializes nutrient components represented by the selected NutritionTarget. A point-only target (`value_target` without minimum/maximum) is represented by equal remaining minimum and maximum values.
+
 ## Relationship to source data
 
-The intended derivation flow is:
+The derivation flow is:
 
 HealthConnection / HealthMeasurement / AnthropometricMeasurement
 -> DailyHealthState
 
-NutritionGoal / NutritionTarget / future MealEvent and Serving records
+NutritionGoal / NutritionTarget + MealEvent / MealParticipant / Serving
 -> DailyNutritionState
 
 Daily state records must not replace those source records.
@@ -160,12 +180,12 @@ This keeps recommendation logic fast while preserving traceability back to autho
 
 Future increments may add:
 
-- explicit state-generation services;
+- automatic target selection policy;
+- adherence and confidence calculations;
 - freshness/staleness policy;
-- richer confidence diagnostics;
-- source-record lineage identifiers;
-- background recomputation;
-- caching or event-driven invalidation;
+- background/event-driven recomputation after meal writes;
+- caching or invalidation;
+- richer source-lineage diagnostics;
 - additional typed health metrics only when they have a justified planning use case.
 
 Those capabilities should preserve the core rule that daily state is derived, versioned and recalculable.
