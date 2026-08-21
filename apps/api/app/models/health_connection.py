@@ -19,6 +19,7 @@ from app.db.base import Base
 from app.models.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
+    from app.models.health_measurement import HealthMeasurement
     from app.models.person import Person
 
 
@@ -79,3 +80,6 @@ class HealthConnection(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     person: Mapped["Person"] = relationship(back_populates="health_connections")
+    health_measurements: Mapped[list["HealthMeasurement"]] = relationship(
+        back_populates="health_connection"
+    )
