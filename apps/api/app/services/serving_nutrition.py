@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 
 from app.models.food_catalog import FoodCompositionSnapshot, RecipeCompositionSnapshot
@@ -17,6 +18,18 @@ _VOLUME_TO_MILLILITERS = {
 }
 
 
+@dataclass(frozen=True)
+class NutrientSnapshot:
+    value: Decimal
+    unit: str
+
+
+@dataclass(frozen=True)
+class NutritionSnapshot:
+    energy_kcal: Decimal | None
+    nutrients: dict[str, NutrientSnapshot]
+
+
 class ServingNutritionCalculationError(ValueError):
     pass
 
@@ -29,7 +42,7 @@ class CatalogReferenceMismatchError(ServingNutritionCalculationError):
     pass
 
 
-def _convert_quantity(value: Decimal, from_unit: str, to_unit: str) -> Decimal:
+def convert_quantity(value: Decimal, from_unit: str, to_unit: str) -> Decimal:
     if from_unit == to_unit:
         return value
 
@@ -50,6 +63,32 @@ def _scale_value(value: Decimal | None, factor: Decimal, quantum: Decimal) -> De
     if value is None:
         return None
     return (value * factor).quantize(quantum, rounding=ROUND_HALF_UP)
+
+
+def scale_composition_nutrition(
+    composition: FoodCompositionSnapshot | RecipeCompositionSnapshot,
+    *,
+    quantity: Decimal,
+    quantity_unit: str,
+) -> NutritionSnapshot:
+    reference_quantity = convert_quantity(
+        quantity,
+        quantity_unit,
+        composition.reference_unit,
+    )
+    factor = reference_quantity / composition.reference_quantity
+
+    return NutritionSnapshot(
+        energy_kcal=_scale_value(composition.energy_kcal, factor, ENERGY_QUANTUM),
+        nutrients={
+            nutrient.nutrient_key: NutrientSnapshot(
+                value=_scale_value(nutrient.value, factor, NUTRIENT_QUANTUM)
+                or Decimal(0),
+                unit=nutrient.unit,
+            )
+            for nutrient in composition.nutrients
+        },
+    )
 
 
 def _same_catalog_object(left: object | None, right: object | None) -> bool:
@@ -117,52 +156,47 @@ def calculate_serving_nutrition(
             "At least one serving quantity is required for catalogue nutrition calculation."
         )
 
-    factors: dict[str, Decimal | None] = {}
-    for stage, quantity in quantities.items():
-        if quantity is None:
-            factors[stage] = None
-            continue
-        reference_quantity = _convert_quantity(
-            quantity,
-            serving.quantity_unit,
-            composition.reference_unit,
+    snapshots = {
+        stage: (
+            scale_composition_nutrition(
+                composition,
+                quantity=quantity,
+                quantity_unit=serving.quantity_unit,
+            )
+            if quantity is not None
+            else None
         )
-        factors[stage] = reference_quantity / composition.reference_quantity
+        for stage, quantity in quantities.items()
+    }
 
     _bind_composition(serving, composition)
 
     serving.energy_planned_kcal = (
-        _scale_value(composition.energy_kcal, factors["planned"], ENERGY_QUANTUM)
-        if factors["planned"] is not None
-        else None
+        snapshots["planned"].energy_kcal if snapshots["planned"] is not None else None
     )
     serving.energy_served_kcal = (
-        _scale_value(composition.energy_kcal, factors["served"], ENERGY_QUANTUM)
-        if factors["served"] is not None
-        else None
+        snapshots["served"].energy_kcal if snapshots["served"] is not None else None
     )
     serving.energy_consumed_kcal = (
-        _scale_value(composition.energy_kcal, factors["consumed"], ENERGY_QUANTUM)
-        if factors["consumed"] is not None
-        else None
+        snapshots["consumed"].energy_kcal if snapshots["consumed"] is not None else None
     )
 
     serving.nutrition_components[:] = [
         ServingNutritionComponent(
             nutrient_key=nutrient.nutrient_key,
             planned_value=(
-                _scale_value(nutrient.value, factors["planned"], NUTRIENT_QUANTUM)
-                if factors["planned"] is not None
+                snapshots["planned"].nutrients[nutrient.nutrient_key].value
+                if snapshots["planned"] is not None
                 else None
             ),
             served_value=(
-                _scale_value(nutrient.value, factors["served"], NUTRIENT_QUANTUM)
-                if factors["served"] is not None
+                snapshots["served"].nutrients[nutrient.nutrient_key].value
+                if snapshots["served"] is not None
                 else None
             ),
             consumed_value=(
-                _scale_value(nutrient.value, factors["consumed"], NUTRIENT_QUANTUM)
-                if factors["consumed"] is not None
+                snapshots["consumed"].nutrients[nutrient.nutrient_key].value
+                if snapshots["consumed"] is not None
                 else None
             ),
             unit=nutrient.unit,
