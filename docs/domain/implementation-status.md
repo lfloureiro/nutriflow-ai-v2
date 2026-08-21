@@ -324,7 +324,7 @@ Detailed semantics: `docs/domain/meal-replacement-idempotency.md` and ADR-022.
 
 ### Persisted practical meal availability
 
-Implemented on the current feature branch:
+Implemented:
 
 - Family-scoped `MealCandidateAvailability` operational records;
 - exactly one FoodItem or Recipe per availability row;
@@ -342,6 +342,29 @@ Implemented on the current feature branch:
 - tests cover source aggregation, delivery-only filtering, explicit unavailability, unknown metadata, Family isolation and unsupported source kinds.
 
 Detailed semantics: `docs/domain/persisted-practical-availability.md` and ADR-023.
+
+### Pantry stock and shopping requirements
+
+Implemented on the current feature branch:
+
+- Family-scoped `PantryStockLot` records for current FoodItem stock;
+- stable Family-scoped stock keys;
+- positive quantity/unit, optional storage location and expiry;
+- explicit observation time, availability state and provenance;
+- timezone-aware `as_of` evaluation with expired lots excluded;
+- safe reuse of the serving-nutrition mass/volume unit conversion policy;
+- explicit failure for unsafe stock/requirement unit comparisons;
+- FoodItem stock assessment with required, available and missing quantities;
+- aggregation of duplicate RecipeIngredient rows before stock comparison;
+- Recipe sufficiency evaluation for positive batch multipliers;
+- deterministic `ShoppingRequirement` calculation for exact missing ingredient quantities;
+- candidate-level pantry profiles for FoodItem and Recipe candidates;
+- Recipe candidate pantry scaling through explicit Recipe yield quantity/unit;
+- Family isolation for Recipe and ingredient catalogue objects;
+- shopping requirements remain calculation results rather than persisted shopping-list rows;
+- tests cover stock aggregation, expiry, shortages, duplicate ingredients, unsafe units, candidate yield scaling and Family isolation.
+
+Detailed semantics: `docs/domain/pantry-stock-shopping-requirements.md` and ADR-024.
 
 ## Current database migration chain
 
@@ -361,24 +384,24 @@ The schema currently progresses through:
 12. Serving composition provenance;
 13. recommendation run/option/feedback history;
 14. MealEvent Family-scoped idempotency key;
-15. Family-scoped meal candidate availability sources.
+15. Family-scoped meal candidate availability sources;
+16. quantity-aware Family pantry stock lots.
 
-Recommendation materialization, DailyNutritionState recalculation, practical-context filtering, shared-family optimization and shared-family materialization use the authoritative meal, schedule, catalogue and derived-state schema. Meal replacement/idempotency adds the write-safety key and persisted practical availability adds operational source state without changing historical Serving or recommendation evidence.
+Recommendation materialization, DailyNutritionState recalculation, practical-context filtering, shared-family optimization and shared-family materialization use the authoritative meal, schedule, catalogue and derived-state schema. Meal replacement/idempotency adds the write-safety key, persisted practical availability adds operational source state, and pantry stock adds quantity/expiry-aware operational inventory without changing historical Serving or recommendation evidence.
 
 Alembic migrations are expected to apply from an empty PostgreSQL database in CI and `alembic check` must report no model/schema drift.
 
 ## Next planned domain increments
 
-Current sequence after persisted practical availability:
+Current sequence after pantry stock and shopping requirements:
 
-1. quantity-aware Family pantry stock, expiry and recipe ingredient sufficiency;
-2. shopping requirements generated from missing pantry quantities;
-3. restaurant/delivery commercial context such as price, opening hours and provider synchronization;
-4. API and UI vertical slices over the completed planning flow;
-5. background/event-driven DailyNutritionState refresh and target-selection policy;
-6. fuller recurrence/calendar override support;
-7. persisted family-level recommendation audit history;
-8. transaction-level idempotency-race handling at the future write API boundary;
-9. learned ranking from feedback only after deterministic hard-rule, practical and nutrition layers remain authoritative.
+1. restaurant/delivery commercial context such as price, opening hours and provider synchronization;
+2. API and UI vertical slices over the completed planning flow;
+3. persisted shopping-list lifecycle when API/UI workflows require durable shopping state;
+4. background/event-driven DailyNutritionState refresh and target-selection policy;
+5. fuller recurrence/calendar override support;
+6. persisted family-level recommendation audit history;
+7. transaction-level idempotency-race handling at the future write API boundary;
+8. learned ranking from feedback only after deterministic hard-rule, practical and nutrition layers remain authoritative.
 
 Each increment must be developed on a focused branch, documented, tested locally with zero warnings, validated by CI and merged only after all checks are green.
