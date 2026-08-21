@@ -80,6 +80,8 @@ The current backend foundation includes:
 - person-scoped HealthConnection records for health-provider integrations;
 - normalized HealthMeasurement records with provenance and cross-path deduplication identity;
 - versioned DailyHealthState and DailyNutritionState snapshots with extensible nutrient progress components;
+- family-scoped MealEvent records with MealParticipant associations;
+- person-specific Serving records with planned, served and consumed quantities and nutrition components;
 - PostgreSQL persistence with Alembic migrations;
 - pytest coverage with warnings treated as errors;
 - Ruff static validation.
