@@ -91,6 +91,7 @@ The current backend foundation includes:
 - materialization of accepted/modified recommendations into normal planned MealEvent, MealParticipant and Serving records using the exact recommendation composition snapshot;
 - deterministic DailyNutritionState recalculation from authoritative Serving history using explicit local-day and target semantics;
 - deterministic recommendation practical-context filtering from ScheduleEntry, location, preparation-window and kitchen availability inputs;
+- fairness-first shared-family meal recommendation with person-specific portions and per-Person hard-rule evaluation;
 - PostgreSQL persistence with Alembic migrations;
 - pytest coverage with warnings treated as errors;
 - Ruff static validation.
