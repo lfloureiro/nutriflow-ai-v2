@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Node / React
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Mobile
+.expo/
+android/.gradle/
+ios/Pods/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Database / local data
+*.sqlite
+*.sqlite3
+*.db
+
+# Secrets / certificates
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Temporary
+tmp/
+temp/
+.cache/
