@@ -214,7 +214,6 @@ Implemented:
 - planned, served and consumed quantities;
 - planned, served and consumed energy;
 - person-specific partial-consumption tracking;
-- generic item keys and source references that can later connect to Food, Recipe, restaurant or external food catalogues;
 - extensible ServingNutritionComponent records for planned, served and consumed nutrient values;
 - database validation for lifecycle values, non-negative quantities/energy, consumed-versus-served quantities and nutrient component uniqueness;
 - persistence and tests using one shared family dinner with different portions and actual intake per Person.
@@ -223,9 +222,32 @@ There is intentionally no separate SharedMeal table. A MealEvent becomes shared 
 
 Detailed semantics are documented in `docs/domain/meal-model.md` and ADR-012.
 
+### Food, ingredient and recipe catalogue
+
+Implemented:
+
+- FoodItem catalogue identities for ingredients, products, dishes, beverages, supplements and generic foods;
+- optional Family ownership for household-specific catalogue records while allowing shared/global records;
+- globally stable catalogue keys, source metadata and soft-active lifecycle state;
+- versioned FoodCompositionSnapshot records with reference quantity/unit, energy and source/version provenance;
+- extensible FoodNutrientComponent records with one nutrient key per composition snapshot;
+- Recipe records with optional Family ownership, stable recipe keys, yield and serving-count metadata;
+- RecipeIngredient records linking recipes to FoodItem quantities with explicit units and ordering;
+- versioned RecipeCompositionSnapshot records with calculation version and calculation-input provenance;
+- extensible RecipeNutrientComponent records;
+- optional Serving foreign keys to either FoodItem or Recipe, never both at the same time;
+- `ON DELETE SET NULL` catalogue references so Serving history survives catalogue cleanup;
+- retention of Serving item-name/key and nutrition snapshots so later catalogue corrections do not rewrite historical intake;
+- database validation for positive reference/yield/ingredient values, catalogue kinds, version uniqueness and nutrient uniqueness;
+- persistence tests covering multiple Food composition versions, recipe ingredients, derived recipe composition and a Serving linked to the Recipe.
+
+Food and recipe composition is versioned deliberately. Catalogue updates create new composition snapshots instead of overwriting the basis of earlier plans or meals.
+
+Detailed semantics are documented in `docs/domain/food-catalog-model.md` and ADR-013.
+
 ## Current database migration chain
 
-The implemented schema includes migrations through MealEvent, MealParticipant, Serving and ServingNutritionComponent, following Family/Person, profile/anthropometric history, nutrition goals, nutrition constraints, food preferences/adverse reactions, schedules, NutritionTarget, HealthConnection, HealthMeasurement and the daily-state models.
+The implemented schema includes migrations through FoodItem, FoodCompositionSnapshot, FoodNutrientComponent, Recipe, RecipeIngredient, RecipeCompositionSnapshot and RecipeNutrientComponent, following the Family/Person, profile/anthropometric history, nutrition goals, nutrition constraints, food preferences/adverse reactions, schedules, NutritionTarget, HealthConnection, HealthMeasurement, daily-state and meal/serving migrations.
 
 Alembic migrations are expected to be applied from an empty PostgreSQL database in CI and checked for model/schema drift.
 
@@ -233,11 +255,11 @@ Alembic migrations are expected to be applied from an empty PostgreSQL database 
 
 Current sequence after the implemented foundation:
 
-1. Food / Ingredient / Recipe catalogue and nutrition composition;
-2. serving-nutrition calculation from catalogue composition;
-3. adaptive meal planning and recommendation services;
-4. restaurant and delivery meal sources;
-5. pantry and shopping integration;
-6. API and UI vertical slices over the completed planning flow.
+1. serving-nutrition calculation from catalogue composition, including explicit unit conversion;
+2. adaptive meal planning and recommendation services;
+3. restaurant and delivery meal sources;
+4. pantry and shopping integration;
+5. API and UI vertical slices over the completed planning flow;
+6. multilingual catalogue presentation and richer food metadata.
 
 This list is directional. Each increment must be designed, documented, tested locally and validated in CI before integration into `main`.
