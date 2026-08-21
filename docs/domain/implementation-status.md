@@ -175,7 +175,7 @@ Detailed semantics: `docs/domain/adaptive-meal-recommendation.md` and ADR-015.
 
 ### Recommendation history and feedback
 
-Implemented on the current feature branch:
+Implemented:
 
 - person-scoped MealRecommendationRun records for one recommendation execution;
 - optional link to the DailyNutritionState used as context;
@@ -198,6 +198,25 @@ Feedback is designed as a future learning signal only. It cannot make a candidat
 
 Detailed semantics: `docs/domain/recommendation-feedback-model.md` and ADR-016.
 
+### Recommendation to planned meal materialization
+
+Implemented on the current feature branch:
+
+- accepted or modified eligible MealRecommendationOption records can be materialized into normal MealEvent, MealParticipant and Serving records;
+- MealEvent, MealParticipant and Serving are created in `planned` state only;
+- scheduled timestamps must be timezone-aware and the MealEvent stores explicit timezone context;
+- accepted recommendations preserve the exact recommended quantity and unit;
+- quantity/unit changes require the feedback action to be `modified`;
+- the exact persisted FoodCompositionSnapshot or RecipeCompositionSnapshot used by the recommendation is reused for Serving nutrition calculation;
+- planned Serving energy and nutrients are recalculated through the existing serving-nutrition service rather than copied blindly from JSON;
+- the generated feedback event directly references the resulting Serving;
+- ineligible or rejected recommendation options cannot create planned meals through this service;
+- tests cover accepted materialization, modified-quantity recalculation and protection against quantity changes being recorded as accepted.
+
+This keeps recommendation history as decision/audit data while MealEvent/Serving remain authoritative planning records.
+
+Detailed semantics: `docs/domain/recommendation-to-meal-plan.md` and ADR-017.
+
 ## Current database migration chain
 
 The schema currently progresses through:
@@ -216,15 +235,17 @@ The schema currently progresses through:
 12. Serving composition provenance;
 13. recommendation run/option/feedback history.
 
+This recommendation-materialization increment does not add database tables. It creates normal authoritative meal records using the existing schema.
+
 Alembic migrations are expected to apply from an empty PostgreSQL database in CI and `alembic check` must report no model/schema drift.
 
 ## Next planned domain increments
 
-Current sequence after recommendation feedback persistence:
+Current sequence after recommendation-to-meal materialization:
 
-1. turn accepted/modified recommendations into planned MealEvent/MealParticipant/Serving records;
-2. automatic DailyNutritionState recalculation from authoritative Serving history;
-3. schedule/practical-context filtering and shared-family meal optimization;
+1. automatic DailyNutritionState recalculation from authoritative Serving history;
+2. schedule/practical-context filtering and shared-family meal optimization;
+3. replacement/idempotency semantics for later edits and API retries;
 4. restaurant/delivery, pantry and shopping context;
 5. API and UI vertical slices over the completed planning flow;
 6. learned ranking from feedback only after deterministic hard-rule and nutrition layers remain authoritative.
