@@ -141,7 +141,7 @@ Detailed semantics: `docs/domain/food-catalog-model.md` and ADR-013.
 
 ### Serving nutrition calculation
 
-Implemented on the current feature branch:
+Implemented:
 
 - calculation of planned, served and consumed Serving energy from an explicitly selected FoodCompositionSnapshot or RecipeCompositionSnapshot;
 - scaling of all nutrient components from the same versioned composition;
@@ -154,9 +154,32 @@ Implemented on the current feature branch:
 - persisted composition-snapshot provenance on Serving;
 - persisted `nutrition_calculation_version`;
 - recalculation replacing stale materialized nutrient components only when explicitly requested;
+- reusable composition scaling for recommendation logic;
 - tests for scaling, unit conversion safety and catalogue mismatch rejection.
 
 Detailed semantics: `docs/domain/serving-nutrition-calculation.md` and ADR-014.
+
+### Adaptive meal recommendation foundation
+
+Implemented on the current feature branch:
+
+- deterministic person-scoped ranking of FoodItem and Recipe candidates;
+- candidate nutrition generated from the same versioned composition-scaling logic used by Serving calculation;
+- ingredient-aware Recipe subject expansion so ingredient-level safety rules apply before ranking;
+- active-date handling for preferences, adverse reactions and constraints;
+- mandatory adverse-reaction exclusion before scoring;
+- mandatory food/ingredient/recipe exclusions before scoring;
+- mandatory nutrient-maximum checks against consumed + already-planned + candidate nutrition;
+- fail-closed behaviour for unsupported mandatory constraints or unsafe required unit conversions;
+- explainable energy-fit and nutrient-deficit scoring;
+- user like/dislike scoring and advisory adverse-reaction penalties;
+- deterministic rank ordering and explicit score breakdowns/exclusion reasons;
+- engine-version identifier for future scoring evolution;
+- tests proving allergies cannot be overridden by ranking, nutrient maxima exclude candidates, preferences/nutrient deficits affect rank and unknown mandatory rules stop recommendation.
+
+The engine does not yet persist recommendation decisions, create MealEvents automatically, perform multi-person family optimization or use ML.
+
+Detailed semantics: `docs/domain/adaptive-meal-recommendation.md` and ADR-015.
 
 ## Current database migration chain
 
@@ -175,17 +198,20 @@ The schema currently progresses through:
 11. Food/Recipe catalogue composition;
 12. Serving composition provenance.
 
+This recommendation increment does not add database tables. It consumes the existing authoritative and derived domain records.
+
 Alembic migrations are expected to apply from an empty PostgreSQL database in CI and `alembic check` must report no model/schema drift.
 
 ## Next planned domain increments
 
-Current sequence after the serving-nutrition calculation layer:
+Current sequence after the deterministic recommendation foundation:
 
-1. adaptive meal planning and recommendation services;
-2. automatic DailyNutritionState recalculation from authoritative Serving history;
-3. restaurant and delivery meal sources;
-4. pantry and shopping integration;
-5. API and UI vertical slices over the completed planning flow;
-6. richer catalogue metadata, multilingual presentation and explicit household-unit/density conversions.
+1. persist recommendation decisions and accept/reject/modify feedback;
+2. turn accepted recommendations into planned MealEvent/Serving records;
+3. automatic DailyNutritionState recalculation from authoritative Serving history;
+4. schedule/practical-context filtering and shared-family meal optimization;
+5. restaurant/delivery, pantry and shopping context;
+6. API and UI vertical slices over the completed planning flow;
+7. learned ranking only after deterministic hard-rule and nutrition layers remain authoritative.
 
 Each increment must be developed on a focused branch, documented, tested locally with zero warnings, validated by CI and merged only after all checks are green.
