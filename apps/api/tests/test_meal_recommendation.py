@@ -1,4 +1,4 @@
-from datetime import date, datetime, UTC
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pytest
@@ -12,7 +12,6 @@ from app.models.food_catalog import (
     Recipe,
     RecipeCompositionSnapshot,
     RecipeIngredient,
-    RecipeNutrientComponent,
 )
 from app.models.food_preference import FoodPreference
 from app.models.nutrition_constraint import NutritionConstraint
@@ -265,7 +264,9 @@ def test_mandatory_daily_nutrient_max_excludes_candidate() -> None:
 
     assert result.eligible[0].candidate.key == "food:salad"
     excluded = next(
-        evaluation for evaluation in result.evaluations if evaluation.candidate.key == "food:soup"
+        evaluation
+        for evaluation in result.evaluations
+        if evaluation.candidate.key == "food:soup"
     )
     assert excluded.exclusion_reasons == ("mandatory_nutrient_max:sodium",)
 
