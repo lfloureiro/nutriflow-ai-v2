@@ -21,6 +21,11 @@ from app.models.nutrition_goal import NutritionGoal
 from app.models.nutrition_target import NutritionTarget, NutritionTargetComponent
 from app.models.person import Person
 from app.models.person_profile import PersonProfile
+from app.models.recommendation_feedback import (
+    MealRecommendationFeedback,
+    MealRecommendationOption,
+    MealRecommendationRun,
+)
 from app.models.schedule_entry import ScheduleEntry
 
 __all__ = [
@@ -38,6 +43,9 @@ __all__ = [
     "HealthMeasurement",
     "MealEvent",
     "MealParticipant",
+    "MealRecommendationFeedback",
+    "MealRecommendationOption",
+    "MealRecommendationRun",
     "NutritionConstraint",
     "NutritionGoal",
     "NutritionTarget",
