@@ -196,7 +196,7 @@ def _clone_serving(serving: Serving, participant: MealParticipant) -> Serving:
 def _clone_planned_content(source: MealEvent, replacement: MealEvent) -> None:
     for source_participant in source.participants:
         replacement_participant = MealParticipant(
-            person=source_participant.person,
+            person_id=source_participant.person_id,
             status="planned",
             notes=source_participant.notes,
         )
