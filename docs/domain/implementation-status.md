@@ -182,7 +182,7 @@ Implemented:
 - engine version, planning date, optional meal type and JSON context;
 - MealRecommendationOption snapshots for every eligible and excluded candidate;
 - persisted candidate identity, quantity, subjects and exact nutrition snapshot;
-- persisted eligibility, rank, score breakdown, exclusion reasons and explanations;
+- persisted eligibility, rank, score breakdowns, exclusion reasons and explanations;
 - optional traceability links to FoodItem/Recipe and exact composition snapshots;
 - catalogue/composition links use `ON DELETE SET NULL` while historical snapshots remain intact;
 - append-only MealRecommendationFeedback events;
@@ -284,7 +284,7 @@ Detailed semantics: `docs/domain/shared-family-meal-optimization.md` and ADR-020
 
 ### Shared-family meal materialization
 
-Implemented on the current feature branch:
+Implemented:
 
 - an accepted eligible shared-family recommendation materializes into exactly one planned MealEvent;
 - every recommended Person receives one planned MealParticipant and one planned Serving;
@@ -296,10 +296,31 @@ Implemented on the current feature branch:
 - participant candidate identity and portion values must match the selected family recommendation;
 - ineligible family candidates or ineligible participant evaluations cannot be materialized;
 - generated MealEvent and Serving records retain recommendation provenance;
-- no new SharedMeal table or database migration is introduced;
+- no new SharedMeal table is introduced;
 - tests cover one-event/multi-participant materialization, person-specific nutrition, ineligible-candidate rejection, timezone validation and persisted-composition requirements.
 
 Detailed semantics: `docs/domain/shared-family-meal-materialization.md` and ADR-021.
+
+### Meal replacement and idempotency
+
+Implemented on the current feature branch:
+
+- optional MealEvent `idempotency_key` scoped uniquely by Family;
+- database-level duplicate prevention for non-null Family/idempotency-key pairs;
+- application-level idempotent create that returns the existing MealEvent for an identical retry;
+- explicit conflict when one idempotency key is reused with a different request payload;
+- complete timezone/source/input validation for idempotent MealEvent creation;
+- planned-meal replacement creates a new MealEvent linked through `replaces_meal_event_id`;
+- original MealEvent history is preserved and marked `replaced`;
+- person-specific MealParticipants, planned Servings and planned nutrient snapshots are cloned into the replacement;
+- Food/Recipe and exact composition-snapshot links are preserved in cloned Servings;
+- served/consumed values are never copied into replacement plans;
+- replacement is rejected after any participant/Serving becomes realized or the event is served/completed;
+- replacement retries with the same key/specification return the same replacement rather than cloning again;
+- an already-replaced event cannot be replaced again through a different request in this service;
+- tests cover idempotent retry, payload conflict, replacement cloning, replacement retry, replacement-chain rejection and served-event rejection.
+
+Detailed semantics: `docs/domain/meal-replacement-idempotency.md` and ADR-022.
 
 ## Current database migration chain
 
@@ -317,22 +338,23 @@ The schema currently progresses through:
 10. MealEvent/MealParticipant/Serving;
 11. Food/Recipe catalogue composition;
 12. Serving composition provenance;
-13. recommendation run/option/feedback history.
+13. recommendation run/option/feedback history;
+14. MealEvent Family-scoped idempotency key.
 
-Recommendation materialization, DailyNutritionState recalculation, practical-context filtering, shared-family optimization and shared-family materialization do not add database tables. They operate on the existing authoritative meal, schedule, catalogue and derived-state schema.
+Recommendation materialization, DailyNutritionState recalculation, practical-context filtering, shared-family optimization and shared-family materialization use the authoritative meal, schedule, catalogue and derived-state schema. Meal replacement/idempotency adds only the MealEvent idempotency key and integrity constraints needed for safe writes.
 
 Alembic migrations are expected to apply from an empty PostgreSQL database in CI and `alembic check` must report no model/schema drift.
 
 ## Next planned domain increments
 
-Current sequence after shared-family meal materialization:
+Current sequence after MealEvent replacement/idempotency:
 
-1. replacement/idempotency semantics for later edits and API retries;
-2. restaurant/delivery, pantry and shopping context plus stable persisted practical metadata;
-3. API and UI vertical slices over the completed planning flow;
-4. background/event-driven DailyNutritionState refresh and target-selection policy;
-5. fuller recurrence/calendar override support;
-6. persisted family-level recommendation audit history;
+1. restaurant/delivery, pantry and shopping context plus stable persisted practical metadata;
+2. API and UI vertical slices over the completed planning flow;
+3. background/event-driven DailyNutritionState refresh and target-selection policy;
+4. fuller recurrence/calendar override support;
+5. persisted family-level recommendation audit history;
+6. transaction-level idempotency-race handling at the future write API boundary;
 7. learned ranking from feedback only after deterministic hard-rule, practical and nutrition layers remain authoritative.
 
 Each increment must be developed on a focused branch, documented, tested locally with zero warnings, validated by CI and merged only after all checks are green.
