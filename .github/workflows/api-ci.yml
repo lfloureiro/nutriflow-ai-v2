@@ -1,0 +1,64 @@
+name: API CI
+
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-api:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: nutriflow
+          POSTGRES_USER: nutriflow
+          POSTGRES_PASSWORD: nutriflow_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nutriflow -d nutriflow"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+psycopg://nutriflow:nutriflow_dev@localhost:5432/nutriflow
+      APP_ENV: test
+      APP_DEBUG: "false"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: apps/api/pyproject.toml
+
+      - name: Install API dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "./apps/api[dev]"
+
+      - name: Apply database migrations
+        run: python -m alembic upgrade head
+
+      - name: Verify migration metadata
+        run: python -m alembic check
+
+      - name: Run API tests
+        working-directory: apps/api
+        run: python -m pytest -q

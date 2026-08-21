@@ -64,7 +64,34 @@ docs/
 tests/
 tools/
 
-## Status
+## Current implementation status
 
-Initial architecture and product definition.
+The current backend foundation includes:
 
+- Family and Person;
+- PersonProfile;
+- historical anthropometric measurements;
+- NutritionGoal history;
+- NutritionConstraint rules and provenance;
+- FoodPreference records;
+- FoodAdverseReaction records for allergies and intolerances;
+- PostgreSQL persistence with Alembic migrations;
+- pytest coverage with warnings treated as errors.
+
+Detailed domain status is maintained in `docs/domain/implementation-status.md`.
+
+## Development workflow
+
+Changes are developed on focused branches rather than directly on `main`.
+
+Before a branch is integrated it must:
+
+- update relevant documentation;
+- include or update tests;
+- validate migrations locally when the database changes;
+- pass the complete local test suite with zero warnings;
+- pass CI verification.
+
+The workflow decision is documented in `docs/decisions/ADR-007-development-workflow-and-ci.md`.
+
+GitHub Actions runs the API test suite against PostgreSQL and verifies that the Alembic migration chain is current.
