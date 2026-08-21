@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
@@ -34,7 +34,7 @@ def test_person_profile_and_anthropometric_history(db_session: Session) -> None:
         metric="weight",
         value=Decimal("102.4000"),
         unit="kg",
-        measured_at=datetime(2026, 8, 21, 8, 0, tzinfo=timezone.utc),
+        measured_at=datetime(2026, 8, 21, 8, 0, tzinfo=UTC),
     )
 
     older_weight = AnthropometricMeasurement(
@@ -42,7 +42,7 @@ def test_person_profile_and_anthropometric_history(db_session: Session) -> None:
         metric="weight",
         value=Decimal("103.0000"),
         unit="kg",
-        measured_at=datetime(2026, 8, 14, 8, 0, tzinfo=timezone.utc),
+        measured_at=datetime(2026, 8, 14, 8, 0, tzinfo=UTC),
     )
 
     db_session.add(person)
@@ -67,11 +67,7 @@ def test_person_profile_and_anthropometric_history(db_session: Session) -> None:
     assert len(measurements) == 2
 
     assert measurements[0].value == Decimal("103.0000")
-    assert measurements[0].measured_at == datetime(
-        2026, 8, 14, 8, 0, tzinfo=timezone.utc
-    )
+    assert measurements[0].measured_at == datetime(2026, 8, 14, 8, 0, tzinfo=UTC)
 
     assert measurements[1].value == Decimal("102.4000")
-    assert measurements[1].measured_at == datetime(
-        2026, 8, 21, 8, 0, tzinfo=timezone.utc
-    )
+    assert measurements[1].measured_at == datetime(2026, 8, 21, 8, 0, tzinfo=UTC)
