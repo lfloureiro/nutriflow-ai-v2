@@ -4,11 +4,11 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
-    JSON,
     CheckConstraint,
     Date,
     ForeignKey,
     Index,
+    JSON,
     Numeric,
     String,
     Text,
@@ -122,6 +122,14 @@ class NutritionTargetComponent(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         CheckConstraint(
             "value_min IS NULL OR value_max IS NULL OR value_max >= value_min",
             name="ck_nutrition_target_components_value_range_valid",
+        ),
+        CheckConstraint(
+            "value_target IS NULL OR value_min IS NULL OR value_target >= value_min",
+            name="ck_nutrition_target_components_target_above_min",
+        ),
+        CheckConstraint(
+            "value_target IS NULL OR value_max IS NULL OR value_target <= value_max",
+            name="ck_nutrition_target_components_target_below_max",
         ),
         CheckConstraint(
             "value_min IS NOT NULL OR value_max IS NOT NULL OR value_target IS NOT NULL",
