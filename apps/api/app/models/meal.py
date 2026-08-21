@@ -21,6 +21,7 @@ from app.models.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from app.models.family import Family
+    from app.models.food_catalog import FoodItem, Recipe
     from app.models.person import Person
 
 
@@ -176,6 +177,10 @@ class Serving(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             "OR quantity_unit IS NOT NULL",
             name="ck_servings_quantity_unit_present",
         ),
+        CheckConstraint(
+            "food_item_id IS NULL OR recipe_id IS NULL",
+            name="ck_servings_single_catalog_reference",
+        ),
         Index(
             "ix_servings_participant_status",
             "meal_participant_id",
@@ -186,12 +191,24 @@ class Serving(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             "item_type",
             "item_key",
         ),
+        Index("ix_servings_food_item", "food_item_id"),
+        Index("ix_servings_recipe", "recipe_id"),
     )
 
     meal_participant_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("meal_participants.id", ondelete="CASCADE"),
         nullable=False,
+    )
+    food_item_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("food_items.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    recipe_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("recipes.id", ondelete="SET NULL"),
+        nullable=True,
     )
 
     item_type: Mapped[str] = mapped_column(String(32), nullable=False, default="dish")
@@ -219,6 +236,8 @@ class Serving(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     meal_participant: Mapped[MealParticipant] = relationship(back_populates="servings")
+    food_item: Mapped["FoodItem | None"] = relationship()
+    recipe: Mapped["Recipe | None"] = relationship()
     nutrition_components: Mapped[list["ServingNutritionComponent"]] = relationship(
         back_populates="serving",
         cascade="all, delete-orphan",
