@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from decimal import Decimal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.models.daily_nutrition_state import DailyNutritionState
