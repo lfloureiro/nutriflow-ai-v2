@@ -105,12 +105,12 @@ def _parse_recurrence_rule(rule: str) -> dict[str, str]:
             "Practical planning currently supports only recurrence INTERVAL=1."
         )
 
-    if "BYDAY" in fields:
-        weekdays = fields["BYDAY"].split(",")
-        if not weekdays or any(weekday not in _WEEKDAYS for weekday in weekdays):
-            raise UnsupportedRecurrenceRuleError(
-                "Recurrence BYDAY contains an unsupported weekday value."
-            )
+    byday = fields.get("BYDAY")
+    weekdays = byday.split(",") if byday is not None else []
+    if byday is not None and (not weekdays or any(day not in _WEEKDAYS for day in weekdays)):
+        raise UnsupportedRecurrenceRuleError(
+            "Recurrence BYDAY contains an unsupported weekday value."
+        )
 
     return fields
 
@@ -125,15 +125,12 @@ def _recurs_on(entry: ScheduleEntry, occurrence_date: date) -> bool:
 
     fields = _parse_recurrence_rule(entry.recurrence_rule)
     frequency = fields["FREQ"]
-    if "BYDAY" in fields:
-        weekdays = {_WEEKDAYS[value] for value in fields["BYDAY"].split(",")}
-        if occurrence_date.weekday() not in weekdays:
-            return False
+    byday = fields.get("BYDAY")
+    weekdays = {_WEEKDAYS[value] for value in byday.split(",")} if byday is not None else None
+    if weekdays is not None and occurrence_date.weekday() not in weekdays:
+        return False
 
-    if frequency == "DAILY":
-        return True
-
-    if "BYDAY" in fields:
+    if frequency == "DAILY" or weekdays is not None:
         return True
     return occurrence_date.weekday() == entry.valid_from.weekday()
 
@@ -199,15 +196,17 @@ def evaluate_schedule_context(context: PracticalMealContext) -> ScheduleContextE
     recurring_effects = [entry for entry in recurring if entry.availability_effect != "neutral"]
     effective_entries = one_off_effects if one_off_effects else recurring_effects
 
+    is_unavailable = any(
+        entry.availability_effect == "unavailable" for entry in effective_entries
+    )
+    is_explicitly_available = any(
+        entry.availability_effect in {"available", "preferred"} for entry in effective_entries
+    )
     is_available: bool | None = None
-    if effective_entries:
-        if any(entry.availability_effect == "unavailable" for entry in effective_entries):
-            is_available = False
-        elif any(
-            entry.availability_effect in {"available", "preferred"}
-            for entry in effective_entries
-        ):
-            is_available = True
+    if is_unavailable:
+        is_available = False
+    elif is_explicitly_available:
+        is_available = True
 
     is_preferred = is_available is not False and any(
         entry.availability_effect == "preferred" for entry in effective_entries
@@ -254,7 +253,6 @@ def _resolved_location(
 
 
 def _practical_exclusions(
-    candidate: MealCandidate,
     profile: CandidatePracticalProfile | None,
     context: PracticalMealContext,
     schedule: ScheduleContextEvaluation,
@@ -322,7 +320,6 @@ def recommend_meals_with_practical_context(
     practical_candidates: list[MealCandidate] = []
     for candidate in candidates:
         exclusions = _practical_exclusions(
-            candidate,
             profiles.get(candidate.key),
             practical_context,
             schedule,
