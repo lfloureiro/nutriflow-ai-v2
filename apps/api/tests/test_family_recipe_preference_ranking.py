@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.food_catalog import Recipe, RecipeCompositionSnapshot
+from app.models.nutrition_constraint import NutritionConstraint
 from app.services.meal_recommendation import build_recipe_candidate
 from app.services.recommendation_practical_context import (
     PracticalMealContext,
@@ -66,7 +67,6 @@ def test_family_rating_does_not_restore_mandatory_exclusion() -> None:
         energy_planned_kcal=Decimal(0),
         calculation_version="test",
     )
-    from app.models.nutrition_constraint import NutritionConstraint
 
     result = recommend_meals_with_practical_context(
         daily_state=state,
