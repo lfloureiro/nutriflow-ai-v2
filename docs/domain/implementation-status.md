@@ -10,8 +10,7 @@ The following capabilities are integrated in `main`.
 
 - Family aggregate root and Person membership;
 - locale/timezone support;
-- PersonProfile;
-- anthropometric measurement history;
+- PersonProfile and anthropometric history;
 - initial Family/Person API routes and services.
 
 ### Goals, constraints, preferences and reactions
@@ -20,7 +19,7 @@ The following capabilities are integrated in `main`.
 - NutritionConstraint minimum/maximum/exclusion semantics;
 - mandatory versus advisory rules with provenance and validity;
 - FoodPreference likes/dislikes;
-- FoodAdverseReaction allergy/intolerance semantics.
+- FoodAdverseReaction allergy/intolerance safety semantics.
 
 Preferences are ranking signals. Mandatory constraints and reactions are eligibility rules.
 
@@ -101,13 +100,15 @@ Detailed semantics: `docs/domain/serving-nutrition-calculation.md`, ADR-014.
 - Recipe ingredient subject expansion;
 - active-date preferences/reactions/constraints;
 - mandatory adverse-reaction and food/ingredient/recipe exclusion;
-- mandatory nutrient maximum checks;
-- fail-closed unsupported mandatory semantics and unsafe required unit conversion;
+- mandatory nutrient maximum checks against consumed + planned + candidate values;
+- missing candidate nutrient data under a mandatory maximum fails closed as `mandatory_nutrient_data_missing:<nutrient_key>`;
+- explicit zero remains valid nutrient evidence;
+- unsupported mandatory semantics and unsafe required conversions fail closed;
 - explainable energy, nutrient, preference and advisory-reaction scoring;
 - deterministic ordering and engine versioning;
 - learned ranking excluded from eligibility.
 
-Detailed semantics: `docs/domain/adaptive-meal-recommendation.md`, ADR-015.
+Detailed semantics: `docs/domain/adaptive-meal-recommendation.md`, ADR-015 and ADR-026.
 
 ### Recommendation history, feedback and materialization
 
@@ -163,7 +164,6 @@ Integrated by PR #20.
 - MealSourceOpeningWindow linked to MealCandidateAvailability;
 - weekly local opening windows with explicit timezone;
 - same-day, overnight and full-day semantics;
-- optional local-date validity ranges;
 - absent opening windows mean unknown hours, not closed;
 - MealCommercialOffer linked to a concrete practical source;
 - Family-scoped offer identity and provider metadata;
@@ -176,14 +176,14 @@ Integrated by PR #20.
 
 Detailed semantics: `docs/domain/restaurant-delivery-commercial-context.md`, ADR-025.
 
-## Current feature branch: mandatory nutrient data safety
+## Current feature branch: planning API vertical slice
 
-Branch: `fix/fail-closed-missing-mandatory-nutrient`.
+Branch: `feature/planning-api-vertical-slice`.
 
 Merge base / current integrated `main`:
 
 ```text
-4f7c56a1c609665fb6c06168df96fdc3e977bf26
+09ca2f235d770b87f128dc8448fe9768b2801ad2
 ```
 
 Schema head remains:
@@ -196,21 +196,29 @@ This branch has no schema change.
 
 Implemented on the branch:
 
-- an active mandatory nutrient maximum now requires an explicit candidate nutrient value;
-- absence of the constrained nutrient is no longer treated as zero contribution;
-- the candidate fails closed as `mandatory_nutrient_data_missing:<nutrient_key>`;
-- explicit zero remains valid measured data and is evaluated normally;
-- the failure is candidate-scoped, so other candidates with complete data continue through ranking;
-- unsupported mandatory semantics and unsafe required conversions retain their existing fail-closed behaviour;
-- one focused regression test distinguishes missing data from known zero;
-- ADR-026 records the safety policy.
+- `POST /api/persons/{person_id}/meal-recommendations`;
+- explicit persisted DailyNutritionState selection;
+- planning date must match the state date;
+- explicit FoodCompositionSnapshot/RecipeCompositionSnapshot IDs per candidate;
+- positive requested candidate quantity and explicit unit;
+- server-side candidate nutrition calculation using established scaling rules;
+- persisted Person preferences, adverse reactions and constraints loaded automatically;
+- Person/state ownership checks;
+- Family isolation for FoodItem, Recipe and Recipe ingredient catalogue objects;
+- inactive catalogue candidate rejection;
+- duplicate catalogue candidate-key rejection;
+- unsafe quantity scaling mapped to semantic API validation failure;
+- successful request persists one MealRecommendationRun and all eligible/excluded MealRecommendationOption rows;
+- response exposes persisted run/option IDs, ranks, scores, exclusions, explanations and exact candidate nutrition;
+- explicit composition IDs are recorded in persisted recommendation context;
+- six API integration tests cover success/persistence and the main boundary failures.
 
-Detailed semantics: `docs/domain/adaptive-meal-recommendation.md`, ADR-026.
+Detailed semantics: `docs/domain/planning-api-vertical-slice.md`, ADR-027.
 
 Expected complete local test suite after this branch:
 
 ```text
-72 tests
+78 tests
 ```
 
 ## Safety and correctness invariants
@@ -223,6 +231,7 @@ Future work must preserve:
 - unsupported mandatory semantics and unsafe required conversions fail closed;
 - no inferred density;
 - exact versioned composition provenance for Serving/recommendation decisions;
+- recommendation API inputs reference persisted source snapshots rather than client-authored nutrition totals;
 - DailyNutritionState remains derived from authoritative meal history;
 - Family-scoped data cannot leak across Families;
 - shared meals retain person-specific portions and safety checks;
@@ -250,16 +259,17 @@ Earlier revisions remain authoritative in `database/migrations/versions/`.
 
 ## Next planned increments
 
-After the current safety branch is locally green, PR-tested and merged:
+After the current recommendation API branch is locally green, PR-tested and merged:
 
-1. API and UI vertical slices over the deterministic planning flow;
-2. persisted shopping-list lifecycle when UI/API workflows require durable shopping state;
-3. background/event-driven DailyNutritionState refresh and explicit target-selection policy;
-4. fuller recurrence/calendar override support;
-5. persisted family-level recommendation audit history;
-6. transaction-level idempotency-race handling at the write API boundary;
-7. provider connectors/live freshness policy, basket/order lifecycle and commercial optimization;
-8. explicit policy for missing historical nutrient state under mandatory maxima if needed;
-9. learned ranking from feedback only after deterministic safety, practical and nutrition layers remain authoritative.
+1. recommendation feedback and accepted-option materialization API endpoints;
+2. practical schedule/source/pantry/commercial recommendation orchestration API;
+3. first responsive web UI vertical slice;
+4. persisted shopping-list lifecycle when UI/API workflows require durable shopping state;
+5. background/event-driven DailyNutritionState refresh and explicit target-selection policy;
+6. fuller recurrence/calendar override support;
+7. persisted family-level recommendation audit history;
+8. transaction-level idempotency-race handling at the write API boundary;
+9. provider connectors/live freshness policy, basket/order lifecycle and commercial optimization;
+10. learned ranking from feedback only after deterministic safety, practical and nutrition layers remain authoritative.
 
 Every increment follows ADR-007: focused branch, code/migration/tests/docs together, local PostgreSQL validation, zero-warning Ruff/pytest, PR only after local green, CI on the exact PR head SHA, guarded squash merge, verify resulting `main`, then start the next branch.
