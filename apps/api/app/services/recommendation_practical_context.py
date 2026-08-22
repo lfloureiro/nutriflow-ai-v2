@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from decimal import ROUND_HALF_UP, Decimal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.models.daily_nutrition_state import DailyNutritionState
@@ -24,6 +25,9 @@ _WEEKDAYS = {
     "SU": 6,
 }
 _SUPPORTED_RULE_KEYS = frozenset({"FREQ", "BYDAY", "INTERVAL"})
+_FAMILY_PREFERENCE_WEIGHT = Decimal("0.5")
+_SCORE_QUANTUM = Decimal("0.0001")
+_ZERO = Decimal(0)
 
 
 class PracticalRecommendationError(ValueError):
@@ -305,6 +309,88 @@ def _practical_explanations(
     return tuple(explanations)
 
 
+def _family_preference_score(
+    candidate: MealCandidate,
+    family_recipe_ratings: dict[str, Decimal],
+) -> tuple[Decimal, str | None]:
+    if candidate.recipe is None:
+        return _ZERO, None
+    average = family_recipe_ratings.get(candidate.key)
+    if average is None:
+        return _ZERO, None
+    normalized = (average - Decimal(3)) / Decimal(2)
+    score = normalized * _FAMILY_PREFERENCE_WEIGHT
+    return score, f"family_rating:recipe:{candidate.key}:{average.quantize(Decimal('0.01'))}"
+
+
+def _rerank_with_family_preferences(
+    result: RecommendationResult,
+    family_recipe_ratings: dict[str, Decimal],
+    practical_explanations: tuple[str, ...],
+) -> list[CandidateEvaluation]:
+    adjusted: list[CandidateEvaluation] = []
+    for evaluation in result.evaluations:
+        if not evaluation.eligible:
+            adjusted.append(
+                CandidateEvaluation(
+                    candidate=evaluation.candidate,
+                    eligible=False,
+                    rank=None,
+                    score=None,
+                    score_breakdown=evaluation.score_breakdown,
+                    exclusion_reasons=evaluation.exclusion_reasons,
+                    explanation=evaluation.explanation + practical_explanations,
+                )
+            )
+            continue
+
+        family_score, family_reason = _family_preference_score(
+            evaluation.candidate,
+            family_recipe_ratings,
+        )
+        breakdown = dict(evaluation.score_breakdown)
+        breakdown["family_preferences"] = family_score
+        score = ((evaluation.score or _ZERO) + family_score).quantize(
+            _SCORE_QUANTUM,
+            rounding=ROUND_HALF_UP,
+        )
+        explanation = evaluation.explanation
+        if family_reason is not None:
+            explanation += (family_reason,)
+        adjusted.append(
+            CandidateEvaluation(
+                candidate=evaluation.candidate,
+                eligible=True,
+                rank=None,
+                score=score,
+                score_breakdown=breakdown,
+                exclusion_reasons=(),
+                explanation=explanation + practical_explanations,
+            )
+        )
+
+    eligible = sorted(
+        (evaluation for evaluation in adjusted if evaluation.eligible),
+        key=lambda evaluation: (-(evaluation.score or _ZERO), evaluation.candidate.key),
+    )
+    ranks = {
+        evaluation.candidate.key: rank
+        for rank, evaluation in enumerate(eligible, start=1)
+    }
+    return [
+        CandidateEvaluation(
+            candidate=evaluation.candidate,
+            eligible=evaluation.eligible,
+            rank=ranks.get(evaluation.candidate.key),
+            score=evaluation.score,
+            score_breakdown=evaluation.score_breakdown,
+            exclusion_reasons=evaluation.exclusion_reasons,
+            explanation=evaluation.explanation,
+        )
+        for evaluation in adjusted
+    ]
+
+
 def recommend_meals_with_practical_context(
     *,
     daily_state: DailyNutritionState,
@@ -315,6 +401,7 @@ def recommend_meals_with_practical_context(
     planning_date: date,
     practical_context: PracticalMealContext,
     practical_profiles: tuple[CandidatePracticalProfile, ...] = (),
+    family_recipe_ratings: dict[str, Decimal] | None = None,
     engine_version: str = "meal-recommendation-practical-v1",
 ) -> RecommendationResult:
     schedule = evaluate_schedule_context(practical_context)
@@ -353,18 +440,11 @@ def recommend_meals_with_practical_context(
         engine_version=engine_version,
     )
     practical_explanations = _practical_explanations(practical_context, schedule)
-    evaluated = [
-        CandidateEvaluation(
-            candidate=evaluation.candidate,
-            eligible=evaluation.eligible,
-            rank=evaluation.rank,
-            score=evaluation.score,
-            score_breakdown=evaluation.score_breakdown,
-            exclusion_reasons=evaluation.exclusion_reasons,
-            explanation=evaluation.explanation + practical_explanations,
-        )
-        for evaluation in base_result.evaluations
-    ]
+    evaluated = _rerank_with_family_preferences(
+        base_result,
+        family_recipe_ratings or {},
+        practical_explanations,
+    )
     evaluated.extend(practical_excluded)
     evaluated.sort(
         key=lambda evaluation: (

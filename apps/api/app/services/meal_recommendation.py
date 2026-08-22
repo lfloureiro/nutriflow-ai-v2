@@ -239,6 +239,12 @@ def _preference_score(
         elif preference.preference_type == "dislike":
             score -= weight
             reasons.append(f"disliked:{preference.subject_type}:{preference.subject_key}")
+        elif preference.preference_type == "rating":
+            rating_score = (Decimal(preference.intensity) - Decimal(3)) / Decimal(2)
+            score += rating_score
+            reasons.append(
+                f"rated:{preference.subject_type}:{preference.subject_key}:{preference.intensity}"
+            )
 
     return score, reasons
 

@@ -24,6 +24,8 @@ from app.services.persisted_practical_availability import (
     PersistedPracticalAvailabilityError,
     build_persisted_practical_profiles,
 )
+from app.services.recipe_preference import load_family_recipe_ratings
+from app.services.recommendation_diversity import apply_diversity_to_recommendation
 from app.services.recommendation_practical_context import (
     CandidatePracticalProfile,
     PracticalMealContext,
@@ -265,6 +267,16 @@ def create_practical_meal_recommendation(
             data=data,
         )
         practical_profiles = _merge_source_channels(candidates, channels)
+        family_recipe_ratings = load_family_recipe_ratings(
+            session,
+            family_id=person.family_id,
+            planning_date=data.planning_date,
+            exclude_person_id=person.id,
+        )
+        has_rating_signal = bool(family_recipe_ratings) or any(
+            preference.preference_type == "rating"
+            for preference in person.food_preferences
+        )
         recommendation = recommend_meals_with_practical_context(
             daily_state=state,
             candidates=candidates,
@@ -280,7 +292,22 @@ def create_practical_meal_recommendation(
                 schedule_entries=tuple(person.schedule_entries),
             ),
             practical_profiles=practical_profiles,
+            family_recipe_ratings=family_recipe_ratings,
+            engine_version=(
+                "meal-recommendation-practical-v2"
+                if has_rating_signal
+                else "meal-recommendation-practical-v1"
+            ),
         )
+        if data.meal_type is not None:
+            recommendation = apply_diversity_to_recommendation(
+                session,
+                family_id=person.family_id,
+                planning_date=data.planning_date,
+                meal_type=data.meal_type,
+                recommendation=recommendation,
+                provisional_history=data.provisional_history,
+            )
     except (
         CommercialAvailabilityError,
         PantryPlanningError,
@@ -308,8 +335,20 @@ def create_practical_meal_recommendation(
             "has_kitchen": data.has_kitchen,
             "source_kinds": source_kinds,
             "commercial_offer_keys": [offer.offer_key for offer in offers],
+            "family_recipe_ratings": {
+                key: str(value) for key, value in sorted(family_recipe_ratings.items())
+            },
+            "provisional_history": [
+                {"plan_date": item.plan_date.isoformat(), "candidate_key": item.candidate_key}
+                for item in data.provisional_history
+            ],
+            "max_results": data.max_results,
         },
     )
+
+    options = run.options
+    if data.max_results is not None:
+        options = [option for option in options if option.eligible][: data.max_results]
 
     return PracticalMealRecommendationRunRead(
         id=run.id,
@@ -321,6 +360,6 @@ def create_practical_meal_recommendation(
         scheduled_at=data.scheduled_at,
         location=data.location,
         source_kinds=source_kinds,
-        options=run.options,
+        options=options,
         commercial_offers=[_commercial_offer_read(offer) for offer in offers],
     )

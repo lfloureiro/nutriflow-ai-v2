@@ -111,6 +111,11 @@ export type RecommendationCandidateInput = {
   quantity_unit: string;
 };
 
+export type RecommendationHistoryHint = {
+  plan_date: string;
+  candidate_key: string;
+};
+
 export type PlanningNutritionComponent = {
   target_type: string;
   target_key: string;
@@ -168,6 +173,8 @@ export type PracticalRecommendationRequest = {
   available_minutes: number | null;
   has_kitchen: boolean | null;
   source_kinds: PracticalSourceKind[];
+  provisional_history: RecommendationHistoryHint[];
+  max_results: number | null;
 };
 
 export type RecommendationNutrient = {

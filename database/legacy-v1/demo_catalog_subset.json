@@ -1,0 +1,116 @@
+{
+  "source": {
+    "repository": "lfloureiro/nutriflow-ai",
+    "snapshot": "data/dataset_snapshots/nutriflow_demo_dataset_3_familias_20_receitas.json",
+    "snapshot_name": "demo_3_familias_20_receitas",
+    "notes": "Curated subset copied from NutriFlow v1 for v2 functional testing. The v1 snapshot contains recipe identities, descriptions and ingredient quantities, but no ingredient nutrition composition."
+  },
+  "ingredients": [
+    {"id": 1, "name": "Esparguete"},
+    {"id": 2, "name": "Carne picada de vaca"},
+    {"id": 3, "name": "Cebola"},
+    {"id": 4, "name": "Alho"},
+    {"id": 5, "name": "Tomate pelado"},
+    {"id": 6, "name": "Polpa de tomate"},
+    {"id": 7, "name": "Cenoura"},
+    {"id": 8, "name": "Azeite"},
+    {"id": 9, "name": "Feijão encarnado"},
+    {"id": 10, "name": "Milho"},
+    {"id": 11, "name": "Arroz"},
+    {"id": 12, "name": "Peito de frango"},
+    {"id": 13, "name": "Leite de coco"},
+    {"id": 14, "name": "Pasta de caril suave"},
+    {"id": 15, "name": "Ervilhas"},
+    {"id": 16, "name": "Arroz basmati"},
+    {"id": 20, "name": "Lombo de salmão"},
+    {"id": 21, "name": "Batata"},
+    {"id": 22, "name": "Curgete"},
+    {"id": 23, "name": "Cebola roxa"},
+    {"id": 24, "name": "Limão"},
+    {"id": 25, "name": "Brócolos"},
+    {"id": 26, "name": "Frango desfiado"},
+    {"id": 27, "name": "Caldo de galinha"}
+  ],
+  "recipes": [
+    {
+      "id": 1,
+      "name": "Esparguete à bolonhesa",
+      "description": "Clássico familiar de carne picada e tomate, dimensionado para 4 pessoas.",
+      "serving_count": "4",
+      "ingredients": [
+        {"ingredient_id": 1, "quantity": "400", "unit": "g"},
+        {"ingredient_id": 2, "quantity": "500", "unit": "g"},
+        {"ingredient_id": 3, "quantity": "1", "unit": "un"},
+        {"ingredient_id": 4, "quantity": "2", "unit": "dentes"},
+        {"ingredient_id": 5, "quantity": "400", "unit": "g"},
+        {"ingredient_id": 6, "quantity": "200", "unit": "g"},
+        {"ingredient_id": 7, "quantity": "1", "unit": "un"},
+        {"ingredient_id": 8, "quantity": "2", "unit": "c. sopa"}
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Chili con carne",
+      "description": "Chili de carne com feijão e arroz, ideal para 4 pessoas.",
+      "serving_count": "4",
+      "ingredients": [
+        {"ingredient_id": 2, "quantity": "500", "unit": "g"},
+        {"ingredient_id": 9, "quantity": "400", "unit": "g"},
+        {"ingredient_id": 5, "quantity": "400", "unit": "g"},
+        {"ingredient_id": 3, "quantity": "1", "unit": "un"},
+        {"ingredient_id": 4, "quantity": "2", "unit": "dentes"},
+        {"ingredient_id": 10, "quantity": "150", "unit": "g"},
+        {"ingredient_id": 11, "quantity": "300", "unit": "g"},
+        {"ingredient_id": 8, "quantity": "2", "unit": "c. sopa"}
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Caril suave de frango",
+      "description": "Caril de frango com arroz basmati, pensado para 4 pessoas.",
+      "serving_count": "4",
+      "ingredients": [
+        {"ingredient_id": 12, "quantity": "600", "unit": "g"},
+        {"ingredient_id": 3, "quantity": "1", "unit": "un"},
+        {"ingredient_id": 4, "quantity": "2", "unit": "dentes"},
+        {"ingredient_id": 13, "quantity": "400", "unit": "ml"},
+        {"ingredient_id": 14, "quantity": "2", "unit": "c. sopa"},
+        {"ingredient_id": 15, "quantity": "150", "unit": "g"},
+        {"ingredient_id": 16, "quantity": "300", "unit": "g"},
+        {"ingredient_id": 8, "quantity": "1", "unit": "c. sopa"}
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Salmão no forno com legumes",
+      "description": "Salmão assado com curgete, cenoura e batata para 4 pessoas.",
+      "serving_count": "4",
+      "ingredients": [
+        {"ingredient_id": 20, "quantity": "700", "unit": "g"},
+        {"ingredient_id": 21, "quantity": "800", "unit": "g"},
+        {"ingredient_id": 22, "quantity": "2", "unit": "un"},
+        {"ingredient_id": 7, "quantity": "2", "unit": "un"},
+        {"ingredient_id": 23, "quantity": "1", "unit": "un"},
+        {"ingredient_id": 24, "quantity": "1", "unit": "un"},
+        {"ingredient_id": 8, "quantity": "2", "unit": "c. sopa"},
+        {"ingredient_id": 25, "quantity": "300", "unit": "g"}
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Arroz de frango no forno",
+      "description": "Arroz de forno com frango e legumes, para 4 pessoas.",
+      "serving_count": "4",
+      "ingredients": [
+        {"ingredient_id": 26, "quantity": "500", "unit": "g"},
+        {"ingredient_id": 11, "quantity": "350", "unit": "g"},
+        {"ingredient_id": 3, "quantity": "1", "unit": "un"},
+        {"ingredient_id": 4, "quantity": "2", "unit": "dentes"},
+        {"ingredient_id": 7, "quantity": "1", "unit": "un"},
+        {"ingredient_id": 15, "quantity": "150", "unit": "g"},
+        {"ingredient_id": 27, "quantity": "800", "unit": "ml"},
+        {"ingredient_id": 8, "quantity": "2", "unit": "c. sopa"}
+      ]
+    }
+  ]
+}

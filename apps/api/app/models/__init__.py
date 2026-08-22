@@ -21,6 +21,7 @@ from app.models.meal_candidate_availability import (
     MealCommercialOffer,
     MealSourceOpeningWindow,
 )
+from app.models.meal_candidate_planning_profile import MealCandidatePlanningProfile
 from app.models.nutrition_constraint import NutritionConstraint
 from app.models.nutrition_goal import NutritionGoal
 from app.models.nutrition_target import NutritionTarget, NutritionTargetComponent
@@ -49,6 +50,7 @@ __all__ = [
     "HealthConnection",
     "HealthMeasurement",
     "MealCandidateAvailability",
+    "MealCandidatePlanningProfile",
     "MealCommercialOffer",
     "MealEvent",
     "MealParticipant",
