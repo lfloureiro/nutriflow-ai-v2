@@ -1,4 +1,5 @@
-.family-meals-screen {
+.family-meals-screen,
+.family-meal-detail {
   display: grid;
   gap: var(--space-5);
 }
@@ -92,11 +93,27 @@
   grid-template-columns: 72px minmax(0, 1fr) auto;
   gap: var(--space-3);
   align-items: center;
+  width: 100%;
   min-width: 0;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-soft);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+
+.family-meal-row:hover {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 52%, var(--surface-soft));
+}
+
+.family-meal-row:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 26%, transparent);
+  outline-offset: 2px;
 }
 
 .family-meal-row time {
@@ -115,7 +132,7 @@
   overflow-wrap: anywhere;
 }
 
-.family-meal-row__body span {
+.family-meal-row__body > span {
   color: var(--muted);
   font-size: 0.72rem;
   line-height: 1.4;
@@ -150,8 +167,140 @@
   margin-top: 0;
 }
 
+.detail-back {
+  width: fit-content;
+  justify-self: start;
+}
+
+.meal-detail-header {
+  align-items: flex-end;
+}
+
+.meal-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-transform: capitalize;
+}
+
+.meal-detail-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.meal-detail-section-heading h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.meal-detail-section-heading p {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.meal-detail-section-heading > span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.meal-detail-people {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.meal-detail-person {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.meal-detail-person__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.meal-detail-person__header > div {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.meal-detail-person__header small {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.meal-detail-servings {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.meal-detail-serving {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+
+.meal-detail-serving > div:first-child {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.meal-detail-serving strong {
+  overflow-wrap: anywhere;
+}
+
+.meal-detail-serving small {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.meal-detail-serving__values {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.meal-detail-serving__values span {
+  border-radius: 999px;
+  background: var(--surface);
+  padding: 0.28rem 0.48rem;
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 720;
+  white-space: nowrap;
+}
+
+.meal-detail-no-serving {
+  padding: var(--space-3);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 @media (max-width: 620px) {
-  .family-meals-header {
+  .family-meals-header,
+  .meal-detail-header {
     align-items: flex-start;
   }
 
@@ -168,9 +317,18 @@
     width: fit-content;
   }
 
-  .family-meals-day__heading {
+  .family-meals-day__heading,
+  .meal-detail-section-heading {
     align-items: flex-start;
     flex-direction: column;
     gap: 0.2rem;
+  }
+
+  .meal-detail-serving {
+    grid-template-columns: 1fr;
+  }
+
+  .meal-detail-serving__values {
+    justify-content: flex-start;
   }
 }
