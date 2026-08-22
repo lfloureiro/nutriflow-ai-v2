@@ -60,6 +60,16 @@ Active mandatory nutrient constraints using `max`, `lte` or `<=` are evaluated a
 
 If the total would exceed the mandatory maximum, the candidate is excluded.
 
+A mandatory nutrient maximum is also a data-completeness requirement for that candidate. If the selected candidate composition does not contain a value for the constrained nutrient, the engine cannot prove that the candidate is within the mandatory maximum. The candidate therefore fails closed with:
+
+```text
+mandatory_nutrient_data_missing:<nutrient_key>
+```
+
+Missing data is distinct from an explicitly measured value of zero. A present nutrient component with value `0` remains valid evidence and is evaluated normally.
+
+This exclusion is candidate-scoped: one candidate with incomplete mandatory nutrient data does not stop other candidates with sufficient data from being evaluated.
+
 ### Unsupported mandatory constraints
 
 The engine fails closed.
@@ -119,6 +129,7 @@ or:
 
 ```text
 mandatory_reaction:ingredient:food:peanut
+mandatory_nutrient_data_missing:sodium
 ```
 
 This information will later support UI explanations, user feedback and ML training without making ML responsible for hard safety decisions.
