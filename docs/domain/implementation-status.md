@@ -233,6 +233,7 @@ Implemented on the branch:
 
 - `POST /api/persons/{person_id}/meal-recommendations/practical`;
 - same explicit persisted DailyNutritionState and composition-snapshot evidence boundary as ADR-027;
+- timezone-aware `scheduled_at` must resolve to `planning_date` in the selected DailyNutritionState timezone;
 - automatic loading of persisted Person schedule entries;
 - request context for scheduled instant, location, available minutes and kitchen availability;
 - requested practical source kinds: `home`, `pantry`, `restaurant`, `delivery`, `store`;
@@ -247,14 +248,14 @@ Implemented on the branch:
 - recommendation run/options persist through the existing recommendation evidence model;
 - run context records practical request inputs and active commercial offer keys;
 - base recommendation API internals are refactored into reusable loading/persistence helpers without changing its contract;
-- nine API integration tests cover home availability, schedule exclusion, explicit unavailability, pantry insufficiency, any-source availability, preparation windows, active delivery offers, closed commercial sources and unknown source evidence.
+- ten API integration tests cover home availability, schedule exclusion, explicit unavailability, pantry insufficiency, any-source availability, preparation windows, active delivery offers, closed commercial sources, unknown source evidence and local planning-date alignment.
 
 Detailed semantics: `docs/domain/practical-recommendation-orchestration-api.md`, ADR-029.
 
 Expected complete local test suite after this branch:
 
 ```text
-93 tests
+94 tests
 ```
 
 ## Safety and correctness invariants
@@ -270,6 +271,7 @@ Future work must preserve:
 - recommendation APIs reference persisted source snapshots rather than client-authored nutrition totals;
 - practical-source alternatives use any-source semantics rather than accidental all-source requirements;
 - unknown practical source evidence is distinct from explicit unavailability;
+- practical scheduled instants cannot silently use a DailyNutritionState from another local date;
 - ineligible persisted options cannot be materialized;
 - rejected decisions cannot create meal state;
 - DailyNutritionState remains derived from authoritative meal history;
