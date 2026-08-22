@@ -87,6 +87,7 @@ The current backend foundation includes:
 - optional Serving links to FoodItem or Recipe while preserving historical serving snapshots;
 - explicit Serving nutrition calculation from versioned catalogue composition with conservative unit conversion and persisted calculation provenance;
 - deterministic meal recommendation ranking with hard-rule-first safety, nutrition fit, preferences and explainable scoring;
+- fail-closed handling when an active mandatory nutrient maximum cannot be evaluated because candidate nutrient data is missing;
 - persisted recommendation runs/options and append-only accepted/rejected/modified feedback events for future learning;
 - materialization of accepted/modified recommendations into normal planned MealEvent, MealParticipant and Serving records using the exact recommendation composition snapshot;
 - deterministic DailyNutritionState recalculation from authoritative Serving history using explicit local-day and target semantics;
@@ -97,6 +98,7 @@ The current backend foundation includes:
 - persisted Family-scoped practical availability for home, pantry, restaurant, delivery and store meal sources;
 - quantity-aware Family pantry stock with expiry, Recipe ingredient sufficiency and exact shopping requirements for missing quantities;
 - restaurant/delivery/store opening windows plus provider-observed commercial offers with price, currency, delivery-fee, minimum-order and validity metadata;
+- first persisted person-scoped recommendation API using explicit DailyNutritionState and versioned composition snapshot IDs;
 - PostgreSQL persistence with Alembic migrations;
 - pytest coverage with warnings treated as errors;
 - Ruff static validation.
