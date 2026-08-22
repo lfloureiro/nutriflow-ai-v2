@@ -50,7 +50,11 @@ No chart is included in this first slice because the current Family dashboard re
 
 The overview filters the Family dashboard meal agenda by `participant_person_ids` and displays only meals containing the selected Person.
 
+Known domain enum values are localized for presentation (`lunch` -> `Almoço`, `planned` -> `Planeada`, `completed` -> `Concluída`). Unknown values are shown unchanged rather than guessed.
+
 This is presentation filtering only. It does not replace the Family MealEvent/MealParticipant domain model or calculate portions in the browser. Person-specific portion drill-down remains a later meal-detail increment.
+
+Distinct persisted MealEvents remain distinct rows even when they share a time or title. Development/demo cleanup must be explicit rather than hidden by client-side deduplication.
 
 ## Safety and authority boundary
 
