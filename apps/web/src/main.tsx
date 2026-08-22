@@ -11,6 +11,7 @@ import "./family-meals.css";
 import "./ingredient-catalogue.css";
 import "./core-planning.css";
 import "./pantry-shopping.css";
+import "./recommendation-planner.css";
 import { ThemeProvider } from "./theme";
 
 const root = document.getElementById("root");
