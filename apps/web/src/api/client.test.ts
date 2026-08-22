@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildApiUrl, normalizeApiBaseUrl, planningBootstrapPath } from "./client";
+import {
+  buildApiUrl,
+  familyDashboardPath,
+  normalizeApiBaseUrl,
+  planningBootstrapPath,
+} from "./client";
 
 describe("API URL construction", () => {
   it("removes trailing slashes from an explicit API base URL", () => {
@@ -17,6 +22,13 @@ describe("API URL construction", () => {
     expect(buildApiUrl("/api/health", "https://api.example.test/")).toBe(
       "https://api.example.test/api/health",
     );
+  });
+
+  it("builds a family dashboard path with an optional date", () => {
+    expect(familyDashboardPath("family/id", "2026-08-22")).toBe(
+      "/api/families/family%2Fid/dashboard?on_date=2026-08-22",
+    );
+    expect(familyDashboardPath("family/id")).toBe("/api/families/family%2Fid/dashboard");
   });
 
   it("encodes the planning instant in the bootstrap query", () => {
