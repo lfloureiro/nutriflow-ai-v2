@@ -288,6 +288,7 @@ def create_practical_meal_recommendation(
             ),
             practical_profiles=practical_profiles,
             family_recipe_ratings=family_recipe_ratings,
+            engine_version="meal-recommendation-practical-v2",
         )
     except (
         CommercialAvailabilityError,
@@ -316,6 +317,9 @@ def create_practical_meal_recommendation(
             "has_kitchen": data.has_kitchen,
             "source_kinds": source_kinds,
             "commercial_offer_keys": [offer.offer_key for offer in offers],
+            "family_recipe_ratings": {
+                key: str(value) for key, value in sorted(family_recipe_ratings.items())
+            },
         },
     )
 
