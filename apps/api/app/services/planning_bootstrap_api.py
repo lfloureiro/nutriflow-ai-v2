@@ -12,6 +12,7 @@ from app.models.food_catalog import (
     Recipe,
     RecipeCompositionSnapshot,
 )
+from app.models.nutrition_target import NutritionTarget
 from app.models.person import Person
 from app.schemas.planning_bootstrap import (
     PlanningBootstrapRead,
@@ -19,6 +20,7 @@ from app.schemas.planning_bootstrap import (
     PlanningDailyNutritionStateRead,
     PlanningNutritionComponentRead,
 )
+from app.services.daily_nutrition_state import recalculate_daily_nutrition_state
 
 
 class PlanningBootstrapApiError(ValueError):
@@ -71,6 +73,52 @@ def _latest_daily_state(
         )
         .limit(1)
     )
+
+
+def _active_target(
+    session: Session,
+    *,
+    person_id: uuid.UUID,
+    planning_date,
+) -> NutritionTarget | None:
+    return session.scalar(
+        select(NutritionTarget)
+        .where(
+            NutritionTarget.person_id == person_id,
+            NutritionTarget.status == "active",
+            NutritionTarget.valid_from <= planning_date,
+            or_(NutritionTarget.valid_until.is_(None), NutritionTarget.valid_until >= planning_date),
+        )
+        .options(selectinload(NutritionTarget.components))
+        .order_by(
+            NutritionTarget.valid_from.desc(),
+            NutritionTarget.created_at.desc(),
+            NutritionTarget.id.desc(),
+        )
+        .limit(1)
+    )
+
+
+def _ensure_daily_state(
+    session: Session,
+    *,
+    person: Person,
+    planning_date,
+) -> DailyNutritionState:
+    target = _active_target(
+        session,
+        person_id=person.id,
+        planning_date=planning_date,
+    )
+    state = recalculate_daily_nutrition_state(
+        session,
+        person=person,
+        state_date=planning_date,
+        timezone=person.timezone,
+        nutrition_target=target,
+    )
+    session.commit()
+    return state
 
 
 def _daily_state_read(state: DailyNutritionState) -> PlanningDailyNutritionStateRead:
@@ -208,6 +256,7 @@ def get_planning_bootstrap(
     *,
     person_id: uuid.UUID,
     scheduled_at: datetime,
+    ensure_state: bool = False,
 ) -> PlanningBootstrapRead:
     _validate_scheduled_at(scheduled_at)
     person = _load_person(session, person_id)
@@ -217,6 +266,12 @@ def get_planning_bootstrap(
         person_id=person_id,
         planning_date=planning_date,
     )
+    if state is None and ensure_state:
+        state = _ensure_daily_state(
+            session,
+            person=person,
+            planning_date=planning_date,
+        )
     candidates = _food_candidates(
         session,
         family_id=person.family_id,
