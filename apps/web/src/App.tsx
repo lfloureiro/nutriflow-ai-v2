@@ -79,7 +79,7 @@ export default function App() {
   const [mealsMode, setMealsMode] = useState<FamilyMealsMode>("today");
 
   useEffect(() => {
-    if (!activeFamilyId || view !== "home") {
+    if (!activeFamilyId) {
       return;
     }
 
@@ -110,7 +110,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [activeFamilyId, dashboardRevision, view]);
+  }, [activeFamilyId, dashboardRevision]);
 
   function handleConnect(event: FormEvent) {
     event.preventDefault();
