@@ -26,10 +26,12 @@ npm run build
 
 ## Current vertical slice
 
-The first slice intentionally uses explicit persisted IDs because catalogue discovery and DailyNutritionState selection APIs are not yet exposed for the UI. It supports:
+The meal-planning flow uses the server planning-bootstrap endpoint rather than technical UUID entry. It supports:
 
 - Family ID -> Person selection;
-- explicit DailyNutritionState and candidate composition IDs;
+- automatic DailyNutritionState discovery for the selected Person and local meal instant;
+- server-authoritative current FoodItem/Recipe composition discovery;
+- human-readable candidate selection with reference serving and energy metadata;
 - practical context (time, location, kitchen, available minutes and source kinds);
 - practical recommendation generation;
 - eligible/excluded result explanations;
@@ -39,8 +41,10 @@ The first slice intentionally uses explicit persisted IDs because catalogue disc
 - Light/Dark/System appearance;
 - responsive desktop/tablet/mobile layout.
 
-Authentication and production user-context discovery are not part of this increment.
+Composition IDs remain internal to the typed API client. If the server reports no DailyNutritionState for the selected date, the UI shows that explicitly and does not guess a state.
+
+Authentication and production household authorization context are not implemented yet, so Family ID remains a development entrypoint.
 
 ## Dependency locking
 
-This bootstrap pins all direct dependency versions but does not yet commit an npm lockfile. Local and CI validation therefore use `npm install --no-package-lock`. A committed lockfile is required before production deployment and should be added in a focused dependency-management hardening increment once the initial web toolchain is validated on the development machines and CI.
+Direct dependency versions are pinned but an npm lockfile is not yet committed. Local and CI validation therefore use `npm install --no-package-lock`. A committed lockfile and `npm ci` are required before production deployment and should be added in a focused dependency-management hardening increment.
