@@ -102,7 +102,6 @@ def _opening_window(
     if availability.id is None:
         raise AssertionError("Availability must be persisted.")
     window = MealSourceOpeningWindow(
-        availability_id=availability.id,
         weekday=weekday,
         local_start_time=start,
         local_end_time=end,
@@ -112,7 +111,7 @@ def _opening_window(
         source="test",
         observed_at=PLANNING_AT,
     )
-    db_session.add(window)
+    availability.opening_windows.append(window)
     db_session.flush()
     return window
 
@@ -136,7 +135,6 @@ def _offer(
         raise AssertionError("Commercial offer fixtures must be persisted.")
     offer = MealCommercialOffer(
         family_id=family.id,
-        availability_id=availability.id,
         offer_key=offer_key,
         provider_key=provider_key,
         provider_name=provider_key.title(),
@@ -151,7 +149,7 @@ def _offer(
         source="test",
         source_reference=f"ref:{offer_key}",
     )
-    db_session.add(offer)
+    availability.commercial_offers.append(offer)
     db_session.flush()
     return offer
 
