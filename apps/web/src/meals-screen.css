@@ -11,9 +11,9 @@
 }
 
 .meals-tabs button {
-  border: 1px solid var(--border-subtle);
-  background: var(--surface-raised);
-  color: var(--text-muted);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
   border-radius: 999px;
   padding: 0.65rem 1rem;
   font: inherit;
@@ -24,19 +24,19 @@
 
 .meals-tabs button:hover,
 .meals-tabs button:focus-visible {
-  color: var(--text-primary);
+  color: var(--text);
   border-color: var(--border-strong);
 }
 
 .meals-tabs button.active {
   background: var(--accent-soft);
-  border-color: var(--accent-border);
+  border-color: var(--accent);
   color: var(--accent-strong);
 }
 
 .meals-panel {
-  background: var(--surface-raised);
-  border: 1px solid var(--border-subtle);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 1.35rem;
   padding: 1.25rem;
 }
@@ -57,7 +57,7 @@
 .meals-panel__heading p,
 .meals-week-placeholder p {
   margin: 0.25rem 0 0;
-  color: var(--text-muted);
+  color: var(--muted);
 }
 
 .meals-agenda--standalone {
