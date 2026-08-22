@@ -122,17 +122,19 @@ Refeições
     ├── resumo familiar
     ├── participantes
     ├── porções individuais
-    ├── explicação
-    └── alternativas / alterar
+    ├── explicação             later
+    └── alternativas / alterar later
 ```
 
 Entering the primary `Refeições` destination starts at `Hoje`. The Family Home `Planear refeição` action opens `Recomendar` directly because the user has already expressed recommendation/planning intent.
 
 `Hoje` is a chronological Family-local agenda. `Semana` uses a Monday-to-Sunday vertical sequence of day sections rather than a dense seven-column calendar. Empty days stay explicit.
 
-A shared meal is displayed once at family level. A later meal-detail drill-down will expose individual portions and Person-specific nutrition/safety outcomes already represented in the backend model.
+A shared meal is displayed once at family level. Selecting that row opens a focused `Refeição` drill-down showing the persisted participants and Person-specific Serving portions. The calendar itself remains compact.
 
-The calendar views use a dedicated server read model so the browser does not decide local-day boundaries or reconstruct participants through request fan-out.
+The first meal-detail increment deliberately stops at meal summary + participants + individual portions. Recommendation explanation, alternatives and editing remain later focused workflows instead of being added to the first detail screen.
+
+The calendar and detail views use dedicated server read models so the browser does not decide local-day boundaries, reconstruct participants through request fan-out, or infer Serving ownership.
 
 ## Charts
 
@@ -163,7 +165,7 @@ Mobile:
 - single-column screens;
 - horizontal card carousels should be avoided for essential information;
 - detail is reached by tapping rows/cards rather than expanding large accordions in place;
-- meal-day sections remain vertically readable without a separate mobile information architecture.
+- meal-day sections and individual portion cards remain vertically readable without a separate mobile information architecture.
 
 Tablet follows the same information architecture and chooses side or bottom navigation based on available width.
 
@@ -176,7 +178,9 @@ The browser presents server evidence. It must not:
 - reproduce hard nutrition/safety rules;
 - compute an aggregate family health score without an explicit domain definition;
 - treat missing data as negative or zero;
-- decide which UTC MealEvents belong to a Family-local calendar day.
+- decide which UTC MealEvents belong to a Family-local calendar day;
+- infer one Person's portion from another Person's Serving;
+- calculate new Serving nutrition for meal detail.
 
 Family Home and Family Meals use compact server read models so the browser does not need many requests or cross-domain/timezone aggregation logic.
 
@@ -186,9 +190,9 @@ Family Home and Family Meals use compact server read models so the browser does 
 2. Application shell and primary navigation — integrated.
 3. Family Home visual implementation — integrated.
 4. Person overview — integrated.
-5. Family meals today/week — current focused increment.
-6. Meal drill-down with person-specific portions — next.
-7. Person Nutrition/Activity/Health/History screens.
+5. Family meals today/week — integrated in PR #33.
+6. Meal drill-down with person-specific portions — current focused increment.
+7. Person Nutrition/Activity/Health/History screens — next after meal detail.
 8. Profile/goals/constraints/preferences screens.
 9. Pantry and shopping workflows.
 
