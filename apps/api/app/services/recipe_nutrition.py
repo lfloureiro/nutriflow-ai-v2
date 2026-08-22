@@ -44,13 +44,23 @@ def _aggregate_nutrients(
     if not snapshots:
         return []
 
-    common_keys = set(snapshots[0].nutrients)
-    for snapshot in snapshots[1:]:
-        common_keys.intersection_update(snapshot.nutrients)
+    nutrient_keys: set[str] = set()
+    for snapshot in snapshots:
+        nutrient_keys.update(snapshot.nutrients)
 
     components: list[RecipeNutrientComponent] = []
-    for nutrient_key in sorted(common_keys):
-        first = snapshots[0].nutrients[nutrient_key]
+    for nutrient_key in sorted(nutrient_keys):
+        if any(nutrient_key not in snapshot.nutrients for snapshot in snapshots):
+            issues.append(
+                f"Nutrient {nutrient_key!r} is missing from at least one ingredient composition."
+            )
+            continue
+
+        first = next(
+            snapshot.nutrients[nutrient_key]
+            for snapshot in snapshots
+            if nutrient_key in snapshot.nutrients
+        )
         total = Decimal(0)
         compatible = True
         for snapshot in snapshots:
