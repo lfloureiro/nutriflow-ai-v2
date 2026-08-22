@@ -27,97 +27,88 @@ Integrated capabilities include:
 - Family-first progressive-disclosure frontend architecture (ADR-034);
 - visible responsive application shell with `Início`, `Refeições`, `Pessoas`, `Casa`, `Mais`;
 - lightweight Family Home backed by the server dashboard read model;
-- representative four-member synthetic demo data for Family-level UI validation.
+- representative four-member synthetic demo data for Family-level UI validation;
+- first lightweight Person overview drill-down with focused secondary navigation.
 
-Integrated baseline after PR #31:
+Integrated baseline after PR #32:
 
 ```text
-main SHA:      e95270a4372aa767bded205cdb9f536480cecc27
+main SHA:      715ce09bc2034d6f88165f288b2d79321bdd4599
 schema head:   a7c4e9f2b6d1
 API tests:     107
-Web tests:     14
+Web tests:     16
 ```
 
-## Current feature branch: Person overview
+## Current feature branch: Family Meals Hoje/Semana
 
 Branch:
 
 ```text
-feature/web-person-overview
+feature/web-family-meals-today-week
 ```
 
 Merge base:
 
 ```text
-e95270a4372aa767bded205cdb9f536480cecc27
+715ce09bc2034d6f88165f288b2d79321bdd4599
 ```
 
-No database migration and no backend-domain behavior change.
+No database migration.
 
 Implemented on the branch:
 
-- first real Person drill-down from a Family Home member card;
-- direct `Pessoas` navigation opens the member list, while a Family Home card opens that Person directly;
-- explicit Person back-navigation to the member list;
-- secondary Person navigation: `Visão geral`, `Nutrição`, `Atividade`, `Saúde`, `Histórico`, `Perfil`;
-- implemented `Visão geral` with a deliberately small current-day metric set;
-- energy consumed and remaining range from persisted DailyNutritionState;
-- steps and active energy from persisted DailyHealthState;
-- latest weight and persisted 7-day trend;
-- sleep duration and resting heart rate;
-- current-day Person meal list filtered from Family dashboard `participant_person_ids`;
-- explicit missing-data presentation rather than zero or previous-day fallback;
-- dedicated section placeholders for later focused screens instead of overloading the overview;
-- no chart yet because the current read model does not provide a historical time series;
-- no medical interpretation, synthetic health score, browser-authored targets or client-side safety logic;
-- responsive Person layout with compact horizontal secondary navigation and mobile single-column metrics;
-- Web unit coverage for Person meal filtering.
+- new Family meal-calendar read model at `GET /api/families/{family_id}/meals`;
+- optional Family-local `start_date` and bounded `days` range (1..14, default 7);
+- local-midnight range construction in persisted Family timezone, converted to UTC for querying;
+- one explicit response day for every requested local calendar date, including empty days;
+- normal Family meal-map statuses limited to planned/prepared/served/completed;
+- cancelled/replaced events omitted;
+- compact persisted MealParticipant Person names and participant status returned with each meal;
+- web contracts/client coverage for the Family meal range;
+- primary `Refeições` destination now starts at `Hoje` rather than the recommendation form;
+- secondary navigation `Hoje`, `Semana`, `Recomendar`;
+- `Hoje` chronological Family agenda;
+- `Semana` current Monday-to-Sunday Family-local week as seven readable vertical day sections;
+- existing recommendation vertical slice retained under `Recomendar` without changing its safety/ranking semantics;
+- Family Home `Planear refeição` opens `Recomendar` directly;
+- shared meals remain one Family calendar row with participant names; Person-specific portions remain a later drill-down;
+- responsive single-column mobile behavior rather than a dense calendar grid.
 
 Authoritative docs:
 
-- `docs/ux/person-overview.md`;
+- `docs/domain/family-meals-read-model.md`;
+- `docs/ux/family-meals-today-week.md`;
 - `docs/ux/frontend-information-architecture.md`;
-- `docs/ux/family-home-shell.md`;
 - `docs/decisions/ADR-034-family-first-progressive-disclosure-web-navigation.md`.
 
-Expected validation baseline:
+Expected validation baseline after implementation:
 
 ```text
-API: Alembic metadata clean, Ruff clean, 107 pytest tests
-Web: 16 Vitest tests, strict TypeScript check, production Vite build
+API: Alembic metadata clean, Ruff clean, 110 pytest tests
+Web: 19 Vitest tests, strict TypeScript check, production Vite build
 ```
+
+These counts are not integrated claims until the exact branch head passes local validation and CI.
+
+## Family Meals UX boundary
+
+`Refeições` answers:
+
+> O que está planeado para a família?
+
+The orientation layer is the Family meal map, not the recommendation form. Users see `Hoje` or `Semana` first and enter `Recomendar` only when they want a generated option.
+
+The weekly view intentionally avoids a dense seven-column planner. Empty days are explicit and active meals remain compact rows with time, title, participants, optional location and state.
+
+The meal calendar does not calculate nutrition or surface Serving-level portions. Shared-meal detail is the next dedicated drill-down.
 
 ## Person overview UX boundary
 
-The Person overview answers:
+The integrated Person overview answers:
 
 > Como está esta pessoa hoje?
 
-It is a presentation of current persisted evidence, not an analytical or clinical dashboard. It intentionally contains a small metric set and current-day meal participation.
-
-The overview does not add a chart yet because there is no authoritative time series in the current Family dashboard response. A future Person read model can provide a single primary trend visualization while detailed analytics remain in dedicated sections.
-
-Secondary destinations are visible now to establish the navigation structure, but they remain placeholders until their data/read-model requirements are implemented in focused branches.
-
-## Family Home UX boundary
-
-Home continues to answer:
-
-> Como está a família hoje?
-
-It remains a lightweight Family orientation screen rather than a comprehensive analytics page. Person detail is reached through drill-down.
-
-## Meals UX boundary
-
-`Refeições` owns the recommendation flow. The current slice still starts with recommendation planning rather than the future `Hoje`/`Semana` meal map.
-
-The browser remains subordinate to backend semantics:
-
-- DailyNutritionState is selected by planning bootstrap;
-- Food/Recipe composition version is selected by the server;
-- hard constraints and safety run before ranking;
-- commercial availability cannot override nutrition safety;
-- accepted options materialize through the recommendation-decision API.
+It presents current persisted evidence, keeps missing data explicit and avoids medical interpretation or a synthetic health score. Detailed Person sections remain future focused slices.
 
 ## Safety and correctness invariants
 
@@ -132,12 +123,13 @@ Future work must preserve:
 - recommendation APIs use persisted source evidence, not client-authored nutrition totals;
 - planning bootstrap preserves Person/Family isolation and as-of composition semantics;
 - Family dashboard exposes persisted evidence without medical interpretation;
-- Person overview presents that evidence without inventing cross-domain meaning;
+- Family meal range uses Family-local calendar boundaries and persisted participant membership;
+- Person overview presents persisted evidence without inventing cross-domain meaning;
 - missing dashboard evidence remains `null` rather than zero or previous-day fallback;
 - web does not select state/composition versions independently or reproduce safety/ranking rules;
 - ineligible options cannot be materialized and rejected decisions cannot create meal state;
 - DailyNutritionState remains derived from authoritative meal history outside explicit synthetic development fixtures;
-- shared meals retain Person-specific portions and safety checks;
+- shared meals retain Person-specific portions and safety checks even when summarized once in Family calendar views;
 - commercial price/availability cannot override safety eligibility;
 - demo data is explicit, synthetic, isolated and never auto-seeded;
 - warnings remain failures rather than being suppressed.
@@ -147,6 +139,7 @@ Known limitations:
 - recommendation decision request-level/concurrent idempotency is not yet guaranteed;
 - missing real DailyNutritionState is not automatically recalculated by bootstrap/dashboard;
 - Family selection remains a development context pending authentication/authorization;
+- Family meal detail/Serving portions are not yet implemented;
 - Person detailed section read models are not yet implemented;
 - `Casa` is not yet functional;
 - URL/deep-link routing is not yet introduced;
@@ -171,13 +164,12 @@ d9f2a7          DailyHealthState/DailyNutritionState
 
 After this branch is locally green, PR-tested, visually checked and merged:
 
-1. implement Family Meals `Hoje` and `Semana` before the recommendation subflow;
-2. add shared-meal drill-down with Person-specific portions;
-3. add dedicated Person Nutrition/Activity/Health/History read models/screens;
-4. add Person profile/goals/constraints/preferences screens;
-5. add pantry/shopping UI and durable shopping-list lifecycle;
-6. add authentication/authorization before real multi-user deployment;
-7. add committed npm lockfile and `npm ci` production hardening;
-8. continue provider/live freshness, basket/order and later learned-ranking work.
+1. add shared-meal drill-down with Person-specific portions;
+2. add dedicated Person Nutrition/Activity/Health/History read models/screens;
+3. add Person profile/goals/constraints/preferences screens;
+4. add pantry/shopping UI and durable shopping-list lifecycle;
+5. add authentication/authorization before real multi-user deployment;
+6. add committed npm lockfile and `npm ci` production hardening;
+7. continue provider/live freshness, basket/order and later learned-ranking work.
 
 Every increment follows ADR-007: focused branch, relevant code/tests/docs together, local validation with zero warnings, PR only after local green, CI on the exact head SHA, guarded squash merge, verify new `main`, then start the next branch.
