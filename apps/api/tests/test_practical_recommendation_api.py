@@ -173,7 +173,7 @@ def test_practical_api_uses_persisted_home_availability_and_persists_run(
 
     assert response.status_code == 201
     body = response.json()
-    assert body["engine_version"] == "meal-recommendation-practical-v1"
+    assert body["engine_version"] == "meal-recommendation-practical-v1+diversity-v1"
     assert body["options"][0]["eligible"] is True
     assert "planning_location:Home" in body["options"][0]["explanation"]
     assert body["commercial_offers"] == []
