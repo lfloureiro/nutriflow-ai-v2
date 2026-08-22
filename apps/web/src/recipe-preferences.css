@@ -61,7 +61,11 @@
 }
 
 .recipe-stars button.selected {
-  color: var(--accent);
+  color: #c99000;
+}
+
+:root[data-theme="dark"] .recipe-stars button.selected {
+  color: #f2c94c;
 }
 
 .recipe-stars button:disabled {
