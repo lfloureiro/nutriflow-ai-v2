@@ -4,20 +4,17 @@ This document is the handover entry point for resuming NutriFlow AI v2 developme
 
 ## Product and architecture baseline
 
-NutriFlow AI v2 is standalone. Do not introduce legacy repository/schema dependencies or compatibility layers unless an explicit future decision changes that direction.
-
-Core invariants:
+NutriFlow AI v2 is standalone. Core invariants:
 
 - Person belongs to Family;
 - shared meals use one MealEvent with Person-specific MealParticipant and Serving rows;
-- hard safety and mandatory nutrition rules are deterministic and cannot be bypassed by ranking/ML;
-- Food/Recipe composition is versioned and exact composition provenance is retained;
+- hard safety and mandatory nutrition rules run before ranking/ML;
+- Food/Recipe composition is versioned with exact provenance;
 - DailyHealthState/DailyNutritionState are derived and recalculable;
 - recommendation history/feedback are audit evidence, not authoritative meal-plan state;
-- practical/pantry/commercial state is separate from nutrition composition;
-- API namespace is `/api/...`, not `/api/v1`;
+- API namespace is `/api/...`;
 - web is React + TypeScript + Vite, responsive, pt-PT/en and Light/Dark/System;
-- frontend direction is Family-first with progressive disclosure, per ADR-034.
+- frontend is Family-first with progressive disclosure per ADR-034.
 
 ## Mandatory workflow
 
@@ -27,17 +24,14 @@ For each non-trivial increment:
 
 1. resolve exact current `main` SHA;
 2. create one focused branch from that exact SHA;
-3. implement code, migration when needed, tests and docs together;
-4. run all relevant local gates;
-5. require zero-warning migration/static-analysis/test/build results;
-6. open PR only after explicit local green confirmation;
-7. verify every relevant GitHub Actions workflow on the exact PR head SHA;
-8. confirm mergeability and unchanged head;
-9. squash-merge guarded by expected head SHA;
-10. verify merged PR and exact resulting `main` SHA;
-11. only then create the next branch and refresh this file.
-
-Never develop directly on `main`, merge an untested head or treat CI from another SHA as validation.
+3. implement code, tests, migration when needed and docs together;
+4. run all relevant local gates with zero warnings/errors;
+5. open PR only after explicit local green confirmation;
+6. verify all relevant GitHub Actions on the exact PR head;
+7. confirm mergeability/head unchanged;
+8. squash-merge guarded by expected head SHA;
+9. verify merged PR and exact new `main` SHA;
+10. only then start the next branch.
 
 ## Validation commands
 
@@ -52,8 +46,6 @@ python -m ruff check .
 python -m pytest -q
 ```
 
-Schema-changing branches additionally run `alembic upgrade head` and `alembic current`.
-
 Web:
 
 ```powershell
@@ -63,148 +55,97 @@ npm run test
 npm run build
 ```
 
-Warnings are failures. The API pytest fixture isolates tests from committed development/demo data.
-
 ## Last integrated checkpoint
 
-PR #31 enriched the explicit development demo Family with representative Family Home data and was locally approved, API/Web CI-green on the exact head and squash-merged.
-
-Exact integrated baseline:
+PR #32 added the first lightweight Person overview drill-down and was squash-merged.
 
 ```text
-main SHA:        e95270a4372aa767bded205cdb9f536480cecc27
+main SHA:        715ce09bc2034d6f88165f288b2d79321bdd4599
 schema head:     a7c4e9f2b6d1
 API tests:       107
-Web tests:       14
+Web tests:       16
 ```
 
-Integrated demo presentation data now includes four synthetic Family members, varied current-day health/nutrition evidence and three current-day Family meals. The seed remains explicit, idempotent, isolated and never auto-runs.
-
-## Current feature branch
-
-```text
-feature/web-person-overview
-```
-
-Merge base:
-
-```text
-e95270a4372aa767bded205cdb9f536480cecc27
-```
-
-No schema or backend behavior change.
-
-Current scope:
-
-- implement the first real Person drill-down from Family Home and `Pessoas`;
-- keep primary Family navigation unchanged;
-- make direct `Pessoas` navigation open the Family member list;
-- make Person cards on `Início` open that Person directly;
-- add Person secondary navigation: `Visão geral`, `Nutrição`, `Atividade`, `Saúde`, `Histórico`, `Perfil`;
-- implement `Visão geral` using only current persisted evidence from the existing Family dashboard read model;
-- show energy consumed/remaining, steps/active energy, weight/7-day trend, sleep/resting HR and current-day Person meals;
-- filter Family meal agenda by persisted `participant_person_ids` only;
-- keep missing evidence explicit rather than falling back or inserting zero;
-- keep the other secondary sections as explicit lightweight placeholders until focused read models/screens are implemented;
-- do not invent a health score, medical interpretation, nutrition targets or historical time series;
-- do not add a chart until a future Person read model supplies an actual time series.
-
-Expected validation baseline:
-
-```text
-API: Alembic metadata clean, Ruff clean, 107 pytest tests
-Web: 16 Vitest tests, strict TypeScript check, production Vite build
-```
-
-Authoritative branch documentation:
-
-- `docs/ux/person-overview.md`;
-- `docs/ux/frontend-information-architecture.md`;
-- `docs/ux/family-home-shell.md`;
-- `docs/decisions/ADR-034-family-first-progressive-disclosure-web-navigation.md`;
-- `docs/domain/implementation-status.md`.
-
-Do not open a PR until the exact current branch head receives explicit local green confirmation.
-
-## Demo execution
-
-The demo seed remains explicit:
-
-```powershell
-cd D:\Python\nutriflow-ai-v2\apps\api
-python -m app.demo_seed
-```
-
-Fixed demo Family ID:
-
-```text
-11111111-1111-4111-8111-111111111111
-```
-
-The current demo Family is intentionally useful for Person-overview visual checks because members have different values and selected missing fields.
-
-## Current frontend structure
+Integrated frontend now includes:
 
 ```text
 Início
-  -> Person card -> Person / Visão geral
-
 Refeições
-  -> practical recommendation flow
-
 Pessoas
-  -> Family member list
   -> Person
-       ├── Visão geral   implemented
+       ├── Visão geral
        ├── Nutrição      placeholder
        ├── Atividade     placeholder
        ├── Saúde         placeholder
        ├── Histórico     placeholder
        └── Perfil        placeholder
-
 Casa
 Mais
 ```
 
-Density rules remain:
+## Current feature branch
 
-- one screen answers one primary question;
-- Family Home remains compact;
-- Person overview remains compact and has at most one future primary chart;
-- detailed analytics belong on dedicated sections;
-- missing evidence is unavailable/unknown, never zero.
+```text
+fix/web-person-meal-labels
+```
 
-## Safety and correctness invariants
+Merge base:
+
+```text
+715ce09bc2034d6f88165f288b2d79321bdd4599
+```
+
+No schema/API/backend behavior change.
+
+Scope:
+
+- fix raw backend enum values visible in Person meal rows;
+- localize known meal types/statuses (`lunch` -> `Almoço`, `planned` -> `Planeada`, `completed` -> `Concluída`, etc.);
+- preserve unknown values unchanged instead of guessing;
+- keep distinct persisted MealEvents as distinct rows;
+- document that repeated recommendation smoke tests can accumulate genuine planned MealEvents in the persistent demo database.
+
+Expected validation baseline:
+
+```text
+API: Alembic metadata clean, Ruff clean, 107 pytest tests
+Web: 18 Vitest tests, strict TypeScript check, production Vite build
+```
+
+Do not open/merge a PR for this branch until the exact current head is locally green.
+
+## Demo-data observation from visual review
+
+A Person overview screenshot showed several 11:14 planned meals with alternating accepted dishes. These are separate persisted MealEvents accumulated by earlier recommendation smoke tests, not duplicate rendering of one event.
+
+The UI must not hide authoritative rows just because time/title repeat. Add an explicit demo reset/cleanup path in a separate focused increment so the fixed synthetic Family can be returned to a clean known state without presentation-layer deduplication.
+
+## Safety/correctness invariants
 
 Preserve:
 
 - hard reactions/mandatory constraints before ranking;
 - missing mandatory nutrient data fails closed;
-- unsupported mandatory semantics and unsafe required conversions fail closed;
-- no inferred density;
 - exact versioned composition provenance;
-- browser does not author nutrition totals or choose state/composition versions itself;
-- planning bootstrap preserves Family isolation and as-of version selection;
-- Family dashboard returns persisted evidence without medical interpretation or invented health scores;
-- Person overview only presents dashboard evidence and Person meal participation;
-- missing dashboard evidence remains `null`, not zero;
-- commercial price/availability cannot override nutrition safety;
-- web does not reimplement backend safety/ranking;
-- ineligible options cannot be materialized and rejection cannot create meal state;
-- shared meals keep Person-specific portions/safety checks;
-- demo data remains explicit, synthetic, isolated, identifiable and never auto-seeded;
-- warnings remain failures rather than suppressions.
+- browser does not author nutrition totals or choose evidence versions;
+- Family/Person dashboard missing evidence remains `null`, never zero;
+- Person overview only presents persisted evidence and meal participation;
+- distinct persisted MealEvents remain distinct;
+- web does not reproduce backend safety/ranking;
+- demo data stays explicit, synthetic, identifiable and never auto-seeded;
+- warnings remain failures.
 
 Known limitations:
 
-- Family UUID is development context, not authorization;
-- detailed Person section read models are not yet implemented;
+- Family UUID remains development context pending authentication/authorization;
+- detailed Person read models are not yet implemented;
+- persistent demo databases can accumulate accepted recommendation MealEvents until explicit reset is added;
 - `Casa` is not yet functional;
 - no URL/deep-link router yet;
 - missing real DailyNutritionState is not automatically recalculated by bootstrap/dashboard;
-- recommendation decision request-level/concurrent idempotency is not yet guaranteed;
-- npm lockfile / `npm ci` hardening is still pending;
-- recommendation `datetime-local` still uses the browser timezone rather than a Person-local wall-time control.
+- request-level/concurrent recommendation-decision idempotency is still pending;
+- npm lockfile / `npm ci` hardening is pending;
+- recommendation `datetime-local` still follows browser timezone.
 
 ## Migration tail
 
@@ -216,27 +157,16 @@ d4f8a1b2c6e9  MealEvent Family-scoped idempotency
 c3e7f9a1b5d2  recommendation run/option/feedback
 ```
 
-Never guess the next migration revision; inspect the actual migration directory and Alembic state first.
-
 ## Next planned increments
 
-After this branch is locally green, PR-tested, visually checked and merged:
+After this fix is validated and merged:
 
-1. implement Family Meals `Hoje` and `Semana` before the recommendation subflow;
-2. add shared-meal drill-down with Person-specific portions;
-3. add dedicated Person Nutrition/Activity/Health/History read models/screens;
-4. add Person profile/goals/constraints/preferences screens;
-5. add pantry/shopping UI and durable shopping-list lifecycle;
-6. add authentication and explicit Family/Person authorization before real multi-user deployment;
-7. commit npm lockfile and switch CI to `npm ci` before production;
-8. continue provider/live/basket/order and later learned-ranking work.
-
-## Resume procedure
-
-1. read this file and ADR-007;
-2. inspect current `main`, active branch and compare state;
-3. inspect migration heads/current state;
-4. inspect relevant app validation commands and CI workflows;
-5. confirm whether the exact current branch head has explicit local green validation;
-6. do not PR/merge an unvalidated head;
-7. after merge, verify new exact `main` before creating the next branch.
+1. explicit development-demo reset/cleanup for accumulated smoke-test state;
+2. Family Meals `Hoje` and `Semana` before recommendation;
+3. shared-meal drill-down with Person-specific portions;
+4. dedicated Person Nutrition/Activity/Health/History read models/screens;
+5. Person profile/goals/constraints/preferences;
+6. pantry/shopping UI;
+7. authentication/authorization;
+8. npm lockfile + `npm ci` hardening;
+9. provider/live/basket/order and later learned ranking.
