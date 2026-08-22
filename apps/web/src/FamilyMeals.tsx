@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { ApiError, getFamilyMeals } from "./api/client";
 import type { FamilyMeal, FamilyMeals, FamilyMealsDay } from "./api/types";
+import FamilyMealDetailScreen from "./FamilyMealDetail";
 import { useI18n, type Locale } from "./i18n";
 import MealPlanner from "./MealPlanner";
 
@@ -53,7 +54,15 @@ function formatTime(value: string, timezone: string, locale: Locale): string {
   }).format(new Date(value));
 }
 
-function MealRow({ meal, familyTimezone }: { meal: FamilyMeal; familyTimezone: string }) {
+function MealRow({
+  meal,
+  familyTimezone,
+  onOpenMeal,
+}: {
+  meal: FamilyMeal;
+  familyTimezone: string;
+  onOpenMeal: (mealId: string) => void;
+}) {
   const { locale, t } = useI18n();
   const participantNames = familyMealParticipantNames(meal);
 
@@ -87,28 +96,37 @@ function MealRow({ meal, familyTimezone }: { meal: FamilyMeal; familyTimezone: s
     }
   }
 
+  const title = meal.title ?? mealTypeLabel();
+
   return (
-    <article className="family-meal-row">
+    <button
+      aria-label={`${t("mealDetail.open")}: ${title}`}
+      className="family-meal-row"
+      onClick={() => onOpenMeal(meal.id)}
+      type="button"
+    >
       <time>{formatTime(meal.scheduled_at, familyTimezone, locale)}</time>
-      <div className="family-meal-row__body">
-        <strong>{meal.title ?? mealTypeLabel()}</strong>
+      <span className="family-meal-row__body">
+        <strong>{title}</strong>
         <span>
           {participantNames || t("home.familyMeal")}
           {meal.location ? ` · ${meal.location}` : ""}
         </span>
-      </div>
+      </span>
       <span className={`family-meal-status status-${meal.status}`}>{statusLabel()}</span>
-    </article>
+    </button>
   );
 }
 
 function DaySection({
   day,
   timezone,
+  onOpenMeal,
   compact = false,
 }: {
   day: FamilyMealsDay;
   timezone: string;
+  onOpenMeal: (mealId: string) => void;
   compact?: boolean;
 }) {
   const { locale, t } = useI18n();
@@ -126,7 +144,12 @@ function DaySection({
       {day.meals.length > 0 ? (
         <div className="family-meals-list">
           {day.meals.map((meal) => (
-            <MealRow familyTimezone={timezone} key={meal.id} meal={meal} />
+            <MealRow
+              familyTimezone={timezone}
+              key={meal.id}
+              meal={meal}
+              onOpenMeal={onOpenMeal}
+            />
           ))}
         </div>
       ) : (
@@ -151,6 +174,7 @@ export default function FamilyMealsScreen({
   const [data, setData] = useState<FamilyMeals | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
 
   const request = useMemo(() => {
     if (mode === "recommend") {
@@ -196,6 +220,21 @@ export default function FamilyMealsScreen({
     };
   }, [familyId, request]);
 
+  if (selectedMealId !== null) {
+    return (
+      <FamilyMealDetailScreen
+        familyId={familyId}
+        mealEventId={selectedMealId}
+        onBack={() => setSelectedMealId(null)}
+      />
+    );
+  }
+
+  function changeMode(nextMode: FamilyMealsMode) {
+    setSelectedMealId(null);
+    onModeChange(nextMode);
+  }
+
   return (
     <div className="family-meals-screen">
       <header className="screen-header compact-screen-header family-meals-header">
@@ -206,7 +245,7 @@ export default function FamilyMealsScreen({
         </div>
         <button
           className="button primary"
-          onClick={() => onModeChange("recommend")}
+          onClick={() => changeMode("recommend")}
           type="button"
         >
           {t("meals.recommend")}
@@ -217,7 +256,7 @@ export default function FamilyMealsScreen({
         <button
           aria-current={mode === "today" ? "page" : undefined}
           className={mode === "today" ? "active" : ""}
-          onClick={() => onModeChange("today")}
+          onClick={() => changeMode("today")}
           type="button"
         >
           {t("meals.today")}
@@ -225,7 +264,7 @@ export default function FamilyMealsScreen({
         <button
           aria-current={mode === "week" ? "page" : undefined}
           className={mode === "week" ? "active" : ""}
-          onClick={() => onModeChange("week")}
+          onClick={() => changeMode("week")}
           type="button"
         >
           {t("meals.week")}
@@ -233,7 +272,7 @@ export default function FamilyMealsScreen({
         <button
           aria-current={mode === "recommend" ? "page" : undefined}
           className={mode === "recommend" ? "active" : ""}
-          onClick={() => onModeChange("recommend")}
+          onClick={() => changeMode("recommend")}
           type="button"
         >
           {t("meals.recommendShort")}
@@ -271,6 +310,7 @@ export default function FamilyMealsScreen({
               compact={mode === "week"}
               day={day}
               key={day.date}
+              onOpenMeal={setSelectedMealId}
               timezone={data.timezone}
             />
           ))}
