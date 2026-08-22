@@ -22,11 +22,7 @@ from app.schemas.pantry_shopping import (
     ShoppingListItemUpdate,
     ShoppingListRead,
 )
-from app.services.pantry_planning import (
-    PantryPlanningError,
-    PantryUnitConversionError,
-    assess_food_pantry_stock,
-)
+from app.services.pantry_planning import PantryPlanningError, assess_food_pantry_stock
 from app.services.serving_nutrition import UnsupportedUnitConversionError, convert_quantity
 
 ZERO = Decimal(0)
@@ -308,7 +304,7 @@ def build_planned_requirements(
                 required_unit=unit,
                 as_of=instant,
             )
-        except (PantryPlanningError, PantryUnitConversionError) as exc:
+        except PantryPlanningError as exc:
             issues.append(str(exc))
             continue
         requirements.append(
