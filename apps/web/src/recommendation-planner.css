@@ -1,0 +1,146 @@
+.recommend-planner {
+  display: grid;
+  gap: 28px;
+}
+
+.recommend-setup,
+.recommend-day {
+  display: grid;
+  gap: 20px;
+}
+
+.recommend-primary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.recommend-date-range {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.segmented-control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-subtle);
+}
+
+.segmented-control button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.segmented-control button.active {
+  background: var(--surface);
+  box-shadow: 0 1px 5px rgb(0 0 0 / 8%);
+  font-weight: 650;
+}
+
+.recommend-source-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.recommend-source-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  min-height: 82px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.recommend-source-card.selected {
+  border-color: var(--accent);
+  background: var(--surface-subtle);
+}
+
+.recommend-source-card input {
+  margin-top: 3px;
+}
+
+.recommend-source-card span {
+  display: grid;
+  gap: 4px;
+}
+
+.recommend-source-card small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.recommend-more {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.recommend-more summary {
+  cursor: pointer;
+  font-weight: 650;
+  margin-bottom: 14px;
+}
+
+.recommend-results,
+.recommend-day-list {
+  display: grid;
+  gap: 24px;
+}
+
+.recommend-day {
+  padding-top: 6px;
+}
+
+.recommend-day + .recommend-day {
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+}
+
+.recommend-day__heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: baseline;
+}
+
+.recommend-day__heading h3 {
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.recommend-day__heading span {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 980px) {
+  .recommend-primary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .recommend-primary-grid,
+  .recommend-source-grid,
+  .recommend-date-range {
+    grid-template-columns: 1fr;
+  }
+
+  .recommend-day__heading {
+    display: grid;
+    gap: 4px;
+  }
+}
