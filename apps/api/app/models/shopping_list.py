@@ -57,7 +57,11 @@ class ShoppingList(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     items: Mapped[list["ShoppingListItem"]] = relationship(
         back_populates="shopping_list",
         cascade="all, delete-orphan",
-        order_by=lambda: (ShoppingListItem.status, ShoppingListItem.sort_order, ShoppingListItem.name),
+        order_by=lambda: (
+            ShoppingListItem.status,
+            ShoppingListItem.sort_order,
+            ShoppingListItem.name,
+        ),
     )
 
 
