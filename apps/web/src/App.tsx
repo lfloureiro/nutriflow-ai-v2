@@ -12,7 +12,13 @@ const FAMILY_STORAGE_KEY = "nutriflow-family-id";
 
 type View = "home" | "meals" | "people" | "house" | "more";
 
-const NAV_ITEMS: Array<{ view: View; icon: string; labelKey: "nav.home" | "nav.meals" | "nav.people" | "nav.house" | "nav.more" }> = [
+type NavItem = {
+  view: View;
+  icon: string;
+  labelKey: "nav.home" | "nav.meals" | "nav.people" | "nav.house" | "nav.more";
+};
+
+const NAV_ITEMS: NavItem[] = [
   { view: "home", icon: "⌂", labelKey: "nav.home" },
   { view: "meals", icon: "◫", labelKey: "nav.meals" },
   { view: "people", icon: "◎", labelKey: "nav.people" },
@@ -66,6 +72,7 @@ export default function App() {
   const [dashboard, setDashboard] = useState<FamilyDashboard | null>(null);
   const [dashboardBusy, setDashboardBusy] = useState(initialId.length > 0);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
+  const [dashboardRevision, setDashboardRevision] = useState(0);
   const [view, setView] = useState<View>("home");
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
 
@@ -101,7 +108,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [activeFamilyId, view]);
+  }, [activeFamilyId, dashboardRevision, view]);
 
   function handleConnect(event: FormEvent) {
     event.preventDefault();
@@ -114,6 +121,7 @@ export default function App() {
     setDashboardError(null);
     setView("home");
     setActiveFamilyId(nextFamilyId);
+    setDashboardRevision((current) => current + 1);
   }
 
   function openPerson(personId: string) {
@@ -135,7 +143,9 @@ export default function App() {
       <main className="entry-screen">
         <div className="entry-card">
           <div className="entry-brand">
-            <span className="brand-mark" aria-hidden="true">N</span>
+            <span className="brand-mark" aria-hidden="true">
+              N
+            </span>
             <strong>{t("app.brand")}</strong>
           </div>
           <div>
@@ -197,10 +207,12 @@ export default function App() {
     <div className="app-shell">
       <aside className="side-nav">
         <button className="side-brand" onClick={() => setView("home")} type="button">
-          <span className="brand-mark" aria-hidden="true">N</span>
+          <span className="brand-mark" aria-hidden="true">
+            N
+          </span>
           <span>{t("app.brand")}</span>
         </button>
-        <nav className="primary-nav" aria-label={t("nav.primary")}> 
+        <nav className="primary-nav" aria-label={t("nav.primary")}>
           {NAV_ITEMS.map((item) => (
             <button
               aria-current={view === item.view ? "page" : undefined}
@@ -209,7 +221,9 @@ export default function App() {
               onClick={() => setView(item.view)}
               type="button"
             >
-              <span className="nav-icon" aria-hidden="true">{item.icon}</span>
+              <span className="nav-icon" aria-hidden="true">
+                {item.icon}
+              </span>
               <span>{t(item.labelKey)}</span>
             </button>
           ))}
@@ -231,8 +245,8 @@ export default function App() {
             className="shell-icon-button"
             disabled={dashboardBusy}
             onClick={() => {
-              setDashboard(null);
               setView("home");
+              setDashboardRevision((current) => current + 1);
             }}
             type="button"
           >
@@ -250,7 +264,9 @@ export default function App() {
 
           {view === "home" ? (
             dashboardBusy || !dashboard ? (
-              <div className="shell-loading" role="status">{t("home.loading")}</div>
+              <div className="shell-loading" role="status">
+                {t("home.loading")}
+              </div>
             ) : (
               <FamilyHome
                 dashboard={dashboard}
@@ -344,7 +360,7 @@ export default function App() {
         </main>
       </div>
 
-      <nav className="bottom-nav" aria-label={t("nav.primary")}> 
+      <nav className="bottom-nav" aria-label={t("nav.primary")}>
         {NAV_ITEMS.map((item) => (
           <button
             aria-current={view === item.view ? "page" : undefined}
