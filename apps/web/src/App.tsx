@@ -5,6 +5,7 @@ import type { FamilyDashboard } from "./api/types";
 import FamilyHome, { memberDisplayName } from "./FamilyHome";
 import { useI18n, type Locale } from "./i18n";
 import MealPlanner from "./MealPlanner";
+import PersonOverview from "./PersonOverview";
 import { useTheme, type Appearance } from "./theme";
 
 const DEMO_FAMILY_ID = "11111111-1111-4111-8111-111111111111";
@@ -119,6 +120,7 @@ export default function App() {
     }
     setDashboard(null);
     setDashboardError(null);
+    setSelectedPersonId(null);
     setView("home");
     setActiveFamilyId(nextFamilyId);
     setDashboardRevision((current) => current + 1);
@@ -129,12 +131,20 @@ export default function App() {
     setView("people");
   }
 
+  function openPrimaryView(nextView: View) {
+    if (nextView === "people") {
+      setSelectedPersonId(null);
+    }
+    setView(nextView);
+  }
+
   function changeFamily() {
     window.localStorage.removeItem(FAMILY_STORAGE_KEY);
     setDashboard(null);
     setDashboardError(null);
     setActiveFamilyId("");
     setFamilyInput("");
+    setSelectedPersonId(null);
     setView("home");
   }
 
@@ -206,7 +216,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <aside className="side-nav">
-        <button className="side-brand" onClick={() => setView("home")} type="button">
+        <button className="side-brand" onClick={() => openPrimaryView("home")} type="button">
           <span className="brand-mark" aria-hidden="true">
             N
           </span>
@@ -218,7 +228,7 @@ export default function App() {
               aria-current={view === item.view ? "page" : undefined}
               className={`nav-item ${view === item.view ? "active" : ""}`}
               key={item.view}
-              onClick={() => setView(item.view)}
+              onClick={() => openPrimaryView(item.view)}
               type="button"
             >
               <span className="nav-icon" aria-hidden="true">
@@ -279,34 +289,42 @@ export default function App() {
           {view === "meals" ? <MealPlanner familyId={activeFamilyId} /> : null}
 
           {view === "people" ? (
-            <div className="people-screen">
-              <header className="screen-header compact-screen-header">
-                <div>
-                  <span className="eyebrow">{t("nav.people")}</span>
-                  <h1>{selectedMember ? memberDisplayName(selectedMember) : t("people.title")}</h1>
-                  <p>{selectedMember ? t("people.detailNext") : t("people.help")}</p>
+            selectedMember && dashboard ? (
+              <PersonOverview
+                dashboard={dashboard}
+                member={selectedMember}
+                onBack={() => setSelectedPersonId(null)}
+              />
+            ) : (
+              <div className="people-screen">
+                <header className="screen-header compact-screen-header">
+                  <div>
+                    <span className="eyebrow">{t("nav.people")}</span>
+                    <h1>{t("people.title")}</h1>
+                    <p>{t("people.help")}</p>
+                  </div>
+                </header>
+                <div className="people-list">
+                  {dashboard?.members.map((member) => (
+                    <button
+                      className="person-row"
+                      key={member.person_id}
+                      onClick={() => setSelectedPersonId(member.person_id)}
+                      type="button"
+                    >
+                      <span className="member-avatar" aria-hidden="true">
+                        {member.first_name.slice(0, 1).toUpperCase()}
+                      </span>
+                      <span>
+                        <strong>{memberDisplayName(member)}</strong>
+                        <small>{member.timezone}</small>
+                      </span>
+                      <span aria-hidden="true">›</span>
+                    </button>
+                  ))}
                 </div>
-              </header>
-              <div className="people-list">
-                {dashboard?.members.map((member) => (
-                  <button
-                    className={`person-row ${selectedPersonId === member.person_id ? "selected" : ""}`}
-                    key={member.person_id}
-                    onClick={() => setSelectedPersonId(member.person_id)}
-                    type="button"
-                  >
-                    <span className="member-avatar" aria-hidden="true">
-                      {member.first_name.slice(0, 1).toUpperCase()}
-                    </span>
-                    <span>
-                      <strong>{memberDisplayName(member)}</strong>
-                      <small>{member.timezone}</small>
-                    </span>
-                    <span aria-hidden="true">›</span>
-                  </button>
-                ))}
               </div>
-            </div>
+            )
           ) : null}
 
           {view === "house" ? (
@@ -366,7 +384,7 @@ export default function App() {
             aria-current={view === item.view ? "page" : undefined}
             className={view === item.view ? "active" : ""}
             key={item.view}
-            onClick={() => setView(item.view)}
+            onClick={() => openPrimaryView(item.view)}
             type="button"
           >
             <span aria-hidden="true">{item.icon}</span>
