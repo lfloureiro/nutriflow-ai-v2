@@ -50,7 +50,7 @@ def _ingredient(
     )
     if energy is not None or protein is not None:
         composition = FoodCompositionSnapshot(
-            reference_quantity=Decimal("100"),
+            reference_quantity=Decimal(100),
             reference_unit="g",
             energy_kcal=Decimal(energy) if energy is not None else None,
             data_version="test-v1",
@@ -96,12 +96,12 @@ def test_recipe_create_calculates_total_and_per_serving_nutrition(db_session: Se
     body = response.json()
     assert body["name"] == "Taça de aveia"
     assert [item["food_item_name"] for item in body["ingredients"]] == ["Aveia", "Iogurte"]
-    assert Decimal(body["latest_composition"]["energy_kcal"]) == Decimal("250")
-    assert Decimal(body["latest_composition"]["energy_per_serving_kcal"]) == Decimal("125")
+    assert Decimal(body["latest_composition"]["energy_kcal"]) == Decimal(250)
+    assert Decimal(body["latest_composition"]["energy_per_serving_kcal"]) == Decimal(125)
     assert body["nutrition_issues"] == []
     protein = body["latest_composition"]["nutrients"][0]
     assert protein["key"] == "protein"
-    assert Decimal(protein["total_value"]) == Decimal("25")
+    assert Decimal(protein["total_value"]) == Decimal(25)
     assert Decimal(protein["per_serving_value"]) == Decimal("12.5")
 
 
@@ -163,7 +163,7 @@ def test_recipe_update_appends_composition_and_soft_delete_hides_recipe(
         },
     )
     assert updated.status_code == 200
-    assert Decimal(updated.json()["latest_composition"]["energy_kcal"]) == Decimal("390")
+    assert Decimal(updated.json()["latest_composition"]["energy_kcal"]) == Decimal(390)
 
     snapshot_count = db_session.scalar(
         select(func.count())
