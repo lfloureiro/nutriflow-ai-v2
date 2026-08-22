@@ -29,7 +29,11 @@ def _utc_range_bounds(
 ) -> tuple[datetime, datetime]:
     timezone = ZoneInfo(family.timezone)
     local_start = datetime.combine(first_date, time.min, tzinfo=timezone)
-    local_end = datetime.combine(first_date + timedelta(days=day_count), time.min, tzinfo=timezone)
+    local_end = datetime.combine(
+        first_date + timedelta(days=day_count),
+        time.min,
+        tzinfo=timezone,
+    )
     return local_start.astimezone(UTC), local_end.astimezone(UTC)
 
 
