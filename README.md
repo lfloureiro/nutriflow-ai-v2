@@ -95,11 +95,14 @@ The current backend foundation includes:
 - materialization of accepted shared-family recommendations into one planned MealEvent with person-specific MealParticipant and Serving records;
 - Family-scoped MealEvent idempotency and immutable planned-meal replacement history for safe retries and later edits;
 - persisted Family-scoped practical availability for home, pantry, restaurant, delivery and store meal sources;
+- quantity-aware Family pantry stock with expiry, Recipe ingredient sufficiency and exact shopping requirements for missing quantities;
 - PostgreSQL persistence with Alembic migrations;
 - pytest coverage with warnings treated as errors;
 - Ruff static validation.
 
 Detailed domain status is maintained in `docs/domain/implementation-status.md`.
+
+For a later development session, start with `docs/development-continuity.md`. It records the current checkpoint, exact resumption procedure, migration/test baseline and next safe development step.
 
 ## Development workflow
 
@@ -107,12 +110,14 @@ Changes are developed on focused branches rather than directly on `main`.
 
 Before a branch is integrated it must:
 
-- update relevant documentation;
+- update relevant documentation and the continuity checkpoint;
 - include or update tests;
 - validate migrations locally when the database changes;
 - pass Ruff and the complete local test suite with zero warnings;
-- pass CI verification.
+- open a PR only after local validation is green;
+- pass CI on the exact PR head SHA;
+- be squash-merged only after the tested head is confirmed unchanged.
 
-The workflow decision is documented in `docs/decisions/ADR-007-development-workflow-and-ci.md`.
+The authoritative workflow decision is documented in `docs/decisions/ADR-007-development-workflow-and-ci.md`.
 
 GitHub Actions runs Ruff, the API test suite against PostgreSQL, and verifies that the Alembic migration chain is current.
