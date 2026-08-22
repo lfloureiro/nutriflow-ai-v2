@@ -14,6 +14,7 @@ from app.schemas.recipe_preference import (
     RecipePreferenceSummaryRead,
     RecipeRatingWrite,
 )
+from app.services.recipe_preference_scoring import effective_family_rating
 
 RATING_QUANTUM = Decimal("0.01")
 
@@ -194,6 +195,6 @@ def load_family_recipe_ratings(
     for preference in latest.values():
         grouped[preference.subject_key].append(Decimal(preference.intensity))
     return {
-        recipe_key: sum(values, start=Decimal(0)) / Decimal(len(values))
+        recipe_key: effective_family_rating(values)
         for recipe_key, values in grouped.items()
     }
