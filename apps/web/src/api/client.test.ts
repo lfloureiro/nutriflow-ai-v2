@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildApiUrl,
   familyDashboardPath,
+  familyMealDetailPath,
   familyMealsPath,
   normalizeApiBaseUrl,
   planningBootstrapPath,
@@ -32,12 +33,15 @@ describe("API URL construction", () => {
     expect(familyDashboardPath("family/id")).toBe("/api/families/family%2Fid/dashboard");
   });
 
-  it("builds a family meals range path", () => {
+  it("builds family meal range and detail paths", () => {
     expect(familyMealsPath("family/id", "2026-08-22", 7)).toBe(
       "/api/families/family%2Fid/meals?days=7&start_date=2026-08-22",
     );
     expect(familyMealsPath("family/id", undefined, 1)).toBe(
       "/api/families/family%2Fid/meals?days=1",
+    );
+    expect(familyMealDetailPath("family/id", "meal/id")).toBe(
+      "/api/families/family%2Fid/meals/meal%2Fid",
     );
   });
 
