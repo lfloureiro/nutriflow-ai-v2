@@ -4,7 +4,7 @@ import { ApiError, getFamilyDashboard } from "./api/client";
 import type { FamilyDashboard } from "./api/types";
 import FamilyHome, { memberDisplayName } from "./FamilyHome";
 import { useI18n, type Locale } from "./i18n";
-import MealPlanner from "./MealPlanner";
+import MealsScreen, { type MealsView } from "./MealsScreen";
 import PersonOverview from "./PersonOverview";
 import { useTheme, type Appearance } from "./theme";
 
@@ -75,6 +75,7 @@ export default function App() {
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [dashboardRevision, setDashboardRevision] = useState(0);
   const [view, setView] = useState<View>("home");
+  const [mealsView, setMealsView] = useState<MealsView>("today");
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -121,6 +122,7 @@ export default function App() {
     setDashboard(null);
     setDashboardError(null);
     setSelectedPersonId(null);
+    setMealsView("today");
     setView("home");
     setActiveFamilyId(nextFamilyId);
     setDashboardRevision((current) => current + 1);
@@ -135,7 +137,15 @@ export default function App() {
     if (nextView === "people") {
       setSelectedPersonId(null);
     }
+    if (nextView === "meals") {
+      setMealsView("today");
+    }
     setView(nextView);
+  }
+
+  function openMeals(nextMealsView: MealsView) {
+    setMealsView(nextMealsView);
+    setView("meals");
   }
 
   function changeFamily() {
@@ -145,6 +155,7 @@ export default function App() {
     setActiveFamilyId("");
     setFamilyInput("");
     setSelectedPersonId(null);
+    setMealsView("today");
     setView("home");
   }
 
@@ -281,12 +292,26 @@ export default function App() {
               <FamilyHome
                 dashboard={dashboard}
                 onOpenPerson={openPerson}
-                onPlanMeal={() => setView("meals")}
+                onPlanMeal={() => openMeals("recommend")}
+                onSeeMeals={() => openMeals("today")}
               />
             )
           ) : null}
 
-          {view === "meals" ? <MealPlanner familyId={activeFamilyId} /> : null}
+          {view === "meals" ? (
+            dashboard ? (
+              <MealsScreen
+                dashboard={dashboard}
+                familyId={activeFamilyId}
+                onViewChange={setMealsView}
+                view={mealsView}
+              />
+            ) : (
+              <div className="shell-loading" role="status">
+                {t("home.loading")}
+              </div>
+            )
+          ) : null}
 
           {view === "people" ? (
             selectedMember && dashboard ? (
