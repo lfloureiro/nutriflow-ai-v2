@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import type { PlanningCandidate } from "./api/types";
 import {
+  candidateDraftFromBootstrap,
   candidatePayload,
   hasCandidateValue,
   localDateTimeValue,
@@ -32,5 +34,30 @@ describe("planning form helpers", () => {
       quantity_unit: "g",
     });
     expect(hasCandidateValue(payload)).toBe(true);
+  });
+
+  it("uses the server-selected composition and reference serving for a bootstrap candidate", () => {
+    const candidate: PlanningCandidate = {
+      candidate_kind: "food_item",
+      composition_id: "composition-1",
+      catalog_key: "food:banana",
+      name: "Banana",
+      category: "generic",
+      brand: null,
+      description: null,
+      reference_quantity: "100.0000",
+      reference_unit: "g",
+      energy_kcal: "89.0000",
+      composition_version: "v1",
+      composition_at: "2026-08-20T10:00:00Z",
+    };
+
+    expect(candidateDraftFromBootstrap(candidate, "row-2")).toEqual({
+      rowId: "row-2",
+      candidate_kind: "food_item",
+      composition_id: "composition-1",
+      quantity: "100.0000",
+      quantity_unit: "g",
+    });
   });
 });
