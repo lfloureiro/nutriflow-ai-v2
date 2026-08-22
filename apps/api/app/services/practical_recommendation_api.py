@@ -24,6 +24,7 @@ from app.services.persisted_practical_availability import (
     PersistedPracticalAvailabilityError,
     build_persisted_practical_profiles,
 )
+from app.services.recipe_preference import load_family_recipe_ratings
 from app.services.recommendation_practical_context import (
     CandidatePracticalProfile,
     PracticalMealContext,
@@ -265,6 +266,12 @@ def create_practical_meal_recommendation(
             data=data,
         )
         practical_profiles = _merge_source_channels(candidates, channels)
+        family_recipe_ratings = load_family_recipe_ratings(
+            session,
+            family_id=person.family_id,
+            planning_date=data.planning_date,
+            exclude_person_id=person.id,
+        )
         recommendation = recommend_meals_with_practical_context(
             daily_state=state,
             candidates=candidates,
@@ -280,6 +287,7 @@ def create_practical_meal_recommendation(
                 schedule_entries=tuple(person.schedule_entries),
             ),
             practical_profiles=practical_profiles,
+            family_recipe_ratings=family_recipe_ratings,
         )
     except (
         CommercialAvailabilityError,
