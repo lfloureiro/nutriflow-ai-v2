@@ -24,6 +24,53 @@ export type RecommendationCandidateInput = {
   quantity_unit: string;
 };
 
+export type PlanningNutritionComponent = {
+  target_type: string;
+  target_key: string;
+  consumed_value: string | null;
+  planned_value: string | null;
+  remaining_min: string | null;
+  remaining_max: string | null;
+  unit: string;
+};
+
+export type PlanningDailyNutritionState = {
+  id: string;
+  state_date: string;
+  timezone: string;
+  energy_consumed_kcal: string;
+  energy_planned_kcal: string;
+  energy_remaining_min_kcal: string | null;
+  energy_remaining_max_kcal: string | null;
+  calculation_version: string;
+  computed_at: string;
+  components: PlanningNutritionComponent[];
+};
+
+export type PlanningCandidate = {
+  candidate_kind: "food_item" | "recipe";
+  composition_id: string;
+  catalog_key: string;
+  name: string;
+  category: string;
+  brand: string | null;
+  description: string | null;
+  reference_quantity: string;
+  reference_unit: string;
+  energy_kcal: string | null;
+  composition_version: string;
+  composition_at: string;
+};
+
+export type PlanningBootstrap = {
+  person_id: string;
+  family_id: string;
+  scheduled_at: string;
+  planning_date: string;
+  daily_nutrition_state: PlanningDailyNutritionState | null;
+  candidates: PlanningCandidate[];
+};
+
 export type PracticalRecommendationRequest = {
   daily_nutrition_state_id: string;
   planning_date: string;
