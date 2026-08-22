@@ -1,5 +1,6 @@
 import type {
   Person,
+  PlanningBootstrap,
   PracticalRecommendationRequest,
   PracticalRecommendationRun,
   RecommendationDecision,
@@ -26,6 +27,12 @@ export function buildApiUrl(path: string, baseUrl = configuredApiBaseUrl): strin
   const normalizedBase = normalizeApiBaseUrl(baseUrl);
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${normalizedBase}${normalizedPath}`;
+}
+
+export function planningBootstrapPath(personId: string, scheduledAt: string): string {
+  const encodedPersonId = encodeURIComponent(personId);
+  const query = new URLSearchParams({ scheduled_at: scheduledAt });
+  return `/api/persons/${encodedPersonId}/planning-bootstrap?${query.toString()}`;
 }
 
 async function errorMessage(response: Response): Promise<string> {
@@ -61,6 +68,13 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function listFamilyPersons(familyId: string): Promise<Person[]> {
   return apiRequest<Person[]>(`/api/families/${encodeURIComponent(familyId)}/persons`);
+}
+
+export function getPlanningBootstrap(
+  personId: string,
+  scheduledAt: string,
+): Promise<PlanningBootstrap> {
+  return apiRequest<PlanningBootstrap>(planningBootstrapPath(personId, scheduledAt));
 }
 
 export function requestPracticalRecommendation(
