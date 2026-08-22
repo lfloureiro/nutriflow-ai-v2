@@ -295,3 +295,35 @@ def test_meal_recommendation_api_rejects_duplicate_catalogue_candidate_keys(
     assert response.json()["detail"] == (
         "Recommendation candidates must have unique catalogue keys."
     )
+
+
+def test_meal_recommendation_api_rejects_unsafe_candidate_quantity_unit(
+    db_session: Session,
+) -> None:
+    family, person = _family_person(db_session)
+    state = _daily_state(db_session, person)
+    composition = _food_composition(
+        db_session,
+        family,
+        key="food:unsafe-unit",
+        name="Unsafe unit dish",
+        sodium="50.0000",
+    )
+    payload = _request_payload(state, [composition.id])
+    candidates = payload["candidates"]
+    if not isinstance(candidates, list):
+        raise AssertionError("Candidate payload must be a list.")
+    candidates[0]["quantity_unit"] = "ml"
+
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                f"/api/persons/{person.id}/meal-recommendations",
+                json=payload,
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Cannot scale food candidate using quantity unit 'ml'."
