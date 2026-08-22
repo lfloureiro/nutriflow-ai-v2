@@ -3,10 +3,11 @@ import { useState } from "react";
 import IngredientCatalogue from "./IngredientCatalogue";
 import PantryScreen from "./PantryScreen";
 import RecipeCatalogue from "./RecipeCatalogue";
+import RecipePreferences from "./RecipePreferences";
 import ShoppingListScreen from "./ShoppingListScreen";
 import { useI18n } from "./i18n";
 
-type HomeBaseView = "recipes" | "ingredients" | "pantry" | "shopping";
+type HomeBaseView = "recipes" | "ingredients" | "pantry" | "shopping" | "preferences";
 
 export default function HomeBase({ familyId }: { familyId: string }) {
   const { locale } = useI18n();
@@ -19,6 +20,7 @@ export default function HomeBase({ familyId }: { familyId: string }) {
           ingredients: "Ingredientes",
           pantry: "Despensa",
           shopping: "Compras",
+          preferences: "Preferências",
         }
       : {
           label: "Home management",
@@ -26,6 +28,7 @@ export default function HomeBase({ familyId }: { familyId: string }) {
           ingredients: "Ingredients",
           pantry: "Pantry",
           shopping: "Shopping",
+          preferences: "Preferences",
         };
 
   return (
@@ -63,11 +66,20 @@ export default function HomeBase({ familyId }: { familyId: string }) {
         >
           {copy.shopping}
         </button>
+        <button
+          aria-current={view === "preferences" ? "page" : undefined}
+          className={view === "preferences" ? "active" : ""}
+          onClick={() => setView("preferences")}
+          type="button"
+        >
+          {copy.preferences}
+        </button>
       </nav>
       {view === "recipes" ? <RecipeCatalogue familyId={familyId} /> : null}
       {view === "ingredients" ? <IngredientCatalogue familyId={familyId} /> : null}
       {view === "pantry" ? <PantryScreen familyId={familyId} /> : null}
       {view === "shopping" ? <ShoppingListScreen familyId={familyId} /> : null}
+      {view === "preferences" ? <RecipePreferences familyId={familyId} /> : null}
     </div>
   );
 }
