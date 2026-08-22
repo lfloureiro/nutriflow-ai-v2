@@ -1,4 +1,5 @@
 import type {
+  FamilyDashboard,
   Person,
   PlanningBootstrap,
   PracticalRecommendationRequest,
@@ -27,6 +28,15 @@ export function buildApiUrl(path: string, baseUrl = configuredApiBaseUrl): strin
   const normalizedBase = normalizeApiBaseUrl(baseUrl);
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${normalizedBase}${normalizedPath}`;
+}
+
+export function familyDashboardPath(familyId: string, onDate?: string): string {
+  const base = `/api/families/${encodeURIComponent(familyId)}/dashboard`;
+  if (!onDate) {
+    return base;
+  }
+  const query = new URLSearchParams({ on_date: onDate });
+  return `${base}?${query.toString()}`;
 }
 
 export function planningBootstrapPath(personId: string, scheduledAt: string): string {
@@ -64,6 +74,10 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return (await response.json()) as T;
+}
+
+export function getFamilyDashboard(familyId: string, onDate?: string): Promise<FamilyDashboard> {
+  return apiRequest<FamilyDashboard>(familyDashboardPath(familyId, onDate));
 }
 
 export function listFamilyPersons(familyId: string): Promise<Person[]> {
