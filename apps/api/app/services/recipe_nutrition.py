@@ -149,7 +149,6 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
 
     reference_quantity, reference_unit = _reference(recipe)
     composition = RecipeCompositionSnapshot(
-        recipe=recipe,
         reference_quantity=reference_quantity,
         reference_unit=reference_unit,
         energy_kcal=energy_kcal,
