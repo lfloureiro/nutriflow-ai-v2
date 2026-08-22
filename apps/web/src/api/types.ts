@@ -65,6 +65,38 @@ export type FamilyDashboard = {
   meals: FamilyDashboardMeal[];
 };
 
+export type FamilyMealParticipant = {
+  person_id: string;
+  first_name: string;
+  last_name: string | null;
+  status: string;
+};
+
+export type FamilyMeal = {
+  id: string;
+  meal_type: string;
+  title: string | null;
+  scheduled_at: string;
+  timezone: string;
+  status: string;
+  location: string | null;
+  participants: FamilyMealParticipant[];
+};
+
+export type FamilyMealsDay = {
+  date: string;
+  meals: FamilyMeal[];
+};
+
+export type FamilyMeals = {
+  family_id: string;
+  family_name: string;
+  timezone: string;
+  start_date: string;
+  end_date: string;
+  days: FamilyMealsDay[];
+};
+
 export type PracticalSourceKind =
   | "home"
   | "pantry"
