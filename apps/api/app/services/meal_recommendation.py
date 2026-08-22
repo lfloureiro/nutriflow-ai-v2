@@ -197,7 +197,7 @@ def _mandatory_constraint_exclusion(
             )
         nutrient = candidate.nutrition.nutrients.get(constraint.target_key)
         if nutrient is None:
-            return None
+            return f"mandatory_nutrient_data_missing:{constraint.target_key}"
         candidate_value = _convert_or_raise(
             nutrient.value,
             nutrient.unit,
