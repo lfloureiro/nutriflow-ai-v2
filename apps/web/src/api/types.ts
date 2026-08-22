@@ -1,117 +1,25 @@
-export type Person = {
+export type Locale = "pt-PT" | "en";
+
+export type Family = {
   id: string;
-  family_id: string;
-  first_name: string;
-  last_name: string | null;
-  birth_date: string | null;
-  preferred_locale: string;
+  name: string;
   timezone: string;
   created_at: string;
   updated_at: string;
 };
 
-export type FamilyDashboardHealth = {
-  state_date: string;
-  latest_weight_kg: string | null;
-  weight_trend_7d_kg: string | null;
-  weight_trend_28d_kg: string | null;
-  steps: number | null;
-  active_energy_kcal: string | null;
-  sleep_duration_minutes: number | null;
-  resting_heart_rate_bpm: string | null;
-  hrv_ms: string | null;
-  training_load: string | null;
-  confidence_score: string | null;
-  computed_at: string;
-};
-
-export type FamilyDashboardNutrition = {
-  state_date: string;
-  energy_consumed_kcal: string;
-  energy_planned_kcal: string;
-  energy_remaining_min_kcal: string | null;
-  energy_remaining_max_kcal: string | null;
-  adherence_score: string | null;
-  confidence_score: string | null;
-  computed_at: string;
-};
-
-export type FamilyDashboardMember = {
-  person_id: string;
+export type Person = {
+  id: string;
+  family_id: string;
   first_name: string;
   last_name: string | null;
+  preferred_locale: Locale;
   timezone: string;
-  health: FamilyDashboardHealth | null;
-  nutrition: FamilyDashboardNutrition | null;
+  created_at: string;
+  updated_at: string;
 };
 
-export type FamilyDashboardMeal = {
-  id: string;
-  meal_type: string;
-  title: string | null;
-  scheduled_at: string;
-  timezone: string;
-  status: string;
-  location: string | null;
-  participant_person_ids: string[];
-};
-
-export type FamilyDashboard = {
-  family_id: string;
-  family_name: string;
-  timezone: string;
-  dashboard_date: string;
-  members: FamilyDashboardMember[];
-  meals: FamilyDashboardMeal[];
-};
-
-export type FamilyMealParticipant = {
-  person_id: string;
-  first_name: string;
-  last_name: string | null;
-  status: string;
-};
-
-export type FamilyMeal = {
-  id: string;
-  meal_type: string;
-  title: string | null;
-  scheduled_at: string;
-  timezone: string;
-  status: string;
-  location: string | null;
-  participants: FamilyMealParticipant[];
-};
-
-export type FamilyMealsDay = {
-  date: string;
-  meals: FamilyMeal[];
-};
-
-export type FamilyMeals = {
-  family_id: string;
-  family_name: string;
-  timezone: string;
-  start_date: string;
-  end_date: string;
-  days: FamilyMealsDay[];
-};
-
-export type PracticalSourceKind =
-  | "home"
-  | "pantry"
-  | "restaurant"
-  | "delivery"
-  | "store";
-
-export type RecommendationCandidateInput = {
-  candidate_kind: "food_item" | "recipe";
-  composition_id: string;
-  quantity: string;
-  quantity_unit: string;
-};
-
-export type PlanningNutritionComponent = {
+export type PlanningDailyNutritionComponent = {
   target_type: string;
   target_key: string;
   consumed_value: string | null;
@@ -131,7 +39,7 @@ export type PlanningDailyNutritionState = {
   energy_remaining_max_kcal: string | null;
   calculation_version: string;
   computed_at: string;
-  components: PlanningNutritionComponent[];
+  components: PlanningDailyNutritionComponent[];
 };
 
 export type PlanningCandidate = {
@@ -158,6 +66,20 @@ export type PlanningBootstrap = {
   candidates: PlanningCandidate[];
 };
 
+export type RecommendationCandidateInput = {
+  candidate_kind: "food_item" | "recipe";
+  composition_id: string;
+  quantity: string;
+  quantity_unit: string;
+};
+
+export type RecommendationHistoryHint = {
+  plan_date: string;
+  candidate_key: string;
+};
+
+export type PracticalSourceKind = "home" | "pantry" | "restaurant" | "delivery" | "store";
+
 export type PracticalRecommendationRequest = {
   daily_nutrition_state_id: string;
   planning_date: string;
@@ -168,6 +90,8 @@ export type PracticalRecommendationRequest = {
   available_minutes: number | null;
   has_kitchen: boolean | null;
   source_kinds: PracticalSourceKind[];
+  provisional_history: RecommendationHistoryHint[];
+  max_results: number | null;
 };
 
 export type RecommendationNutrient = {
