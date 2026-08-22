@@ -2,15 +2,17 @@ import uuid
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.schemas.family import FamilyCreate, FamilyRead
 from app.schemas.family_dashboard import FamilyDashboardRead
+from app.schemas.family_meals import FamilyMealsRead
 from app.schemas.person import PersonCreate, PersonRead
 from app.services.family import create_family, get_family
 from app.services.family_dashboard import build_family_dashboard
+from app.services.family_meals import build_family_meals
 from app.services.person import create_person, list_family_persons
 
 router = APIRouter(prefix="/families", tags=["families"])
@@ -49,6 +51,21 @@ def get_family_dashboard_endpoint(
         raise HTTPException(status_code=404, detail="Family not found")
 
     return build_family_dashboard(db, family, on_date=on_date)
+
+
+@router.get("/{family_id}/meals", response_model=FamilyMealsRead)
+def get_family_meals_endpoint(
+    family_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    start_date: date | None = None,
+    days: Annotated[int, Query(ge=1, le=14)] = 7,
+) -> FamilyMealsRead:
+    family = get_family(db, family_id)
+
+    if family is None:
+        raise HTTPException(status_code=404, detail="Family not found")
+
+    return build_family_meals(db, family, start_date=start_date, day_count=days)
 
 
 @router.post(
