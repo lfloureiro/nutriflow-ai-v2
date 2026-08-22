@@ -99,11 +99,53 @@ const COPY = {
   },
 } as const;
 
+const MEAL_TYPE_LABELS: Record<Locale, Record<string, string>> = {
+  "pt-PT": {
+    breakfast: "Pequeno-almoço",
+    lunch: "Almoço",
+    dinner: "Jantar",
+    snack: "Lanche",
+  },
+  en: {
+    breakfast: "Breakfast",
+    lunch: "Lunch",
+    dinner: "Dinner",
+    snack: "Snack",
+  },
+};
+
+const MEAL_STATUS_LABELS: Record<Locale, Record<string, string>> = {
+  "pt-PT": {
+    planned: "Planeada",
+    prepared: "Preparada",
+    served: "Servida",
+    completed: "Concluída",
+    cancelled: "Cancelada",
+    replaced: "Substituída",
+  },
+  en: {
+    planned: "Planned",
+    prepared: "Prepared",
+    served: "Served",
+    completed: "Completed",
+    cancelled: "Cancelled",
+    replaced: "Replaced",
+  },
+};
+
 export function personMeals(
   dashboard: FamilyDashboard,
   personId: string,
 ): FamilyDashboardMeal[] {
   return dashboard.meals.filter((meal) => meal.participant_person_ids.includes(personId));
+}
+
+export function mealTypeLabel(mealType: string, locale: Locale): string {
+  return MEAL_TYPE_LABELS[locale][mealType] ?? mealType;
+}
+
+export function mealStatusLabel(status: string, locale: Locale): string {
+  return MEAL_STATUS_LABELS[locale][status] ?? status;
 }
 
 function formatNumber(value: string | number, locale: Locale, digits = 0): string {
@@ -307,10 +349,10 @@ export default function PersonOverview({
                   <article className="person-meal-row" key={meal.id}>
                     <time>{formatMealTime(meal.scheduled_at, dashboard.timezone, locale)}</time>
                     <div>
-                      <strong>{meal.title ?? meal.meal_type}</strong>
-                      <span>{meal.location ?? meal.meal_type}</span>
+                      <strong>{meal.title ?? mealTypeLabel(meal.meal_type, locale)}</strong>
+                      <span>{meal.location ?? mealTypeLabel(meal.meal_type, locale)}</span>
                     </div>
-                    <span>{meal.status}</span>
+                    <span>{mealStatusLabel(meal.status, locale)}</span>
                   </article>
                 ))}
               </div>
