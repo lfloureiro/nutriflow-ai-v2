@@ -15,8 +15,8 @@ from app.schemas.meal_recommendation import (
     MealRecommendationCreate,
     MealRecommendationOptionRead,
     MealRecommendationRunRead,
-    RecommendationNutritionRead,
     RecommendationNutrientRead,
+    RecommendationNutritionRead,
 )
 from app.services.meal_recommendation import (
     MealCandidate,
