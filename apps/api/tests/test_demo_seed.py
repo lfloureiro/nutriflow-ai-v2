@@ -22,7 +22,7 @@ from app.models.daily_health_state import DailyHealthState
 from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.family import Family
 from app.models.food_catalog import FoodCompositionSnapshot, FoodItem
-from app.models.meal import MealEvent, MealParticipant
+from app.models.meal import MealEvent, MealParticipant, Serving
 from app.models.person import Person
 from app.services.meal_recommendation import build_food_candidate, recommend_meals
 
@@ -94,6 +94,16 @@ def test_demo_seed_is_idempotent_and_scoped(db_session: Session) -> None:
             MealEvent.source == "demo",
         )
     )
+    demo_serving_count = db_session.scalar(
+        select(func.count())
+        .select_from(Serving)
+        .join(MealParticipant)
+        .join(MealEvent)
+        .where(
+            MealEvent.family_id == DEMO_FAMILY_ID,
+            MealEvent.source == "demo",
+        )
+    )
 
     assert demo_family_count == 1
     assert demo_person_count == len(DEMO_PEOPLE)
@@ -102,6 +112,7 @@ def test_demo_seed_is_idempotent_and_scoped(db_session: Session) -> None:
     assert demo_health_count == 4
     assert demo_meal_count == len(DEMO_MEALS)
     assert demo_participant_count == 10
+    assert demo_serving_count == 10
 
 
 def test_demo_seed_is_visible_through_planning_bootstrap(db_session: Session) -> None:
