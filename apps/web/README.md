@@ -17,14 +17,16 @@ Set `VITE_API_BASE_URL` only when the API is hosted on a different origin. The d
 
 ### Fresh database demo data
 
-A new local database is intentionally empty. To create the explicit development-only demo Family, current daily nutrition state and six named meal candidates:
+A new local database is intentionally empty. Create the explicit development-only demo data with:
 
 ```powershell
 cd D:\Python\nutriflow-ai-v2\apps\api
 python -m app.demo_seed
 ```
 
-The command is idempotent and prints the Family ID to enter in the current pre-authentication web screen. It never runs automatically at application startup. See `docs/domain/development-demo-dataset.md` and ADR-033.
+The command is idempotent and never runs automatically at API/web startup.
+
+The Vite development shell defaults to the fixed demo Family ID when no Family has previously been selected in the browser. This is only a convenience for local development: it does not seed the database, and production builds do not receive that default.
 
 ## Validation
 
@@ -35,32 +37,11 @@ npm run build
 
 `npm run build` performs a strict TypeScript check before the production Vite build.
 
-## Current vertical slice
+## Family-first application shell
 
-The meal-planning flow uses the server planning-bootstrap endpoint rather than technical UUID entry. It supports:
+The visible application now follows ADR-034 rather than opening directly on the recommendation form.
 
-- Family ID -> Person selection;
-- automatic DailyNutritionState discovery for the selected Person and local meal instant;
-- server-authoritative current FoodItem/Recipe composition discovery;
-- human-readable candidate selection with reference serving and energy metadata;
-- practical context (time, location, kitchen, available minutes and source kinds);
-- practical recommendation generation;
-- eligible/excluded result explanations;
-- current commercial offer display;
-- accept/reject decisions for eligible persisted options;
-- Portuguese/English UI;
-- Light/Dark/System appearance;
-- responsive desktop/tablet/mobile layout.
-
-Composition IDs remain internal to the typed API client. If the server reports no DailyNutritionState for the selected date, the UI shows that explicitly and does not guess a state.
-
-Authentication and production household authorization context are not implemented yet, so Family ID remains a development entrypoint.
-
-## Family-first product direction
-
-The existing recommendation screen is an integration slice, not the final application Home.
-
-The agreed primary navigation is:
+Primary navigation:
 
 ```text
 Início
@@ -70,19 +51,42 @@ Casa
 Mais
 ```
 
-The application starts conceptually at Family level. `Início` is a lightweight view of how the Family is doing today, with compact Person cards and today's meal agenda. Person detail, health/activity/nutrition analytics and meal detail are reached through drill-down rather than expanding one large dashboard.
+Desktop uses a compact left sidebar. Mobile uses bottom navigation.
 
-The browser client now has typed support for:
+### Início
+
+`Início` uses:
 
 ```text
-GET /api/families/{family_id}/dashboard?on_date=YYYY-MM-DD
+GET /api/families/{family_id}/dashboard
 ```
 
-This endpoint is the read-model foundation for the future Family Home. It exposes current-day member health/nutrition evidence and current Family meals without inventing cross-domain scores or converting missing data to zero.
+It shows a lightweight Family overview:
 
-The visual application shell and Family Home are deliberately the next focused increments rather than being mixed into the read-model branch.
+- one compact card per Person;
+- current-day nutrition evidence when available;
+- steps, weight/trend and sleep when available;
+- explicit missing-data states;
+- current Family meals for the day;
+- one prominent action to plan a meal.
 
-See `docs/ux/frontend-information-architecture.md` and ADR-034.
+It does not calculate a Family health score or replace missing evidence with zero.
+
+### Refeições
+
+The practical recommendation vertical slice remains fully reachable under `Refeições`.
+
+The shell supplies the active Family context, so the planner no longer asks for the Family UUID again. It still uses server planning bootstrap for current DailyNutritionState/composition evidence and the backend remains authoritative for safety, eligibility and ranking.
+
+### Pessoas, Casa and Mais
+
+`Pessoas` exposes the first member-selection surface; detailed Person overview is the next drill-down increment.
+
+`Casa` is an intentional placeholder for pantry/shopping.
+
+`Mais` currently contains language, appearance and development Family-context controls. Authentication and real Family authorization are still pending.
+
+See `docs/ux/family-home-shell.md`, `docs/ux/frontend-information-architecture.md` and ADR-034.
 
 ## Dependency locking
 
