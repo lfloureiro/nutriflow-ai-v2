@@ -57,7 +57,7 @@ def test_ingredient_nutrition_edit_recalculates_referencing_recipe(db_session: S
             ],
         },
     ).json()
-    assert Decimal(recipe["latest_composition"]["energy_kcal"]) == Decimal("200")
+    assert Decimal(recipe["latest_composition"]["energy_kcal"]) == Decimal(200)
 
     updated_ingredient = _request(
         db_session,
@@ -80,5 +80,5 @@ def test_ingredient_nutrition_edit_recalculates_referencing_recipe(db_session: S
     )
     assert refreshed_recipe.status_code == 200
     body = refreshed_recipe.json()
-    assert Decimal(body["latest_composition"]["energy_kcal"]) == Decimal("300")
-    assert Decimal(body["latest_composition"]["energy_per_serving_kcal"]) == Decimal("150")
+    assert Decimal(body["latest_composition"]["energy_kcal"]) == Decimal(300)
+    assert Decimal(body["latest_composition"]["energy_per_serving_kcal"]) == Decimal(150)
