@@ -120,6 +120,25 @@ Detailed semantics: `docs/domain/adaptive-meal-recommendation.md`, ADR-015 and A
 
 Detailed semantics: `docs/domain/recommendation-feedback-model.md`, `docs/domain/recommendation-to-meal-plan.md`, ADR-016 and ADR-017.
 
+### Person recommendation API
+
+Integrated by PR #22.
+
+- `POST /api/persons/{person_id}/meal-recommendations`;
+- explicit persisted DailyNutritionState selection;
+- planning date/state-date equality;
+- explicit FoodCompositionSnapshot/RecipeCompositionSnapshot IDs;
+- positive quantity and explicit candidate unit;
+- source evidence reloaded from persistence;
+- Person/state ownership and Family isolation;
+- inactive candidate and duplicate catalogue-key rejection;
+- unsafe quantity scaling mapped to semantic API validation;
+- existing hard-rule-first recommendation engine reused unchanged;
+- one persisted MealRecommendationRun plus every eligible/excluded MealRecommendationOption;
+- response includes persisted IDs, ranks, scores, exclusions, explanations and calculated nutrition.
+
+Detailed semantics: `docs/domain/planning-api-vertical-slice.md`, ADR-027.
+
 ### Shared-family planning
 
 - one common candidate evaluated for multiple Persons;
@@ -176,14 +195,14 @@ Integrated by PR #20.
 
 Detailed semantics: `docs/domain/restaurant-delivery-commercial-context.md`, ADR-025.
 
-## Current feature branch: planning API vertical slice
+## Current feature branch: recommendation decision API
 
-Branch: `feature/planning-api-vertical-slice`.
+Branch: `feature/recommendation-decision-api`.
 
 Merge base / current integrated `main`:
 
 ```text
-09ca2f235d770b87f128dc8448fe9768b2801ad2
+32d75fa5bf6b5f3095c236bc8ceacd5e54d01acc
 ```
 
 Schema head remains:
@@ -196,29 +215,27 @@ This branch has no schema change.
 
 Implemented on the branch:
 
-- `POST /api/persons/{person_id}/meal-recommendations`;
-- explicit persisted DailyNutritionState selection;
-- planning date must match the state date;
-- explicit FoodCompositionSnapshot/RecipeCompositionSnapshot IDs per candidate;
-- positive requested candidate quantity and explicit unit;
-- server-side candidate nutrition calculation using established scaling rules;
-- persisted Person preferences, adverse reactions and constraints loaded automatically;
-- Person/state ownership checks;
-- Family isolation for FoodItem, Recipe and Recipe ingredient catalogue objects;
-- inactive catalogue candidate rejection;
-- duplicate catalogue candidate-key rejection;
-- unsafe quantity scaling mapped to semantic API validation failure;
-- successful request persists one MealRecommendationRun and all eligible/excluded MealRecommendationOption rows;
-- response exposes persisted run/option IDs, ranks, scores, exclusions, explanations and exact candidate nutrition;
-- explicit composition IDs are recorded in persisted recommendation context;
-- six API integration tests cover success/persistence and the main boundary failures.
+- `POST /api/recommendation-options/{option_id}/decision`;
+- accepted/rejected/modified actions over persisted MealRecommendationOption evidence;
+- accepted/modified require explicit timezone-aware schedule information;
+- accepted retains exact recommended quantity/unit;
+- modified can override quantity/unit and standard plan fields;
+- existing `materialize_recommendation_option()` remains authoritative for materialization semantics;
+- accepted/modified create normal planned MealEvent/MealParticipant/Serving records;
+- planned Serving nutrition is recalculated from the exact persisted option composition snapshot;
+- rejected decisions create append-only feedback only and cannot include meal-planning fields;
+- ineligible options cannot be materialized;
+- missing option returns 404 and semantic/domain failures return 422;
+- response identifies persisted feedback plus resulting MealEvent/Serving where applicable;
+- six API integration tests cover accepted, modified, rejected, missing option, ineligible materialization and invalid rejected-plan shape;
+- no request-level retry idempotency yet; duplicate/concurrent decision submission is explicitly not guaranteed safe.
 
-Detailed semantics: `docs/domain/planning-api-vertical-slice.md`, ADR-027.
+Detailed semantics: `docs/domain/recommendation-decision-api.md`, ADR-028.
 
 Expected complete local test suite after this branch:
 
 ```text
-78 tests
+84 tests
 ```
 
 ## Safety and correctness invariants
@@ -231,13 +248,17 @@ Future work must preserve:
 - unsupported mandatory semantics and unsafe required conversions fail closed;
 - no inferred density;
 - exact versioned composition provenance for Serving/recommendation decisions;
-- recommendation API inputs reference persisted source snapshots rather than client-authored nutrition totals;
+- recommendation APIs reference persisted source snapshots rather than client-authored nutrition totals;
+- ineligible persisted options cannot be materialized;
+- rejected decisions cannot create meal state;
 - DailyNutritionState remains derived from authoritative meal history;
 - Family-scoped data cannot leak across Families;
 - shared meals retain person-specific portions and safety checks;
-- retries/replacements remain idempotent and historically traceable;
+- retries/replacements remain idempotent where the domain explicitly supports them;
 - commercial availability/price cannot make a safety-ineligible candidate eligible;
 - warnings are treated as test failures rather than suppressed casually.
+
+Current decision API limitation: request-level idempotency and concurrent duplicate suppression are not implemented. Do not infer retry safety from MealEvent idempotency infrastructure elsewhere in the domain.
 
 A separate future policy may be needed if a mandatory nutrient maximum applies but historical DailyNutritionState cannot represent the current consumed/planned total for that nutrient. Do not silently assume missing historical state is complete evidence.
 
@@ -259,17 +280,17 @@ Earlier revisions remain authoritative in `database/migrations/versions/`.
 
 ## Next planned increments
 
-After the current recommendation API branch is locally green, PR-tested and merged:
+After the current recommendation-decision API branch is locally green, PR-tested and merged:
 
-1. recommendation feedback and accepted-option materialization API endpoints;
-2. practical schedule/source/pantry/commercial recommendation orchestration API;
-3. first responsive web UI vertical slice;
-4. persisted shopping-list lifecycle when UI/API workflows require durable shopping state;
-5. background/event-driven DailyNutritionState refresh and explicit target-selection policy;
-6. fuller recurrence/calendar override support;
-7. persisted family-level recommendation audit history;
-8. transaction-level idempotency-race handling at the write API boundary;
-9. provider connectors/live freshness policy, basket/order lifecycle and commercial optimization;
+1. practical schedule/source/pantry/commercial recommendation orchestration API;
+2. first responsive web UI vertical slice over recommendation generation and decisions;
+3. persisted shopping-list lifecycle when UI/API workflows require durable shopping state;
+4. background/event-driven DailyNutritionState refresh and explicit target-selection policy;
+5. fuller recurrence/calendar override support;
+6. persisted family-level recommendation audit history;
+7. transaction-level idempotency-race handling and request idempotency at write API boundaries;
+8. provider connectors/live freshness policy, basket/order lifecycle and commercial optimization;
+9. shared-family recommendation/decision API boundaries;
 10. learned ranking from feedback only after deterministic safety, practical and nutrition layers remain authoritative.
 
 Every increment follows ADR-007: focused branch, code/migration/tests/docs together, local PostgreSQL validation, zero-warning Ruff/pytest, PR only after local green, CI on the exact PR head SHA, guarded squash merge, verify resulting `main`, then start the next branch.
