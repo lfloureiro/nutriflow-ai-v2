@@ -115,10 +115,10 @@ a7c4e9f2b6d1
 
 This branch has no database migration.
 
-Expected complete test baseline after its nine API integration tests:
+Expected complete test baseline after its ten API integration tests:
 
 ```text
-93 tests
+94 tests
 ```
 
 No PR should be opened until this branch receives explicit local green confirmation for Alembic metadata, Ruff and all tests.
@@ -134,8 +134,9 @@ POST /api/persons/{person_id}/meal-recommendations/practical
 Implemented on the branch:
 
 - explicit persisted DailyNutritionState and composition snapshots remain mandatory;
+- `scheduled_at` must be timezone-aware and must fall on `planning_date` in the selected DailyNutritionState timezone;
 - Person preferences, adverse reactions, constraints and schedule entries are loaded server-side;
-- request supplies timezone-aware scheduled instant plus optional location, available minutes and kitchen state;
+- request supplies scheduled instant plus optional location, available minutes and kitchen state;
 - practical source kinds are `home`, `pantry`, `restaurant`, `delivery`, `store`;
 - default practical sources are home, pantry, restaurant and delivery;
 - each requested source kind is independent alternative evidence;
@@ -148,7 +149,7 @@ Implemented on the branch:
 - merged practical profiles feed the existing `recommend_meals_with_practical_context()` engine;
 - recommendation persistence reuses the standard MealRecommendationRun/Option model;
 - base recommendation API loading/persistence was refactored into reusable helpers without changing its external contract;
-- nine API tests cover source merge, schedule, pantry, preparation and commercial cases.
+- ten API tests cover source merge, schedule, pantry, preparation, commercial context and local planning-date alignment.
 
 Authoritative current-branch docs:
 
@@ -184,6 +185,7 @@ Preserve these across all future work:
 - recommendation API inputs reference explicit persisted state/composition evidence rather than client-authored nutrition totals;
 - practical source alternatives use any-source semantics;
 - missing practical source evidence remains distinct from explicit unavailability;
+- a practical scheduled instant cannot silently use nutrition state from another local day;
 - pantry quantity/yield evaluation fails explicitly when it cannot be performed safely;
 - commercial offer/price evidence cannot override safety eligibility;
 - ineligible recommendation options cannot be materialized through decision APIs;
