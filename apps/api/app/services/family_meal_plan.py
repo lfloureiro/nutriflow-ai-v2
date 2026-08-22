@@ -11,7 +11,6 @@ from app.models.food_catalog import Recipe
 from app.models.meal import MealEvent, MealParticipant, Serving
 from app.models.person import Person
 from app.schemas.family_meal_plan import (
-    MEAL_TYPES,
     FamilyMealPlanRead,
     MealPlanDayRead,
     MealPlanEntryCreate,
@@ -20,8 +19,8 @@ from app.schemas.family_meal_plan import (
     MealPlanParticipantRead,
     MealPlanParticipantWrite,
     MealPlanSlotRead,
-    MealType,
 )
+from app.schemas.meal_type import MEAL_TYPES, MealType
 from app.services.recipe_catalogue import RecipeNotFoundError, get_family_recipe_model
 from app.services.serving_nutrition import (
     ServingNutritionCalculationError,
