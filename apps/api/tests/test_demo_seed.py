@@ -10,13 +10,19 @@ from app.demo_seed import (
     DEMO_CALCULATION_VERSION,
     DEMO_FAMILY_ID,
     DEMO_FOODS,
+    DEMO_INES_ID,
+    DEMO_MEALS,
+    DEMO_PEOPLE,
     DEMO_PERSON_ID,
+    DEMO_RUI_ID,
     seed_demo_dataset,
 )
 from app.main import app
+from app.models.daily_health_state import DailyHealthState
 from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.family import Family
 from app.models.food_catalog import FoodCompositionSnapshot, FoodItem
+from app.models.meal import MealEvent, MealParticipant
 from app.models.person import Person
 from app.services.meal_recommendation import build_food_candidate, recommend_meals
 
@@ -44,13 +50,15 @@ def test_demo_seed_is_idempotent_and_scoped(db_session: Session) -> None:
     assert first.family_id == DEMO_FAMILY_ID
     assert first.person_id == DEMO_PERSON_ID
     assert first.candidate_count == len(DEMO_FOODS)
+    assert first.member_count == len(DEMO_PEOPLE)
+    assert first.meal_count == len(DEMO_MEALS)
     assert db_session.get(Family, unrelated_id) is not None
 
     demo_family_count = db_session.scalar(
         select(func.count()).select_from(Family).where(Family.id == DEMO_FAMILY_ID)
     )
     demo_person_count = db_session.scalar(
-        select(func.count()).select_from(Person).where(Person.id == DEMO_PERSON_ID)
+        select(func.count()).select_from(Person).where(Person.family_id == DEMO_FAMILY_ID)
     )
     demo_food_count = db_session.scalar(
         select(func.count()).select_from(FoodItem).where(
@@ -65,11 +73,35 @@ def test_demo_seed_is_idempotent_and_scoped(db_session: Session) -> None:
             DailyNutritionState.calculation_version == DEMO_CALCULATION_VERSION,
         )
     )
+    demo_health_count = db_session.scalar(
+        select(func.count()).select_from(DailyHealthState).where(
+            DailyHealthState.person_id.in_([definition.id for definition in DEMO_PEOPLE]),
+            DailyHealthState.state_date == first.planning_date,
+        )
+    )
+    demo_meal_count = db_session.scalar(
+        select(func.count()).select_from(MealEvent).where(
+            MealEvent.family_id == DEMO_FAMILY_ID,
+            MealEvent.source == "demo",
+        )
+    )
+    demo_participant_count = db_session.scalar(
+        select(func.count())
+        .select_from(MealParticipant)
+        .join(MealEvent)
+        .where(
+            MealEvent.family_id == DEMO_FAMILY_ID,
+            MealEvent.source == "demo",
+        )
+    )
 
     assert demo_family_count == 1
-    assert demo_person_count == 1
+    assert demo_person_count == len(DEMO_PEOPLE)
     assert demo_food_count == len(DEMO_FOODS)
     assert demo_state_count == 1
+    assert demo_health_count == 4
+    assert demo_meal_count == len(DEMO_MEALS)
+    assert demo_participant_count == 10
 
 
 def test_demo_seed_is_visible_through_planning_bootstrap(db_session: Session) -> None:
@@ -94,6 +126,45 @@ def test_demo_seed_is_visible_through_planning_bootstrap(db_session: Session) ->
     assert {candidate["name"] for candidate in body["candidates"]} == {
         definition.name for definition in DEMO_FOODS
     }
+
+
+def test_demo_seed_populates_family_dashboard_variation(db_session: Session) -> None:
+    result = seed_demo_dataset(db_session, now=NOW)
+    db_session.flush()
+
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                f"/api/families/{DEMO_FAMILY_ID}/dashboard",
+                params={"on_date": result.planning_date.isoformat()},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["members"]) == len(DEMO_PEOPLE)
+    assert len(body["meals"]) == len(DEMO_MEALS)
+
+    members = {member["person_id"]: member for member in body["members"]}
+    primary = members[str(DEMO_PERSON_ID)]
+    rui = members[str(DEMO_RUI_ID)]
+    ines = members[str(DEMO_INES_ID)]
+
+    assert primary["nutrition"]["energy_consumed_kcal"] == "1000.00"
+    assert primary["health"]["latest_weight_kg"] == "103.000"
+    assert primary["health"]["steps"] == 3800
+    assert rui["health"]["steps"] == 10300
+    assert rui["health"]["latest_weight_kg"] is None
+    assert ines["nutrition"] is None
+    assert ines["health"]["sleep_duration_minutes"] is None
+
+    meals = {meal["meal_type"]: meal for meal in body["meals"]}
+    assert meals["breakfast"]["status"] == "completed"
+    assert len(meals["breakfast"]["participant_person_ids"]) == 4
+    assert len(meals["lunch"]["participant_person_ids"]) == 2
+    assert len(meals["dinner"]["participant_person_ids"]) == 4
 
 
 def test_demo_seed_exercises_ranking_and_mandatory_exclusion(db_session: Session) -> None:

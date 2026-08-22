@@ -1,6 +1,6 @@
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -8,19 +8,25 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
+from app.models.daily_health_state import DailyHealthState
 from app.models.daily_nutrition_state import DailyNutritionState, DailyNutritionStateComponent
 from app.models.family import Family
 from app.models.food_catalog import FoodCompositionSnapshot, FoodItem, FoodNutrientComponent
 from app.models.food_preference import FoodPreference
+from app.models.meal import MealEvent, MealParticipant
 from app.models.nutrition_constraint import NutritionConstraint
 from app.models.person import Person
 
 DEMO_TIMEZONE = "Europe/Lisbon"
 DEMO_FAMILY_ID = uuid.UUID("11111111-1111-4111-8111-111111111111")
 DEMO_PERSON_ID = uuid.UUID("22222222-2222-4222-8222-222222222222")
+DEMO_MARTA_ID = uuid.UUID("22222222-2222-4222-8222-222222222223")
+DEMO_RUI_ID = uuid.UUID("22222222-2222-4222-8222-222222222224")
+DEMO_INES_ID = uuid.UUID("22222222-2222-4222-8222-222222222225")
 DEMO_PREFERENCE_ID = uuid.UUID("88888888-8888-4888-8888-888888888881")
 DEMO_SODIUM_CONSTRAINT_ID = uuid.UUID("88888888-8888-4888-8888-888888888882")
 DEMO_CALCULATION_VERSION = "demo-seed-v1"
+DEMO_HEALTH_CALCULATION_VERSION = "demo-health-v1"
 DEMO_DATA_VERSION = "demo-v1"
 DEMO_NAMESPACE = uuid.UUID("9e72837a-5324-4f9a-a42e-ec51df9da781")
 
@@ -42,12 +48,57 @@ class DemoFoodDefinition:
 
 
 @dataclass(frozen=True)
+class DemoNutritionDefinition:
+    consumed_kcal: Decimal
+    planned_kcal: Decimal
+    remaining_min_kcal: Decimal | None
+    remaining_max_kcal: Decimal | None
+    adherence_score: Decimal | None
+
+
+@dataclass(frozen=True)
+class DemoHealthDefinition:
+    weight_kg: Decimal | None
+    weight_trend_7d_kg: Decimal | None
+    weight_trend_28d_kg: Decimal | None
+    steps: int | None
+    active_energy_kcal: Decimal | None
+    sleep_minutes: int | None
+    resting_heart_rate_bpm: Decimal | None
+    hrv_ms: Decimal | None
+    training_load: Decimal | None
+
+
+@dataclass(frozen=True)
+class DemoPersonDefinition:
+    id: uuid.UUID
+    first_name: str
+    last_name: str
+    nutrition: DemoNutritionDefinition | None
+    health: DemoHealthDefinition | None
+
+
+@dataclass(frozen=True)
+class DemoMealDefinition:
+    key: str
+    meal_type: str
+    title: str
+    hour: int
+    minute: int
+    status: str
+    location: str
+    participant_ids: tuple[uuid.UUID, ...]
+
+
+@dataclass(frozen=True)
 class DemoSeedResult:
     family_id: uuid.UUID
     person_id: uuid.UUID
     daily_nutrition_state_id: uuid.UUID
     planning_date: date
     candidate_count: int
+    member_count: int
+    meal_count: int
 
 
 DEMO_FOODS = (
@@ -113,13 +164,160 @@ DEMO_FOODS = (
     ),
 )
 
+DEMO_PEOPLE = (
+    DemoPersonDefinition(
+        id=DEMO_PERSON_ID,
+        first_name="Pessoa",
+        last_name="Demo",
+        nutrition=DemoNutritionDefinition(
+            consumed_kcal=Decimal("1000.00"),
+            planned_kcal=Decimal("0.00"),
+            remaining_min_kcal=Decimal("500.00"),
+            remaining_max_kcal=Decimal("900.00"),
+            adherence_score=Decimal("0.8000"),
+        ),
+        health=DemoHealthDefinition(
+            weight_kg=Decimal("103.000"),
+            weight_trend_7d_kg=Decimal("-0.800"),
+            weight_trend_28d_kg=Decimal("-1.600"),
+            steps=3800,
+            active_energy_kcal=Decimal("220.00"),
+            sleep_minutes=390,
+            resting_heart_rate_bpm=Decimal("63.00"),
+            hrv_ms=Decimal("42.00"),
+            training_load=Decimal("18.0000"),
+        ),
+    ),
+    DemoPersonDefinition(
+        id=DEMO_MARTA_ID,
+        first_name="Marta",
+        last_name="Demo",
+        nutrition=DemoNutritionDefinition(
+            consumed_kcal=Decimal("850.00"),
+            planned_kcal=Decimal("450.00"),
+            remaining_min_kcal=Decimal("300.00"),
+            remaining_max_kcal=Decimal("600.00"),
+            adherence_score=Decimal("0.8800"),
+        ),
+        health=DemoHealthDefinition(
+            weight_kg=Decimal("65.400"),
+            weight_trend_7d_kg=Decimal("-0.200"),
+            weight_trend_28d_kg=Decimal("-0.600"),
+            steps=7200,
+            active_energy_kcal=Decimal("360.00"),
+            sleep_minutes=435,
+            resting_heart_rate_bpm=Decimal("58.00"),
+            hrv_ms=Decimal("55.00"),
+            training_load=Decimal("28.0000"),
+        ),
+    ),
+    DemoPersonDefinition(
+        id=DEMO_RUI_ID,
+        first_name="Rui",
+        last_name="Demo",
+        nutrition=DemoNutritionDefinition(
+            consumed_kcal=Decimal("1200.00"),
+            planned_kcal=Decimal("600.00"),
+            remaining_min_kcal=Decimal("250.00"),
+            remaining_max_kcal=Decimal("450.00"),
+            adherence_score=Decimal("0.7600"),
+        ),
+        health=DemoHealthDefinition(
+            weight_kg=None,
+            weight_trend_7d_kg=None,
+            weight_trend_28d_kg=None,
+            steps=10300,
+            active_energy_kcal=Decimal("520.00"),
+            sleep_minutes=410,
+            resting_heart_rate_bpm=Decimal("60.00"),
+            hrv_ms=Decimal("48.00"),
+            training_load=Decimal("44.0000"),
+        ),
+    ),
+    DemoPersonDefinition(
+        id=DEMO_INES_ID,
+        first_name="Inês",
+        last_name="Demo",
+        nutrition=None,
+        health=DemoHealthDefinition(
+            weight_kg=Decimal("57.800"),
+            weight_trend_7d_kg=Decimal("0.100"),
+            weight_trend_28d_kg=Decimal("-0.100"),
+            steps=5600,
+            active_energy_kcal=Decimal("280.00"),
+            sleep_minutes=None,
+            resting_heart_rate_bpm=None,
+            hrv_ms=None,
+            training_load=None,
+        ),
+    ),
+)
 
-def _state_id(state_date: date) -> uuid.UUID:
-    return uuid.uuid5(DEMO_NAMESPACE, f"daily-state:{state_date.isoformat()}")
+DEMO_MEALS = (
+    DemoMealDefinition(
+        key="breakfast",
+        meal_type="breakfast",
+        title="Pequeno-almoço",
+        hour=8,
+        minute=0,
+        status="completed",
+        location="Casa",
+        participant_ids=(DEMO_PERSON_ID, DEMO_MARTA_ID, DEMO_RUI_ID, DEMO_INES_ID),
+    ),
+    DemoMealDefinition(
+        key="lunch",
+        meal_type="lunch",
+        title="Almoço",
+        hour=13,
+        minute=0,
+        status="planned",
+        location="Lisboa",
+        participant_ids=(DEMO_PERSON_ID, DEMO_RUI_ID),
+    ),
+    DemoMealDefinition(
+        key="family-dinner",
+        meal_type="dinner",
+        title="Jantar em família",
+        hour=20,
+        minute=0,
+        status="planned",
+        location="Casa",
+        participant_ids=(DEMO_PERSON_ID, DEMO_MARTA_ID, DEMO_RUI_ID, DEMO_INES_ID),
+    ),
+)
 
 
-def _component_id(state_date: date, key: str) -> uuid.UUID:
-    return uuid.uuid5(DEMO_NAMESPACE, f"daily-state:{state_date.isoformat()}:{key}")
+def _state_id(person_id: uuid.UUID, state_date: date) -> uuid.UUID:
+    if person_id == DEMO_PERSON_ID:
+        return uuid.uuid5(DEMO_NAMESPACE, f"daily-state:{state_date.isoformat()}")
+    return uuid.uuid5(DEMO_NAMESPACE, f"daily-state:{person_id}:{state_date.isoformat()}")
+
+
+def _component_id(person_id: uuid.UUID, state_date: date, key: str) -> uuid.UUID:
+    if person_id == DEMO_PERSON_ID:
+        return uuid.uuid5(DEMO_NAMESPACE, f"daily-state:{state_date.isoformat()}:{key}")
+    return uuid.uuid5(
+        DEMO_NAMESPACE,
+        f"daily-state:{person_id}:{state_date.isoformat()}:{key}",
+    )
+
+
+def _health_state_id(person_id: uuid.UUID, state_date: date) -> uuid.UUID:
+    return uuid.uuid5(
+        DEMO_NAMESPACE,
+        f"daily-health:{person_id}:{state_date.isoformat()}:{DEMO_HEALTH_CALCULATION_VERSION}",
+    )
+
+
+def _meal_event_id(state_date: date, key: str) -> uuid.UUID:
+    return uuid.uuid5(DEMO_NAMESPACE, f"meal-event:{state_date.isoformat()}:{key}")
+
+
+def _meal_participant_id(state_date: date, key: str, person_id: uuid.UUID) -> uuid.UUID:
+    return uuid.uuid5(
+        DEMO_NAMESPACE,
+        f"meal-participant:{state_date.isoformat()}:{key}:{person_id}",
+    )
 
 
 def _snapshot_id(food_id: uuid.UUID) -> uuid.UUID:
@@ -141,28 +339,37 @@ def _ensure_family(session: Session) -> Family:
     return family
 
 
-def _ensure_person(session: Session, family: Family) -> Person:
-    person = session.get(Person, DEMO_PERSON_ID)
+def _ensure_person(
+    session: Session,
+    family: Family,
+    definition: DemoPersonDefinition,
+) -> Person:
+    person = session.get(Person, definition.id)
     if person is None:
         person = Person(
-            id=DEMO_PERSON_ID,
+            id=definition.id,
             family=family,
-            first_name="Pessoa",
-            last_name="Demo",
+            first_name=definition.first_name,
+            last_name=definition.last_name,
             preferred_locale="pt-PT",
             timezone=DEMO_TIMEZONE,
         )
         session.add(person)
     else:
         person.family_id = family.id
-        person.first_name = "Pessoa"
-        person.last_name = "Demo"
+        person.first_name = definition.first_name
+        person.last_name = definition.last_name
         person.preferred_locale = "pt-PT"
         person.timezone = DEMO_TIMEZONE
     return person
 
 
-def _ensure_food(session: Session, family: Family, definition: DemoFoodDefinition, now: datetime) -> None:
+def _ensure_food(
+    session: Session,
+    family: Family,
+    definition: DemoFoodDefinition,
+    now: datetime,
+) -> None:
     key_owner = session.scalar(select(FoodItem).where(FoodItem.catalog_key == definition.catalog_key))
     if key_owner is not None and key_owner.id != definition.id:
         raise DemoSeedConflictError(
@@ -242,9 +449,14 @@ def _ensure_food(session: Session, family: Family, definition: DemoFoodDefinitio
             nutrient.unit = unit
 
 
-def _ensure_daily_state(session: Session, person: Person, now: datetime) -> DailyNutritionState:
+def _ensure_daily_state(
+    session: Session,
+    person: Person,
+    definition: DemoNutritionDefinition,
+    now: datetime,
+) -> DailyNutritionState:
     local_date = now.astimezone(ZoneInfo(DEMO_TIMEZONE)).date()
-    state_id = _state_id(local_date)
+    state_id = _state_id(person.id, local_date)
     state = session.get(DailyNutritionState, state_id)
     if state is None:
         state = DailyNutritionState(
@@ -252,11 +464,11 @@ def _ensure_daily_state(session: Session, person: Person, now: datetime) -> Dail
             person=person,
             state_date=local_date,
             timezone=DEMO_TIMEZONE,
-            energy_consumed_kcal=Decimal("1000.00"),
-            energy_planned_kcal=Decimal("0.00"),
-            energy_remaining_min_kcal=Decimal("500.00"),
-            energy_remaining_max_kcal=Decimal("900.00"),
-            adherence_score=Decimal("0.8000"),
+            energy_consumed_kcal=definition.consumed_kcal,
+            energy_planned_kcal=definition.planned_kcal,
+            energy_remaining_min_kcal=definition.remaining_min_kcal,
+            energy_remaining_max_kcal=definition.remaining_max_kcal,
+            adherence_score=definition.adherence_score,
             confidence_score=Decimal("1.0000"),
             calculation_version=DEMO_CALCULATION_VERSION,
             calculation_inputs={"source": "development-demo-seed"},
@@ -267,47 +479,158 @@ def _ensure_daily_state(session: Session, person: Person, now: datetime) -> Dail
         state.person_id = person.id
         state.state_date = local_date
         state.timezone = DEMO_TIMEZONE
-        state.energy_consumed_kcal = Decimal("1000.00")
-        state.energy_planned_kcal = Decimal("0.00")
-        state.energy_remaining_min_kcal = Decimal("500.00")
-        state.energy_remaining_max_kcal = Decimal("900.00")
-        state.adherence_score = Decimal("0.8000")
+        state.energy_consumed_kcal = definition.consumed_kcal
+        state.energy_planned_kcal = definition.planned_kcal
+        state.energy_remaining_min_kcal = definition.remaining_min_kcal
+        state.energy_remaining_max_kcal = definition.remaining_max_kcal
+        state.adherence_score = definition.adherence_score
         state.confidence_score = Decimal("1.0000")
         state.calculation_version = DEMO_CALCULATION_VERSION
         state.calculation_inputs = {"source": "development-demo-seed"}
         state.computed_at = now
 
-    component_values = {
-        "protein": (Decimal("45.0000"), Decimal("35.0000"), Decimal("80.0000"), "g"),
-        "fiber": (Decimal("12.0000"), Decimal("12.0000"), Decimal("28.0000"), "g"),
-        "sodium": (Decimal("1000.0000"), None, Decimal("1300.0000"), "mg"),
-    }
-    for key, (consumed, remaining_min, remaining_max, unit) in component_values.items():
-        component_id = _component_id(local_date, key)
-        component = session.get(DailyNutritionStateComponent, component_id)
-        if component is None:
-            component = DailyNutritionStateComponent(
-                id=component_id,
-                daily_nutrition_state=state,
-                target_type="nutrient",
-                target_key=key,
-                consumed_value=consumed,
-                planned_value=Decimal("0.0000"),
-                remaining_min=remaining_min,
-                remaining_max=remaining_max,
-                unit=unit,
-            )
-            session.add(component)
-        else:
-            component.daily_nutrition_state_id = state.id
-            component.target_type = "nutrient"
-            component.target_key = key
-            component.consumed_value = consumed
-            component.planned_value = Decimal("0.0000")
-            component.remaining_min = remaining_min
-            component.remaining_max = remaining_max
-            component.unit = unit
+    if person.id == DEMO_PERSON_ID:
+        component_values = {
+            "protein": (Decimal("45.0000"), Decimal("35.0000"), Decimal("80.0000"), "g"),
+            "fiber": (Decimal("12.0000"), Decimal("12.0000"), Decimal("28.0000"), "g"),
+            "sodium": (Decimal("1000.0000"), None, Decimal("1300.0000"), "mg"),
+        }
+        for key, (consumed, remaining_min, remaining_max, unit) in component_values.items():
+            component_id = _component_id(person.id, local_date, key)
+            component = session.get(DailyNutritionStateComponent, component_id)
+            if component is None:
+                component = DailyNutritionStateComponent(
+                    id=component_id,
+                    daily_nutrition_state=state,
+                    target_type="nutrient",
+                    target_key=key,
+                    consumed_value=consumed,
+                    planned_value=Decimal("0.0000"),
+                    remaining_min=remaining_min,
+                    remaining_max=remaining_max,
+                    unit=unit,
+                )
+                session.add(component)
+            else:
+                component.daily_nutrition_state_id = state.id
+                component.target_type = "nutrient"
+                component.target_key = key
+                component.consumed_value = consumed
+                component.planned_value = Decimal("0.0000")
+                component.remaining_min = remaining_min
+                component.remaining_max = remaining_max
+                component.unit = unit
     return state
+
+
+def _ensure_daily_health_state(
+    session: Session,
+    person: Person,
+    definition: DemoHealthDefinition,
+    now: datetime,
+) -> DailyHealthState:
+    local_date = now.astimezone(ZoneInfo(DEMO_TIMEZONE)).date()
+    state_id = _health_state_id(person.id, local_date)
+    state = session.get(DailyHealthState, state_id)
+    if state is None:
+        state = DailyHealthState(
+            id=state_id,
+            person=person,
+            state_date=local_date,
+            timezone=DEMO_TIMEZONE,
+            calculation_version=DEMO_HEALTH_CALCULATION_VERSION,
+        )
+        session.add(state)
+
+    state.person_id = person.id
+    state.state_date = local_date
+    state.timezone = DEMO_TIMEZONE
+    state.latest_weight_kg = definition.weight_kg
+    state.weight_trend_7d_kg = definition.weight_trend_7d_kg
+    state.weight_trend_28d_kg = definition.weight_trend_28d_kg
+    state.steps = definition.steps
+    state.active_energy_kcal = definition.active_energy_kcal
+    state.sleep_duration_minutes = definition.sleep_minutes
+    state.resting_heart_rate_bpm = definition.resting_heart_rate_bpm
+    state.hrv_ms = definition.hrv_ms
+    state.training_load = definition.training_load
+    state.confidence_score = Decimal("1.0000")
+    state.calculation_version = DEMO_HEALTH_CALCULATION_VERSION
+    state.calculation_inputs = {"source": "development-demo-seed"}
+    state.computed_at = now
+    return state
+
+
+def _ensure_demo_meals(
+    session: Session,
+    family: Family,
+    people_by_id: dict[uuid.UUID, Person],
+    now: datetime,
+) -> None:
+    local_date = now.astimezone(ZoneInfo(DEMO_TIMEZONE)).date()
+    timezone = ZoneInfo(DEMO_TIMEZONE)
+
+    for definition in DEMO_MEALS:
+        event_id = _meal_event_id(local_date, definition.key)
+        idempotency_key = f"demo:{local_date.isoformat()}:{definition.key}"
+        key_owner = session.scalar(
+            select(MealEvent).where(
+                MealEvent.family_id == family.id,
+                MealEvent.idempotency_key == idempotency_key,
+            )
+        )
+        if key_owner is not None and key_owner.id != event_id:
+            raise DemoSeedConflictError(
+                f"Meal idempotency key {idempotency_key!r} already belongs to another event."
+            )
+
+        scheduled_local = datetime(
+            local_date.year,
+            local_date.month,
+            local_date.day,
+            definition.hour,
+            definition.minute,
+            tzinfo=timezone,
+        )
+        scheduled_at = scheduled_local.astimezone(UTC)
+        event = session.get(MealEvent, event_id)
+        if event is None:
+            event = MealEvent(id=event_id, family=family, scheduled_at=scheduled_at)
+            session.add(event)
+
+        event.family_id = family.id
+        event.meal_type = definition.meal_type
+        event.title = definition.title
+        event.scheduled_at = scheduled_at
+        event.timezone = DEMO_TIMEZONE
+        event.status = definition.status
+        event.location = definition.location
+        event.source = "demo"
+        event.source_reference = "nutriflow-development-demo"
+        event.idempotency_key = idempotency_key
+        event.notes = "Synthetic development-only Family Home agenda."
+        if definition.status == "completed":
+            event.served_at = scheduled_at
+            event.completed_at = scheduled_at + timedelta(minutes=30)
+        else:
+            event.served_at = None
+            event.completed_at = None
+
+        for person_id in definition.participant_ids:
+            participant_id = _meal_participant_id(local_date, definition.key, person_id)
+            participant = session.get(MealParticipant, participant_id)
+            person = people_by_id[person_id]
+            if participant is None:
+                participant = MealParticipant(
+                    id=participant_id,
+                    meal_event=event,
+                    person=person,
+                )
+                session.add(participant)
+            participant.meal_event_id = event.id
+            participant.person_id = person.id
+            participant.status = "consumed" if definition.status == "completed" else "planned"
+            participant.notes = "Synthetic development-only Family Home participant."
 
 
 def _ensure_demo_rules(session: Session, person: Person) -> None:
@@ -374,21 +697,40 @@ def seed_demo_dataset(session: Session, *, now: datetime | None = None) -> DemoS
     instant = instant.astimezone(UTC)
 
     family = _ensure_family(session)
-    person = _ensure_person(session, family)
+    people = {
+        definition.id: _ensure_person(session, family, definition) for definition in DEMO_PEOPLE
+    }
     session.flush()
 
     for definition in DEMO_FOODS:
         _ensure_food(session, family, definition, instant)
-    state = _ensure_daily_state(session, person, instant)
-    _ensure_demo_rules(session, person)
+
+    primary_state: DailyNutritionState | None = None
+    for definition in DEMO_PEOPLE:
+        person = people[definition.id]
+        if definition.nutrition is not None:
+            state = _ensure_daily_state(session, person, definition.nutrition, instant)
+            if definition.id == DEMO_PERSON_ID:
+                primary_state = state
+        if definition.health is not None:
+            _ensure_daily_health_state(session, person, definition.health, instant)
+
+    primary_person = people[DEMO_PERSON_ID]
+    _ensure_demo_rules(session, primary_person)
+    _ensure_demo_meals(session, family, people, instant)
     session.flush()
+
+    if primary_state is None:
+        raise AssertionError("Primary demo Person must have a DailyNutritionState.")
 
     return DemoSeedResult(
         family_id=family.id,
-        person_id=person.id,
-        daily_nutrition_state_id=state.id,
-        planning_date=state.state_date,
+        person_id=primary_person.id,
+        daily_nutrition_state_id=primary_state.id,
+        planning_date=primary_state.state_date,
         candidate_count=len(DEMO_FOODS),
+        member_count=len(DEMO_PEOPLE),
+        meal_count=len(DEMO_MEALS),
     )
 
 
@@ -401,6 +743,8 @@ def main() -> None:
     print(f"Family ID: {result.family_id}")
     print(f"Person ID: {result.person_id}")
     print(f"Planning date: {result.planning_date.isoformat()}")
+    print(f"Members: {result.member_count}")
+    print(f"Meals: {result.meal_count}")
     print(f"Candidates: {result.candidate_count}")
 
 
