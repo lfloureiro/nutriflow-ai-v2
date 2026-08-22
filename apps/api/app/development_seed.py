@@ -1,3 +1,4 @@
+from app.commercial_demo_seed import seed_commercial_demo_catalog
 from app.db.session import SessionLocal
 from app.demo_seed import seed_demo_dataset
 from app.legacy_v1_demo_seed import seed_legacy_v1_demo_catalog
@@ -12,6 +13,7 @@ def main() -> None:
         if family is None:
             raise RuntimeError("Development demo Family could not be loaded.")
         legacy = seed_legacy_v1_demo_catalog(session, family=family)
+        commercial = seed_commercial_demo_catalog(session, family=family)
         session.commit()
 
     print("NutriFlow complete development dataset ready.")
@@ -21,6 +23,8 @@ def main() -> None:
     print(f"Demo meal candidates: {demo.candidate_count}")
     print(f"Legacy v1 ingredients: {legacy.ingredient_count}")
     print(f"Legacy v1 recipes: {legacy.recipe_count}")
+    print(f"Commercial demo availabilities: {commercial.availability_count}")
+    print(f"Commercial demo offers: {commercial.offer_count}")
 
 
 if __name__ == "__main__":
