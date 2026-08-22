@@ -25,6 +25,7 @@ from app.services.practical_recommendation_api import (
     _build_practical_channels,
     _merge_source_channels,
 )
+from app.services.recommendation_diversity import apply_diversity_to_shared_recommendation
 from app.services.recommendation_practical_context import (
     CandidatePracticalProfile,
     PracticalMealContext,
@@ -91,8 +92,14 @@ def _result_read(
     result: SharedFamilyMealRecommendationResult,
     offers: list[CommercialOfferSnapshot],
 ) -> SharedPracticalRecommendationRead:
+    evaluations = list(result.evaluations)
+    if data.max_results is not None:
+        evaluations = [evaluation for evaluation in evaluations if evaluation.eligible][
+            : data.max_results
+        ]
+
     options: list[SharedRecommendationOptionRead] = []
-    for evaluation in result.evaluations:
+    for evaluation in evaluations:
         options.append(
             SharedRecommendationOptionRead(
                 candidate_key=evaluation.candidate_key,
@@ -191,6 +198,8 @@ def _compute_shared_recommendation(
                 available_minutes=data.available_minutes,
                 has_kitchen=data.has_kitchen,
                 source_kinds=data.source_kinds,
+                provisional_history=data.provisional_history,
+                max_results=data.max_results,
             )
             channels, offers = _build_practical_channels(
                 session,
@@ -231,6 +240,14 @@ def _compute_shared_recommendation(
         planning_date=data.planning_date,
         engine_version="shared-family-practical-v1",
     )
+    result = apply_diversity_to_shared_recommendation(
+        session,
+        family_id=family.id,
+        planning_date=data.planning_date,
+        meal_type=data.meal_type,
+        recommendation=result,
+        provisional_history=data.provisional_history,
+    )
     return result, offers
 
 
@@ -260,6 +277,8 @@ def plan_shared_practical_recommendation(
         available_minutes=data.available_minutes,
         has_kitchen=data.has_kitchen,
         source_kinds=data.source_kinds,
+        provisional_history=data.provisional_history,
+        max_results=data.max_results,
     )
     result, _ = _compute_shared_recommendation(session, family=family, data=request)
     planned = materialize_shared_family_recommendation(
