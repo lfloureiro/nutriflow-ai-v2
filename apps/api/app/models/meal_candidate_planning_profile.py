@@ -2,11 +2,11 @@ import uuid
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     ForeignKey,
     Index,
-    JSON,
     String,
     UniqueConstraint,
     Uuid,
