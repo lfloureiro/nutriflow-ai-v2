@@ -404,3 +404,18 @@ def test_practical_api_missing_source_evidence_remains_unknown_not_excluded(
 
     assert response.status_code == 201
     assert response.json()["options"][0]["eligible"] is True
+
+
+def test_practical_api_rejects_scheduled_at_outside_daily_state_date(
+    db_session: Session,
+) -> None:
+    _, person, state, _, composition = _persist_base(db_session, key="date-mismatch")
+    payload = _payload(state, composition, source_kinds=["home"])
+    payload["scheduled_at"] = (SCHEDULED_AT + timedelta(days=1)).isoformat()
+
+    response = _post(db_session, person, payload)
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        "scheduled_at must fall on planning_date in the DailyNutritionState timezone."
+    )
