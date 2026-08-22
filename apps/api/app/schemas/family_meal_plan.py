@@ -1,6 +1,5 @@
 import uuid
-from datetime import date as Date
-from datetime import datetime, time as Time
+from datetime import date as Date, datetime, time as Time
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
