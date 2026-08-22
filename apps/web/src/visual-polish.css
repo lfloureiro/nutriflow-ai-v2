@@ -1,0 +1,316 @@
+:root {
+  --surface-subtle: var(--surface-soft);
+  --surface-muted: var(--surface-soft);
+  --radius-sm: 14px;
+  --radius-md: 20px;
+  --radius-lg: 26px;
+  --radius-xl: 32px;
+}
+
+/* Keep form controls compact and soft across every workflow. */
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  min-height: 40px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 82%, var(--surface-soft));
+  padding: 0.58rem 0.78rem;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--surface) 70%, transparent);
+}
+
+textarea {
+  min-height: 88px;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin: 0;
+  padding: 0;
+  border-radius: 6px;
+  accent-color: var(--accent);
+  box-shadow: none;
+}
+
+input[type="radio"] {
+  border-radius: 50%;
+}
+
+.button {
+  min-height: 40px;
+  border-radius: 14px;
+  padding: 0.58rem 0.92rem;
+}
+
+.button.large {
+  min-height: 44px;
+  border-radius: 16px;
+}
+
+.icon-button,
+.shell-icon-button,
+.recipe-ingredient-actions button {
+  border-radius: 14px;
+}
+
+/* Secondary navigation behaves like a compact pill switcher. */
+.secondary-tabs {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  gap: 0.2rem;
+  overflow-x: auto;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-soft) 78%, transparent);
+  scrollbar-width: none;
+}
+
+.secondary-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.secondary-tabs button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.46rem 0.82rem;
+  font-size: 0.78rem;
+  font-weight: 730;
+}
+
+.secondary-tabs button.active,
+.secondary-tabs button[aria-current="page"] {
+  background: var(--surface);
+  color: var(--accent-strong);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.home-base-tabs {
+  margin-bottom: 0.35rem;
+}
+
+/* Reduce vertical bulk while retaining clear screen hierarchy. */
+.screen-header {
+  margin-bottom: var(--space-5);
+}
+
+.compact-screen-header h1 {
+  font-size: clamp(1.75rem, 3vw, 2.45rem);
+}
+
+.compact-screen-header p {
+  max-width: 72ch;
+}
+
+.panel,
+.results-section,
+.member-card,
+.settings-card,
+.entry-card,
+.family-meals-day,
+.meal-plan-slot,
+.recipe-form-card,
+.recipe-nutrition-panel,
+.meal-plan-editor,
+.ingredient-toolbar,
+.ingredient-list,
+.ingredient-form-card,
+.house-editor-card,
+.shopping-refresh-card,
+.shopping-manual-form,
+.shopping-issues,
+.recommendation-card {
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.member-card,
+.family-meals-day,
+.meal-plan-slot,
+.recipe-form-card,
+.recipe-nutrition-panel,
+.meal-plan-editor,
+.ingredient-form-card,
+.recommendation-card {
+  padding: var(--space-4);
+}
+
+.member-avatar,
+.person-avatar {
+  border-radius: 50%;
+}
+
+.person-row,
+.family-meal-row,
+.meal-plan-entry,
+.meal-plan-person,
+.recipe-ingredient-row,
+.pantry-row,
+.shopping-item,
+.requirement-row,
+.offer-row,
+.context-card {
+  border-radius: 18px;
+}
+
+.meal-agenda,
+.ingredient-list {
+  overflow: hidden;
+}
+
+/* Recommendation screen: compact chips/cards instead of large rectangles. */
+.recommend-planner,
+.recommend-setup {
+  gap: var(--space-5);
+}
+
+.recommend-people-grid {
+  grid-template-columns: repeat(auto-fit, minmax(135px, max-content));
+  gap: 0.5rem;
+}
+
+.recommend-person-card {
+  min-height: 40px;
+  border-radius: 999px;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface);
+}
+
+.recommend-person-card.selected {
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
+  background: var(--accent-soft);
+}
+
+.segmented-control {
+  gap: 0.18rem;
+  padding: 0.22rem;
+  border-radius: 999px;
+}
+
+.segmented-control button {
+  min-height: 34px;
+  border-radius: 999px;
+  padding: 0.4rem 0.8rem;
+}
+
+.recommend-source-grid {
+  gap: 0.6rem;
+}
+
+.recommend-source-card {
+  align-items: center;
+  min-height: 60px;
+  gap: 0.65rem;
+  padding: 0.68rem 0.8rem;
+  border-radius: 20px;
+  background: var(--surface);
+}
+
+.recommend-source-card.selected {
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
+  background: var(--accent-soft);
+}
+
+.recommend-source-card input {
+  margin: 0;
+}
+
+.recommend-source-card span {
+  gap: 0.12rem;
+}
+
+.recommend-source-card strong {
+  font-size: 0.9rem;
+}
+
+.recommend-source-card small {
+  font-size: 0.72rem;
+}
+
+.recommend-more {
+  padding-top: 0.8rem;
+}
+
+.recommend-more summary {
+  width: fit-content;
+  margin-bottom: 0.8rem;
+  color: var(--accent-strong);
+  font-size: 0.88rem;
+}
+
+/* Planning/catalogue rows should read as light cards, not boxes inside boxes. */
+.recipe-ingredient-row,
+.meal-plan-person,
+.family-meal-row,
+.pantry-row,
+.shopping-item,
+.requirement-row {
+  background: color-mix(in srgb, var(--surface-soft) 62%, var(--surface));
+}
+
+.meal-plan-empty,
+.family-meals-empty-day,
+.ingredient-empty,
+.empty-state,
+.home-empty {
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--surface-soft) 38%, transparent);
+}
+
+.ingredient-toolbar {
+  padding: var(--space-3);
+}
+
+.ingredient-row {
+  padding: 0.8rem var(--space-4);
+}
+
+.shopping-refresh-card,
+.shopping-manual-form,
+.house-editor-card,
+.shopping-issues {
+  padding: var(--space-4);
+}
+
+.status-chip,
+.agenda-status,
+.family-meal-status,
+.run-id,
+.chip,
+.energy-pill {
+  border-radius: 999px;
+}
+
+/* Keep tables/grids breathable without excessive blank space. */
+.member-grid,
+.recommendation-grid,
+.meal-plan-slots {
+  gap: var(--space-3);
+}
+
+@media (max-width: 720px) {
+  .secondary-tabs {
+    width: 100%;
+  }
+
+  .recommend-people-grid {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .recommend-person-card {
+    flex: 0 1 auto;
+  }
+
+  .recommend-source-card {
+    min-height: 54px;
+  }
+}
