@@ -52,7 +52,7 @@ const COPY = {
     restore: "Reativar ingrediente",
     confirmDeactivate: "Desativar este ingrediente? As receitas e o histórico continuam intactos.",
     requiredName: "Indica o nome do ingrediente.",
-    invalidNutrition: "Os valores nutricionais têm de ser números iguais ou superiores a zero.",
+    invalidNutrition: "A quantidade de referência tem de ser superior a zero; os restantes valores nutricionais têm de ser iguais ou superiores a zero.",
     error: "Não foi possível concluir a operação",
     kcal: "kcal",
   },
@@ -93,7 +93,7 @@ const COPY = {
     restore: "Reactivate ingredient",
     confirmDeactivate: "Deactivate this ingredient? Recipes and history will remain intact.",
     requiredName: "Enter an ingredient name.",
-    invalidNutrition: "Nutrition values must be numbers greater than or equal to zero.",
+    invalidNutrition: "Reference quantity must be greater than zero; all other nutrition values must be greater than or equal to zero.",
     error: "The operation could not be completed",
     kcal: "kcal",
   },
@@ -161,6 +161,12 @@ function validNonNegativeNumber(value: string): boolean {
   }
   const parsed = Number(value.replace(",", "."));
   return Number.isFinite(parsed) && parsed >= 0;
+}
+
+function validPositiveNumber(value: string): boolean {
+  const normalized = value.trim() || "100";
+  const parsed = Number(normalized.replace(",", "."));
+  return Number.isFinite(parsed) && parsed > 0;
 }
 
 function decimalText(value: string): string {
@@ -242,8 +248,7 @@ function IngredientEditor({
       return;
     }
 
-    const numericFields = [
-      values.referenceQuantity,
+    const nonNegativeFields = [
       values.energy,
       values.protein,
       values.carbohydrate,
@@ -251,7 +256,11 @@ function IngredientEditor({
       values.fiber,
       values.sodium,
     ];
-    if (nutritionDirty && numericFields.some((value) => !validNonNegativeNumber(value))) {
+    if (
+      nutritionDirty &&
+      (!validPositiveNumber(values.referenceQuantity) ||
+        nonNegativeFields.some((value) => !validNonNegativeNumber(value)))
+    ) {
       setError(copy.invalidNutrition);
       return;
     }
