@@ -36,7 +36,7 @@ export type SharedRecommendationOption = {
   minimum_score: string | null;
   average_score: string | null;
   exclusion_reasons: string[];
-  participants: SharedParticipantEvaluation[];
+  participants: [SharedParticipantEvaluation, ...SharedParticipantEvaluation[]];
 };
 
 export type SharedPracticalRecommendation = {
