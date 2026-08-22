@@ -95,17 +95,20 @@ export function familyRecipesPath(
   return cataloguePath(familyId, "recipes", query, includeInactive);
 }
 
+export function familyMealPlanBasePath(familyId: string): string {
+  return `/api/families/${encodeURIComponent(familyId)}/meal-plan`;
+}
+
 export function familyMealPlanPath(
   familyId: string,
   startDate?: string,
   days = 7,
 ): string {
-  const base = `/api/families/${encodeURIComponent(familyId)}/meal-plan`;
   const query = new URLSearchParams({ days: String(days) });
   if (startDate) {
     query.set("start_date", startDate);
   }
-  return `${base}?${query.toString()}`;
+  return `${familyMealPlanBasePath(familyId)}?${query.toString()}`;
 }
 
 export function planningBootstrapPath(personId: string, scheduledAt: string): string {
@@ -246,7 +249,7 @@ export function createMealPlanEntry(
   familyId: string,
   payload: MealPlanEntryCreate,
 ): Promise<MealPlanEntry> {
-  return apiRequest<MealPlanEntry>(familyMealPlanPath(familyId).split("?")[0], {
+  return apiRequest<MealPlanEntry>(familyMealPlanBasePath(familyId), {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -257,16 +260,20 @@ export function updateMealPlanEntry(
   mealEventId: string,
   payload: MealPlanEntryUpdate,
 ): Promise<MealPlanEntry> {
-  const base = familyMealPlanPath(familyId).split("?")[0];
-  return apiRequest<MealPlanEntry>(`${base}/${encodeURIComponent(mealEventId)}`, {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  });
+  return apiRequest<MealPlanEntry>(
+    `${familyMealPlanBasePath(familyId)}/${encodeURIComponent(mealEventId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
 export function cancelMealPlanEntry(familyId: string, mealEventId: string): Promise<void> {
-  const base = familyMealPlanPath(familyId).split("?")[0];
-  return apiRequest<void>(`${base}/${encodeURIComponent(mealEventId)}`, { method: "DELETE" });
+  return apiRequest<void>(
+    `${familyMealPlanBasePath(familyId)}/${encodeURIComponent(mealEventId)}`,
+    { method: "DELETE" },
+  );
 }
 
 export function listFamilyPersons(familyId: string): Promise<Person[]> {
