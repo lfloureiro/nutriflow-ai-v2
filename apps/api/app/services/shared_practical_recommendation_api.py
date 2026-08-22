@@ -5,7 +5,10 @@ from sqlalchemy.orm import Session
 from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.family import Family
 from app.models.person import Person
-from app.schemas.practical_recommendation import CommercialOfferRead, PracticalMealRecommendationCreate
+from app.schemas.practical_recommendation import (
+    CommercialOfferRead,
+    PracticalMealRecommendationCreate,
+)
 from app.schemas.shared_practical_recommendation import (
     SharedParticipantEvaluationRead,
     SharedPracticalPlanCreate,
