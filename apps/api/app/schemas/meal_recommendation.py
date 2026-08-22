@@ -1,0 +1,56 @@
+import uuid
+from datetime import date
+from decimal import Decimal
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+class MealRecommendationCandidateInput(BaseModel):
+    candidate_kind: Literal["food_item", "recipe"]
+    composition_id: uuid.UUID
+    quantity: Decimal = Field(gt=0)
+    quantity_unit: str = Field(min_length=1, max_length=24)
+
+
+class MealRecommendationCreate(BaseModel):
+    daily_nutrition_state_id: uuid.UUID
+    planning_date: date
+    meal_type: str | None = Field(default=None, max_length=32)
+    candidates: list[MealRecommendationCandidateInput] = Field(min_length=1, max_length=100)
+
+
+class RecommendationNutrientRead(BaseModel):
+    value: Decimal
+    unit: str
+
+
+class RecommendationNutritionRead(BaseModel):
+    energy_kcal: Decimal | None
+    nutrients: dict[str, RecommendationNutrientRead]
+
+
+class MealRecommendationOptionRead(BaseModel):
+    id: uuid.UUID
+    candidate_key: str
+    candidate_name: str
+    candidate_kind: str
+    quantity: Decimal
+    quantity_unit: str
+    eligible: bool
+    rank: int | None
+    score: Decimal | None
+    score_breakdown: dict[str, Decimal]
+    exclusion_reasons: list[str]
+    explanation: list[str]
+    nutrition: RecommendationNutritionRead
+
+
+class MealRecommendationRunRead(BaseModel):
+    id: uuid.UUID
+    person_id: uuid.UUID
+    daily_nutrition_state_id: uuid.UUID
+    planning_date: date
+    meal_type: str | None
+    engine_version: str
+    options: list[MealRecommendationOptionRead]
