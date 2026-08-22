@@ -10,6 +10,61 @@ export type Person = {
   updated_at: string;
 };
 
+export type FamilyDashboardHealth = {
+  state_date: string;
+  latest_weight_kg: string | null;
+  weight_trend_7d_kg: string | null;
+  weight_trend_28d_kg: string | null;
+  steps: number | null;
+  active_energy_kcal: string | null;
+  sleep_duration_minutes: number | null;
+  resting_heart_rate_bpm: string | null;
+  hrv_ms: string | null;
+  training_load: string | null;
+  confidence_score: string | null;
+  computed_at: string;
+};
+
+export type FamilyDashboardNutrition = {
+  state_date: string;
+  energy_consumed_kcal: string;
+  energy_planned_kcal: string;
+  energy_remaining_min_kcal: string | null;
+  energy_remaining_max_kcal: string | null;
+  adherence_score: string | null;
+  confidence_score: string | null;
+  computed_at: string;
+};
+
+export type FamilyDashboardMember = {
+  person_id: string;
+  first_name: string;
+  last_name: string | null;
+  timezone: string;
+  health: FamilyDashboardHealth | null;
+  nutrition: FamilyDashboardNutrition | null;
+};
+
+export type FamilyDashboardMeal = {
+  id: string;
+  meal_type: string;
+  title: string | null;
+  scheduled_at: string;
+  timezone: string;
+  status: string;
+  location: string | null;
+  participant_person_ids: string[];
+};
+
+export type FamilyDashboard = {
+  family_id: string;
+  family_name: string;
+  timezone: string;
+  dashboard_date: string;
+  members: FamilyDashboardMember[];
+  meals: FamilyDashboardMeal[];
+};
+
 export type PracticalSourceKind =
   | "home"
   | "pantry"
