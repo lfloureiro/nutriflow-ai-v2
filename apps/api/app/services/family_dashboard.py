@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -35,9 +36,9 @@ def _utc_day_bounds(family: Family, dashboard_date: date) -> tuple[datetime, dat
 
 def _latest_health_by_person(
     db: Session,
-    person_ids: list[object],
+    person_ids: list[uuid.UUID],
     dashboard_date: date,
-) -> dict[object, DailyHealthState]:
+) -> dict[uuid.UUID, DailyHealthState]:
     if not person_ids:
         return {}
     states = db.scalars(
@@ -48,7 +49,7 @@ def _latest_health_by_person(
         )
         .order_by(DailyHealthState.person_id, DailyHealthState.computed_at.desc())
     ).all()
-    latest: dict[object, DailyHealthState] = {}
+    latest: dict[uuid.UUID, DailyHealthState] = {}
     for state in states:
         latest.setdefault(state.person_id, state)
     return latest
@@ -56,9 +57,9 @@ def _latest_health_by_person(
 
 def _latest_nutrition_by_person(
     db: Session,
-    person_ids: list[object],
+    person_ids: list[uuid.UUID],
     dashboard_date: date,
-) -> dict[object, DailyNutritionState]:
+) -> dict[uuid.UUID, DailyNutritionState]:
     if not person_ids:
         return {}
     states = db.scalars(
@@ -69,7 +70,7 @@ def _latest_nutrition_by_person(
         )
         .order_by(DailyNutritionState.person_id, DailyNutritionState.computed_at.desc())
     ).all()
-    latest: dict[object, DailyNutritionState] = {}
+    latest: dict[uuid.UUID, DailyNutritionState] = {}
     for state in states:
         latest.setdefault(state.person_id, state)
     return latest
