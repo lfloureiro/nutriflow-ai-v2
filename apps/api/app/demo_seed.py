@@ -13,7 +13,7 @@ from app.models.daily_nutrition_state import DailyNutritionState, DailyNutrition
 from app.models.family import Family
 from app.models.food_catalog import FoodCompositionSnapshot, FoodItem, FoodNutrientComponent
 from app.models.food_preference import FoodPreference
-from app.models.meal import MealEvent, MealParticipant
+from app.models.meal import MealEvent, MealParticipant, Serving
 from app.models.nutrition_constraint import NutritionConstraint
 from app.models.person import Person
 
@@ -88,6 +88,15 @@ class DemoMealDefinition:
     status: str
     location: str
     participant_ids: tuple[uuid.UUID, ...]
+
+
+@dataclass(frozen=True)
+class DemoPortionDefinition:
+    person_id: uuid.UUID
+    item_key: str
+    item_name: str
+    quantity_g: Decimal
+    energy_kcal: Decimal
 
 
 @dataclass(frozen=True)
@@ -286,6 +295,85 @@ DEMO_MEALS = (
     ),
 )
 
+DEMO_PORTIONS = {
+    "breakfast": (
+        DemoPortionDefinition(
+            DEMO_PERSON_ID,
+            "demo:breakfast",
+            "Pequeno-almoço",
+            Decimal("320.0000"),
+            Decimal("430.00"),
+        ),
+        DemoPortionDefinition(
+            DEMO_MARTA_ID,
+            "demo:breakfast",
+            "Pequeno-almoço",
+            Decimal("260.0000"),
+            Decimal("340.00"),
+        ),
+        DemoPortionDefinition(
+            DEMO_RUI_ID,
+            "demo:breakfast",
+            "Pequeno-almoço",
+            Decimal("380.0000"),
+            Decimal("500.00"),
+        ),
+        DemoPortionDefinition(
+            DEMO_INES_ID,
+            "demo:breakfast",
+            "Pequeno-almoço",
+            Decimal("240.0000"),
+            Decimal("310.00"),
+        ),
+    ),
+    "lunch": (
+        DemoPortionDefinition(
+            DEMO_PERSON_ID,
+            "demo:massa-bolonhesa",
+            "Massa à bolonhesa",
+            Decimal("400.0000"),
+            Decimal("650.00"),
+        ),
+        DemoPortionDefinition(
+            DEMO_RUI_ID,
+            "demo:massa-bolonhesa",
+            "Massa à bolonhesa",
+            Decimal("500.0000"),
+            Decimal("812.50"),
+        ),
+    ),
+    "family-dinner": (
+        DemoPortionDefinition(
+            DEMO_PERSON_ID,
+            "demo:salmao-batata-salada",
+            "Salmão com batata e salada",
+            Decimal("400.0000"),
+            Decimal("560.00"),
+        ),
+        DemoPortionDefinition(
+            DEMO_MARTA_ID,
+            "demo:salmao-batata-salada",
+            "Salmão com batata e salada",
+            Decimal("320.0000"),
+            Decimal("448.00"),
+        ),
+        DemoPortionDefinition(
+            DEMO_RUI_ID,
+            "demo:salmao-batata-salada",
+            "Salmão com batata e salada",
+            Decimal("500.0000"),
+            Decimal("700.00"),
+        ),
+        DemoPortionDefinition(
+            DEMO_INES_ID,
+            "demo:salmao-batata-salada",
+            "Salmão com batata e salada",
+            Decimal("300.0000"),
+            Decimal("420.00"),
+        ),
+    ),
+}
+
 
 def _state_id(person_id: uuid.UUID, state_date: date) -> uuid.UUID:
     if person_id == DEMO_PERSON_ID:
@@ -317,6 +405,13 @@ def _meal_participant_id(state_date: date, key: str, person_id: uuid.UUID) -> uu
     return uuid.uuid5(
         DEMO_NAMESPACE,
         f"meal-participant:{state_date.isoformat()}:{key}:{person_id}",
+    )
+
+
+def _serving_id(state_date: date, key: str, person_id: uuid.UUID) -> uuid.UUID:
+    return uuid.uuid5(
+        DEMO_NAMESPACE,
+        f"serving:{state_date.isoformat()}:{key}:{person_id}",
     )
 
 
@@ -561,6 +656,55 @@ def _ensure_daily_health_state(
     return state
 
 
+def _ensure_demo_serving(
+    session: Session,
+    *,
+    local_date: date,
+    meal_key: str,
+    participant: MealParticipant,
+    portion: DemoPortionDefinition,
+    meal_status: str,
+    scheduled_at: datetime,
+) -> None:
+    serving_id = _serving_id(local_date, meal_key, portion.person_id)
+    serving = session.get(Serving, serving_id)
+    if serving is None:
+        serving = Serving(
+            id=serving_id,
+            meal_participant=participant,
+            item_type="dish",
+            item_name=portion.item_name,
+        )
+        session.add(serving)
+
+    serving.meal_participant_id = participant.id
+    serving.item_type = "dish"
+    serving.item_key = portion.item_key
+    serving.item_name = portion.item_name
+    serving.quantity_planned = portion.quantity_g
+    serving.quantity_unit = "g"
+    serving.energy_planned_kcal = portion.energy_kcal
+    serving.nutrition_source = "demo"
+    serving.nutrition_calculation_version = DEMO_CALCULATION_VERSION
+    serving.source_reference = "nutriflow-development-demo"
+    serving.notes = "Synthetic development-only Person-specific portion."
+
+    if meal_status == "completed":
+        serving.status = "consumed"
+        serving.quantity_served = portion.quantity_g
+        serving.quantity_consumed = portion.quantity_g
+        serving.energy_served_kcal = portion.energy_kcal
+        serving.energy_consumed_kcal = portion.energy_kcal
+        serving.consumed_at = scheduled_at + timedelta(minutes=30)
+    else:
+        serving.status = "planned"
+        serving.quantity_served = None
+        serving.quantity_consumed = None
+        serving.energy_served_kcal = None
+        serving.energy_consumed_kcal = None
+        serving.consumed_at = None
+
+
 def _ensure_demo_meals(
     session: Session,
     family: Family,
@@ -616,6 +760,9 @@ def _ensure_demo_meals(
             event.served_at = None
             event.completed_at = None
 
+        portions_by_person = {
+            portion.person_id: portion for portion in DEMO_PORTIONS[definition.key]
+        }
         for person_id in definition.participant_ids:
             participant_id = _meal_participant_id(local_date, definition.key, person_id)
             participant = session.get(MealParticipant, participant_id)
@@ -631,6 +778,16 @@ def _ensure_demo_meals(
             participant.person_id = person.id
             participant.status = "consumed" if definition.status == "completed" else "planned"
             participant.notes = "Synthetic development-only Family Home participant."
+
+            _ensure_demo_serving(
+                session,
+                local_date=local_date,
+                meal_key=definition.key,
+                participant=participant,
+                portion=portions_by_person[person_id],
+                meal_status=definition.status,
+                scheduled_at=scheduled_at,
+            )
 
 
 def _ensure_demo_rules(session: Session, person: Person) -> None:
