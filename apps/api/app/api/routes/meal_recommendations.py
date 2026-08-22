@@ -13,7 +13,10 @@ from app.services.meal_recommendation_api import (
     create_meal_recommendation,
 )
 
-router = APIRouter(prefix="/persons/{person_id}/meal-recommendations", tags=["meal-recommendations"])
+router = APIRouter(
+    prefix="/persons/{person_id}/meal-recommendations",
+    tags=["meal-recommendations"],
+)
 
 
 @router.post("", response_model=MealRecommendationRunRead, status_code=status.HTTP_201_CREATED)
