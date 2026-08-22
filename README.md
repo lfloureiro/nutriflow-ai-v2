@@ -102,6 +102,7 @@ The current backend foundation includes:
 - recommendation decision API for accepted/rejected/modified persisted options, with accepted/modified decisions materialized through the standard MealEvent/MealParticipant/Serving model;
 - practical recommendation orchestration combining Person schedule, home/pantry availability, pantry stock and commercial opening/offer evidence with any-source semantics;
 - person-scoped planning bootstrap discovery of the latest local-day DailyNutritionState and current Family/global Food/Recipe composition evidence for the web UI;
+- explicit, idempotent development demo data for exercising the real web/bootstrap/recommendation flow on a fresh local database;
 - PostgreSQL persistence with Alembic migrations;
 - pytest coverage with warnings treated as errors;
 - Ruff static validation.
@@ -123,6 +124,17 @@ The initial web application includes:
 - a separate Web CI workflow.
 
 The web still uses a development Family UUID entrypoint because authentication and household authorization context are not implemented yet. The meal-planning flow no longer requires users to type DailyNutritionState or composition snapshot UUIDs.
+
+### Fresh local database
+
+A new local database is intentionally empty. To create a synthetic development Family, Person, current DailyNutritionState and six meal candidates:
+
+```powershell
+cd D:\Python\nutriflow-ai-v2\apps\api
+python -m app.demo_seed
+```
+
+The command is explicit and idempotent; startup never auto-seeds. It prints the Family ID required by the current web development entrypoint. See `docs/domain/development-demo-dataset.md` and ADR-033.
 
 Detailed domain status is maintained in `docs/domain/implementation-status.md`. Web flow decisions are documented under `docs/ux/` and `docs/decisions/`.
 
