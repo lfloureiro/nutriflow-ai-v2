@@ -5,7 +5,11 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.schemas.practical_recommendation import RecommendationHistoryHint
-from app.services.meal_recommendation import CandidateEvaluation, MealCandidate, RecommendationResult
+from app.services.meal_recommendation import (
+    CandidateEvaluation,
+    MealCandidate,
+    RecommendationResult,
+)
 from app.services.recommendation_diversity import apply_diversity_to_recommendation
 from app.services.serving_nutrition import NutritionSnapshot
 
