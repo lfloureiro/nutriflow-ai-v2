@@ -1,0 +1,176 @@
+.family-meals-screen {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.family-meals-header {
+  align-items: flex-end;
+}
+
+.family-meals-tabs {
+  display: flex;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  scrollbar-width: thin;
+}
+
+.family-meals-tabs button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  padding: 0.55rem 0.82rem;
+  font-size: 0.78rem;
+  font-weight: 720;
+}
+
+.family-meals-tabs button.active {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.family-meals-content {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.family-meals-range {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.family-meals-range strong {
+  color: var(--text);
+}
+
+.family-meals-day {
+  display: grid;
+  gap: var(--space-3);
+  padding: clamp(1.1rem, 2.5vw, 1.6rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.family-meals-day.compact {
+  padding: var(--space-4);
+}
+
+.family-meals-day__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.family-meals-day__heading h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  text-transform: capitalize;
+}
+
+.family-meals-day__heading span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.family-meals-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.family-meal-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+
+.family-meal-row time {
+  color: var(--accent-strong);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.family-meal-row__body {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.family-meal-row__body strong {
+  overflow-wrap: anywhere;
+}
+
+.family-meal-row__body span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.family-meal-status {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.32rem 0.52rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 730;
+  white-space: nowrap;
+}
+
+.family-meal-status.status-completed,
+.family-meal-status.status-served {
+  border-color: color-mix(in srgb, var(--success) 26%, var(--border));
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.family-meals-empty-day {
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.family-meals-screen .planner-screen {
+  margin-top: 0;
+}
+
+@media (max-width: 620px) {
+  .family-meals-header {
+    align-items: flex-start;
+  }
+
+  .family-meals-header .button {
+    width: 100%;
+  }
+
+  .family-meal-row {
+    grid-template-columns: 58px minmax(0, 1fr);
+  }
+
+  .family-meal-status {
+    grid-column: 2;
+    width: fit-content;
+  }
+
+  .family-meals-day__heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+}
