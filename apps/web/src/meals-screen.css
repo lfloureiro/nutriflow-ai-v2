@@ -1,0 +1,88 @@
+.meals-screen {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.meals-tabs {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
+}
+
+.meals-tabs button {
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 0.65rem 1rem;
+  font: inherit;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.meals-tabs button:hover,
+.meals-tabs button:focus-visible {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.meals-tabs button.active {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent-strong);
+}
+
+.meals-panel {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: 1.35rem;
+  padding: 1.25rem;
+}
+
+.meals-panel__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.meals-panel__heading h2,
+.meals-week-placeholder h2 {
+  margin: 0;
+}
+
+.meals-panel__heading p,
+.meals-week-placeholder p {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+}
+
+.meals-agenda--standalone {
+  margin-top: 0.5rem;
+}
+
+.meals-week-placeholder {
+  min-height: 14rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  max-width: 44rem;
+}
+
+@media (max-width: 700px) {
+  .meals-panel {
+    padding: 1rem;
+  }
+
+  .meals-panel__heading {
+    flex-direction: column;
+  }
+
+  .meals-panel__heading .button {
+    width: 100%;
+  }
+}
