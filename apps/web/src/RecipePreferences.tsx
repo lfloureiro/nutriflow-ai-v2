@@ -123,7 +123,12 @@ export default function RecipePreferences({ familyId }: { familyId: string }) {
   }, [familyId, recipeId]);
 
   const ratingByPerson = useMemo(
-    () => new Map(summary?.ratings.map((rating) => [rating.person_id, rating.rating]) ?? []),
+    () =>
+      new Map<string, number>(
+        (summary?.ratings ?? []).map(
+          (rating) => [rating.person_id, rating.rating] as const,
+        ),
+      ),
     [summary],
   );
 
