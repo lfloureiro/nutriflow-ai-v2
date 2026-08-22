@@ -175,15 +175,40 @@ Integrated by PR #24.
 - run/options persist through the existing recommendation evidence model;
 - request context and active commercial offer keys are recorded for audit.
 
-Integrated baseline after PR #24:
+Detailed semantics: `docs/domain/practical-recommendation-orchestration-api.md`, ADR-029.
+
+### First responsive web recommendation vertical slice
+
+Integrated by PR #25.
+
+- React + TypeScript + Vite application under `apps/web`;
+- strict TypeScript configuration and production build;
+- typed API contracts/client isolated from presentation code;
+- local Vite `/api` proxy to FastAPI;
+- Family UUID -> persisted Person selection through the existing API;
+- practical meal context form for schedule, location, available minutes, kitchen and source kinds;
+- real practical recommendation generation and persisted option display;
+- eligible/excluded explanations, compact nutrition and active commercial offers;
+- accept/reject actions through the recommendation decision endpoint;
+- accepted decisions surface resulting planned-meal materialization;
+- Portuguese (`pt-PT`) and English authored UI strings through an i18n boundary;
+- Light, Dark and System appearance modes;
+- responsive desktop/tablet/mobile layout and keyboard-focus/accessibility baseline;
+- seven Vitest unit tests;
+- separate Web CI with pinned npm 11.12.1, web tests, strict type-check and production build.
+
+The integrated UI still exposes explicit DailyNutritionState and composition UUIDs pending the bootstrap/discovery wiring increment.
+
+Integrated baseline after PR #25:
 
 ```text
-main SHA:      55a2842b1dcd68541d3dccb73b8580daadf1a4c9
+main SHA:      a18b61f0d6512c3a91f99d8f34e2e2c3e3fb2808
 schema head:   a7c4e9f2b6d1
 API tests:     94
+Web tests:     7
 ```
 
-Detailed semantics: `docs/domain/practical-recommendation-orchestration-api.md`, ADR-029.
+Detailed semantics: `docs/ux/web-recommendation-vertical-slice.md`, ADR-030.
 
 ### Shared-family planning
 
@@ -241,18 +266,18 @@ Integrated by PR #20.
 
 Detailed semantics: `docs/domain/restaurant-delivery-commercial-context.md`, ADR-025.
 
-## Current feature branch: first web recommendation vertical slice
+## Current feature branch: web planning bootstrap API
 
 Branch:
 
 ```text
-feature/web-recommendation-vertical-slice
+feature/web-planning-bootstrap-api
 ```
 
 Merge base / current integrated `main`:
 
 ```text
-55a2842b1dcd68541d3dccb73b8580daadf1a4c9
+a18b61f0d6512c3a91f99d8f34e2e2c3e3fb2808
 ```
 
 Schema head remains:
@@ -261,42 +286,33 @@ Schema head remains:
 a7c4e9f2b6d1
 ```
 
-This branch has no database migration and does not change backend recommendation semantics.
+This branch has no database migration and does not change recommendation eligibility/ranking semantics.
 
 Implemented on the branch:
 
-- React + TypeScript + Vite application under `apps/web`;
-- strict TypeScript configuration and production build;
-- typed API contracts/client isolated from presentation code;
-- local Vite `/api` proxy to FastAPI;
-- Family UUID -> persisted Person selection through the existing API;
-- explicit DailyNutritionState and Food/Recipe composition IDs for the current backend contract;
-- practical meal context form for schedule, location, available minutes, kitchen and source kinds;
-- real call to `POST /api/persons/{person_id}/meal-recommendations/practical`;
-- display of all persisted eligible/excluded options, compact nutrition, explanations and exclusion reasons;
-- display of active commercial offers and known provider totals;
-- accept/reject actions through the persisted recommendation decision endpoint;
-- accepted decisions display resulting meal-plan materialization state;
-- Portuguese (`pt-PT`) and English authored UI strings through an i18n boundary;
-- Light, Dark and System appearance modes;
-- responsive desktop/tablet/mobile layout and keyboard focus/accessibility baseline;
-- seven Vitest unit tests covering API URL construction, planning helpers and core translations;
-- separate Web CI workflow for web tests plus strict type-check/production build;
-- pinned direct npm dependencies; committed lockfile intentionally deferred and required before production.
-
-The UI deliberately exposes UUID inputs in this first integration slice. It must not guess the current DailyNutritionState or catalogue composition version. Removing those UUID fields requires a safe planning-bootstrap/discovery API.
+- `GET /api/persons/{person_id}/planning-bootstrap?scheduled_at=...`;
+- timezone-aware scheduled instant required;
+- planning date derived in the persisted Person timezone;
+- latest persisted DailyNutritionState selected deterministically for that local date;
+- missing DailyNutritionState is returned explicitly as `null`, not invented in the browser;
+- active global and same-Family FoodItem/Recipe catalogue objects are discoverable;
+- another Family's catalogue objects and inactive objects are excluded;
+- one latest Food composition with `effective_at <= scheduled_at` per FoodItem;
+- one latest Recipe composition with `computed_at <= scheduled_at` per Recipe;
+- future composition evidence is never returned as current evidence;
+- candidate response includes persisted composition ID plus display/reference metadata required by the web client;
+- six API tests cover local-date/latest-state selection, Family isolation, active catalogue scope, Food/Recipe as-of version selection, missing-state semantics and naive-time rejection.
 
 Authoritative branch docs:
 
-- `docs/ux/web-recommendation-vertical-slice.md`;
-- `docs/decisions/ADR-030-react-vite-web-foundation.md`;
-- `apps/web/README.md`.
+- `docs/domain/web-planning-bootstrap-api.md`;
+- `docs/decisions/ADR-031-web-planning-bootstrap-discovers-persisted-state-and-composition.md`.
 
 Expected validation baseline:
 
 ```text
-API: 94 pytest tests, Ruff clean, Alembic metadata clean
-Web: 7 Vitest tests, strict TypeScript check, production Vite build
+API: 100 pytest tests, Ruff clean, Alembic metadata clean
+Web: unchanged integrated 7 Vitest tests
 ```
 
 ## Safety and correctness invariants
@@ -310,6 +326,9 @@ Future work must preserve:
 - no inferred density;
 - exact versioned composition provenance for Serving/recommendation decisions;
 - recommendation APIs reference persisted source snapshots rather than client-authored nutrition totals;
+- planning bootstrap returns persisted state/composition evidence rather than browser-authored nutrition values;
+- planning bootstrap preserves Family isolation and excludes inactive catalogue data;
+- future composition evidence cannot be used for an earlier planning instant;
 - practical-source alternatives use any-source semantics rather than accidental all-source requirements;
 - unknown practical source evidence is distinct from explicit unavailability;
 - practical scheduled instants cannot silently use a DailyNutritionState from another local date;
@@ -325,7 +344,7 @@ Future work must preserve:
 
 Current decision API limitation: request-level idempotency and concurrent duplicate suppression are not implemented. Do not infer retry safety from MealEvent idempotency infrastructure elsewhere in the domain.
 
-A separate future policy may be needed if a mandatory nutrient maximum applies but historical DailyNutritionState cannot represent the current consumed/planned total for that nutrient. Do not silently assume missing historical state is complete evidence.
+A separate future policy is still required when the requested planning date has no current DailyNutritionState or when target selection/recalculation must occur automatically. Bootstrap intentionally returns missing state rather than silently creating derived nutrition evidence.
 
 ## Current migration tail
 
@@ -345,17 +364,17 @@ Earlier revisions remain authoritative in `database/migrations/versions/`.
 
 ## Next planned increments
 
-After the current web branch is locally green, PR-tested and merged:
+After the current bootstrap API branch is locally green, PR-tested and merged:
 
-1. add a safe Person planning-bootstrap/discovery API for current DailyNutritionState and eligible current Food/Recipe composition snapshots so the web UI no longer requires UUID entry;
-2. replace the temporary UUID-oriented web inputs with normal searchable/selectable product UI using that server-authoritative bootstrap data;
-3. add authentication plus explicit Family/Person authorization context before real multi-user deployment;
-4. commit an npm lockfile and switch Web CI to `npm ci` before production deployment;
-5. expand the web app into profile/goals/constraints/preferences, daily plan/history and pantry/shopping vertical slices;
-6. persist shopping-list lifecycle when UI workflows require durable shopping state;
-7. add background/event-driven DailyNutritionState refresh and explicit target-selection policy;
-8. harden transaction-level request idempotency/concurrent decision races;
-9. expose shared-family recommendation/decision API and UI boundaries;
-10. add provider connectors/live freshness, basket/order lifecycle and later learned ranking only after deterministic layers remain authoritative.
+1. wire the web UI to planning bootstrap so users no longer paste DailyNutritionState/composition UUIDs and can choose normal named candidates;
+2. add authentication plus explicit Family/Person authorization context before real multi-user deployment;
+3. commit an npm lockfile and switch Web CI to `npm ci` before production deployment;
+4. expand the web app into profile/goals/constraints/preferences, daily plan/history and pantry/shopping vertical slices;
+5. persist shopping-list lifecycle when UI workflows require durable shopping state;
+6. add background/event-driven DailyNutritionState refresh and explicit target-selection policy;
+7. harden transaction-level request idempotency/concurrent decision races;
+8. expose shared-family recommendation/decision API and UI boundaries;
+9. add provider connectors/live freshness and basket/order lifecycle;
+10. add learned ranking from feedback only after deterministic safety/practical/nutrition layers remain authoritative.
 
 Every increment follows ADR-007: focused branch, relevant code/tests/docs together, local validation with zero warnings, PR only after local green, CI on the exact PR head SHA, guarded squash merge, verify resulting `main`, then start the next branch.
