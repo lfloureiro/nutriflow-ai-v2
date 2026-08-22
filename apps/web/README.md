@@ -15,6 +15,17 @@ Vite serves the web app on `http://127.0.0.1:5173` and proxies `/api` requests t
 
 Set `VITE_API_BASE_URL` only when the API is hosted on a different origin. The default same-origin path is preferable for local development through the Vite proxy.
 
+### Fresh database demo data
+
+A new local database is intentionally empty. To create the explicit development-only demo Family, current daily nutrition state and six named meal candidates:
+
+```powershell
+cd D:\Python\nutriflow-ai-v2\apps\api
+python -m app.demo_seed
+```
+
+The command is idempotent and prints the Family ID to enter in the current pre-authentication web screen. It never runs automatically at application startup. See `docs/domain/development-demo-dataset.md` and ADR-033.
+
 ## Validation
 
 ```powershell
