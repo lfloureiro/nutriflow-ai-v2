@@ -1,9 +1,10 @@
 import uuid
-from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.family import Family
+from app.models.person import Person
 from app.schemas.practical_recommendation import CommercialOfferRead, PracticalMealRecommendationCreate
 from app.schemas.shared_practical_recommendation import (
     SharedParticipantEvaluationRead,
@@ -13,6 +14,7 @@ from app.schemas.shared_practical_recommendation import (
     SharedPracticalRecommendationRead,
     SharedRecommendationOptionRead,
 )
+from app.services.commercial_availability import CommercialOfferSnapshot
 from app.services.meal_recommendation import MealCandidate
 from app.services.meal_recommendation_api import load_recommendation_inputs
 from app.services.planning_bootstrap_api import get_planning_bootstrap
@@ -20,7 +22,10 @@ from app.services.practical_recommendation_api import (
     _build_practical_channels,
     _merge_source_channels,
 )
-from app.services.recommendation_practical_context import PracticalMealContext
+from app.services.recommendation_practical_context import (
+    CandidatePracticalProfile,
+    PracticalMealContext,
+)
 from app.services.shared_family_meal import (
     SharedFamilyMealRecommendationResult,
     SharedMealCandidateProposal,
@@ -58,7 +63,7 @@ def _candidate_proposals(
     return tuple(proposals)
 
 
-def _commercial_offer_read(offer) -> CommercialOfferRead:
+def _commercial_offer_read(offer: CommercialOfferSnapshot) -> CommercialOfferRead:
     return CommercialOfferRead(
         candidate_key=offer.candidate_key,
         source_kind=offer.source_kind,
@@ -81,7 +86,7 @@ def _result_read(
     family: Family,
     data: SharedPracticalRecommendationCreate,
     result: SharedFamilyMealRecommendationResult,
-    offers,
+    offers: list[CommercialOfferSnapshot],
 ) -> SharedPracticalRecommendationRead:
     options: list[SharedRecommendationOptionRead] = []
     for evaluation in result.evaluations:
@@ -127,16 +132,16 @@ def _compute_shared_recommendation(
     *,
     family: Family,
     data: SharedPracticalRecommendationCreate,
-) -> tuple[SharedFamilyMealRecommendationResult, list]:
+) -> tuple[SharedFamilyMealRecommendationResult, list[CommercialOfferSnapshot]]:
     if len(data.person_ids) != len(set(data.person_ids)):
         raise SharedPracticalRecommendationApiError(
             "Each Person can appear only once in a shared recommendation."
         )
 
-    loaded: list[tuple] = []
+    loaded: list[tuple[Person, DailyNutritionState]] = []
     first_candidates: list[MealCandidate] | None = None
-    practical_profiles = None
-    offers = []
+    practical_profiles: tuple[CandidatePracticalProfile, ...] | None = None
+    offers: list[CommercialOfferSnapshot] = []
 
     for index, person_id in enumerate(data.person_ids):
         bootstrap = get_planning_bootstrap(
