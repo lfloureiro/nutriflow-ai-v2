@@ -10,15 +10,25 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.family import Family
-from app.models.food_catalog import FoodItem, Recipe, RecipeCompositionSnapshot, RecipeIngredient
+from app.models.food_catalog import (
+    FoodItem,
+    Recipe,
+    RecipeCompositionSnapshot,
+    RecipeIngredient,
+    RecipeNutrientComponent,
+)
 
 LEGACY_V1_SOURCE = "legacy-v1-demo"
 LEGACY_V1_SOURCE_REFERENCE = "nutriflow-ai:v1:demo_3_familias_20_receitas"
-LEGACY_V1_DATA_VERSION = "legacy-v1-demo-v1"
+LEGACY_V1_DATA_VERSION = "legacy-v1-demo-v2"
 LEGACY_V1_NAMESPACE = uuid.UUID("4f99ec16-c0a4-4b65-b118-2ca0a6f34967")
 LEGACY_V1_SNAPSHOT_AT = datetime(2026, 4, 18, 12, 0, tzinfo=UTC)
 LEGACY_V1_FIXTURE = (
     Path(__file__).resolve().parents[3] / "database" / "legacy-v1" / "demo_catalog_subset.json"
+)
+SYNTHETIC_NUTRITION_NOTE = (
+    "Development-only synthetic nutrition estimate; recipe structure comes from v1, "
+    "nutrition does not."
 )
 
 
@@ -47,6 +57,14 @@ class _FixtureJson(TypedDict):
 
 
 @dataclass(frozen=True)
+class DemoRecipeNutrition:
+    energy_kcal: Decimal
+    protein_g: Decimal
+    fiber_g: Decimal
+    sodium_mg: Decimal
+
+
+@dataclass(frozen=True)
 class LegacyV1DemoSeedResult:
     ingredient_count: int
     recipe_count: int
@@ -54,6 +72,40 @@ class LegacyV1DemoSeedResult:
 
 class LegacyV1DemoSeedConflictError(ValueError):
     pass
+
+
+LEGACY_V1_DEMO_NUTRITION = {
+    1: DemoRecipeNutrition(
+        energy_kcal=Decimal("2400"),
+        protein_g=Decimal("128"),
+        fiber_g=Decimal("28"),
+        sodium_mg=Decimal("2400"),
+    ),
+    2: DemoRecipeNutrition(
+        energy_kcal=Decimal("2520"),
+        protein_g=Decimal("132"),
+        fiber_g=Decimal("36"),
+        sodium_mg=Decimal("2600"),
+    ),
+    3: DemoRecipeNutrition(
+        energy_kcal=Decimal("2360"),
+        protein_g=Decimal("136"),
+        fiber_g=Decimal("20"),
+        sodium_mg=Decimal("2200"),
+    ),
+    5: DemoRecipeNutrition(
+        energy_kcal=Decimal("2240"),
+        protein_g=Decimal("144"),
+        fiber_g=Decimal("24"),
+        sodium_mg=Decimal("1800"),
+    ),
+    6: DemoRecipeNutrition(
+        energy_kcal=Decimal("2280"),
+        protein_g=Decimal("124"),
+        fiber_g=Decimal("22"),
+        sodium_mg=Decimal("2000"),
+    ),
+}
 
 
 def _fixture() -> _FixtureJson:
@@ -141,32 +193,65 @@ def _ensure_ingredient(
     return item
 
 
-def _missing_composition(
+def _ensure_demo_composition(
+    session: Session,
     recipe: Recipe,
     *,
     legacy_id: int,
     serving_count: Decimal,
-    now: datetime,
 ) -> None:
-    if recipe.compositions:
-        return
-    recipe.compositions.append(
-        RecipeCompositionSnapshot(
-            id=_stable_id("recipe-composition", legacy_id),
+    nutrition = LEGACY_V1_DEMO_NUTRITION[legacy_id]
+    composition_id = _stable_id("recipe-composition", legacy_id)
+    composition = session.get(RecipeCompositionSnapshot, composition_id)
+    if composition is None:
+        composition = RecipeCompositionSnapshot(
+            id=composition_id,
             reference_quantity=serving_count,
             reference_unit="serving",
-            energy_kcal=None,
+            energy_kcal=nutrition.energy_kcal,
             composition_version=LEGACY_V1_DATA_VERSION,
-            calculation_version="legacy-v1-import-v1",
+            calculation_version="legacy-v1-demo-synthetic-nutrition-v1",
             calculation_inputs={
-                "source": LEGACY_V1_SOURCE_REFERENCE,
-                "issues": [
-                    "Legacy v1 demo source contains no ingredient nutrition composition."
-                ],
+                "recipe_source": LEGACY_V1_SOURCE_REFERENCE,
+                "nutrition_source": "synthetic-development-fixture",
+                "issues": [SYNTHETIC_NUTRITION_NOTE],
             },
-            computed_at=min(now, LEGACY_V1_SNAPSHOT_AT),
+            computed_at=LEGACY_V1_SNAPSHOT_AT,
         )
-    )
+        recipe.compositions.append(composition)
+    else:
+        composition.recipe_id = recipe.id
+        composition.reference_quantity = serving_count
+        composition.reference_unit = "serving"
+        composition.energy_kcal = nutrition.energy_kcal
+        composition.composition_version = LEGACY_V1_DATA_VERSION
+        composition.calculation_version = "legacy-v1-demo-synthetic-nutrition-v1"
+        composition.calculation_inputs = {
+            "recipe_source": LEGACY_V1_SOURCE_REFERENCE,
+            "nutrition_source": "synthetic-development-fixture",
+            "issues": [SYNTHETIC_NUTRITION_NOTE],
+        }
+        composition.computed_at = LEGACY_V1_SNAPSHOT_AT
+
+    nutrient_values = {
+        "protein": (nutrition.protein_g, "g"),
+        "fiber": (nutrition.fiber_g, "g"),
+        "sodium": (nutrition.sodium_mg, "mg"),
+    }
+    existing = {nutrient.nutrient_key: nutrient for nutrient in composition.nutrients}
+    for index, (nutrient_key, (value, unit)) in enumerate(nutrient_values.items(), start=1):
+        nutrient = existing.get(nutrient_key)
+        if nutrient is None:
+            nutrient = RecipeNutrientComponent(
+                id=_stable_id("recipe-nutrient", legacy_id * 10 + index),
+                nutrient_key=nutrient_key,
+                value=value,
+                unit=unit,
+            )
+            composition.nutrients.append(nutrient)
+        else:
+            nutrient.value = value
+            nutrient.unit = unit
 
 
 def _ensure_recipe(
@@ -174,7 +259,6 @@ def _ensure_recipe(
     family: Family,
     definition: _RecipeJson,
     ingredients_by_legacy_id: dict[int, FoodItem],
-    now: datetime,
 ) -> Recipe:
     legacy_id = definition["id"]
     recipe_id = _stable_id("recipe", legacy_id)
@@ -206,6 +290,7 @@ def _ensure_recipe(
         recipe.recipe_key = recipe_key
         recipe.name = definition["name"]
         recipe.description = definition["description"]
+        recipe.serving_count = serving_count
         recipe.source = LEGACY_V1_SOURCE
         recipe.source_reference = LEGACY_V1_SOURCE_REFERENCE
         recipe.is_active = True
@@ -224,11 +309,11 @@ def _ensure_recipe(
                 )
             )
 
-    _missing_composition(
+    _ensure_demo_composition(
+        session,
         recipe,
         legacy_id=legacy_id,
         serving_count=serving_count,
-        now=now,
     )
     return recipe
 
@@ -242,7 +327,6 @@ def seed_legacy_v1_demo_catalog(
     instant = now or datetime.now(UTC)
     if instant.tzinfo is None or instant.utcoffset() is None:
         raise ValueError("Legacy v1 demo seed instant must be timezone-aware.")
-    instant = instant.astimezone(UTC)
 
     fixture = _fixture()
     ingredients = {
@@ -252,7 +336,7 @@ def seed_legacy_v1_demo_catalog(
     session.flush()
 
     for definition in fixture["recipes"]:
-        _ensure_recipe(session, family, definition, ingredients, instant)
+        _ensure_recipe(session, family, definition, ingredients)
     session.flush()
 
     return LegacyV1DemoSeedResult(
