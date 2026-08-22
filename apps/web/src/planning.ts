@@ -31,7 +31,7 @@ export function scheduledIso(localDateTime: string): string {
   return parsed.toISOString();
 }
 
-export function newCandidateDraft(rowId = crypto.randomUUID()): CandidateDraft {
+export function newCandidateDraft(rowId: string = crypto.randomUUID()): CandidateDraft {
   return {
     rowId,
     candidate_kind: "food_item",
