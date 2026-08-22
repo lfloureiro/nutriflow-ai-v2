@@ -1,252 +1,285 @@
 # NutriFlow AI v2 development continuity
 
-This document is the handover entry point for resuming NutriFlow AI v2 development. Repository state, migrations, tests, domain/UX docs and ADRs are authoritative when they differ from conversation history.
+This is the handover entry point for NutriFlow AI v2. Repository code, migrations, tests, domain/vision docs and ADRs are authoritative when conversation history differs.
 
-## Product and architecture baseline
+## Product direction
 
-NutriFlow AI v2 is standalone. Do not introduce legacy repository/schema dependencies or compatibility layers unless an explicit future decision changes that direction.
+NutriFlow AI v2 is standalone from v1. The primary operational chain is:
 
-Core invariants:
+```text
+Ingredients
+-> Recipes
+-> Recipe nutrition
+-> Family plan
+-> Person-specific portions
+-> Pantry
+-> Shopping
+-> history / feedback
+```
 
-- Person belongs to Family;
-- shared meals use one MealEvent with Person-specific MealParticipant and Serving rows;
-- hard safety and mandatory nutrition rules are deterministic and cannot be bypassed by ranking/ML;
-- Food/Recipe composition is versioned and exact composition provenance is retained;
-- DailyHealthState/DailyNutritionState are derived and recalculable;
-- recommendation history/feedback are audit evidence, not authoritative meal-plan state;
-- practical/pantry/commercial state is separate from nutrition composition;
-- API namespace is `/api/...`, not `/api/v1`;
-- web is React + TypeScript + Vite, responsive, pt-PT/en and Light/Dark/System;
-- frontend direction is Family-first with progressive disclosure, per ADR-034.
+Family Home remains a lightweight orientation dashboard. Detailed health/analytics work is secondary until the operational meal-planning chain is usable.
 
-## Mandatory workflow
+## Core invariants
+
+- Person remains the primary nutrition entity inside Family context;
+- one shared MealEvent can have multiple MealParticipants;
+- each participant has Person-specific Servings;
+- normal meal planning uses exactly breakfast, lunch, snack and dinner;
+- Food/Recipe composition is versioned and historical provenance is preserved;
+- hard safety/mandatory nutrition rules run before ranking/ML;
+- missing evidence is unknown, never silently zero;
+- browser code presents server-authoritative nutrition/shopping state;
+- catalogue cleanup does not destructively break historical meal evidence;
+- demo data is explicit, synthetic and never auto-seeded.
+
+## Delivery workflow
 
 Authoritative decision: `docs/decisions/ADR-007-development-workflow-and-ci.md`.
 
-For each non-trivial increment:
+The user requested larger integrations for speed. We therefore use larger coherent functional blocks while retaining exact-head safeguards:
 
-1. resolve exact current `main` SHA;
-2. create one focused branch from that exact SHA;
-3. implement code, migration when needed, tests and docs together;
-4. run all relevant local gates;
-5. require zero-warning migration/static-analysis/test/build results;
-6. open PR only after explicit local green confirmation;
-7. verify every relevant GitHub Actions workflow on the exact PR head SHA;
-8. confirm mergeability and unchanged head;
-9. squash-merge guarded by expected head SHA;
-10. verify merged PR and exact resulting `main` SHA;
-11. only then create the next branch and refresh this file.
+1. build code, migration, tests and docs together;
+2. run all relevant local gates on the exact final head;
+3. warnings are failures;
+4. PR only after explicit local green confirmation;
+5. CI must pass on the exact PR head;
+6. confirm mergeability and unchanged head;
+7. guarded squash merge;
+8. verify resulting `main` before the next branch.
 
-Never develop directly on `main`, merge an untested head or treat CI from another SHA as validation.
+## Last integrated checkpoint
 
-## Validation commands
+```text
+main SHA:    e0bdd8a9c8cc40f58ab67f14727ab134ac2156dc
+schema head: a7c4e9f2b6d1
+API tests:   110
+Web tests:   19
+```
 
-API/backend:
+PR #33 is the last integrated PR on that baseline.
+
+## Current large integration branch
+
+```text
+feature/core-meal-planning-foundation
+```
+
+This branch contains the complete operational foundation from integrated `main`.
+
+### 1. Ingredients
+
+- Family ingredient list/search/create/edit;
+- versioned FoodCompositionSnapshot evidence;
+- nutrition edits automatically recalculate Family Recipes that reference the ingredient;
+- deactivate/reactivate rather than destructive delete;
+- `Casa -> Ingredientes` UI.
+
+### 2. Recipes and recipe nutrition
+
+- Family Recipe CRUD/search/deactivate/reactivate;
+- ordered RecipeIngredient editor;
+- quantities, units, preparation, servings and yield;
+- deterministic `recipe-nutrition-v1` calculation;
+- new RecipeCompositionSnapshot on nutrition-relevant changes;
+- total and per-serving energy/nutrients;
+- explicit missing/unsafe/incomplete evidence issues;
+- no client-side authoritative nutrition calculation.
+
+### 3. Four fixed meal types
+
+Shared server contract:
+
+```text
+breakfast
+lunch
+snack
+dinner
+```
+
+Planner and recommendation request APIs reject arbitrary normal meal-type strings.
+
+### 4. Editable Family meal plan
+
+API:
+
+```text
+GET    /api/families/{family_id}/meal-plan
+POST   /api/families/{family_id}/meal-plan
+PATCH  /api/families/{family_id}/meal-plan/{meal_event_id}
+DELETE /api/families/{family_id}/meal-plan/{meal_event_id}
+```
+
+Capabilities:
+
+- Family-local Today/Week ranges;
+- four visible slots every day including empty slots;
+- planned Recipe MealEvents;
+- Family participants;
+- Person-specific planned quantities;
+- Recipe-derived default portions;
+- server-side Serving nutrition;
+- edit/replace/cancel while planned;
+- prepared/served/completed meals locked from planner editing.
+
+### 5. Pantry
+
+Existing `PantryStockLot` is now exposed as a normal Family workflow:
+
+```text
+GET    /api/families/{family_id}/pantry
+POST   /api/families/{family_id}/pantry
+PATCH  /api/families/{family_id}/pantry/{lot_id}
+DELETE /api/families/{family_id}/pantry/{lot_id}
+```
+
+- quantity/unit/location/expiry;
+- active/inactive stock lifecycle;
+- strict Family scoping;
+- expired/inactive stock does not satisfy plan requirements;
+- `Casa -> Despensa` UI.
+
+### 6. Planned requirements and durable shopping list
+
+Planned Servings are converted into Recipe batch multipliers, RecipeIngredient requirements are aggregated across all people/meals in the chosen interval, and only then is pantry stock subtracted.
+
+This prevents the same pantry quantity being consumed independently by multiple planned meals.
+
+New persisted domain:
+
+```text
+ShoppingList
+-> ShoppingListItem
+```
+
+Migration head on this branch:
+
+```text
+d4f1a7c2e9b3
+```
+
+API:
+
+```text
+GET    /api/families/{family_id}/shopping-list
+POST   /api/families/{family_id}/shopping-list/refresh
+POST   /api/families/{family_id}/shopping-list/items
+PATCH  /api/families/{family_id}/shopping-list/items/{item_id}
+DELETE /api/families/{family_id}/shopping-list/items/{item_id}
+```
+
+- automatic shortage items generated from the plan;
+- manual household items;
+- needed/purchased state;
+- quantity/name adjustments;
+- purchased automatic items retained as checked history;
+- explicit planning/conversion issues;
+- `Casa -> Compras` UI shows required / stock / missing evidence.
+
+See `docs/domain/pantry-shopping-workflow.md`.
+
+## Web information architecture in this branch
+
+`Casa`:
+
+```text
+Receitas | Ingredientes | Despensa | Compras
+```
+
+`Refeições`:
+
+```text
+Hoje | Semana | Recomendar
+```
+
+Screens remain task-focused rather than dashboard-heavy.
+
+## Current validation state
+
+The previous local run reached:
+
+```text
+115 existing API tests passing
+6 Recipe/planner tests failing from SQLAlchemy autoflush warning
+```
+
+That warning has since been fixed by attaching a new Recipe to the Session before ingredient-resolution queries trigger autoflush. The fix has not yet received a local rerun because the user asked to add the Pantry + Shopping block first.
+
+With the new block, expected counts before local execution are:
+
+```text
+API: 125 pytest tests
+Web: 30 Vitest tests
+```
+
+These are expectations only until the exact final branch head is locally validated.
+
+Because this block adds a migration, local validation must include upgrade/current/check:
 
 ```powershell
 cd D:\Python\nutriflow-ai-v2
+python -m alembic upgrade head
+python -m alembic current
 python -m alembic check
 
 cd apps\api
 python -m ruff check .
 python -m pytest -q
-```
 
-Schema-changing branches additionally run `alembic upgrade head` and `alembic current`.
-
-Web:
-
-```powershell
-cd D:\Python\nutriflow-ai-v2\apps\web
+cd ..\web
 npm install --no-package-lock --ignore-scripts
 npm run test
 npm run build
 ```
 
-Warnings are failures. The API pytest fixture isolates tests from committed development/demo data.
-
-## Last integrated checkpoint
-
-PR #32 added the first lightweight Person overview drill-down. It was locally approved, API/Web CI-green on the exact head and guarded squash-merged.
-
-Exact integrated baseline:
+Expected schema head after upgrade:
 
 ```text
-main SHA:        715ce09bc2034d6f88165f288b2d79321bdd4599
-schema head:     a7c4e9f2b6d1
-API tests:       107
-Web tests:       16
+d4f1a7c2e9b3
 ```
 
-Integrated frontend now includes Family Home, Person selection/overview and the existing practical recommendation flow under the primary `Refeições` destination.
+Do not open the PR until the exact final branch head is explicitly confirmed green locally.
 
-## Current feature branch
+## Deferred work preserved
 
-```text
-feature/web-family-meals-today-week
-```
+`feature/web-family-meal-detail` remains unmerged. Its detailed Serving presentation can be reused later, but it no longer blocks the operational planning flow.
 
-Merge base:
+## Demo
 
-```text
-715ce09bc2034d6f88165f288b2d79321bdd4599
-```
-
-No database migration.
-
-Current scope:
-
-- make primary `Refeições` open a lightweight Family meal map rather than the recommendation form directly;
-- secondary meal navigation: `Hoje`, `Semana`, `Recomendar`;
-- default primary `Refeições` navigation to `Hoje`;
-- keep the Family Home `Planear refeição` action intent-specific by opening `Recomendar` directly;
-- add `GET /api/families/{family_id}/meals?start_date=YYYY-MM-DD&days=N` with `days` constrained to 1..14;
-- interpret requested dates in the persisted Family timezone and query UTC boundaries derived from local midnights;
-- return every requested calendar day, including explicit empty days;
-- include only planned/prepared/served/completed MealEvents in normal meal-map views;
-- omit cancelled/replaced events;
-- return compact participant names/statuses with each Family meal;
-- keep shared meals as one Family row; Person-specific portions remain a later drill-down;
-- render `Hoje` as a simple chronological Family agenda;
-- render `Semana` as seven vertical Monday-to-Sunday day sections rather than a dense calendar grid;
-- keep the existing practical recommendation component unchanged inside `Recomendar`;
-- do not add nutrition charts, Serving calculations or recommendation logic to the calendar read model or browser.
-
-Expected validation baseline after implementation:
-
-```text
-API: Alembic metadata clean, Ruff clean, 110 pytest tests
-Web: 19 Vitest tests, strict TypeScript check, production Vite build
-```
-
-These counts are expectations only until the exact branch head is locally validated.
-
-Authoritative branch documentation:
-
-- `docs/domain/family-meals-read-model.md`;
-- `docs/ux/family-meals-today-week.md`;
-- `docs/ux/frontend-information-architecture.md`;
-- `docs/decisions/ADR-034-family-first-progressive-disclosure-web-navigation.md`;
-- `docs/domain/implementation-status.md`.
-
-Do not open a PR until the exact current branch head receives explicit local green confirmation.
-
-## Demo execution
-
-The demo seed remains explicit:
-
-```powershell
-cd D:\Python\nutriflow-ai-v2\apps\api
-python -m app.demo_seed
-```
-
-Fixed demo Family ID:
+Fixed Family ID:
 
 ```text
 11111111-1111-4111-8111-111111111111
 ```
 
-The demo includes three current-day Family meals, so after seeding it exercises `Refeições > Hoje`. `Semana` also deliberately contains empty days because the API returns the complete requested calendar range.
+The demo does not auto-seed the new ingredient/Recipe/Pantry/Shopping workflows; normal UI creation deliberately acts as the smoke test.
 
-## Current frontend structure
+## Next large block after this branch merges
 
-```text
-Início
-  -> Person card -> Person / Visão geral
-  -> Planear refeição -> Refeições / Recomendar
-
-Refeições
-  ├── Hoje        Family-local daily agenda
-  ├── Semana      Monday-Sunday Family map
-  └── Recomendar  practical recommendation flow
-
-Pessoas
-  -> Family member list
-  -> Person
-       ├── Visão geral   implemented
-       ├── Nutrição      placeholder
-       ├── Atividade     placeholder
-       ├── Saúde         placeholder
-       ├── Histórico     placeholder
-       └── Perfil        placeholder
-
-Casa
-Mais
-```
-
-Density rules remain:
-
-- one screen answers one primary question;
-- Family Home remains compact;
-- Family meals calendar uses readable vertical day sections instead of a dense seven-column planner;
-- Person overview remains compact and has at most one future primary chart;
-- detailed analytics belong on dedicated sections;
-- missing evidence is unavailable/unknown, never zero.
-
-## Safety and correctness invariants
-
-Preserve:
-
-- hard reactions/mandatory constraints before ranking;
-- missing mandatory nutrient data fails closed;
-- unsupported mandatory semantics and unsafe required conversions fail closed;
-- no inferred density;
-- exact versioned composition provenance;
-- browser does not author nutrition totals or choose state/composition versions itself;
-- planning bootstrap preserves Family isolation and as-of version selection;
-- Family dashboard returns persisted evidence without medical interpretation or invented health scores;
-- Family meals read model uses Family-local calendar boundaries and persisted participants only;
-- Person overview only presents dashboard evidence and Person meal participation;
-- missing dashboard evidence remains `null`, not zero;
-- commercial price/availability cannot override nutrition safety;
-- web does not reimplement backend safety/ranking;
-- ineligible options cannot be materialized and rejection cannot create meal state;
-- shared meals keep Person-specific portions/safety checks even though the Family calendar summarizes the event once;
-- demo data remains explicit, synthetic, isolated, identifiable and never auto-seeded;
-- warnings remain failures rather than suppressions.
-
-Known limitations:
-
-- Family UUID is development context, not authorization;
-- Family meal detail/Serving portions are not yet implemented;
-- detailed Person section read models are not yet implemented;
-- `Casa` is not yet functional;
-- no URL/deep-link router yet;
-- missing real DailyNutritionState is not automatically recalculated by bootstrap/dashboard;
-- recommendation decision request-level/concurrent idempotency is not yet guaranteed;
-- npm lockfile / `npm ci` hardening is still pending;
-- recommendation `datetime-local` still uses the browser timezone rather than a Person-local wall-time control.
-
-## Migration tail
+Recommended next block:
 
 ```text
-a7c4e9f2b6d1  commercial source opening windows and offers
-f6b3d8e1a5c2  quantity-aware Family pantry stock lots
-e5a2c7d9f4b1  Family-scoped meal candidate availability
-d4f8a1b2c6e9  MealEvent Family-scoped idempotency
-c3e7f9a1b5d2  recommendation run/option/feedback
+Recipe/Person ratings
++ Family aggregate preference
++ preference history
++ integrate preference into recommendation/planning score
++ feedback loop
 ```
 
-Never guess the next migration revision; inspect the actual migration directory and Alembic state first.
+Keep user rating separate from algorithmic score.
 
-## Next planned increments
+## Known broader limitations
 
-After this branch is locally green, PR-tested, visually checked and merged:
-
-1. add shared-meal drill-down with Person-specific portions;
-2. add dedicated Person Nutrition/Activity/Health/History read models/screens;
-3. add Person profile/goals/constraints/preferences screens;
-4. add pantry/shopping UI and durable shopping-list lifecycle;
-5. add authentication and explicit Family/Person authorization before real multi-user deployment;
-6. commit npm lockfile and switch CI to `npm ci` before production;
-7. continue provider/live/basket/order and later learned-ranking work.
+- Family UUID remains development context, not production authorization;
+- production authentication/Family authorization is not implemented;
+- DB-level MealEvent `meal_type` check constraint remains future hardening; current write APIs enforce the fixed contract;
+- purchasing an item does not automatically create/update a PantryStockLot; stock remains an explicit household observation;
+- recipe preference/rating UX is not yet implemented;
+- npm lockfile / `npm ci` production hardening remains pending.
 
 ## Resume procedure
 
-1. read this file and ADR-007;
-2. inspect current `main`, active branch and compare state;
-3. inspect migration heads/current state;
-4. inspect relevant app validation commands and CI workflows;
-5. confirm whether the exact current branch head has explicit local green validation;
-6. do not PR/merge an unvalidated head;
-7. after merge, verify new exact `main` before creating the next branch.
+1. read this file, ADR-007 and core meal-planning docs;
+2. inspect exact `main`, active branch and migration head;
+3. confirm exact final branch head and local gate result;
+4. never PR/merge an unvalidated head;
+5. after merge verify exact new `main` before starting ratings/preferences.

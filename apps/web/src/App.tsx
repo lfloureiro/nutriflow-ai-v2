@@ -4,6 +4,7 @@ import { ApiError, getFamilyDashboard } from "./api/client";
 import type { FamilyDashboard } from "./api/types";
 import FamilyHome, { memberDisplayName } from "./FamilyHome";
 import FamilyMealsScreen, { type FamilyMealsMode } from "./FamilyMeals";
+import HomeBase from "./HomeBase";
 import { useI18n, type Locale } from "./i18n";
 import PersonOverview from "./PersonOverview";
 import { useTheme, type Appearance } from "./theme";
@@ -43,24 +44,6 @@ function errorText(error: unknown): string {
     return error.message;
   }
   return String(error);
-}
-
-function PlaceholderScreen({
-  eyebrow,
-  title,
-  text,
-}: {
-  eyebrow: string;
-  title: string;
-  text: string;
-}) {
-  return (
-    <div className="placeholder-screen">
-      <span className="eyebrow">{eyebrow}</span>
-      <h1>{title}</h1>
-      <p>{text}</p>
-    </div>
-  );
 }
 
 export default function App() {
@@ -143,8 +126,8 @@ export default function App() {
     setView(nextView);
   }
 
-  function openMealRecommendation() {
-    setMealsMode("recommend");
+  function openMealPlan() {
+    setMealsMode("today");
     setView("meals");
   }
 
@@ -292,7 +275,7 @@ export default function App() {
               <FamilyHome
                 dashboard={dashboard}
                 onOpenPerson={openPerson}
-                onPlanMeal={openMealRecommendation}
+                onPlanMeal={openMealPlan}
               />
             )
           ) : null}
@@ -345,13 +328,7 @@ export default function App() {
             )
           ) : null}
 
-          {view === "house" ? (
-            <PlaceholderScreen
-              eyebrow={t("nav.house")}
-              text={t("house.help")}
-              title={t("house.title")}
-            />
-          ) : null}
+          {view === "house" ? <HomeBase familyId={activeFamilyId} /> : null}
 
           {view === "more" ? (
             <div className="settings-screen">

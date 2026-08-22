@@ -21,12 +21,14 @@ def get_planning_bootstrap_endpoint(
     person_id: uuid.UUID,
     scheduled_at: Annotated[datetime, Query()],
     db: Annotated[Session, Depends(get_db)],
+    ensure_state: bool = False,
 ) -> PlanningBootstrapRead:
     try:
         return get_planning_bootstrap(
             db,
             person_id=person_id,
             scheduled_at=scheduled_at,
+            ensure_state=ensure_state,
         )
     except PlanningBootstrapApiNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

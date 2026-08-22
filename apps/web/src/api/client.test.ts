@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   buildApiUrl,
   familyDashboardPath,
+  familyIngredientsPath,
+  familyMealPlanPath,
   familyMealsPath,
+  familyRecipesPath,
   normalizeApiBaseUrl,
   planningBootstrapPath,
 } from "./client";
@@ -38,6 +41,28 @@ describe("API URL construction", () => {
     );
     expect(familyMealsPath("family/id", undefined, 1)).toBe(
       "/api/families/family%2Fid/meals?days=1",
+    );
+  });
+
+  it("builds ingredient catalogue paths with optional filters", () => {
+    expect(familyIngredientsPath("family/id")).toBe(
+      "/api/families/family%2Fid/ingredients",
+    );
+    expect(familyIngredientsPath("family/id", " aveia ", true)).toBe(
+      "/api/families/family%2Fid/ingredients?q=aveia&include_inactive=true",
+    );
+  });
+
+  it("builds recipe catalogue paths with optional filters", () => {
+    expect(familyRecipesPath("family/id")).toBe("/api/families/family%2Fid/recipes");
+    expect(familyRecipesPath("family/id", "massa", true)).toBe(
+      "/api/families/family%2Fid/recipes?q=massa&include_inactive=true",
+    );
+  });
+
+  it("builds a bounded family meal-plan range", () => {
+    expect(familyMealPlanPath("family/id", "2026-08-22", 7)).toBe(
+      "/api/families/family%2Fid/meal-plan?days=7&start_date=2026-08-22",
     );
   });
 

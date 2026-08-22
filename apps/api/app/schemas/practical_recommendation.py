@@ -9,6 +9,7 @@ from app.schemas.meal_recommendation import (
     MealRecommendationCandidateInput,
     MealRecommendationOptionRead,
 )
+from app.schemas.meal_type import MealType
 
 PracticalSourceKind = Literal["home", "pantry", "restaurant", "delivery", "store"]
 
@@ -17,7 +18,7 @@ class PracticalMealRecommendationCreate(BaseModel):
     daily_nutrition_state_id: uuid.UUID
     planning_date: date
     scheduled_at: datetime
-    meal_type: str | None = Field(default=None, max_length=32)
+    meal_type: MealType | None = None
     candidates: list[MealRecommendationCandidateInput] = Field(min_length=1, max_length=100)
     location: str | None = Field(default=None, max_length=255)
     available_minutes: int | None = Field(default=None, ge=0)

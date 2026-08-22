@@ -33,6 +33,7 @@ from app.models.recommendation_feedback import (
     MealRecommendationRun,
 )
 from app.models.schedule_entry import ScheduleEntry
+from app.models.shopping_list import ShoppingList, ShoppingListItem
 
 __all__ = [
     "AnthropometricMeasurement",
@@ -69,4 +70,6 @@ __all__ = [
     "ScheduleEntry",
     "Serving",
     "ServingNutritionComponent",
+    "ShoppingList",
+    "ShoppingListItem",
 ]

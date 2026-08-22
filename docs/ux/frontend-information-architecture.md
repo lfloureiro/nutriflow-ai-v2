@@ -1,77 +1,139 @@
 # Frontend information architecture
 
-## Product navigation principle
+## Principle
 
-NutriFlow should prefer more focused screens over dense dashboards. A screen should answer one primary question and offer clear drill-down paths rather than presenting every available metric at once.
+NutriFlow uses progressive disclosure: lightweight orientation screens lead to focused operational/detail screens. “Lightweight” means one primary task per screen; it does not mean hiding core planning functionality.
 
-The frontend therefore uses progressive disclosure:
+Family Home remains compact. A dedicated weekly planner may be denser because planning the week is its one job.
 
-- family first for orientation;
-- person drill-down for individual detail;
-- meals as a parallel family workflow;
-- health, activity and nutrition details on dedicated screens;
-- technical identifiers and backend evidence remain hidden from normal users;
-- missing data is shown explicitly rather than inferred or filled with invented status.
+## Current primary shell
 
-## Primary navigation
+The shell remains:
 
-The product-level navigation is:
+1. **Início** — Family orientation for today;
+2. **Refeições** — operational Family meal plan;
+3. **Pessoas** — Person list and overview;
+4. **Casa** — recipes, ingredients, pantry and shopping;
+5. **Mais** — settings/integrations/family administration.
 
-1. **Início** — family overview for today;
-2. **Refeições** — family meal map, today/week, recommendations and shared meals;
-3. **Pessoas** — direct access to each person's overview and detail screens;
-4. **Casa** — pantry and later shopping-list workflows;
-5. **Mais** — family settings, integrations, appearance/language and administration.
+The compact five-destination shell avoids an overloaded mobile bottom bar while still exposing the operational hierarchy through focused secondary tabs.
 
-Desktop uses a compact persistent side navigation. Mobile uses a compact bottom navigation for the same primary destinations, with lower-frequency actions inside `Mais`.
+## Operational hierarchy
 
-The navigation does not expand into a large tree permanently. Secondary navigation appears only after entering a Person or a specific workflow.
+```text
+Refeições
+  -> Hoje
+  -> Semana
+  -> Recomendar
 
-## Family home
+Casa
+  -> Receitas
+  -> Ingredientes
+  -> Despensa
+  -> Compras
 
-The Home answers:
+Pessoas
+  -> Visão geral
+  -> detailed nutrition/activity/health/history later
+```
+
+## Family Home
+
+Home answers:
 
 > Como está a família hoje?
 
-It contains only three lightweight areas.
+It remains an orientation dashboard with compact member cards, short meal context and one prominent planning action. `Planear refeição` enters the operational plan instead of jumping directly into recommendation generation.
 
-### 1. Family members
+## Recipes and ingredients
 
-One compact card per Person, showing a small selection of available indicators such as:
+`Casa` opens by default on **Receitas**, because Recipe is the reusable object the Family normally chooses when planning a meal.
 
-- nutrition progress/evidence;
-- activity/steps when available;
-- weight and short trend when available;
-- sleep when available.
+```text
+Casa
+├── Receitas
+│   ├── lista / pesquisa
+│   ├── nova receita
+│   └── editor
+│       ├── identificação / preparação
+│       ├── rendimento / doses
+│       ├── ingredientes ordenados
+│       └── nutrição calculada / problemas de evidência
+└── Ingredientes
+    ├── lista / pesquisa
+    ├── novo ingrediente
+    └── editor de composição
+```
 
-The card is a navigation surface, not a medical scorecard. It must not manufacture a single "health score" from unrelated inputs unless a future explicit domain decision defines such a metric.
+Ingredient and Recipe lists remain compact; editing happens on focused screens.
 
-Clicking/tapping a Person opens that Person's overview.
+The browser never calculates Recipe nutrition. It presents the latest server-created RecipeCompositionSnapshot and explicit issues.
 
-### 2. Today
+## Family planner
 
-A small chronological list of today's current meal events:
+`Refeições` is the real planner rather than a read-only agenda.
 
-- meal type/title;
-- local time;
-- whether it is shared and by whom;
-- current state such as planned/completed.
+Every day always contains exactly four slots:
 
-Cancelled and replaced meals do not clutter the normal Home agenda.
+```text
+Pequeno-almoço
+Almoço
+Lanche
+Jantar
+```
 
-### 3. One next action
+Empty slots remain visible and provide an Add action. A planned meal can be opened to change Recipe, local time, location, Family participants and Person-specific quantities/units.
 
-At most one prominent next action should be emphasized, for example:
+Removal cancels the planned MealEvent rather than erasing history. Prepared, served and completed events remain visible but are locked from planning edits.
 
-- plan the next meal;
-- review dinner;
-- complete missing profile information.
+`Hoje` and `Semana` use the same model. Desktop may show the four slots across the row where space allows; mobile stacks them vertically. There is no separate semantic mobile planner.
 
-The current Home uses `Planear refeição` as an explicit action into the recommendation subflow rather than trying to infer the next best action automatically.
+`Recomendar` preserves the existing recommendation workflow as a supporting tool. Recommendation should later feed a chosen result back into the same planner rather than remain a separate meal ontology.
+
+## Shared meals and portions
+
+One shared Recipe meal is one MealEvent. Participants are MealParticipant records and portions are Person-specific Servings.
+
+The planner editor keeps portions optional: leaving quantity blank asks the server to derive the normal Recipe portion from yield/serving-count evidence. Explicit quantities remain Person-specific.
+
+## Pantry
+
+`Casa -> Despensa` is a task-oriented stock list/editor:
+
+```text
+Despensa
+├── stock atual
+├── novo lote
+├── quantidade / unidade
+├── localização
+├── validade
+└── retirar / reativar stock
+```
+
+The screen does not calculate meal requirements. It records household stock evidence that the server later uses when building shopping requirements.
+
+## Shopping
+
+`Casa -> Compras` closes the operational loop:
+
+```text
+Plano + Receitas
+  -> requisitos agregados
+  -> menos stock utilizável da Despensa
+  -> Compras
+       -> necessário / em stock / falta
+       -> itens automáticos
+       -> itens manuais
+       -> comprado / por comprar
+```
+
+The user selects the planning interval and explicitly refreshes the list from the plan. This keeps the relationship between planner changes and shopping generation visible instead of silently mutating the list in the background.
+
+Purchased items remain visible as checked items. Recording a purchase does not itself claim that pantry stock has changed; Pantry remains explicit observed household state.
 
 ## Person drill-down
 
-Person information architecture:
+Person information remains:
 
 ```text
 Pessoa
@@ -81,115 +143,64 @@ Pessoa
 ├── Saúde
 ├── Histórico
 └── Perfil
-    ├── Objetivos
-    ├── Restrições
-    ├── Preferências
-    └── Integrações relevantes
 ```
 
-### Person overview
-
-The overview is intentionally compact. It shows today's most useful values and may later add one primary trend visualization when an authoritative historical read model exists. Detailed charts belong in the dedicated sections.
-
-The implemented overview summarizes:
-
-- energy/nutrition state;
-- activity state;
-- latest weight/trend;
-- sleep/recovery evidence when available;
-- today's meals for that Person.
-
-### Detailed sections
-
-Each detailed section answers one question:
-
-- **Nutrição:** how intake/planning compares with current targets;
-- **Atividade:** movement, active energy, training/activity history;
-- **Saúde:** body/health observations and connected-source evidence within the wellness boundary;
-- **Histórico:** chronological changes and meal/nutrition history;
-- **Perfil:** relatively stable user-controlled facts, goals, constraints and preferences.
-
-## Meals information architecture
-
-Meals remain a primary family workflow rather than becoming the Home itself.
-
-```text
-Refeições
-├── Hoje
-├── Semana
-├── Recomendar
-└── Refeição
-    ├── resumo familiar
-    ├── participantes
-    ├── porções individuais
-    ├── explicação
-    └── alternativas / alterar
-```
-
-Entering the primary `Refeições` destination starts at `Hoje`. The Family Home `Planear refeição` action opens `Recomendar` directly because the user has already expressed recommendation/planning intent.
-
-`Hoje` is a chronological Family-local agenda. `Semana` uses a Monday-to-Sunday vertical sequence of day sections rather than a dense seven-column calendar. Empty days stay explicit.
-
-A shared meal is displayed once at family level. A later meal-detail drill-down will expose individual portions and Person-specific nutrition/safety outcomes already represented in the backend model.
-
-The calendar views use a dedicated server read model so the browser does not decide local-day boundaries or reconstruct participants through request fan-out.
-
-## Charts
-
-Charts are useful but should not dominate every screen.
-
-Rules:
-
-- Home should normally contain zero or one small trend chart, not a grid of analytics widgets;
-- Person overview should contain at most one primary chart;
-- detailed pages may contain more charts because the user explicitly entered an analytical context;
-- charts must have a clear question/title and should not mix unrelated measures merely to save screen space;
-- sparklines or compact trends are preferred inside Person cards when a numeric trend is actually available;
-- absence of evidence renders as unavailable/unknown, never as zero.
-
-## Responsive behaviour
-
-Desktop:
-
-- compact side navigation;
-- content uses a readable maximum width rather than filling the whole monitor;
-- member cards may form a small grid;
-- weekly meals use vertical day sections rather than forcing a seven-column layout;
-- detail pages can use two columns only where the content remains simple.
-
-Mobile:
-
-- bottom primary navigation;
-- single-column screens;
-- horizontal card carousels should be avoided for essential information;
-- detail is reached by tapping rows/cards rather than expanding large accordions in place;
-- meal-day sections remain vertically readable without a separate mobile information architecture.
-
-Tablet follows the same information architecture and chooses side or bottom navigation based on available width.
+Detailed analytics are intentionally behind the operational meal-planning sequence.
 
 ## Data-authority boundary
 
-The browser presents server evidence. It must not:
+The browser may collect input and present server evidence. It must not:
 
-- choose which historical state/composition version is authoritative;
-- infer medical meaning from raw health measurements;
-- reproduce hard nutrition/safety rules;
-- compute an aggregate family health score without an explicit domain definition;
-- treat missing data as negative or zero;
-- decide which UTC MealEvents belong to a Family-local calendar day.
+- choose authoritative historical composition/state versions independently;
+- recalculate Recipe/Serving nutrition with browser rules;
+- aggregate authoritative shopping quantities itself;
+- subtract pantry stock itself;
+- guess unsafe unit/density conversions;
+- reproduce hard safety/nutrition eligibility logic;
+- convert missing evidence into zero;
+- infer medical meaning from health observations.
 
-Family Home and Family Meals use compact server read models so the browser does not need many requests or cross-domain/timezone aggregation logic.
+## Density rules
 
-## Implementation sequence and status
+- Home: compact; normally zero or one small chart.
+- Person overview: compact; at most one primary chart.
+- Ingredient/Recipe lists: compact rows.
+- Recipe editor: focused multi-section form.
+- Weekly planner: allowed more density because planning is its sole task.
+- Pantry/Shopping: task-oriented lists rather than dashboards.
 
-1. Family Home read model/API — integrated.
-2. Application shell and primary navigation — integrated.
-3. Family Home visual implementation — integrated.
-4. Person overview — integrated.
-5. Family meals today/week — current focused increment.
-6. Meal drill-down with person-specific portions — next.
-7. Person Nutrition/Activity/Health/History screens.
-8. Profile/goals/constraints/preferences screens.
-9. Pantry and shopping workflows.
+## Responsive behavior
 
-Every increment remains usable on its own and keeps existing recommendation functionality reachable while the navigation evolves.
+Desktop:
+
+- persistent compact side navigation;
+- readable maximum content width for forms/details;
+- four-slot planner can use wider structured rows;
+- shopping requirements may use compact multi-column rows.
+
+Mobile:
+
+- compact bottom navigation;
+- `Casa` secondary tabs wrap as needed;
+- single-column editors;
+- vertically stacked day/meal slots;
+- pantry/shopping rows collapse to one column;
+- essential actions reached by tapping rows rather than large inline expansions.
+
+## Implementation sequence
+
+1. Family Home/shell/Person overview — integrated.
+2. Family Meals Today/Week orientation views — integrated.
+3. **Core operational meal-planning foundation** — current large integration:
+   - ingredients;
+   - recipes;
+   - deterministic Recipe nutrition;
+   - fixed four meal types;
+   - editable Today/Week planner;
+   - Person-specific planned portions;
+   - Pantry CRUD/UI;
+   - planned-Recipe requirement aggregation;
+   - quantity-aware pantry subtraction;
+   - durable ShoppingList lifecycle/UI.
+4. Recipe ratings/preferences + planning/recommendation ranking integration.
+5. Resume secondary Person analytics/detail expansion.

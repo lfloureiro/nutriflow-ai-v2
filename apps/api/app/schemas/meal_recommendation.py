@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.schemas.meal_type import MealType
+
 
 class MealRecommendationCandidateInput(BaseModel):
     candidate_kind: Literal["food_item", "recipe"]
@@ -16,7 +18,7 @@ class MealRecommendationCandidateInput(BaseModel):
 class MealRecommendationCreate(BaseModel):
     daily_nutrition_state_id: uuid.UUID
     planning_date: date
-    meal_type: str | None = Field(default=None, max_length=32)
+    meal_type: MealType | None = None
     candidates: list[MealRecommendationCandidateInput] = Field(min_length=1, max_length=100)
 
 

@@ -1,4 +1,16 @@
 import type {
+  Ingredient,
+  IngredientCreate,
+  IngredientUpdate,
+} from "./ingredientTypes";
+import type {
+  FamilyMealPlan,
+  MealPlanEntry,
+  MealPlanEntryCreate,
+  MealPlanEntryUpdate,
+} from "./mealPlanTypes";
+import type { Recipe, RecipeCreate, RecipeUpdate } from "./recipeTypes";
+import type {
   FamilyDashboard,
   FamilyMeals,
   Person,
@@ -49,6 +61,56 @@ export function familyMealsPath(familyId: string, startDate?: string, days = 7):
   return `${base}?${query.toString()}`;
 }
 
+function cataloguePath(
+  familyId: string,
+  resource: "ingredients" | "recipes",
+  query?: string,
+  includeInactive = false,
+): string {
+  const base = `/api/families/${encodeURIComponent(familyId)}/${resource}`;
+  const params = new URLSearchParams();
+  if (query?.trim()) {
+    params.set("q", query.trim());
+  }
+  if (includeInactive) {
+    params.set("include_inactive", "true");
+  }
+  const suffix = params.toString();
+  return suffix ? `${base}?${suffix}` : base;
+}
+
+export function familyIngredientsPath(
+  familyId: string,
+  query?: string,
+  includeInactive = false,
+): string {
+  return cataloguePath(familyId, "ingredients", query, includeInactive);
+}
+
+export function familyRecipesPath(
+  familyId: string,
+  query?: string,
+  includeInactive = false,
+): string {
+  return cataloguePath(familyId, "recipes", query, includeInactive);
+}
+
+export function familyMealPlanBasePath(familyId: string): string {
+  return `/api/families/${encodeURIComponent(familyId)}/meal-plan`;
+}
+
+export function familyMealPlanPath(
+  familyId: string,
+  startDate?: string,
+  days = 7,
+): string {
+  const query = new URLSearchParams({ days: String(days) });
+  if (startDate) {
+    query.set("start_date", startDate);
+  }
+  return `${familyMealPlanBasePath(familyId)}?${query.toString()}`;
+}
+
 export function planningBootstrapPath(personId: string, scheduledAt: string): string {
   const encodedPersonId = encodeURIComponent(personId);
   const query = new URLSearchParams({ scheduled_at: scheduledAt });
@@ -82,6 +144,9 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     throw new ApiError(await errorMessage(response), response.status);
   }
+  if (response.status === 204) {
+    return undefined as T;
+  }
 
   return (await response.json()) as T;
 }
@@ -96,6 +161,119 @@ export function getFamilyMeals(
   days = 7,
 ): Promise<FamilyMeals> {
   return apiRequest<FamilyMeals>(familyMealsPath(familyId, startDate, days));
+}
+
+export function listFamilyIngredients(
+  familyId: string,
+  query?: string,
+  includeInactive = false,
+): Promise<Ingredient[]> {
+  return apiRequest<Ingredient[]>(familyIngredientsPath(familyId, query, includeInactive));
+}
+
+export function createFamilyIngredient(
+  familyId: string,
+  payload: IngredientCreate,
+): Promise<Ingredient> {
+  return apiRequest<Ingredient>(familyIngredientsPath(familyId), {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateFamilyIngredient(
+  familyId: string,
+  ingredientId: string,
+  payload: IngredientUpdate,
+): Promise<Ingredient> {
+  return apiRequest<Ingredient>(
+    `${familyIngredientsPath(familyId)}/${encodeURIComponent(ingredientId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function deactivateFamilyIngredient(
+  familyId: string,
+  ingredientId: string,
+): Promise<void> {
+  return apiRequest<void>(
+    `${familyIngredientsPath(familyId)}/${encodeURIComponent(ingredientId)}`,
+    { method: "DELETE" },
+  );
+}
+
+export function listFamilyRecipes(
+  familyId: string,
+  query?: string,
+  includeInactive = false,
+): Promise<Recipe[]> {
+  return apiRequest<Recipe[]>(familyRecipesPath(familyId, query, includeInactive));
+}
+
+export function createFamilyRecipe(familyId: string, payload: RecipeCreate): Promise<Recipe> {
+  return apiRequest<Recipe>(familyRecipesPath(familyId), {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateFamilyRecipe(
+  familyId: string,
+  recipeId: string,
+  payload: RecipeUpdate,
+): Promise<Recipe> {
+  return apiRequest<Recipe>(`${familyRecipesPath(familyId)}/${encodeURIComponent(recipeId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deactivateFamilyRecipe(familyId: string, recipeId: string): Promise<void> {
+  return apiRequest<void>(`${familyRecipesPath(familyId)}/${encodeURIComponent(recipeId)}`, {
+    method: "DELETE",
+  });
+}
+
+export function getFamilyMealPlan(
+  familyId: string,
+  startDate?: string,
+  days = 7,
+): Promise<FamilyMealPlan> {
+  return apiRequest<FamilyMealPlan>(familyMealPlanPath(familyId, startDate, days));
+}
+
+export function createMealPlanEntry(
+  familyId: string,
+  payload: MealPlanEntryCreate,
+): Promise<MealPlanEntry> {
+  return apiRequest<MealPlanEntry>(familyMealPlanBasePath(familyId), {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateMealPlanEntry(
+  familyId: string,
+  mealEventId: string,
+  payload: MealPlanEntryUpdate,
+): Promise<MealPlanEntry> {
+  return apiRequest<MealPlanEntry>(
+    `${familyMealPlanBasePath(familyId)}/${encodeURIComponent(mealEventId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function cancelMealPlanEntry(familyId: string, mealEventId: string): Promise<void> {
+  return apiRequest<void>(
+    `${familyMealPlanBasePath(familyId)}/${encodeURIComponent(mealEventId)}`,
+    { method: "DELETE" },
+  );
 }
 
 export function listFamilyPersons(familyId: string): Promise<Person[]> {
