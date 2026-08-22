@@ -1,13 +1,16 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import {
   ApiError,
+  getPlanningBootstrap,
   listFamilyPersons,
   requestPracticalRecommendation,
   submitRecommendationDecision,
 } from "./api/client";
 import type {
   Person,
+  PlanningBootstrap,
+  PlanningCandidate,
   PracticalRecommendationRun,
   PracticalSourceKind,
   RecommendationDecision,
@@ -16,10 +19,10 @@ import type {
 import { useI18n, type Locale } from "./i18n";
 import {
   DEFAULT_SOURCE_KINDS,
+  candidateDraftFromBootstrap,
   candidatePayload,
   hasCandidateValue,
   localDateTimeValue,
-  localDateValue,
   newCandidateDraft,
   scheduledIso,
   type CandidateDraft,
@@ -84,6 +87,18 @@ function formatMoney(value: string, currency: string, locale: Locale): string {
   } catch {
     return `${formatNumber(value, locale)} ${currency}`;
   }
+}
+
+function candidateLabel(candidate: PlanningCandidate, locale: Locale): string {
+  const parts = [candidate.name];
+  if (candidate.brand) {
+    parts.push(candidate.brand);
+  }
+  parts.push(`${formatNumber(candidate.reference_quantity, locale)} ${candidate.reference_unit}`);
+  if (candidate.energy_kcal !== null) {
+    parts.push(`${formatNumber(candidate.energy_kcal, locale, 0)} kcal`);
+  }
+  return parts.join(" · ");
 }
 
 function RecommendationCard({
@@ -230,8 +245,6 @@ export default function App() {
   const [familyId, setFamilyId] = useState("");
   const [people, setPeople] = useState<Person[]>([]);
   const [personId, setPersonId] = useState("");
-  const [dailyStateId, setDailyStateId] = useState("");
-  const [planningDate, setPlanningDate] = useState(localDateValue);
   const [scheduledLocal, setScheduledLocal] = useState(localDateTimeValue);
   const [mealType, setMealType] = useState("lunch");
   const [location, setLocation] = useState("");
@@ -240,9 +253,9 @@ export default function App() {
   const [sourceKinds, setSourceKinds] = useState<PracticalSourceKind[]>([
     ...DEFAULT_SOURCE_KINDS,
   ]);
-  const [candidates, setCandidates] = useState<CandidateDraft[]>([
-    newCandidateDraft("candidate-1"),
-  ]);
+  const [bootstrap, setBootstrap] = useState<PlanningBootstrap | null>(null);
+  const [bootstrapBusy, setBootstrapBusy] = useState(false);
+  const [candidates, setCandidates] = useState<CandidateDraft[]>([]);
   const [recommendation, setRecommendation] = useState<PracticalRecommendationRun | null>(
     null,
   );
@@ -254,6 +267,60 @@ export default function App() {
     () => people.find((person) => person.id === personId) ?? null,
     [people, personId],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    setBootstrap(null);
+    setCandidates([]);
+    setRecommendation(null);
+    setDecisions({});
+
+    if (!selectedPerson) {
+      setBootstrapBusy(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    let scheduledAt: string;
+    try {
+      scheduledAt = scheduledIso(scheduledLocal);
+    } catch (caught) {
+      setError(errorText(caught));
+      setBootstrapBusy(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setError(null);
+    setBootstrapBusy(true);
+    void getPlanningBootstrap(selectedPerson.id, scheduledAt)
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        setBootstrap(result);
+        const firstCandidate = result.candidates[0];
+        setCandidates(
+          firstCandidate ? [candidateDraftFromBootstrap(firstCandidate, "candidate-1")] : [],
+        );
+      })
+      .catch((caught: unknown) => {
+        if (!cancelled) {
+          setError(errorText(caught));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setBootstrapBusy(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [scheduledLocal, selectedPerson]);
 
   async function handleLoadPeople(event: FormEvent) {
     event.preventDefault();
@@ -296,6 +363,25 @@ export default function App() {
     );
   }
 
+  function selectCandidate(rowId: string, compositionId: string) {
+    if (!bootstrap || compositionId === "") {
+      updateCandidate(rowId, { composition_id: "" });
+      return;
+    }
+    const selected = bootstrap.candidates.find(
+      (candidate) => candidate.composition_id === compositionId,
+    );
+    if (!selected) {
+      updateCandidate(rowId, { composition_id: "" });
+      return;
+    }
+    setCandidates((current) =>
+      current.map((candidate) =>
+        candidate.rowId === rowId ? candidateDraftFromBootstrap(selected, rowId) : candidate,
+      ),
+    );
+  }
+
   async function handleRecommend(event: FormEvent) {
     event.preventDefault();
     setError(null);
@@ -303,7 +389,11 @@ export default function App() {
       setError(t("validation.personRequired"));
       return;
     }
-    if (!dailyStateId.trim()) {
+    if (!bootstrap || bootstrapBusy) {
+      setError(t("validation.contextRequired"));
+      return;
+    }
+    if (!bootstrap.daily_nutrition_state) {
       setError(t("validation.stateRequired"));
       return;
     }
@@ -322,8 +412,8 @@ export default function App() {
     setBusy({ kind: "recommendation" });
     try {
       const result = await requestPracticalRecommendation(selectedPerson.id, {
-        daily_nutrition_state_id: dailyStateId.trim(),
-        planning_date: planningDate,
+        daily_nutrition_state_id: bootstrap.daily_nutrition_state.id,
+        planning_date: bootstrap.planning_date,
         scheduled_at: scheduledIso(scheduledLocal),
         meal_type: mealType.trim() || null,
         candidates: payloadCandidates,
@@ -361,11 +451,11 @@ export default function App() {
               timezone: selectedPerson.timezone,
               meal_type: mealType.trim() || null,
               location: location.trim() || null,
-              feedback_metadata: { entrypoint: "web-v1" },
+              feedback_metadata: { entrypoint: "web-v2-bootstrap" },
             }
           : {
               action,
-              feedback_metadata: { entrypoint: "web-v1" },
+              feedback_metadata: { entrypoint: "web-v2-bootstrap" },
             },
       );
       setDecisions((current) => ({ ...current, [option.id]: result }));
@@ -459,11 +549,7 @@ export default function App() {
                 <select
                   disabled={people.length === 0}
                   value={personId}
-                  onChange={(event) => {
-                    setPersonId(event.target.value);
-                    setRecommendation(null);
-                    setDecisions({});
-                  }}
+                  onChange={(event) => setPersonId(event.target.value)}
                 >
                   <option value="">{t("setup.choosePerson")}</option>
                   {people.map((person) => (
@@ -487,25 +573,7 @@ export default function App() {
 
             <form className="stack" onSubmit={handleRecommend}>
               <fieldset className="stack borderless" disabled={!selectedPerson}>
-                <label className="field full-span">
-                  <span>{t("planner.stateId")}</span>
-                  <input
-                    autoComplete="off"
-                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                    value={dailyStateId}
-                    onChange={(event) => setDailyStateId(event.target.value)}
-                  />
-                </label>
-
                 <div className="form-grid three">
-                  <label className="field">
-                    <span>{t("planner.date")}</span>
-                    <input
-                      type="date"
-                      value={planningDate}
-                      onChange={(event) => setPlanningDate(event.target.value)}
-                    />
-                  </label>
                   <label className="field">
                     <span>{t("planner.time")}</span>
                     <input
@@ -518,13 +586,56 @@ export default function App() {
                     <span>{t("planner.mealType")}</span>
                     <input value={mealType} onChange={(event) => setMealType(event.target.value)} />
                   </label>
-                </div>
-
-                <div className="form-grid three">
                   <label className="field">
                     <span>{t("planner.location")}</span>
                     <input value={location} onChange={(event) => setLocation(event.target.value)} />
                   </label>
+                </div>
+
+                {bootstrapBusy ? (
+                  <div className="context-card" role="status">
+                    <strong>{t("status.loadingContext")}</strong>
+                  </div>
+                ) : bootstrap ? (
+                  <div className="context-card" role="status">
+                    <div className="chip-row">
+                      <span className="chip">
+                        {t("planner.planningDate")}: {bootstrap.planning_date}
+                      </span>
+                      <span className="chip">
+                        {bootstrap.candidates.length} {t("planner.catalogReady")}
+                      </span>
+                    </div>
+                    {bootstrap.daily_nutrition_state ? (
+                      <div className="context-state">
+                        <strong>{t("planner.stateReady")}</strong>
+                        <div className="chip-row">
+                          <span className="chip">
+                            {t("planner.energyConsumed")}: {formatNumber(
+                              bootstrap.daily_nutrition_state.energy_consumed_kcal,
+                              locale,
+                              0,
+                            )} {t("results.kcal")}
+                          </span>
+                          <span className="chip">
+                            {t("planner.energyPlanned")}: {formatNumber(
+                              bootstrap.daily_nutrition_state.energy_planned_kcal,
+                              locale,
+                              0,
+                            )} {t("results.kcal")}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="context-warning">{t("planner.stateMissing")}</p>
+                    )}
+                    {bootstrap.candidates.length === 0 ? (
+                      <p className="context-warning">{t("planner.catalogEmpty")}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                <div className="form-grid three">
                   <label className="field">
                     <span>{t("planner.availableMinutes")}</span>
                     <input
@@ -569,6 +680,11 @@ export default function App() {
                     <span className="field-group__label">{t("planner.candidates")}</span>
                     <button
                       className="text-button"
+                      disabled={
+                        !bootstrap ||
+                        bootstrap.candidates.length === 0 ||
+                        candidates.length >= bootstrap.candidates.length
+                      }
                       onClick={() => setCandidates((current) => [...current, newCandidateDraft()])}
                       type="button"
                     >
@@ -580,32 +696,29 @@ export default function App() {
                     {candidates.map((candidate, index) => (
                       <div className="candidate-row" key={candidate.rowId}>
                         <span className="candidate-index">{String(index + 1).padStart(2, "0")}</span>
-                        <label className="field">
-                          <span>{t("planner.candidateKind")}</span>
-                          <select
-                            value={candidate.candidate_kind}
-                            onChange={(event) =>
-                              updateCandidate(candidate.rowId, {
-                                candidate_kind: event.target.value as "food_item" | "recipe",
-                              })
-                            }
-                          >
-                            <option value="food_item">{t("planner.food")}</option>
-                            <option value="recipe">{t("planner.recipe")}</option>
-                          </select>
-                        </label>
                         <label className="field candidate-composition">
-                          <span>{t("planner.compositionId")}</span>
-                          <input
-                            autoComplete="off"
-                            placeholder="UUID"
+                          <span>{t("planner.candidate")}</span>
+                          <select
                             value={candidate.composition_id}
                             onChange={(event) =>
-                              updateCandidate(candidate.rowId, {
-                                composition_id: event.target.value,
-                              })
+                              selectCandidate(candidate.rowId, event.target.value)
                             }
-                          />
+                          >
+                            <option value="">{t("planner.chooseCandidate")}</option>
+                            {bootstrap?.candidates.map((option) => (
+                              <option
+                                disabled={candidates.some(
+                                  (row) =>
+                                    row.rowId !== candidate.rowId &&
+                                    row.composition_id === option.composition_id,
+                                )}
+                                key={option.composition_id}
+                                value={option.composition_id}
+                              >
+                                {candidateLabel(option, locale)}
+                              </option>
+                            ))}
+                          </select>
                         </label>
                         <label className="field narrow-field">
                           <span>{t("planner.quantity")}</span>
@@ -650,7 +763,12 @@ export default function App() {
 
                 <button
                   className="button primary large"
-                  disabled={busy?.kind === "recommendation"}
+                  disabled={
+                    busy?.kind === "recommendation" ||
+                    bootstrapBusy ||
+                    !bootstrap?.daily_nutrition_state ||
+                    candidates.length === 0
+                  }
                   type="submit"
                 >
                   {busy?.kind === "recommendation"
