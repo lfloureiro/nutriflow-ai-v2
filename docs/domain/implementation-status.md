@@ -30,6 +30,7 @@ Implemented:
 - Family-scoped ingredient list/search/create/update;
 - versioned nutrition composition;
 - energy, protein, carbohydrate, fat, fibre and sodium editor;
+- ingredient nutrition edits automatically recalculate referencing Family Recipes;
 - inactive/reactivate lifecycle rather than destructive deletion;
 - responsive `Casa -> Ingredientes` workflow.
 
@@ -48,13 +49,13 @@ Implemented:
 Implemented `recipe-nutrition-v1`:
 
 - scales current ingredient composition snapshots using safe unit conversion;
-- creates a new RecipeCompositionSnapshot for every nutrition-relevant Recipe change;
+- creates a new RecipeCompositionSnapshot for every nutrition-relevant Recipe change and referenced ingredient-composition update;
 - stores ingredient snapshot/version provenance;
 - calculates total energy and per-serving energy when evidence permits;
 - calculates nutrient totals/per-serving values only with complete compatible evidence;
 - records missing composition, missing energy/nutrient evidence and unsafe conversion issues;
 - never treats missing evidence as zero;
-- never silently falls back to stale Recipe nutrition after the Recipe definition changes.
+- never silently falls back to stale Recipe nutrition after the Recipe or ingredient evidence changes.
 
 ### Four meal types
 
@@ -90,7 +91,7 @@ Implemented:
 Before local execution, expected counts are:
 
 ```text
-API: 120 pytest tests
+API: 121 pytest tests
 Web: 27 Vitest tests
 ```
 
