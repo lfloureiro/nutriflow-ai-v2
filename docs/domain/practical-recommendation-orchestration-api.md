@@ -19,6 +19,8 @@ The request requires:
 - timezone-aware `scheduled_at`;
 - one or more explicit candidate composition snapshots and candidate quantities/units.
 
+`scheduled_at` must fall on `planning_date` when converted to the selected DailyNutritionState timezone. This prevents a recommendation for one nutritional day from being evaluated against practical context from another local day.
+
 Optional practical inputs:
 
 - meal type;
