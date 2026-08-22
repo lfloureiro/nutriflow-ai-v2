@@ -1,4 +1,9 @@
 import type {
+  Ingredient,
+  IngredientCreate,
+  IngredientUpdate,
+} from "./ingredientTypes";
+import type {
   FamilyDashboard,
   FamilyMeals,
   Person,
@@ -49,6 +54,23 @@ export function familyMealsPath(familyId: string, startDate?: string, days = 7):
   return `${base}?${query.toString()}`;
 }
 
+export function familyIngredientsPath(
+  familyId: string,
+  query?: string,
+  includeInactive = false,
+): string {
+  const base = `/api/families/${encodeURIComponent(familyId)}/ingredients`;
+  const params = new URLSearchParams();
+  if (query?.trim()) {
+    params.set("q", query.trim());
+  }
+  if (includeInactive) {
+    params.set("include_inactive", "true");
+  }
+  const suffix = params.toString();
+  return suffix ? `${base}?${suffix}` : base;
+}
+
 export function planningBootstrapPath(personId: string, scheduledAt: string): string {
   const encodedPersonId = encodeURIComponent(personId);
   const query = new URLSearchParams({ scheduled_at: scheduledAt });
@@ -82,6 +104,9 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     throw new ApiError(await errorMessage(response), response.status);
   }
+  if (response.status === 204) {
+    return undefined as T;
+  }
 
   return (await response.json()) as T;
 }
@@ -96,6 +121,48 @@ export function getFamilyMeals(
   days = 7,
 ): Promise<FamilyMeals> {
   return apiRequest<FamilyMeals>(familyMealsPath(familyId, startDate, days));
+}
+
+export function listFamilyIngredients(
+  familyId: string,
+  query?: string,
+  includeInactive = false,
+): Promise<Ingredient[]> {
+  return apiRequest<Ingredient[]>(familyIngredientsPath(familyId, query, includeInactive));
+}
+
+export function createFamilyIngredient(
+  familyId: string,
+  payload: IngredientCreate,
+): Promise<Ingredient> {
+  return apiRequest<Ingredient>(familyIngredientsPath(familyId), {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateFamilyIngredient(
+  familyId: string,
+  ingredientId: string,
+  payload: IngredientUpdate,
+): Promise<Ingredient> {
+  return apiRequest<Ingredient>(
+    `${familyIngredientsPath(familyId)}/${encodeURIComponent(ingredientId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function deactivateFamilyIngredient(
+  familyId: string,
+  ingredientId: string,
+): Promise<void> {
+  return apiRequest<void>(
+    `${familyIngredientsPath(familyId)}/${encodeURIComponent(ingredientId)}`,
+    { method: "DELETE" },
+  );
 }
 
 export function listFamilyPersons(familyId: string): Promise<Person[]> {
