@@ -11,6 +11,7 @@ from app.api.routes.planning_bootstrap import router as planning_bootstrap_route
 from app.api.routes.practical_meal_recommendations import (
     router as practical_meal_recommendations_router,
 )
+from app.api.routes.recipe_preferences import router as recipe_preferences_router
 from app.api.routes.recipes import router as recipes_router
 from app.api.routes.recommendation_decisions import router as recommendation_decisions_router
 
@@ -20,6 +21,7 @@ api_router.include_router(health_router)
 api_router.include_router(families_router)
 api_router.include_router(ingredients_router)
 api_router.include_router(recipes_router)
+api_router.include_router(recipe_preferences_router)
 api_router.include_router(meal_plan_router)
 api_router.include_router(pantry_shopping_router)
 api_router.include_router(persons_router)
