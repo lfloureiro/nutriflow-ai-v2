@@ -70,39 +70,40 @@ Current backend baseline:
 
 ## Last integrated checkpoint
 
-PR #21 integrated fail-closed handling for missing candidate nutrient data under mandatory nutrient maxima.
+PR #22 integrated the first persisted person-scoped meal recommendation API vertical slice.
 
 Exact integrated baseline:
 
 ```text
-main SHA:        09ca2f235d770b87f128dc8448fe9768b2801ad2
+main SHA:        32d75fa5bf6b5f3095c236bc8ceacd5e54d01acc
 schema head:     a7c4e9f2b6d1
-test baseline:   72 tests
+test baseline:   78 tests
 ```
 
-PR #21 was locally validated, passed CI on the exact tested head and was squash-merged.
+PR #22 was locally validated, passed CI on the exact tested head and was squash-merged.
 
-Integrated safety behaviour now includes:
+Integrated API capability now includes:
 
-- missing candidate nutrient data cannot satisfy an active mandatory nutrient maximum;
-- missing data excludes only that candidate as `mandatory_nutrient_data_missing:<nutrient_key>`;
-- an explicit zero remains valid measured data;
-- unsupported mandatory semantics and unsafe mandatory conversions still fail closed.
+```text
+POST /api/persons/{person_id}/meal-recommendations
+```
 
-Detailed semantics: `docs/domain/adaptive-meal-recommendation.md`, ADR-026.
+The endpoint requires explicit persisted DailyNutritionState and Food/Recipe composition snapshot IDs, reloads source evidence server-side, preserves Family/Person boundaries, applies the deterministic hard-rule-first engine and persists the recommendation run plus every eligible/excluded option.
+
+Detailed semantics: `docs/domain/planning-api-vertical-slice.md`, ADR-027.
 
 ## Current feature branch
 
 Current branch:
 
 ```text
-feature/planning-api-vertical-slice
+feature/recommendation-decision-api
 ```
 
 Merge base:
 
 ```text
-09ca2f235d770b87f128dc8448fe9768b2801ad2
+32d75fa5bf6b5f3095c236bc8ceacd5e54d01acc
 ```
 
 Schema head remains:
@@ -113,42 +114,43 @@ a7c4e9f2b6d1
 
 This branch has no database migration.
 
-Expected complete test baseline after its six API integration tests:
+Expected complete test baseline after its six API tests:
 
 ```text
-78 tests
+84 tests
 ```
 
 No PR should be opened until this branch receives explicit local green confirmation for Alembic metadata, Ruff and all tests.
 
 ### Current branch scope
 
-The branch exposes the first persisted person-scoped recommendation API:
+The branch exposes the persisted recommendation decision boundary:
 
 ```text
-POST /api/persons/{person_id}/meal-recommendations
+POST /api/recommendation-options/{option_id}/decision
 ```
 
-The endpoint:
+Implemented on the branch:
 
-- requires one explicit persisted DailyNutritionState ID;
-- requires `planning_date` to match that state's date;
-- requires explicit FoodCompositionSnapshot/RecipeCompositionSnapshot IDs;
-- requires positive candidate quantity and explicit unit;
-- reloads all source evidence from persistence;
-- validates Person ownership and Family isolation;
-- rejects inactive catalogue candidates;
-- rejects duplicate catalogue candidate keys;
-- fails explicitly on unsafe candidate quantity scaling;
-- reuses the existing deterministic `recommend_meals()` engine rather than duplicating safety/ranking logic;
-- persists one MealRecommendationRun and every eligible/excluded MealRecommendationOption;
-- returns persisted run/option IDs, ranks, scores, explanations, exclusions and calculated nutrition snapshots;
-- records API entrypoint and explicit composition IDs in recommendation context.
+- accepted/rejected/modified actions over a persisted MealRecommendationOption;
+- accepted/modified require explicit timezone-aware schedule information;
+- accepted keeps the exact recommendation quantity/unit;
+- modified may override quantity/unit and standard plan presentation fields;
+- accepted/modified delegate to the existing recommendation materialization service;
+- resulting plan uses normal MealEvent -> MealParticipant -> Serving records;
+- planned Serving nutrition is recalculated from the exact persisted recommendation composition snapshot;
+- rejected decisions record append-only feedback and create no meal records;
+- rejected requests cannot include meal-planning fields;
+- ineligible options cannot be materialized;
+- not-found option maps to 404 and semantic/domain failures map to 422;
+- six API tests cover accepted, modified, rejected, not-found, ineligible and invalid rejected-plan cases.
+
+Current limitation: this endpoint does not yet provide request-level idempotency/concurrent duplicate suppression. Feedback remains append-only. Do not assume duplicate decision submissions are retry-safe until the dedicated write-boundary idempotency increment.
 
 Authoritative current-branch docs:
 
-- `docs/domain/planning-api-vertical-slice.md`;
-- `docs/decisions/ADR-027-recommendation-api-requires-explicit-state-and-composition-snapshots.md`;
+- `docs/domain/recommendation-decision-api.md`;
+- `docs/decisions/ADR-028-recommendation-decisions-use-persisted-options-and-standard-meal-materialization.md`;
 - `docs/domain/implementation-status.md`.
 
 ## Current migration tail
@@ -177,12 +179,14 @@ Preserve these across all future work:
 - no inferred density for mass/volume conversion;
 - Serving nutrition keeps explicit versioned composition provenance;
 - recommendation API inputs reference explicit persisted state/composition evidence rather than client-authored nutrition totals;
+- ineligible recommendation options cannot be materialized through decision APIs;
+- rejected recommendation decisions cannot create meal state;
 - historical recommendation/feedback evidence remains append-only;
 - materialized plans use normal MealEvent/MealParticipant/Serving records;
 - DailyNutritionState derives from authoritative meal history;
 - Family-scoped catalogue/operational data cannot leak across Families;
 - shared meals retain person-specific portions and safety evaluation;
-- retries and plan replacement preserve idempotency and immutable history;
+- retries and plan replacement preserve idempotency and immutable history where the domain explicitly supports it;
 - commercial availability/price cannot make a safety-ineligible candidate eligible;
 - warnings are treated as failures rather than casually suppressed.
 
@@ -212,24 +216,25 @@ Use `docs/domain/implementation-status.md` as the compact status map. Detailed d
 - `docs/domain/persisted-practical-availability.md`;
 - `docs/domain/pantry-stock-shopping-requirements.md`;
 - `docs/domain/restaurant-delivery-commercial-context.md`;
-- `docs/domain/planning-api-vertical-slice.md`.
+- `docs/domain/planning-api-vertical-slice.md`;
+- `docs/domain/recommendation-decision-api.md`.
 
 Durable decisions are under `docs/decisions/`; ADR-007 governs workflow.
 
 ## Next planned increments
 
-After the current recommendation API branch is locally green, PR-tested and merged:
+After the current recommendation-decision API branch is locally green, PR-tested and merged:
 
-1. expose recommendation feedback and accepted-option meal materialization through focused API endpoints;
-2. expose practical schedule/source/pantry/commercial context through API orchestration without weakening hard-rule semantics;
-3. begin the first responsive web UI vertical slice over the stable recommendation API;
-4. persist shopping-list lifecycle when API/UI workflows require durable shopping state;
-5. add background/event-driven DailyNutritionState refresh and explicit target-selection policy;
-6. extend recurrence/calendar override support;
-7. persist family-level recommendation audit history;
-8. harden transaction-level idempotency races at the write API boundary;
-9. add provider connectors/live freshness policy, basket/order lifecycle and commercial optimization;
-10. introduce learned ranking only after deterministic safety/practical/nutrition layers remain authoritative.
+1. practical schedule/source/pantry/commercial recommendation orchestration API;
+2. first responsive web UI vertical slice over recommendation generation and decisions;
+3. persisted shopping-list lifecycle when UI/API workflows require durable shopping state;
+4. background/event-driven DailyNutritionState refresh and explicit target-selection policy;
+5. fuller recurrence/calendar override support;
+6. persisted family-level recommendation audit history;
+7. transaction-level idempotency-race handling and request idempotency at write API boundaries;
+8. provider connectors/live freshness policy, basket/order lifecycle and commercial optimization;
+9. shared-family recommendation/decision API boundaries;
+10. learned ranking from feedback only after deterministic safety/practical/nutrition layers remain authoritative.
 
 Any deliberate roadmap reordering must update both this file and `docs/domain/implementation-status.md`.
 
