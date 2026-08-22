@@ -1,91 +1,73 @@
 # Domain implementation status
 
-This document tracks the implemented domain baseline so code, migrations, tests and domain documentation evolve together.
+This document is the compact current-status map for NutriFlow AI v2. Detailed semantics live in the linked domain documents and ADRs. `docs/development-continuity.md` is the handover entry point for resuming development.
 
-## Implemented foundation
+## Stable integrated baseline
 
-### Family and Person
+The following capabilities are already integrated in `main`.
 
-Implemented:
-
-- Family aggregate root;
-- Person linked to Family;
-- locale and timezone support;
-- API routes and services for Family and Person;
-- persistence and tests.
-
-### Person profile and anthropometric history
+### Family, Person and profile history
 
 Implemented:
 
-- one-to-one PersonProfile;
-- energy-calculation sex, measurement system and energy unit;
-- historical AnthropometricMeasurement records;
-- metric, value, unit, observed time and provenance;
-- persistence and tests.
+- Family aggregate root and Person membership;
+- locale/timezone support;
+- PersonProfile;
+- historical anthropometric measurements;
+- API routes/services for the initial Family/Person vertical slice.
 
-### Nutrition goals and constraints
+### Goals, constraints, preferences and reactions
 
 Implemented:
 
-- historical NutritionGoal records;
-- target weight/rate and validity semantics;
-- NutritionConstraint rules with minimum/maximum/exclusion semantics;
+- NutritionGoal history;
+- NutritionConstraint minimum/maximum/exclusion semantics;
 - mandatory versus advisory constraints;
 - professional provenance and validity periods;
-- database validation, persistence and tests.
+- FoodPreference likes/dislikes with intensity;
+- FoodAdverseReaction allergy/intolerance safety semantics.
 
-### Food preferences and adverse reactions
+Preferences are ranking signals. Adverse reactions and mandatory constraints remain eligibility rules.
 
-Implemented separately:
-
-- FoodPreference records for likes/dislikes and intensity;
-- FoodAdverseReaction records for allergy/intolerance safety semantics;
-- provenance and validity dates;
-- persistence and tests.
-
-Preference ranking is intentionally separate from food-safety exclusion.
-
-### Person schedule
+### Schedule
 
 Implemented:
 
-- recurring and one-off ScheduleEntry shapes;
+- recurring and one-off ScheduleEntry records;
 - availability effects;
 - recurrence-rule storage;
-- timezone-aware date/time semantics;
+- timezone-aware local time semantics;
 - flexibility, location, provenance and notes;
-- database validation, persistence and tests.
+- deterministic practical evaluation for DAILY/WEEKLY recurrence with BYDAY and INTERVAL=1;
+- one-off non-neutral availability effects overriding recurring effects;
+- explicit failure for unsupported recurrence semantics.
 
-Detailed semantics: `docs/domain/schedule-model.md`.
+Detailed semantics: `docs/domain/schedule-model.md`, ADR-019.
 
 ### Nutrition targets
 
 Implemented:
 
 - versioned NutritionTarget snapshots per Person;
-- optional relationship to NutritionGoal;
+- optional NutritionGoal relationship;
 - BMR/TDEE estimates and methods;
 - target energy range;
-- calculation version and input provenance;
-- extensible NutritionTargetComponent nutrient targets;
-- historical validity and persistence tests.
+- extensible nutrient target components;
+- calculation version/input provenance and validity periods.
 
-Detailed semantics: `docs/domain/nutrition-target-model.md` and ADR-008.
+Detailed semantics: `docs/domain/nutrition-target-model.md`, ADR-008.
 
-### Health connections and normalized measurements
+### Health connections and measurements
 
 Implemented:
 
 - Person-scoped HealthConnection records;
-- provider-agnostic connection lifecycle, permissions and sync metadata;
+- provider-agnostic lifecycle, permissions and sync metadata;
 - secret-free credential references;
-- normalized HealthMeasurement records;
-- point and interval measurement shapes;
+- normalized HealthMeasurement point/interval records;
 - provider/origin/source-chain provenance;
 - deterministic cross-path deduplication;
-- historical preservation when a connection is removed;
-- persistence and tests.
+- historical measurement preservation after connection removal.
 
 Detailed semantics: `docs/domain/health-connection-model.md`, `docs/domain/health-measurement-model.md`, ADR-009 and ADR-010.
 
@@ -94,314 +76,261 @@ Detailed semantics: `docs/domain/health-connection-model.md`, `docs/domain/healt
 Implemented:
 
 - versioned DailyHealthState snapshots per Person/local date;
-- weight, activity, energy, sleep, heart-rate/HRV and training context;
-- confidence and source-window metadata;
+- weight, activity, energy, sleep and heart-rate/HRV context;
 - versioned DailyNutritionState snapshots;
-- consumed, planned and remaining energy;
-- nutrient-level DailyNutritionStateComponent values;
-- calculation versions and explainable inputs;
-- persistence and tests.
+- consumed/planned/remaining energy;
+- nutrient-level state components;
+- deterministic recalculation from authoritative MealEvent/MealParticipant/Serving history;
+- explicit local-day timezone boundaries;
+- served/consumed/planned precedence without double counting;
+- optional target-aware remaining values;
+- safe nutrient unit conversion;
+- same-calculation-version recomputation in place and separate algorithm versions.
 
-Daily states remain recalculable derived data rather than authoritative source history.
+Daily state is derived/recalculable rather than authoritative source history.
 
-Detailed semantics: `docs/domain/daily-state-model.md` and ADR-011.
+Detailed semantics: `docs/domain/daily-state-model.md`, `docs/domain/daily-nutrition-recalculation.md`, ADR-011 and ADR-018.
 
-### Meal events, participants and servings
+### Meals and servings
 
 Implemented:
 
-- Family-scoped MealEvent records;
+- Family-scoped MealEvent;
 - one shared MealEvent with multiple MealParticipant records;
-- person-specific participation states;
-- multiple Serving records per participant;
-- planned, served and consumed quantities and energy;
-- ServingNutritionComponent nutrient values;
-- replacement history and partial-consumption tracking;
-- database constraints, persistence and tests.
+- person-specific Serving records;
+- planned/served/consumed quantities and energy;
+- nutrient snapshots per Serving;
+- partial-consumption and replacement history;
+- Family-scoped MealEvent idempotency key;
+- idempotent create semantics;
+- immutable planned-meal replacement with old event preserved as `replaced`;
+- retry-safe replacement semantics;
+- no copying of realized values into replacement plans.
 
-There is intentionally no separate SharedMeal table. Shared context lives on MealEvent while nutrition remains person-specific through Serving.
+There is intentionally no separate SharedMeal table.
 
-Detailed semantics: `docs/domain/meal-model.md` and ADR-012.
+Detailed semantics: `docs/domain/meal-model.md`, `docs/domain/meal-replacement-idempotency.md`, ADR-012 and ADR-022.
 
-### Food, ingredient and recipe catalogue
+### Food and recipe catalogue
 
 Implemented:
 
 - FoodItem identities for ingredients, products, dishes, beverages, supplements and generic foods;
-- global or Family-specific catalogue records;
-- versioned FoodCompositionSnapshot records;
-- extensible FoodNutrientComponent records;
-- Recipe and RecipeIngredient records;
-- versioned RecipeCompositionSnapshot and RecipeNutrientComponent records;
-- optional Serving links to either FoodItem or Recipe;
-- historical Serving values protected from later catalogue corrections;
-- persistence and tests.
+- global or Family-specific catalogue objects;
+- versioned FoodCompositionSnapshot and nutrient components;
+- Recipe/RecipeIngredient;
+- versioned RecipeCompositionSnapshot and nutrient components;
+- historical Serving nutrition insulated from later catalogue corrections.
 
-Detailed semantics: `docs/domain/food-catalog-model.md` and ADR-013.
+Detailed semantics: `docs/domain/food-catalog-model.md`, ADR-013.
 
 ### Serving nutrition calculation
 
 Implemented:
 
-- planned, served and consumed Serving nutrition calculated from explicitly selected versioned Food/Recipe composition;
-- Decimal arithmetic with explicit persisted precision;
-- safe mass (`mg`, `g`, `kg`) and volume (`ml`, `l`) conversion;
-- rejection of unsafe cross-dimension conversions and inferred density;
-- persisted exact composition provenance and calculation version;
-- reusable composition scaling for recommendation logic;
-- tests for scaling, unit conversion safety and catalogue mismatch rejection.
+- explicit calculation from a selected versioned Food/Recipe composition snapshot;
+- Decimal arithmetic and persisted precision;
+- safe mass conversion (`mg`, `g`, `kg`);
+- safe volume conversion (`ml`, `l`);
+- no inferred density or cross-dimension conversion;
+- exact composition provenance on Serving;
+- reusable composition scaling for recommendation candidates.
 
-Detailed semantics: `docs/domain/serving-nutrition-calculation.md` and ADR-014.
+Detailed semantics: `docs/domain/serving-nutrition-calculation.md`, ADR-014.
 
-### Adaptive meal recommendation foundation
-
-Implemented:
-
-- deterministic person-scoped ranking of FoodItem and Recipe candidates;
-- candidate nutrition generated from the same versioned composition logic used by Serving calculation;
-- ingredient-aware Recipe subject expansion;
-- active-date handling for preferences, adverse reactions and constraints;
-- mandatory adverse-reaction and food/ingredient/recipe exclusion before ranking;
-- mandatory nutrient maxima checked against consumed + already-planned + candidate nutrition;
-- fail-closed behaviour for unsupported mandatory constraints or unsafe required unit conversions;
-- explainable energy-fit, nutrient-deficit, preference and advisory-reaction scoring;
-- deterministic rank ordering, score breakdowns and exclusion reasons;
-- versioned recommendation engine identifier;
-- tests proving safety rules cannot be overridden by ranking.
-
-Learned ranking is not part of eligibility. Mandatory rules remain authoritative.
-
-Detailed semantics: `docs/domain/adaptive-meal-recommendation.md` and ADR-015.
-
-### Recommendation history and feedback
+### Deterministic recommendation engine
 
 Implemented:
 
-- person-scoped MealRecommendationRun records for one recommendation execution;
-- optional link to the DailyNutritionState used as context;
-- engine version, planning date, optional meal type and JSON context;
-- MealRecommendationOption snapshots for every eligible and excluded candidate;
-- persisted candidate identity, quantity, subjects and exact nutrition snapshot;
-- persisted eligibility, rank, score breakdowns, exclusion reasons and explanations;
-- optional traceability links to FoodItem/Recipe and exact composition snapshots;
-- catalogue/composition links use `ON DELETE SET NULL` while historical snapshots remain intact;
-- append-only MealRecommendationFeedback events;
-- explicit `accepted`, `rejected` and `modified` actions;
-- optional link from feedback to the resulting Serving;
-- validation that user feedback only targets eligible options;
-- validation that a resulting Serving belongs to the same Person as the recommendation run;
-- rejection feedback cannot reference a resulting Serving;
-- exact Decimal recommendation values serialized as strings inside JSON snapshots;
-- persistence tests for ranked/excluded options and modified feedback.
+- person-scoped FoodItem/Recipe candidate ranking;
+- composition-derived candidate nutrition;
+- Recipe ingredient subject expansion;
+- active-date preferences/reactions/constraints;
+- mandatory adverse-reaction exclusion;
+- mandatory food/ingredient/recipe exclusions;
+- mandatory nutrient-max checks against consumed + already planned + candidate nutrition;
+- explicit failure for unsupported mandatory semantics and unsafe required conversion;
+- energy-fit, nutrient-deficit, preference and advisory-reaction scoring;
+- deterministic ordering, score breakdowns, exclusion reasons and explanations;
+- learned ranking excluded from eligibility decisions.
 
-Feedback is designed as a future learning signal only. It cannot make a candidate eligible or bypass deterministic safety/nutrition rules.
+Detailed semantics: `docs/domain/adaptive-meal-recommendation.md`, ADR-015.
 
-Detailed semantics: `docs/domain/recommendation-feedback-model.md` and ADR-016.
-
-### Recommendation to planned meal materialization
+### Recommendation history, feedback and meal materialization
 
 Implemented:
 
-- accepted or modified eligible MealRecommendationOption records materialize into normal MealEvent, MealParticipant and Serving records;
-- generated meal records start in `planned` state;
-- scheduled timestamps are timezone-aware with explicit MealEvent timezone context;
-- accepted recommendations preserve exact recommended quantity/unit;
-- quantity/unit changes require `modified` feedback;
-- the exact persisted composition snapshot used by the recommendation is reused for Serving nutrition calculation;
-- planned Serving nutrition is recalculated through the serving-nutrition service;
-- feedback links directly to the resulting Serving;
-- ineligible/rejected options cannot create planned meals through this service;
-- tests cover accepted materialization, modified quantities and action integrity.
+- MealRecommendationRun per Person/execution;
+- persisted eligible and excluded MealRecommendationOption snapshots;
+- engine version, context, subjects, nutrition, rank, score and explanations;
+- exact Food/Recipe composition traceability when available;
+- append-only accepted/rejected/modified feedback;
+- feedback link to resulting Serving;
+- accepted/modified eligible recommendations materialized into normal planned meals;
+- exact recommendation composition reused for planned Serving nutrition.
 
-Detailed semantics: `docs/domain/recommendation-to-meal-plan.md` and ADR-017.
+Detailed semantics: `docs/domain/recommendation-feedback-model.md`, `docs/domain/recommendation-to-meal-plan.md`, ADR-016 and ADR-017.
 
-### DailyNutritionState recalculation from Serving history
+### Practical recommendation context
 
 Implemented:
 
-- deterministic recalculation for one Person and one explicit local calendar date;
-- IANA timezone local midnight-to-midnight source windows;
-- authoritative aggregation from MealEvent/MealParticipant/Serving history;
-- cancelled/replaced events, skipped/replaced participants and skipped/replaced servings excluded;
-- realized servings contribute consumed values without retaining stale planned values;
-- non-realized served portions use served values before planned fallbacks;
-- other active non-realized portions use planned values;
-- energy totals derived even without a NutritionTarget;
-- optional NutritionTarget validated for Person ownership and date applicability;
-- nutrient state components materialized from target nutrient components;
-- safe explicit unit conversion into target units with failure on unsafe required conversion;
-- negative remaining values preserved;
-- point nutrient targets represented by equal remaining minimum/maximum values;
-- same calculation version recomputed in place without replacing component identities unnecessarily;
-- different calculation versions preserved as separate state snapshots;
-- source window, Serving IDs/count, target ID and aggregation policy recorded in calculation inputs;
-- tests cover consumed/planned aggregation, safe mass conversion, local-day boundaries, served-value precedence, same-version recomputation, version preservation and unsafe-unit rejection.
+- timezone-aware intended meal instant;
+- ScheduleEntry feasibility;
+- location filtering;
+- preparation-time filtering;
+- kitchen-availability filtering;
+- explicit candidate availability state;
+- unknown practical metadata does not create a false exclusion;
+- practical exclusions occur before normal deterministic safety/nutrition ranking.
 
-Detailed semantics: `docs/domain/daily-nutrition-recalculation.md`, `docs/domain/daily-state-model.md` and ADR-018.
+Detailed semantics: `docs/domain/recommendation-practical-context.md`, ADR-019.
 
-### Recommendation practical context
+### Shared-family optimization and materialization
 
 Implemented:
 
-- request-specific PracticalMealContext with timezone-aware intended meal instant;
-- ScheduleEntry evaluation at the requested instant;
-- one-off non-neutral availability effects take precedence over recurring effects;
-- recurring DAILY/WEEKLY rules with optional BYDAY and INTERVAL=1;
-- overnight recurring intervals use the date on which the interval begins;
-- unsupported recurrence semantics raise explicitly rather than being ignored;
-- unavailable schedule windows exclude candidates before ranking;
-- preferred/available windows remain explainable in recommendation output;
-- explicit request location or unambiguous schedule location can constrain candidate feasibility;
-- CandidatePracticalProfile supports explicit availability, available locations, preparation time and kitchen requirement;
-- candidates can be excluded for explicit unavailability, location, insufficient preparation time or unavailable kitchen facilities;
-- candidates lacking practical metadata are not excluded merely because metadata is unknown;
-- remaining candidates pass through the existing deterministic safety/nutrition recommendation engine;
-- practical exclusions remain normal CandidateEvaluation records and are therefore persistable by the existing recommendation-history layer;
-- default practical-context engine version is `meal-recommendation-practical-v1`;
-- tests cover one-off precedence, recurring preferred windows, location filtering, preparation/kitchen filtering and explicit failure for unsupported recurrence rules.
+- one common FoodItem/Recipe candidate evaluated for multiple Persons;
+- person-specific quantity/unit;
+- each Person evaluated independently against DailyNutritionState, reactions, constraints, preferences and practical context;
+- any participant hard exclusion makes the shared candidate ineligible;
+- fairness-first ranking: maximize the worst participant score, then family average, then deterministic key;
+- accepted shared recommendation materializes into one MealEvent with one MealParticipant/Serving per Person;
+- exact person-specific portions and composition provenance retained.
 
-Detailed semantics: `docs/domain/recommendation-practical-context.md`, `docs/domain/schedule-model.md` and ADR-019.
+Detailed semantics: `docs/domain/shared-family-meal-optimization.md`, `docs/domain/shared-family-meal-materialization.md`, ADR-020 and ADR-021.
 
-### Shared-family meal optimization
+### Persisted practical availability
 
 Implemented:
 
-- one common FoodItem/Recipe candidate can be evaluated for multiple Persons in the same Family;
-- each participant receives an explicit person-specific quantity and unit;
-- every participant's DailyNutritionState is checked against the corresponding Person;
-- Family-specific catalogue candidates are rejected when they belong to another Family;
-- existing practical-context, adverse-reaction, mandatory-constraint, nutrition and preference logic is reused independently per Person;
-- a shared candidate is eligible only when every participant is individually eligible;
-- participant-specific exclusion reasons are preserved in the family-level result;
-- unsupported mandatory rules continue to fail closed through the existing engines;
-- family ranking first maximizes the minimum participant score and then the average score;
-- candidate key provides deterministic final tie-breaking;
-- default shared engine version is `shared-family-meal-v1`;
-- no new SharedMeal table or schema is introduced;
-- tests cover person-specific portions, one-person hard exclusion, fairness-first ranking, one-person schedule exclusion, Family integrity and complete portion coverage.
+- Family-scoped MealCandidateAvailability for FoodItem/Recipe sources;
+- source kinds `home`, `pantry`, `restaurant`, `delivery`, `store`;
+- stable source key;
+- location, preparation/lead time, kitchen requirement and explicit availability;
+- provider/source provenance;
+- deterministic source-kind filtering and aggregation into CandidatePracticalProfile;
+- cross-Family catalogue protection.
 
-Detailed semantics: `docs/domain/shared-family-meal-optimization.md` and ADR-020.
-
-### Shared-family meal materialization
-
-Implemented:
-
-- an accepted eligible shared-family recommendation materializes into exactly one planned MealEvent;
-- every recommended Person receives one planned MealParticipant and one planned Serving;
-- person-specific recommended quantity and unit are preserved exactly;
-- planned energy and nutrient snapshots are recalculated through the existing serving-nutrition service;
-- the exact persisted FoodCompositionSnapshot or RecipeCompositionSnapshot used by the recommendation is reloaded and reused;
-- Persons and composition snapshots must already be persisted, preventing accidental catalogue insertion during meal creation;
-- all participants must still belong to one Family and Family-specific catalogue objects must match that Family;
-- participant candidate identity and portion values must match the selected family recommendation;
-- ineligible family candidates or ineligible participant evaluations cannot be materialized;
-- generated MealEvent and Serving records retain recommendation provenance;
-- no new SharedMeal table is introduced;
-- tests cover one-event/multi-participant materialization, person-specific nutrition, ineligible-candidate rejection, timezone validation and persisted-composition requirements.
-
-Detailed semantics: `docs/domain/shared-family-meal-materialization.md` and ADR-021.
-
-### Meal replacement and idempotency
-
-Implemented:
-
-- optional MealEvent `idempotency_key` scoped uniquely by Family;
-- database-level duplicate prevention for non-null Family/idempotency-key pairs;
-- application-level idempotent create that returns the existing MealEvent for an identical retry;
-- explicit conflict when one idempotency key is reused with a different request payload;
-- complete timezone/source/input validation for idempotent MealEvent creation;
-- planned-meal replacement creates a new MealEvent linked through `replaces_meal_event_id`;
-- original MealEvent history is preserved and marked `replaced`;
-- person-specific MealParticipants, planned Servings and planned nutrient snapshots are cloned into the replacement;
-- Food/Recipe and exact composition-snapshot links are preserved in cloned Servings;
-- served/consumed values are never copied into replacement plans;
-- replacement is rejected after any participant/Serving becomes realized or the event is served/completed;
-- replacement retries with the same key/specification return the same replacement rather than cloning again;
-- an already-replaced event cannot be replaced again through a different request in this service;
-- tests cover idempotent retry, payload conflict, replacement cloning, replacement retry, replacement-chain rejection and served-event rejection.
-
-Detailed semantics: `docs/domain/meal-replacement-idempotency.md` and ADR-022.
-
-### Persisted practical meal availability
-
-Implemented:
-
-- Family-scoped `MealCandidateAvailability` operational records;
-- exactly one FoodItem or Recipe per availability row;
-- normalized source kinds for `home`, `pantry`, `restaurant`, `delivery` and `store`;
-- stable source key, optional location, preparation/lead time, kitchen requirement and explicit availability state;
-- provenance fields for source/provider synchronization;
-- deterministic adaptation into the existing `CandidatePracticalProfile` interface;
-- optional source-kind filtering, including delivery-only or pantry-only planning;
-- minimum available preparation time across usable sources;
-- kitchen requirement only when every usable source requires a kitchen;
-- location restriction only when every usable source is explicitly location-bound;
-- candidates with no persisted availability remain unknown rather than being excluded;
-- candidates with modeled but unavailable requested sources are excluded as `candidate_unavailable`;
-- Family-specific catalogue candidates from another Family are rejected before availability lookup;
-- tests cover source aggregation, delivery-only filtering, explicit unavailability, unknown metadata, Family isolation and unsupported source kinds.
-
-Detailed semantics: `docs/domain/persisted-practical-availability.md` and ADR-023.
+Detailed semantics: `docs/domain/persisted-practical-availability.md`, ADR-023.
 
 ### Pantry stock and shopping requirements
 
-Implemented on the current feature branch:
+Integrated by PR #19.
 
-- Family-scoped `PantryStockLot` records for current FoodItem stock;
-- stable Family-scoped stock keys;
-- positive quantity/unit, optional storage location and expiry;
-- explicit observation time, availability state and provenance;
-- timezone-aware `as_of` evaluation with expired lots excluded;
-- safe reuse of the serving-nutrition mass/volume unit conversion policy;
-- explicit failure for unsafe stock/requirement unit comparisons;
-- FoodItem stock assessment with required, available and missing quantities;
-- aggregation of duplicate RecipeIngredient rows before stock comparison;
-- Recipe sufficiency evaluation for positive batch multipliers;
-- deterministic `ShoppingRequirement` calculation for exact missing ingredient quantities;
-- candidate-level pantry profiles for FoodItem and Recipe candidates;
-- Recipe candidate pantry scaling through explicit Recipe yield quantity/unit;
-- Family isolation for Recipe and ingredient catalogue objects;
-- shopping requirements remain calculation results rather than persisted shopping-list rows;
-- tests cover stock aggregation, expiry, shortages, duplicate ingredients, unsafe units, candidate yield scaling and Family isolation.
+Implemented:
 
-Detailed semantics: `docs/domain/pantry-stock-shopping-requirements.md` and ADR-024.
+- Family-scoped PantryStockLot operational inventory;
+- stable stock keys, positive quantity/unit, storage location, expiry and availability;
+- timezone-aware observation and evaluation time;
+- expired/unavailable lot exclusion;
+- safe compatible-unit aggregation;
+- FoodItem required/available/missing quantity assessment;
+- duplicate RecipeIngredient aggregation;
+- Recipe pantry sufficiency for explicit batch multipliers;
+- exact transient ShoppingRequirement values for missing ingredients;
+- Recipe candidate scaling from requested candidate amount to Recipe yield;
+- pantry-derived CandidatePracticalProfile availability;
+- Family isolation and fail-closed unsafe conversions.
+
+Detailed semantics: `docs/domain/pantry-stock-shopping-requirements.md`, ADR-024.
+
+## Current feature branch: restaurant/delivery commercial context
+
+Branch: `feature/restaurant-delivery-commercial-context`.
+
+This branch adds durable volatile commercial state without placing it in FoodItem/Recipe nutrition composition.
+
+Implemented on the branch:
+
+- MealSourceOpeningWindow linked to MealCandidateAvailability;
+- weekly local opening windows with explicit timezone;
+- same-day, overnight and full-day window semantics;
+- optional local-date validity range;
+- missing opening windows treated as unknown rather than closed;
+- MealCommercialOffer linked to a concrete practical source;
+- Family-scoped stable offer key;
+- provider identity/name;
+- item price and explicit three-character currency;
+- optional delivery fee and minimum order;
+- absolute offer validity and timezone-aware provider observation time;
+- deterministic `build_commercial_planning_context()` service;
+- practical profiles generated from currently usable restaurant/delivery/store sources;
+- active commercial offer snapshots returned separately from eligibility;
+- no FX conversion and no price-aware nutrition ranking;
+- open source remains practically available when current price data is unknown;
+- Family and source-kind boundaries fail explicitly;
+- tests for opening hours, closed sources, overnight windows, unknown hours, offer validity, deterministic multi-currency ordering and Family isolation.
+
+Detailed semantics: `docs/domain/restaurant-delivery-commercial-context.md`, ADR-025.
+
+## Safety and correctness invariants
+
+Future work must preserve all of the following:
+
+- mandatory adverse reactions and mandatory constraints run before ranking;
+- learned ranking may reorder eligible candidates only;
+- unsafe required unit conversions fail closed;
+- no inferred density is used;
+- historical Serving/recommendation evidence keeps exact provenance;
+- DailyNutritionState is derived from authoritative meal history;
+- Family-scoped data cannot leak across Families;
+- shared meals keep person-specific portions and safety checks;
+- retry/replacement history remains idempotent and immutable;
+- warnings are treated as test failures rather than routinely suppressed;
+- commercial price/opening data cannot make a nutritionally/safety-ineligible candidate eligible.
+
+Known safety-hardening item: mandatory nutrient maxima currently require an explicit policy for candidates whose composition omits the constrained nutrient. This must be reviewed in a dedicated focused increment before broader API/UI exposure rather than changed incidentally.
 
 ## Current database migration chain
 
-The schema currently progresses through:
+Current branch head: `a7c4e9f2b6d1`.
 
-1. Family/Person;
-2. Person profile and anthropometric history;
-3. nutrition goals and constraints;
-4. food preferences/adverse reactions;
-5. schedules;
-6. NutritionTarget;
-7. HealthConnection;
-8. HealthMeasurement;
-9. DailyHealthState/DailyNutritionState;
-10. MealEvent/MealParticipant/Serving;
-11. Food/Recipe catalogue composition;
-12. Serving composition provenance;
-13. recommendation run/option/feedback history;
-14. MealEvent Family-scoped idempotency key;
-15. Family-scoped meal candidate availability sources;
-16. quantity-aware Family pantry stock lots.
+Recent chain:
 
-Recommendation materialization, DailyNutritionState recalculation, practical-context filtering, shared-family optimization and shared-family materialization use the authoritative meal, schedule, catalogue and derived-state schema. Meal replacement/idempotency adds the write-safety key, persisted practical availability adds operational source state, and pantry stock adds quantity/expiry-aware operational inventory without changing historical Serving or recommendation evidence.
+```text
+a7c4e9f2b6d1  commercial source opening windows and offers
+f6b3d8e1a5c2  quantity-aware Family pantry stock lots
+e5a2c7d9f4b1  Family-scoped meal candidate availability
+d4f8a1b2c6e9  MealEvent Family-scoped idempotency
+c3e7f9a1b5d2  recommendation run/option/feedback
+a2d6e8f1c3b5  Serving composition provenance
+f4b8c2d6a1e3  Food/Recipe catalogue composition
+e1c5b7a9d2f4  MealEvent/MealParticipant/Serving
+d9f2a7          DailyHealthState/DailyNutritionState
+```
 
-Alembic migrations are expected to apply from an empty PostgreSQL database in CI and `alembic check` must report no model/schema drift.
+Earlier revisions remain authoritative in `database/migrations/versions/`.
 
-## Next planned domain increments
+CI must be able to apply the complete chain to an empty PostgreSQL database and `alembic check` must report no model/schema drift.
 
-Current sequence after pantry stock and shopping requirements:
+## Validation checkpoint
 
-1. restaurant/delivery commercial context such as price, opening hours and provider synchronization;
-2. API and UI vertical slices over the completed planning flow;
-3. persisted shopping-list lifecycle when API/UI workflows require durable shopping state;
-4. background/event-driven DailyNutritionState refresh and target-selection policy;
+Last integrated baseline:
+
+- PR #19 merged;
+- `main` SHA `672f32673102da9db1e686c89c1f8a0c61ba222f`;
+- schema head `f6b3d8e1a5c2`;
+- 64 tests locally and in CI.
+
+Current branch target after its seven new tests:
+
+- schema head `a7c4e9f2b6d1`;
+- expected complete API suite: 71 tests;
+- PR must not be opened until local Alembic, Ruff and all tests are green with zero warnings.
+
+## Next planned increments
+
+After the current commercial-context branch is locally validated, PR-tested and merged:
+
+1. dedicated fail-closed hardening for mandatory nutrient maxima when candidate nutrient data is missing;
+2. API and UI vertical slices over the completed deterministic planning flow;
+3. persisted shopping-list lifecycle when UI/API workflows require durable shopping state;
+4. background/event-driven DailyNutritionState refresh and explicit target-selection policy;
 5. fuller recurrence/calendar override support;
 6. persisted family-level recommendation audit history;
-7. transaction-level idempotency-race handling at the future write API boundary;
-8. learned ranking from feedback only after deterministic hard-rule, practical and nutrition layers remain authoritative.
+7. transaction-level idempotency-race handling at the write API boundary;
+8. provider connectors/live commercial freshness policies and basket/order workflows;
+9. learned ranking from feedback only after deterministic safety, practical and nutrition layers remain authoritative.
 
-Each increment must be developed on a focused branch, documented, tested locally with zero warnings, validated by CI and merged only after all checks are green.
+Every increment follows ADR-007: focused branch, code/migration/tests/docs together, local PostgreSQL validation, zero-warning Ruff/pytest, PR only after local green, CI on the exact PR head SHA, guarded squash merge, verify resulting `main`, then start the next branch.
