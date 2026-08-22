@@ -61,10 +61,12 @@ function memberNamesForMeal(
 export default function FamilyHome({
   dashboard,
   onPlanMeal,
+  onSeeMeals,
   onOpenPerson,
 }: {
   dashboard: FamilyDashboard;
   onPlanMeal: () => void;
+  onSeeMeals: () => void;
   onOpenPerson: (personId: string) => void;
 }) {
   const { locale, t } = useI18n();
@@ -117,9 +119,7 @@ export default function FamilyHome({
                     {member.nutrition ? (
                       <>
                         {formatNumber(member.nutrition.energy_consumed_kcal, locale)} {t("results.kcal")}
-                        <span className="metric-subtle">
-                          {t("home.consumed")}
-                        </span>
+                        <span className="metric-subtle">{t("home.consumed")}</span>
                       </>
                     ) : (
                       <span className="metric-missing">{t("home.noData")}</span>
@@ -173,7 +173,7 @@ export default function FamilyHome({
             <h2 id="today-heading">{t("home.today")}</h2>
             <p>{t("home.todayHelp")}</p>
           </div>
-          <button className="text-button" onClick={onPlanMeal} type="button">
+          <button className="text-button" onClick={onSeeMeals} type="button">
             {t("home.seeMeals")}
           </button>
         </div>
