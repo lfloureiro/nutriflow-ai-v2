@@ -1,10 +1,11 @@
 import uuid
-from datetime import date, datetime, time
+from datetime import date as Date
+from datetime import datetime, time as Time
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.schemas.meal_type import MEAL_TYPES, MealType
+from app.schemas.meal_type import MealType
 
 
 class MealPlanParticipantWrite(BaseModel):
@@ -22,9 +23,9 @@ class MealPlanParticipantWrite(BaseModel):
 class MealPlanEntryCreate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    date: date
+    date: Date
     meal_type: MealType
-    local_time: time
+    local_time: Time
     recipe_id: uuid.UUID
     participants: list[MealPlanParticipantWrite] = Field(min_length=1)
     location: str | None = Field(default=None, max_length=160)
@@ -34,9 +35,9 @@ class MealPlanEntryCreate(BaseModel):
 class MealPlanEntryUpdate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    date: date | None = None
+    date: Date | None = None
     meal_type: MealType | None = None
-    local_time: time | None = None
+    local_time: Time | None = None
     recipe_id: uuid.UUID | None = None
     participants: list[MealPlanParticipantWrite] | None = Field(default=None, min_length=1)
     location: str | None = Field(default=None, max_length=160)
@@ -57,7 +58,7 @@ class MealPlanEntryRead(BaseModel):
     meal_type: MealType
     title: str | None
     scheduled_at: datetime
-    local_time: time
+    local_time: Time
     status: str
     recipe_id: uuid.UUID | None
     recipe_name: str | None
@@ -72,7 +73,7 @@ class MealPlanSlotRead(BaseModel):
 
 
 class MealPlanDayRead(BaseModel):
-    date: date
+    date: Date
     slots: list[MealPlanSlotRead]
 
 
@@ -80,6 +81,6 @@ class FamilyMealPlanRead(BaseModel):
     family_id: uuid.UUID
     family_name: str
     timezone: str
-    start_date: date
-    end_date: date
+    start_date: Date
+    end_date: Date
     days: list[MealPlanDayRead]
