@@ -22,68 +22,62 @@ Integrated capabilities include:
 - commercial opening windows and provider offer metadata;
 - person recommendation API, practical orchestration API and recommendation decision API;
 - planning-bootstrap API for server-authoritative current state/composition discovery;
-- explicit development demo dataset for end-to-end local testing;
+- explicit development demo dataset for local end-to-end testing;
 - Family dashboard read model for current-day Family member evidence and meal agenda;
-- Family-first progressive-disclosure frontend architecture (ADR-034).
+- Family-first progressive-disclosure frontend architecture (ADR-034);
+- visible responsive application shell with `Início`, `Refeições`, `Pessoas`, `Casa`, `Mais`;
+- lightweight Family Home backed by the server dashboard read model.
 
-Integrated baseline after PR #29:
+Integrated baseline after PR #30:
 
 ```text
-main SHA:      3c8b349e5b43a7685dde9a616ca4e5b22e58cef5
+main SHA:      e5c52531dcc7397592643ea712bf9b1d90e00bbd
 schema head:   a7c4e9f2b6d1
 API tests:     106
-Web tests:     11
+Web tests:     14
 ```
 
-## Current feature branch: visible Family Home shell
+## Current feature branch: representative Family Home demo data
 
 Branch:
 
 ```text
-feature/web-app-shell-family-home
+feature/demo-family-dashboard-data
 ```
 
 Merge base:
 
 ```text
-3c8b349e5b43a7685dde9a616ca4e5b22e58cef5
+e5c52531dcc7397592643ea712bf9b1d90e00bbd
 ```
 
-No database migration and no API-domain behavior change.
+No database migration and no production-domain behavior change.
 
 Implemented on the branch:
 
-- first visible product shell replacing the recommendation workflow as the application entry point;
-- desktop compact side navigation;
-- mobile fixed bottom navigation;
-- primary destinations `Início`, `Refeições`, `Pessoas`, `Casa`, `Mais`;
-- lightweight Family Home backed by `GET /api/families/{family_id}/dashboard`;
-- compact Person cards with current nutrition, steps, weight/trend and sleep when evidence exists;
-- explicit missing-data presentation rather than zero/fallback inference;
-- chronological current-day Family meal agenda with participants;
-- one primary `Planear refeição` action;
-- current practical recommendation UI moved under `Refeições`;
-- active Family context passed into the planner so Family UUID is not entered twice;
-- recommendation bootstrap, persisted composition identity, hard exclusions, commercial offers and accept/reject decisions retained;
-- initial `Pessoas` list/selection surface for the next Person-overview slice;
-- intentional `Casa` placeholder for pantry/shopping;
-- `Mais` surface for locale, appearance and development Family context;
-- development Family ID stored after successful load;
-- Vite-development-only default to the explicit demo Family ID when no stored Family exists;
-- production build does not receive the demo default and no UI path creates demo data automatically;
-- base stylesheet/`bootstrap.css` import order corrected and shell styles loaded last.
+- expands the explicit development-only `NutriFlow Demo` Family from one to four synthetic members;
+- keeps `Pessoa Demo` as the fixed primary recommendation/planning Person;
+- adds `Marta Demo`, `Rui Demo` and `Inês Demo` with deterministic reserved IDs;
+- adds varied current-day DailyHealthState data for all four members;
+- adds current-day DailyNutritionState summaries for three members;
+- deliberately leaves selected health/nutrition fields absent to exercise Home missing-data states;
+- adds deterministic completed breakfast, planned lunch and planned shared dinner MealEvents;
+- adds deterministic MealParticipants for two-person and four-person agenda rows;
+- keeps the six versioned meal candidates and the primary preference/sodium hard-exclusion fixture unchanged;
+- preserves the original primary DailyNutritionState identity so previously seeded local databases can be refreshed without unique-key conflicts;
+- keeps all data synthetic, explicit, idempotent, isolated and never auto-seeded;
+- adds API coverage proving dashboard variation, agenda participants and repeated-seed idempotency.
 
 Authoritative docs:
 
-- `docs/ux/family-home-shell.md`;
-- `docs/ux/frontend-information-architecture.md`;
-- `docs/domain/family-dashboard-read-model.md`;
-- `docs/decisions/ADR-034-family-first-progressive-disclosure-web-navigation.md`.
+- `docs/domain/development-demo-dataset.md`;
+- `docs/decisions/ADR-033-development-demo-data-is-explicit-idempotent-and-isolated.md`;
+- `docs/ux/family-home-shell.md`.
 
 Expected validation baseline:
 
 ```text
-API: Alembic metadata clean, Ruff clean, 106 pytest tests
+API: Alembic metadata clean, Ruff clean, 107 pytest tests
 Web: 14 Vitest tests, strict TypeScript check, production Vite build
 ```
 
@@ -95,11 +89,11 @@ Home answers:
 
 It intentionally does not become a dense health dashboard. It shows a maximum of four compact indicators per Person and the current meal agenda. No aggregate Family health score is produced.
 
-Missing current-day health/nutrition state remains unavailable. The browser does not fall back to a previous day and does not infer clinical meaning from raw measurements.
+The enriched demo exists to exercise this exact visual boundary: values differ across members and selected evidence is deliberately absent. Missing current-day health/nutrition state remains unavailable; the browser does not fall back to a previous day or infer clinical meaning.
 
 ## Meals UX boundary
 
-`Refeições` now owns the recommendation flow. The current slice still starts with recommendation planning rather than the future `Hoje`/`Semana` meal map.
+`Refeições` owns the recommendation flow. The current slice still starts with recommendation planning rather than the future `Hoje`/`Semana` meal map.
 
 The browser remains subordinate to backend semantics:
 
@@ -128,7 +122,7 @@ Future work must preserve:
 - DailyNutritionState remains derived from authoritative meal history outside explicit synthetic development fixtures;
 - shared meals retain Person-specific portions and safety checks;
 - commercial price/availability cannot override safety eligibility;
-- demo data is explicit, isolated and never auto-seeded;
+- demo data is explicit, synthetic, isolated and never auto-seeded;
 - warnings remain failures rather than being suppressed.
 
 Known limitations:
@@ -158,17 +152,16 @@ d9f2a7          DailyHealthState/DailyNutritionState
 
 ## Next planned increments
 
-After this branch is locally green, PR-tested and merged:
+After this branch is locally green, PR-tested, visually checked and merged:
 
-1. enrich demo data with several Family members plus representative health/activity evidence;
-2. implement Person overview and secondary navigation;
-3. implement Family Meals `Hoje` and `Semana` before the recommendation subflow;
-4. add shared-meal drill-down with Person-specific portions;
-5. add dedicated Nutrition/Activity/Health/History screens;
-6. add profile/goals/constraints/preferences screens;
-7. add pantry/shopping UI and durable shopping-list lifecycle;
-8. add authentication/authorization before real multi-user deployment;
-9. add committed npm lockfile and `npm ci` production hardening;
-10. continue provider/live freshness, basket/order and later learned-ranking work.
+1. implement Person overview and secondary navigation;
+2. implement Family Meals `Hoje` and `Semana` before the recommendation subflow;
+3. add shared-meal drill-down with Person-specific portions;
+4. add dedicated Nutrition/Activity/Health/History screens;
+5. add profile/goals/constraints/preferences screens;
+6. add pantry/shopping UI and durable shopping-list lifecycle;
+7. add authentication/authorization before real multi-user deployment;
+8. add committed npm lockfile and `npm ci` production hardening;
+9. continue provider/live freshness, basket/order and later learned-ranking work.
 
 Every increment follows ADR-007: focused branch, relevant code/tests/docs together, local validation with zero warnings, PR only after local green, CI on the exact head SHA, guarded squash merge, verify new `main`, then start the next branch.
