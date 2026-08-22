@@ -6,7 +6,7 @@ The normal Family recommendation UI is a product workflow, not an engine-debug f
 
 ```text
 Recomendar
--> Pessoa
+-> Pessoas: uma | várias | todas
 -> Período: 1 dia | vários dias
 -> Dia or De/Até (maximum 14 days)
 -> Tipo de refeição: breakfast | lunch | snack | dinner
@@ -18,6 +18,19 @@ Recomendar
 -> results grouped by day
 -> accept one option into that day's meal plan
 ```
+
+Person selection is a visible multi-select rather than a single-person dropdown. `Todos` selects or clears the complete Family in one action.
+
+When exactly one Person is selected, the existing Person practical recommendation workflow is used.
+
+When two or more Persons are selected, the server uses the shared-Family recommendation domain:
+
+- every selected Person receives an independent nutrition/safety/preference evaluation;
+- a candidate is eligible for the group only when it is eligible for every selected Person;
+- a mandatory rule for any one selected Person excludes that candidate from the shared recommendation;
+- eligible shared candidates rank by the lowest participant score first, then by the average participant score, so a meal that is very poor for one member is not hidden by a high average;
+- the response retains participant-specific quantities, nutrition and scores;
+- accepting a shared recommendation creates one shared MealEvent with one MealParticipant and Serving per selected Person.
 
 The three source choices are intentionally product-level labels. Internal availability channels remain implementation details:
 
@@ -44,9 +57,11 @@ Commercial-only results are displayed only when there is a matching offer for th
 
 ## Multi-day recommendations
 
-The existing recommendation engine remains one run per Person/day. The web workflow orchestrates one run for each selected date and groups results by day. This preserves the existing daily nutrition/safety model instead of inventing a cross-day recommendation state.
+Recommendations remain daily. The web workflow orchestrates one recommendation for each selected date and groups results by day.
 
-Recommendation bootstrap requests use `ensure_state=true`. When the selected day has no DailyNutritionState yet, the server materializes one from that day's Servings and the active NutritionTarget when available. This makes future planning dates usable without requiring a separate manual state-generation step.
+For one selected Person this is one Person recommendation run per day. For multiple selected Persons this is one shared-Family evaluation per day, internally evaluating every selected Person against that day's own nutrition state.
+
+Recommendation bootstrap requests use `ensure_state=true`. When a selected day has no DailyNutritionState yet, the server materializes one from that Person's Servings and the active NutritionTarget when available. This makes future planning dates usable without requiring a separate manual state-generation step.
 
 The ordinary planning-bootstrap read remains non-mutating by default (`ensure_state=false`) for backward compatibility.
 
@@ -67,7 +82,7 @@ Meal type is always selected from a dropdown; arbitrary text is not accepted in 
 
 Primary screen fields are deliberately limited to:
 
-- Person;
+- people;
 - period;
 - meal type;
 - sources.
