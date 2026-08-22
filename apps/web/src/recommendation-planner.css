@@ -11,7 +11,7 @@
 
 .recommend-primary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   align-items: end;
 }
@@ -20,6 +20,41 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.recommend-people-group {
+  display: grid;
+  gap: 8px;
+}
+
+.recommend-people-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.recommend-person-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.recommend-person-card.selected {
+  border-color: var(--accent);
+  background: var(--surface-subtle);
+}
+
+.recommend-person-card--all {
+  font-weight: 700;
+}
+
+.recommend-person-card input {
+  margin: 0;
 }
 
 .segmented-control {
@@ -126,6 +161,26 @@
   white-space: nowrap;
 }
 
+.shared-participant-list {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+
+.shared-participant-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.shared-participant-row span {
+  color: var(--muted);
+  text-align: right;
+}
+
 @media (max-width: 980px) {
   .recommend-primary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -135,12 +190,18 @@
 @media (max-width: 720px) {
   .recommend-primary-grid,
   .recommend-source-grid,
-  .recommend-date-range {
+  .recommend-date-range,
+  .recommend-people-grid {
     grid-template-columns: 1fr;
   }
 
-  .recommend-day__heading {
+  .recommend-day__heading,
+  .shared-participant-row {
     display: grid;
     gap: 4px;
+  }
+
+  .shared-participant-row span {
+    text-align: left;
   }
 }
