@@ -26,6 +26,7 @@ from app.services.meal_recommendation import (
     recommend_meals,
 )
 from app.services.recommendation_feedback import persist_recommendation_run
+from app.services.serving_nutrition import UnsupportedUnitConversionError
 
 
 class MealRecommendationApiError(ValueError):
@@ -83,6 +84,22 @@ def _validate_catalog_family(
         )
 
 
+def _build_food_candidate(
+    composition: FoodCompositionSnapshot,
+    data: MealRecommendationCandidateInput,
+) -> MealCandidate:
+    try:
+        return build_food_candidate(
+            composition,
+            quantity=data.quantity,
+            quantity_unit=data.quantity_unit,
+        )
+    except UnsupportedUnitConversionError as exc:
+        raise MealRecommendationApiError(
+            f"Cannot scale food candidate using quantity unit {data.quantity_unit!r}."
+        ) from exc
+
+
 def _load_food_candidate(
     session: Session,
     *,
@@ -111,11 +128,23 @@ def _load_food_candidate(
             f"Candidate {food_item.catalog_key!r} is inactive."
         )
 
-    return build_food_candidate(
-        composition,
-        quantity=data.quantity,
-        quantity_unit=data.quantity_unit,
-    )
+    return _build_food_candidate(composition, data)
+
+
+def _build_recipe_candidate(
+    composition: RecipeCompositionSnapshot,
+    data: MealRecommendationCandidateInput,
+) -> MealCandidate:
+    try:
+        return build_recipe_candidate(
+            composition,
+            quantity=data.quantity,
+            quantity_unit=data.quantity_unit,
+        )
+    except UnsupportedUnitConversionError as exc:
+        raise MealRecommendationApiError(
+            f"Cannot scale recipe candidate using quantity unit {data.quantity_unit!r}."
+        ) from exc
 
 
 def _load_recipe_candidate(
@@ -154,11 +183,7 @@ def _load_recipe_candidate(
             candidate_key=ingredient.food_item.catalog_key,
         )
 
-    return build_recipe_candidate(
-        composition,
-        quantity=data.quantity,
-        quantity_unit=data.quantity_unit,
-    )
+    return _build_recipe_candidate(composition, data)
 
 
 def _load_candidates(
