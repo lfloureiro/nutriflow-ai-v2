@@ -66,12 +66,13 @@ Implemented on the branch:
 - latest weight and persisted 7-day trend;
 - sleep duration and resting heart rate;
 - current-day Person meal list filtered from Family dashboard `participant_person_ids`;
+- known meal-domain enum labels localized for presentation (`lunch`/`planned`/`completed` etc.), with unknown values preserved rather than guessed;
 - explicit missing-data presentation rather than zero or previous-day fallback;
 - dedicated section placeholders for later focused screens instead of overloading the overview;
 - no chart yet because the current read model does not provide a historical time series;
 - no medical interpretation, synthetic health score, browser-authored targets or client-side safety logic;
 - responsive Person layout with compact horizontal secondary navigation and mobile single-column metrics;
-- Web unit coverage for Person meal filtering.
+- Web unit coverage for Person meal filtering and meal-label localization.
 
 Authoritative docs:
 
@@ -80,12 +81,14 @@ Authoritative docs:
 - `docs/ux/family-home-shell.md`;
 - `docs/decisions/ADR-034-family-first-progressive-disclosure-web-navigation.md`.
 
-Expected validation baseline:
+Expected validation baseline after the visual-review fix:
 
 ```text
 API: Alembic metadata clean, Ruff clean, 107 pytest tests
-Web: 16 Vitest tests, strict TypeScript check, production Vite build
+Web: 18 Vitest tests, strict TypeScript check, production Vite build
 ```
+
+PR #32 was opened and validated on an earlier branch head. The branch changed after visual review, so it requires fresh explicit local validation and fresh exact-head API/Web CI before merge.
 
 ## Person overview UX boundary
 
@@ -98,6 +101,8 @@ It is a presentation of current persisted evidence, not an analytical or clinica
 The overview does not add a chart yet because there is no authoritative time series in the current Family dashboard response. A future Person read model can provide a single primary trend visualization while detailed analytics remain in dedicated sections.
 
 Secondary destinations are visible now to establish the navigation structure, but they remain placeholders until their data/read-model requirements are implemented in focused branches.
+
+Meal rows preserve domain truth: separate persisted MealEvents remain separate rows. The client localizes their known type/status labels, but it does not hide repeated records merely because they share a time or title.
 
 ## Family Home UX boundary
 
@@ -119,6 +124,8 @@ The browser remains subordinate to backend semantics:
 - commercial availability cannot override nutrition safety;
 - accepted options materialize through the recommendation-decision API.
 
+Repeated accepted recommendation smoke tests can therefore create multiple genuine planned MealEvents in a persistent development database. That is development-data lifecycle, not a reason for client-side deduplication. An explicit demo reset/cleanup path is the next focused development-data increment.
+
 ## Safety and correctness invariants
 
 Future work must preserve:
@@ -133,6 +140,7 @@ Future work must preserve:
 - planning bootstrap preserves Person/Family isolation and as-of composition semantics;
 - Family dashboard exposes persisted evidence without medical interpretation;
 - Person overview presents that evidence without inventing cross-domain meaning;
+- distinct persisted MealEvents are not hidden by presentation deduplication;
 - missing dashboard evidence remains `null` rather than zero or previous-day fallback;
 - web does not select state/composition versions independently or reproduce safety/ranking rules;
 - ineligible options cannot be materialized and rejected decisions cannot create meal state;
@@ -145,6 +153,7 @@ Future work must preserve:
 Known limitations:
 
 - recommendation decision request-level/concurrent idempotency is not yet guaranteed;
+- persistent demo databases can accumulate accepted recommendation MealEvents until an explicit reset path is added;
 - missing real DailyNutritionState is not automatically recalculated by bootstrap/dashboard;
 - Family selection remains a development context pending authentication/authorization;
 - Person detailed section read models are not yet implemented;
@@ -169,15 +178,16 @@ d9f2a7          DailyHealthState/DailyNutritionState
 
 ## Next planned increments
 
-After this branch is locally green, PR-tested, visually checked and merged:
+After this branch is revalidated, PR-tested, visually checked and merged:
 
-1. implement Family Meals `Hoje` and `Semana` before the recommendation subflow;
-2. add shared-meal drill-down with Person-specific portions;
-3. add dedicated Person Nutrition/Activity/Health/History read models/screens;
-4. add Person profile/goals/constraints/preferences screens;
-5. add pantry/shopping UI and durable shopping-list lifecycle;
-6. add authentication/authorization before real multi-user deployment;
-7. add committed npm lockfile and `npm ci` production hardening;
-8. continue provider/live freshness, basket/order and later learned-ranking work.
+1. add an explicit development-demo reset/cleanup path for accumulated recommendation smoke-test data;
+2. implement Family Meals `Hoje` and `Semana` before the recommendation subflow;
+3. add shared-meal drill-down with Person-specific portions;
+4. add dedicated Person Nutrition/Activity/Health/History read models/screens;
+5. add Person profile/goals/constraints/preferences screens;
+6. add pantry/shopping UI and durable shopping-list lifecycle;
+7. add authentication/authorization before real multi-user deployment;
+8. add committed npm lockfile and `npm ci` production hardening;
+9. continue provider/live freshness, basket/order and later learned-ranking work.
 
 Every increment follows ADR-007: focused branch, relevant code/tests/docs together, local validation with zero warnings, PR only after local green, CI on the exact head SHA, guarded squash merge, verify new `main`, then start the next branch.
