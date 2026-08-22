@@ -39,7 +39,7 @@ npm run build
 
 ## Family-first application shell
 
-The visible application now follows ADR-034 rather than opening directly on the recommendation form.
+The visible application follows ADR-034.
 
 Primary navigation:
 
@@ -76,17 +76,36 @@ It does not calculate a Family health score or replace missing evidence with zer
 
 The practical recommendation vertical slice remains fully reachable under `Refeições`.
 
-The shell supplies the active Family context, so the planner no longer asks for the Family UUID again. It still uses server planning bootstrap for current DailyNutritionState/composition evidence and the backend remains authoritative for safety, eligibility and ranking.
+The shell supplies the active Family context, so the planner does not ask for the Family UUID again. It still uses server planning bootstrap for current DailyNutritionState/composition evidence and the backend remains authoritative for safety, eligibility and ranking.
 
-### Pessoas, Casa and Mais
+### Pessoas
 
-`Pessoas` exposes the first member-selection surface; detailed Person overview is the next drill-down increment.
+`Pessoas` shows the Family member list. Selecting a member opens the first Person drill-down.
+
+The Person view has secondary navigation:
+
+```text
+Visão geral
+Nutrição
+Atividade
+Saúde
+Histórico
+Perfil
+```
+
+`Visão geral` is implemented and remains intentionally light. It presents current-day energy, activity, weight/trend, sleep and that Person's current-day meals from the Family dashboard read model. Missing evidence stays explicit.
+
+The other secondary destinations are visible placeholders for future focused slices; they do not fabricate analytics or derive unsupported data in the browser.
+
+See `docs/ux/person-overview.md`.
+
+### Casa and Mais
 
 `Casa` is an intentional placeholder for pantry/shopping.
 
 `Mais` currently contains language, appearance and development Family-context controls. Authentication and real Family authorization are still pending.
 
-See `docs/ux/family-home-shell.md`, `docs/ux/frontend-information-architecture.md` and ADR-034.
+See `docs/ux/family-home-shell.md`, `docs/ux/frontend-information-architecture.md`, `docs/ux/person-overview.md` and ADR-034.
 
 ## Dependency locking
 
