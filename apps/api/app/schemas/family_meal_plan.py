@@ -1,12 +1,10 @@
 import uuid
 from datetime import date, datetime, time
 from decimal import Decimal
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-MealType = Literal["breakfast", "lunch", "snack", "dinner"]
-MEAL_TYPES: tuple[MealType, ...] = ("breakfast", "lunch", "snack", "dinner")
+from app.schemas.meal_type import MEAL_TYPES, MealType
 
 
 class MealPlanParticipantWrite(BaseModel):
