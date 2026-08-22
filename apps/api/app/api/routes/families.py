@@ -8,11 +8,11 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.schemas.family import FamilyCreate, FamilyRead
 from app.schemas.family_dashboard import FamilyDashboardRead
-from app.schemas.family_meals import FamilyMealsRead
+from app.schemas.family_meals import FamilyMealDetailRead, FamilyMealsRead
 from app.schemas.person import PersonCreate, PersonRead
 from app.services.family import create_family, get_family
 from app.services.family_dashboard import build_family_dashboard
-from app.services.family_meals import build_family_meals
+from app.services.family_meals import build_family_meal_detail, build_family_meals
 from app.services.person import create_person, list_family_persons
 
 router = APIRouter(prefix="/families", tags=["families"])
@@ -66,6 +66,24 @@ def get_family_meals_endpoint(
         raise HTTPException(status_code=404, detail="Family not found")
 
     return build_family_meals(db, family, start_date=start_date, day_count=days)
+
+
+@router.get("/{family_id}/meals/{meal_event_id}", response_model=FamilyMealDetailRead)
+def get_family_meal_detail_endpoint(
+    family_id: uuid.UUID,
+    meal_event_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+) -> FamilyMealDetailRead:
+    family = get_family(db, family_id)
+
+    if family is None:
+        raise HTTPException(status_code=404, detail="Family not found")
+
+    detail = build_family_meal_detail(db, family, meal_event_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Meal not found")
+
+    return detail
 
 
 @router.post(
