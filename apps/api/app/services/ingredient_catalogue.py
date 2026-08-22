@@ -9,6 +9,8 @@ from app.models.food_catalog import (
     FoodCompositionSnapshot,
     FoodItem,
     FoodNutrientComponent,
+    Recipe,
+    RecipeIngredient,
 )
 from app.schemas.ingredient_catalogue import (
     IngredientCompositionRead,
@@ -18,6 +20,7 @@ from app.schemas.ingredient_catalogue import (
     IngredientRead,
     IngredientUpdate,
 )
+from app.services.recipe_nutrition import build_recipe_composition
 
 
 class IngredientCatalogueError(ValueError):
@@ -112,6 +115,30 @@ def _append_composition(
     )
     item.compositions.append(composition)
     return composition
+
+
+def _recalculate_recipes_using_ingredient(
+    db: Session,
+    family_id: uuid.UUID,
+    ingredient_id: uuid.UUID,
+) -> None:
+    recipes = db.scalars(
+        select(Recipe)
+        .join(RecipeIngredient)
+        .options(
+            selectinload(Recipe.ingredients)
+            .selectinload(RecipeIngredient.food_item)
+            .selectinload(FoodItem.compositions)
+            .selectinload(FoodCompositionSnapshot.nutrients),
+            selectinload(Recipe.compositions),
+        )
+        .where(
+            Recipe.family_id == family_id,
+            RecipeIngredient.food_item_id == ingredient_id,
+        )
+    ).unique()
+    for recipe in recipes:
+        build_recipe_composition(recipe)
 
 
 def list_family_ingredients(
@@ -232,6 +259,8 @@ def update_family_ingredient(
         item.is_active = data.is_active
     if "composition" in fields and data.composition is not None:
         _append_composition(item, data.composition)
+        db.flush()
+        _recalculate_recipes_using_ingredient(db, family_id, item.id)
     db.commit()
     return _ingredient_read(item)
 
