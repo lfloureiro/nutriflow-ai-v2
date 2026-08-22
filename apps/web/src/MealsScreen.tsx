@@ -5,6 +5,33 @@ import MealPlanner from "./MealPlanner";
 
 export type MealsView = "today" | "week" | "recommend";
 
+const COPY = {
+  "pt-PT": {
+    title: "Refeições",
+    help: "Hoje, semana e recomendações em ecrãs separados e leves.",
+    navigation: "Navegação de refeições",
+    today: "Hoje",
+    week: "Semana",
+    recommend: "Recomendar",
+    todayTitle: "Refeições de hoje",
+    weekTitle: "Plano semanal",
+    weekHelp:
+      "A vista semanal será ligada a uma leitura por intervalo do backend no próximo incremento, sem fazer sete pedidos separados no browser.",
+  },
+  en: {
+    title: "Meals",
+    help: "Today, week and recommendations in separate lightweight screens.",
+    navigation: "Meals navigation",
+    today: "Today",
+    week: "Week",
+    recommend: "Recommend",
+    todayTitle: "Today's meals",
+    weekTitle: "Weekly plan",
+    weekHelp:
+      "The weekly view will use a backend range read model in the next increment rather than issuing seven separate browser requests.",
+  },
+} as const;
+
 export function mealParticipantNames(
   dashboard: FamilyDashboard,
   participantIds: string[],
@@ -28,25 +55,26 @@ export default function MealsScreen({
   onViewChange: (view: MealsView) => void;
 }) {
   const { locale, t } = useI18n();
+  const copy = COPY[locale];
 
   return (
     <div className="meals-screen">
       <header className="screen-header compact-screen-header">
         <div>
           <span className="eyebrow">{t("nav.meals")}</span>
-          <h1>{t("meals.title")}</h1>
-          <p>{t("meals.help")}</p>
+          <h1>{copy.title}</h1>
+          <p>{copy.help}</p>
         </div>
       </header>
 
-      <nav className="meals-tabs" aria-label={t("meals.navigation")}>
+      <nav className="meals-tabs" aria-label={copy.navigation}>
         <button
           aria-current={view === "today" ? "page" : undefined}
           className={view === "today" ? "active" : ""}
           onClick={() => onViewChange("today")}
           type="button"
         >
-          {t("meals.today")}
+          {copy.today}
         </button>
         <button
           aria-current={view === "week" ? "page" : undefined}
@@ -54,7 +82,7 @@ export default function MealsScreen({
           onClick={() => onViewChange("week")}
           type="button"
         >
-          {t("meals.week")}
+          {copy.week}
         </button>
         <button
           aria-current={view === "recommend" ? "page" : undefined}
@@ -62,7 +90,7 @@ export default function MealsScreen({
           onClick={() => onViewChange("recommend")}
           type="button"
         >
-          {t("meals.recommend")}
+          {copy.recommend}
         </button>
       </nav>
 
@@ -70,11 +98,11 @@ export default function MealsScreen({
         <section className="meals-panel" aria-labelledby="meals-today-heading">
           <div className="meals-panel__heading">
             <div>
-              <h2 id="meals-today-heading">{t("meals.todayTitle")}</h2>
+              <h2 id="meals-today-heading">{copy.todayTitle}</h2>
               <p>{dashboard.dashboard_date}</p>
             </div>
             <button className="button primary" onClick={() => onViewChange("recommend")} type="button">
-              {t("meals.recommend")}
+              {copy.recommend}
             </button>
           </div>
 
@@ -102,7 +130,7 @@ export default function MealsScreen({
               <strong>{t("home.noMeals")}</strong>
               <span>{t("home.noMealsHelp")}</span>
               <button className="button secondary" onClick={() => onViewChange("recommend")} type="button">
-                {t("meals.recommend")}
+                {copy.recommend}
               </button>
             </div>
           )}
@@ -111,9 +139,9 @@ export default function MealsScreen({
 
       {view === "week" ? (
         <section className="meals-panel meals-week-placeholder" aria-labelledby="meals-week-heading">
-          <span className="eyebrow">{t("meals.week")}</span>
-          <h2 id="meals-week-heading">{t("meals.weekTitle")}</h2>
-          <p>{t("meals.weekHelp")}</p>
+          <span className="eyebrow">{copy.week}</span>
+          <h2 id="meals-week-heading">{copy.weekTitle}</h2>
+          <p>{copy.weekHelp}</p>
         </section>
       ) : null}
 
