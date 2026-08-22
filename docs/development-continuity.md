@@ -9,16 +9,15 @@ NutriFlow AI v2 is standalone. Do not introduce legacy repository/schema depende
 Core invariants:
 
 - Person belongs to Family;
-- shared meals use one MealEvent with person-specific MealParticipant and Serving rows;
+- shared meals use one MealEvent with Person-specific MealParticipant and Serving rows;
 - hard safety and mandatory nutrition rules are deterministic and cannot be bypassed by ranking/ML;
 - Food/Recipe composition is versioned and exact composition provenance is retained;
 - DailyHealthState/DailyNutritionState are derived and recalculable;
 - recommendation history/feedback are audit evidence, not authoritative meal-plan state;
 - practical/pantry/commercial state is separate from nutrition composition;
 - API namespace is `/api/...`, not `/api/v1`;
-- web is React + TypeScript + Vite, responsive, pt-PT/en and Light/Dark/System.
-
-Frontend product direction is now explicitly family-first and progressively disclosed: lightweight Family Home, Person drill-down and Meals as a parallel primary workflow. Detailed decision: ADR-034 and `docs/ux/frontend-information-architecture.md`.
+- web is React + TypeScript + Vite, responsive, pt-PT/en and Light/Dark/System;
+- frontend direction is Family-first with progressive disclosure, per ADR-034.
 
 ## Mandatory workflow
 
@@ -55,7 +54,7 @@ python -m pytest -q
 
 Schema-changing branches additionally run `alembic upgrade head` and `alembic current`.
 
-The API pytest fixture now clears application tables inside the test transaction before each test and rolls the outer transaction back afterwards. This keeps tests isolated even when the developer database contains the explicit demo seed or browser-smoke-test records, while restoring those committed development records after each test. Tests must not depend on the developer database being globally empty.
+The API pytest fixture clears application tables inside the test transaction and rolls the outer transaction back afterwards, so committed demo/browser data cannot contaminate tests.
 
 Web:
 
@@ -70,18 +69,85 @@ Web CI pins npm 11.12.1. A committed lockfile and `npm ci` are still required be
 
 ## Last integrated checkpoint
 
-PR #28 added the explicit idempotent development demo dataset and was locally green, API/Web CI-green on the exact head, browser-smoke-tested and squash-merged.
+PR #29 defined the Family-first information architecture and added the Family dashboard read model. It was locally green, API/Web CI-green on the exact head and squash-merged.
 
 Exact integrated baseline:
 
 ```text
-main SHA:        6d232fd6217fca7853ddefce0273f832ce7488cc
+main SHA:        3c8b349e5b43a7685dde9a616ca4e5b22e58cef5
 schema head:     a7c4e9f2b6d1
-API tests:       103
-Web tests:       10
+API tests:       106
+Web tests:       11
 ```
 
-The local demo seed remains explicit:
+Integrated Family Home read model:
+
+```text
+GET /api/families/{family_id}/dashboard?on_date=YYYY-MM-DD
+```
+
+It returns current-day Family members, persisted DailyHealthState/DailyNutritionState evidence and active Family MealEvents without inventing health scores or filling missing evidence.
+
+## Current feature branch
+
+```text
+feature/web-app-shell-family-home
+```
+
+Merge base:
+
+```text
+3c8b349e5b43a7685dde9a616ca4e5b22e58cef5
+```
+
+No schema change.
+
+Current scope:
+
+- replace the developer recommendation screen as the application entry point;
+- implement the primary shell from ADR-034;
+- desktop: compact left navigation;
+- mobile: bottom navigation;
+- destinations: Início, Refeições, Pessoas, Casa, Mais;
+- render a lightweight Family Home against the Family dashboard endpoint;
+- show compact Person cards with current nutrition/activity/weight/sleep evidence when available;
+- show missing evidence explicitly rather than as zero;
+- show today's active Family meals in one agenda;
+- keep one prominent `Planear refeição` action;
+- move the existing practical recommendation flow under `Refeições` and reuse the active Family context instead of asking for the Family UUID again;
+- expose the first lightweight `Pessoas` list/selection state without implementing detailed Person analytics yet;
+- keep `Casa` as an intentional placeholder for pantry/shopping;
+- move language, appearance and development Family-context controls under `Mais`;
+- preserve the existing backend authority boundary for planning state, composition versions, safety, eligibility and ranking;
+- correct CSS load order so the bootstrap candidate-row overrides follow the base stylesheet.
+
+Development Family context:
+
+- authentication/authorization is still not implemented;
+- a successfully loaded Family ID is stored in local storage;
+- Vite development defaults to the fixed explicit demo Family ID only when no stored Family exists;
+- production builds do not receive that demo default;
+- the UI never seeds data automatically.
+
+Expected validation baseline:
+
+```text
+API: Alembic metadata clean, Ruff clean, 106 pytest tests
+Web: 14 Vitest tests, strict TypeScript check, production Vite build
+```
+
+Authoritative current-branch docs:
+
+- `docs/ux/family-home-shell.md`;
+- `docs/ux/frontend-information-architecture.md`;
+- `docs/domain/family-dashboard-read-model.md`;
+- `docs/decisions/ADR-034-family-first-progressive-disclosure-web-navigation.md`.
+
+Do not open a PR until the exact branch head receives explicit local green confirmation for both API and Web gates.
+
+## Demo execution
+
+The demo seed remains explicit and idempotent:
 
 ```powershell
 cd D:\Python\nutriflow-ai-v2\apps\api
@@ -94,105 +160,26 @@ Fixed demo Family ID:
 11111111-1111-4111-8111-111111111111
 ```
 
-## Current feature branch
+The shell may prefill/use this ID in Vite development, but it never creates the Family itself.
+
+## Frontend navigation now being implemented
 
 ```text
-feature/web-family-home-architecture
-```
-
-Merge base:
-
-```text
-6d232fd6217fca7853ddefce0273f832ce7488cc
-```
-
-No schema change.
-
-Current scope:
-
-- establish the long-term web information architecture before expanding visual screens;
-- prefer focused screens and drill-down over dense all-in-one dashboards;
-- define primary navigation as Início, Refeições, Pessoas, Casa and Mais;
-- define Family Home as the initial orientation screen;
-- keep Meals as a parallel primary family workflow rather than making the meal planner the Home;
-- define Person drill-down for overview, nutrition, activity, health, history and profile;
-- add `GET /api/families/{family_id}/dashboard?on_date=...` as a compact server-authoritative Home read model;
-- expose latest current-day DailyHealthState/DailyNutritionState per Family member without filling missing evidence;
-- expose current local-day active MealEvents with participants;
-- exclude cancelled/replaced meals from the normal Home agenda;
-- add typed web contracts/client support for the Family dashboard endpoint;
-- harden API-test isolation so committed demo/smoke-test data cannot leak into tests that require a clean transactional view;
-- do not yet replace the existing recommendation screen with the new visual shell in this branch.
-
-Expected validation baseline:
-
-```text
-API: Alembic metadata clean, Ruff clean, 106 pytest tests
-Web: 11 Vitest tests, strict TypeScript check, production Vite build
-```
-
-Authoritative current-branch docs:
-
-- `docs/ux/frontend-information-architecture.md`;
-- `docs/domain/family-dashboard-read-model.md`;
-- `docs/decisions/ADR-034-family-first-progressive-disclosure-web-navigation.md`;
-- `docs/domain/implementation-status.md`.
-
-Do not open a PR until the exact branch head receives explicit local green confirmation for both API and Web gates.
-
-## Family Home API semantics
-
-Endpoint:
-
-```text
-GET /api/families/{family_id}/dashboard?on_date=YYYY-MM-DD
-```
-
-When `on_date` is omitted, the server resolves today using the persisted Family timezone.
-
-The endpoint returns:
-
-- Family identity/name/timezone;
-- dashboard local date;
-- every Family member;
-- latest DailyHealthState for that exact date, or `null`;
-- latest DailyNutritionState for that exact date, or `null`;
-- active current-day family meals and participant Person IDs.
-
-It does not calculate an aggregate family health score or medical interpretation. Missing evidence remains missing.
-
-## Frontend information architecture
-
-Primary destinations:
-
-```text
-Início      family overview today
-Refeições   today/week/recommendation/shared-meal drill-down
-Pessoas     Person selection and individual drill-down
+Início      Family overview for today
+Refeições   practical recommendation flow; later today/week/shared meal detail
+Pessoas     Family member selection; later Person overview/drill-down
 Casa        pantry and later shopping
-Mais        settings/integrations/family administration
+Mais        language, appearance, integrations/admin later
 ```
 
-Person drill-down:
+Density rules remain:
 
-```text
-Visão geral
-Nutrição
-Atividade
-Saúde
-Histórico
-Perfil -> objetivos / restrições / preferências / integrações
-```
-
-Density rules:
-
-- Family Home: compact member cards + today's meals + at most one prominent next action;
-- Home normally has zero or one small chart;
-- Person overview normally has at most one primary chart;
-- more analytics belong on dedicated screens;
-- desktop uses compact side navigation;
-- mobile uses compact bottom navigation;
-- missing evidence is unavailable/unknown, not zero.
+- one screen answers one primary question;
+- Home has compact member cards and meal agenda, no analytics grid;
+- no aggregate health score;
+- Person overview will have at most one primary chart;
+- detailed analytics belong on dedicated screens;
+- missing evidence is unknown/unavailable, never zero.
 
 ## Safety and correctness invariants
 
@@ -207,22 +194,23 @@ Preserve:
 - planning bootstrap preserves Family isolation and as-of version selection;
 - Family dashboard returns persisted evidence without medical interpretation or invented health scores;
 - missing dashboard evidence remains `null`, not zero;
-- missing practical evidence remains unknown rather than unavailable;
 - commercial price/availability cannot override nutrition safety;
 - web does not reimplement backend safety/ranking;
 - ineligible options cannot be materialized and rejection cannot create meal state;
-- DailyNutritionState remains derived from authoritative meal history outside explicit synthetic development fixtures;
-- shared meals keep person-specific portions/safety checks;
+- shared meals keep Person-specific portions/safety checks;
 - demo data remains explicit, isolated, identifiable and never auto-seeded;
 - warnings remain failures rather than suppressions.
 
 Known limitations:
 
-- Family UUID remains a development entrypoint because authentication/authorization is not implemented;
-- bootstrap does not create a missing real DailyNutritionState;
-- Family dashboard is a read model only and does not refresh missing derived states;
+- Family UUID is development context, not authorization;
+- Person detail is not yet implemented;
+- `Casa` is not yet functional;
+- no URL/deep-link router yet;
+- missing real DailyNutritionState is not automatically recalculated by bootstrap/dashboard;
 - recommendation decision request-level/concurrent idempotency is not yet guaranteed;
-- npm lockfile / `npm ci` hardening is still pending.
+- npm lockfile / `npm ci` hardening is still pending;
+- recommendation `datetime-local` still uses the browser timezone rather than a Person-local wall-time control.
 
 ## Migration tail
 
@@ -240,16 +228,16 @@ Never guess the next migration revision; inspect the actual migration directory 
 
 After this branch is locally green, PR-tested and merged:
 
-1. build the application shell and responsive primary navigation using the new information architecture;
-2. implement the Family Home visually against the dashboard endpoint;
-3. enrich the development demo data with representative health/activity and multiple Family members as needed for UI validation;
-4. build Person overview and drill-down navigation;
-5. move the existing recommendation UI under Refeições and add today/week family meal views;
-6. add meal drill-down with shared meal and Person-specific portions;
-7. add dedicated Nutrition/Activity/Health/History screens;
-8. add profile/goals/constraints/preferences screens;
-9. add authentication and explicit Family/Person authorization before real multi-user deployment;
-10. harden npm dependency locking and then continue pantry/shopping/provider workflows.
+1. enrich the development demo dataset with representative health/activity evidence and additional Family members for visual validation;
+2. implement the Person overview and its secondary navigation;
+3. implement Family meals Today/Week before the recommendation subflow;
+4. add shared-meal drill-down with Person-specific portions;
+5. add dedicated Nutrition/Activity/Health/History screens;
+6. add profile/goals/constraints/preferences screens;
+7. add pantry/shopping UI and durable shopping-list lifecycle;
+8. add authentication and explicit Family/Person authorization before real multi-user deployment;
+9. commit npm lockfile and switch CI to `npm ci` before production;
+10. continue provider/live/basket/order and later learned-ranking work.
 
 ## Resume procedure
 
