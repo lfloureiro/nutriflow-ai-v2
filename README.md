@@ -100,6 +100,7 @@ The current backend foundation includes:
 - restaurant/delivery/store opening windows plus provider-observed commercial offers with price, currency, delivery-fee, minimum-order and validity metadata;
 - first persisted person-scoped recommendation API using explicit DailyNutritionState and versioned composition snapshot IDs;
 - recommendation decision API for accepted/rejected/modified persisted options, with accepted/modified decisions materialized through the standard MealEvent/MealParticipant/Serving model;
+- practical recommendation orchestration API combining Person schedule, home/pantry availability, pantry stock and commercial opening/offer evidence with any-source semantics;
 - PostgreSQL persistence with Alembic migrations;
 - pytest coverage with warnings treated as errors;
 - Ruff static validation.

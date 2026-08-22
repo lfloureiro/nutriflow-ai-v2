@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 
 from sqlalchemy.orm import Session, selectinload
 
@@ -249,54 +250,54 @@ def _option_response(
     return responses
 
 
-def create_meal_recommendation(
+def load_recommendation_inputs(
     session: Session,
     *,
     person_id: uuid.UUID,
-    data: MealRecommendationCreate,
-) -> MealRecommendationRunRead:
+    daily_nutrition_state_id: uuid.UUID,
+    planning_date: date,
+    candidates: list[MealRecommendationCandidateInput],
+) -> tuple[Person, DailyNutritionState, list[MealCandidate]]:
     person = _load_person(session, person_id)
     state = _load_daily_state(
         session,
         person=person,
-        state_id=data.daily_nutrition_state_id,
+        state_id=daily_nutrition_state_id,
     )
-    if state.state_date != data.planning_date:
+    if state.state_date != planning_date:
         raise MealRecommendationApiError(
             "planning_date must match the selected DailyNutritionState state_date."
         )
-
-    candidates = _load_candidates(
+    loaded_candidates = _load_candidates(
         session,
         family_id=person.family_id,
-        inputs=data.candidates,
+        inputs=candidates,
     )
-    recommendation = recommend_meals(
-        daily_state=state,
-        candidates=candidates,
-        preferences=list(person.food_preferences),
-        adverse_reactions=list(person.food_adverse_reactions),
-        constraints=list(person.nutrition_constraints),
-        planning_date=data.planning_date,
-    )
+    return person, state, loaded_candidates
 
+
+def persist_recommendation_response(
+    session: Session,
+    *,
+    person: Person,
+    state: DailyNutritionState,
+    recommendation: RecommendationResult,
+    planning_date: date,
+    meal_type: str | None,
+    context: dict[str, object] | None,
+) -> MealRecommendationRunRead:
     run = persist_recommendation_run(
         session,
         person=person,
         daily_state=state,
         recommendation=recommendation,
-        planning_date=data.planning_date,
-        meal_type=data.meal_type,
-        context={
-            "entrypoint": "api",
-            "candidate_composition_ids": [
-                str(candidate.composition_id) for candidate in data.candidates
-            ],
-        },
+        planning_date=planning_date,
+        meal_type=meal_type,
+        context=context,
     )
     session.flush()
 
-    if run.id is None:
+    if run.id is None or person.id is None or state.id is None:
         raise MealRecommendationApiError("Recommendation run was not persisted.")
     option_ids: list[uuid.UUID] = []
     for option in run.options:
@@ -308,10 +309,48 @@ def create_meal_recommendation(
         id=run.id,
         person_id=person.id,
         daily_nutrition_state_id=state.id,
-        planning_date=data.planning_date,
-        meal_type=data.meal_type,
+        planning_date=planning_date,
+        meal_type=meal_type,
         engine_version=recommendation.engine_version,
         options=_option_response(recommendation, option_ids),
     )
     session.commit()
     return response
+
+
+def create_meal_recommendation(
+    session: Session,
+    *,
+    person_id: uuid.UUID,
+    data: MealRecommendationCreate,
+) -> MealRecommendationRunRead:
+    person, state, candidates = load_recommendation_inputs(
+        session,
+        person_id=person_id,
+        daily_nutrition_state_id=data.daily_nutrition_state_id,
+        planning_date=data.planning_date,
+        candidates=data.candidates,
+    )
+    recommendation = recommend_meals(
+        daily_state=state,
+        candidates=candidates,
+        preferences=list(person.food_preferences),
+        adverse_reactions=list(person.food_adverse_reactions),
+        constraints=list(person.nutrition_constraints),
+        planning_date=data.planning_date,
+    )
+
+    return persist_recommendation_response(
+        session,
+        person=person,
+        state=state,
+        recommendation=recommendation,
+        planning_date=data.planning_date,
+        meal_type=data.meal_type,
+        context={
+            "entrypoint": "api",
+            "candidate_composition_ids": [
+                str(candidate.composition_id) for candidate in data.candidates
+            ],
+        },
+    )
