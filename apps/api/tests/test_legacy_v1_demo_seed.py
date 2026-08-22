@@ -13,6 +13,9 @@ from app.legacy_v1_demo_seed import (
 )
 from app.models.family import Family
 from app.models.food_catalog import FoodItem, Recipe
+from app.schemas.meal_recommendation import MealRecommendationCandidateInput
+from app.services.meal_recommendation import recommend_meals
+from app.services.meal_recommendation_api import load_recommendation_inputs
 from app.services.planning_bootstrap_api import get_planning_bootstrap
 from app.services.recipe_catalogue import list_family_recipes
 
@@ -22,7 +25,7 @@ NOW = datetime(2026, 8, 22, 18, 30, tzinfo=UTC)
 def test_legacy_v1_demo_catalog_is_idempotent_and_recommendation_ready(
     db_session: Session,
 ) -> None:
-    seed_demo_dataset(db_session, now=NOW)
+    demo = seed_demo_dataset(db_session, now=NOW)
     db_session.flush()
     family = db_session.get(Family, DEMO_FAMILY_ID)
     assert family is not None
@@ -104,3 +107,30 @@ def test_legacy_v1_demo_catalog_is_idempotent_and_recommendation_ready(
         candidate.energy_kcal is not None and candidate.energy_kcal > 0
         for candidate in legacy_candidates
     )
+
+    candidate_inputs = [
+        MealRecommendationCandidateInput(
+            candidate_kind=candidate.candidate_kind,
+            composition_id=candidate.composition_id,
+            quantity=candidate.reference_quantity,
+            quantity_unit=candidate.reference_unit,
+        )
+        for candidate in legacy_candidates
+    ]
+    person, state, meal_candidates = load_recommendation_inputs(
+        db_session,
+        person_id=DEMO_PERSON_ID,
+        daily_nutrition_state_id=demo.daily_nutrition_state_id,
+        planning_date=demo.planning_date,
+        candidates=candidate_inputs,
+    )
+    recommendation = recommend_meals(
+        daily_state=state,
+        candidates=meal_candidates,
+        preferences=list(person.food_preferences),
+        adverse_reactions=list(person.food_adverse_reactions),
+        constraints=list(person.nutrition_constraints),
+        planning_date=demo.planning_date,
+    )
+    assert len(recommendation.eligible) == 5
+    assert all(evaluation.candidate.quantity == Decimal(1) for evaluation in recommendation.eligible)
