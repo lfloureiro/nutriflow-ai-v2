@@ -1,54 +1,63 @@
 # NutriFlow AI v2 development continuity
 
-This document is the handover entry point for resuming NutriFlow AI v2 development in a later session. It records the current repository checkpoint, mandatory workflow, safety invariants and next planned steps so development can continue from the repository without relying on conversation history.
-
-When details differ, repository state, code, migrations, tests, the relevant domain/UX document and ADR are authoritative.
+This document is the handover entry point for resuming NutriFlow AI v2 development. Repository state, migrations, tests, domain/UX docs and ADRs are authoritative when they differ from conversation history.
 
 ## Product and architecture baseline
 
 NutriFlow AI v2 is standalone. Do not introduce legacy repository/schema dependencies or compatibility layers unless a future explicit decision changes that direction.
 
-Core architecture:
+Core baseline:
 
 - Person belongs to Family;
 - shared meals use one MealEvent with person-specific MealParticipant and Serving rows;
 - safety and mandatory nutrition rules are deterministic and cannot be bypassed by learned ranking;
-- food/recipe composition is versioned for reproducible Serving and recommendation calculations;
+- Food/Recipe composition is versioned for reproducible Serving/recommendation calculations;
 - DailyHealthState/DailyNutritionState are derived and recalculable;
-- recommendation history/feedback are audit evidence rather than authoritative meal-plan state;
+- recommendation history/feedback are audit evidence, not authoritative meal-plan state;
 - practical, pantry and commercial source data are operational state separate from nutrition composition;
 - API namespace is `/api/...`, not `/api/v1`;
-- initial web target is React + TypeScript;
-- multilingual, responsive web/mobile and Light/Dark/System appearance remain product requirements.
+- web target is React + TypeScript + Vite;
+- multilingual, responsive desktop/tablet/mobile and Light/Dark/System appearance remain product requirements.
 
 ## Mandatory workflow
 
 Authoritative decision: `docs/decisions/ADR-007-development-workflow-and-ci.md`.
 
-Use this sequence for every non-trivial increment:
+For every non-trivial increment:
 
 1. verify the exact current `main` SHA;
-2. create one focused branch from that SHA;
+2. create one focused branch from that exact SHA;
 3. implement code, migration when needed, tests and relevant documentation together;
-4. run the relevant local validation gates for every affected application/package;
-5. require all relevant migration/static-analysis/test/build gates to pass with zero warnings;
+4. run every local validation gate for each affected application/package;
+5. require zero-warning migration/static-analysis/test/build results;
 6. open a PR only after explicit local green confirmation;
 7. verify every relevant GitHub Actions workflow on the exact PR head SHA;
-8. confirm PR mergeability and unchanged head SHA;
+8. confirm the PR remains mergeable and its head SHA is unchanged;
 9. squash-merge guarded by the tested head SHA;
-10. verify the merged PR and resulting exact `main` SHA;
-11. only then create the next branch;
-12. refresh this continuity checkpoint on that next branch.
+10. verify `merged=true` and the resulting exact `main` SHA;
+11. only then create the next branch and refresh this file.
 
-Never commit feature work directly to `main`. Never merge an untested head. CI for an earlier SHA does not validate a later SHA. Documentation is part of the Definition of Done.
+Never develop directly on `main`, merge an untested head, or treat CI from an earlier SHA as validation of a later SHA.
 
-## Local validation commands
+## Local validation
 
 ### API/backend
 
-For a schema-changing branch, from repository root:
+No schema change:
 
 ```powershell
+cd D:\Python\nutriflow-ai-v2
+python -m alembic check
+
+cd apps\api
+python -m ruff check .
+python -m pytest -q
+```
+
+Schema-changing branch:
+
+```powershell
+cd D:\Python\nutriflow-ai-v2
 python -m alembic upgrade head
 python -m alembic current
 python -m alembic check
@@ -58,83 +67,68 @@ python -m ruff check .
 python -m pytest -q
 ```
 
-For a branch without schema changes, `alembic upgrade head/current` are optional, but `alembic check`, Ruff and the complete pytest suite remain required when the branch can affect the integrated product or CI configuration.
-
-Current backend baseline:
-
-- Python >= 3.13;
-- FastAPI;
-- SQLAlchemy 2.x;
-- Alembic;
-- PostgreSQL;
-- psycopg 3.x;
-- pytest warnings treated as errors;
-- Ruff target `py313`, line length 100.
+Backend baseline: Python >=3.13, FastAPI, SQLAlchemy 2.x, Alembic, PostgreSQL, psycopg 3.x, pytest warnings as errors, Ruff target `py313`.
 
 ### Web
 
-For a branch affecting `apps/web`, web contracts or Web CI:
+For branches affecting `apps/web`, web contracts or Web CI:
 
 ```powershell
-cd apps\web
+cd D:\Python\nutriflow-ai-v2\apps\web
 npm install --no-package-lock --ignore-scripts
 npm run test
 npm run build
 ```
 
-`npm run build` includes the strict TypeScript check before the Vite production build.
-
-Current web baseline on the active feature branch:
-
-- Node.js >= 22;
-- React 19;
-- TypeScript strict mode;
-- Vite;
-- Vitest;
-- CSS design tokens and responsive layouts;
-- Portuguese/English authored UI strings;
-- Light/Dark/System appearance support.
-
-The current bootstrap pins direct npm dependency versions but intentionally has no committed lockfile yet. This is temporary development debt documented in ADR-030. A committed lockfile and `npm ci` are required before production deployment.
+`npm run build` includes strict TypeScript checking. Web CI pins npm 11.12.1 because the GitHub runner npm 10.9.8 install path failed during PR #25 validation. No npm lockfile is committed yet; production hardening must add one and move CI to `npm ci`.
 
 ## Last integrated checkpoint
 
-PR #24 integrated the practical recommendation orchestration API.
+PR #25 integrated the first real responsive web recommendation vertical slice.
 
 Exact integrated baseline:
 
 ```text
-main SHA:        55a2842b1dcd68541d3dccb73b8580daadf1a4c9
-schema head:     a7c4e9f2b6d1
+main SHA:          a18b61f0d6512c3a91f99d8f34e2e2c3e3fb2808
+schema head:       a7c4e9f2b6d1
 API test baseline: 94 tests
+Web test baseline: 7 tests
 ```
 
-PR #24 was locally validated, passed API CI on the exact tested head and was squash-merged.
+PR #25 was locally validated, then CI exposed an npm 10.9.8 runner install failure. Web CI was pinned to npm 11.12.1, and both API CI and Web CI passed on exact head `0220d45564c017853ef38c2c277f0854d74ce0fa` before guarded squash merge.
 
-Integrated recommendation flow now includes:
+Integrated end-to-end flow:
 
 ```text
-POST /api/persons/{person_id}/meal-recommendations
+GET  /api/families/{family_id}/persons
 POST /api/persons/{person_id}/meal-recommendations/practical
 POST /api/recommendation-options/{option_id}/decision
 ```
 
-The practical endpoint loads Person schedule and operational evidence server-side, combines home/pantry/commercial sources with any-source semantics, preserves unknown-vs-unavailable distinction, enforces local planning-date alignment and persists the resulting recommendation run/options. The decision endpoint can then accept/modify/reject eligible persisted options and materialize accepted/modified options through normal meal state.
+The web app can select a Person, submit practical context, display eligible/excluded recommendations plus commercial offers, and accept/reject persisted options. It is responsive, pt-PT/en, Light/Dark/System, and backed by separate Web CI.
 
-Detailed semantics: `docs/domain/planning-api-vertical-slice.md`, ADR-027, `docs/domain/recommendation-decision-api.md`, ADR-028, `docs/domain/practical-recommendation-orchestration-api.md`, ADR-029.
+Current integrated UI limitation: it still exposes DailyNutritionState and composition UUID inputs because no server-authoritative planning bootstrap was available at PR #25 merge time.
+
+Detailed references:
+
+- `docs/ux/web-recommendation-vertical-slice.md`;
+- ADR-030;
+- `apps/web/README.md`;
+- `docs/domain/practical-recommendation-orchestration-api.md`;
+- ADR-029.
 
 ## Current feature branch
 
 Current branch:
 
 ```text
-feature/web-recommendation-vertical-slice
+feature/web-planning-bootstrap-api
 ```
 
 Merge base:
 
 ```text
-55a2842b1dcd68541d3dccb73b8580daadf1a4c9
+a18b61f0d6512c3a91f99d8f34e2e2c3e3fb2808
 ```
 
 Schema head remains:
@@ -143,65 +137,45 @@ Schema head remains:
 a7c4e9f2b6d1
 ```
 
-This branch has no database migration and must not change backend recommendation safety semantics.
+No database migration is required.
 
-Expected complete validation baseline:
+Expected complete validation baseline after this branch:
 
 ```text
-API: Alembic metadata clean, Ruff clean, 94 pytest tests
-Web: 7 Vitest tests, strict TypeScript check, production Vite build
+API: Alembic metadata clean, Ruff clean, 100 pytest tests
+Web: unchanged integrated 7 Vitest tests
 ```
 
-No PR should be opened until this exact branch head receives explicit local green confirmation for all of those relevant gates.
+No PR may be opened until this exact branch receives explicit local green confirmation for the API gates.
 
 ### Current branch scope
 
-This branch creates the first real web application under `apps/web`.
+This branch adds the read-only planning bootstrap boundary required to remove technical state/composition IDs from the normal web flow:
 
-Implemented on the branch:
+```text
+GET /api/persons/{person_id}/planning-bootstrap?scheduled_at=<timezone-aware instant>
+```
 
-- React + TypeScript + Vite bootstrap;
-- strict TypeScript configuration;
-- typed API boundary isolated under `src/api/`;
-- local Vite `/api` proxy to FastAPI at `127.0.0.1:8000`;
-- Family UUID -> Person loading through `GET /api/families/{family_id}/persons`;
-- selected Person context and timezone display;
-- explicit DailyNutritionState UUID input because no safe current-state discovery API exists yet;
-- explicit Food/Recipe composition snapshot IDs and quantities because no catalogue/composition browse API exists yet;
-- practical meal form with planning date/time, meal type, location, available minutes, kitchen state and practical source kinds;
-- real practical recommendation request through `POST /api/persons/{person_id}/meal-recommendations/practical`;
-- server-authoritative eligible/excluded options rendered without client-side re-ranking or safety logic;
-- compact nutrition, server explanations/exclusion reason codes and active commercial offers;
-- Accept/Reject actions over eligible persisted options via the recommendation decision API;
-- accepted decision response reports resulting MealEvent/Serving materialization;
-- Portuguese (`pt-PT`) and English authored strings behind translation keys;
-- document `lang` follows the active locale;
-- Light, Dark and System modes stored as browser presentation preference only;
-- responsive desktop/tablet/mobile layout with visible keyboard focus and semantic form/status/error structure;
-- seven Vitest unit tests: three API URL tests, two planning-helper tests and two i18n tests;
-- separate `.github/workflows/web-ci.yml` running web tests and strict production build;
-- `apps/web/README.md`, ADR-030 and UX documentation.
+Implemented:
 
-This is intentionally an integration/development UI rather than final onboarding. The server still requires explicit persisted DailyNutritionState and composition evidence, so UUID entry remains visible. The web must not guess those values.
+- timezone-aware `scheduled_at` is mandatory;
+- planning date is derived in the persisted Person timezone;
+- latest persisted DailyNutritionState for that local date is selected deterministically;
+- missing DailyNutritionState is returned as `null`, never invented by the browser;
+- active global and same-Family FoodItem/Recipe objects are discoverable;
+- other-Family and inactive catalogue objects are excluded;
+- Food composition selection requires `effective_at <= scheduled_at` and returns the latest eligible snapshot;
+- Recipe composition selection requires `computed_at <= scheduled_at` and returns the latest eligible snapshot;
+- future composition evidence is not exposed as current planning evidence;
+- response includes persisted composition IDs plus display/reference metadata needed by the UI;
+- recommendation trust boundaries remain unchanged: the browser still references persisted evidence rather than submitting nutrition totals;
+- six API tests cover local date/latest state, Family isolation/catalogue scope, Food/Recipe as-of selection, missing-state semantics and naive-time rejection.
 
 Authoritative current-branch docs:
 
-- `docs/ux/web-recommendation-vertical-slice.md`;
-- `docs/decisions/ADR-030-react-vite-web-foundation.md`;
-- `apps/web/README.md`;
+- `docs/domain/web-planning-bootstrap-api.md`;
+- `docs/decisions/ADR-031-web-planning-bootstrap-discovers-persisted-state-and-composition.md`;
 - `docs/domain/implementation-status.md`.
-
-### Current web dependency policy
-
-Direct package versions are pinned. No npm lockfile is committed in this bootstrap branch.
-
-Local and CI install with:
-
-```text
-npm install --no-package-lock --ignore-scripts
-```
-
-This avoids mutating the branch during the first toolchain-validation increment but is not the desired production state. Before deployment, add a committed lockfile in a focused hardening increment and change Web CI to `npm ci`.
 
 ## Current migration tail
 
@@ -213,108 +187,76 @@ d4f8a1b2c6e9  MealEvent Family-scoped idempotency
 c3e7f9a1b5d2  recommendation run/option/feedback
 ```
 
-Earlier revisions remain authoritative in `database/migrations/versions/` and are summarized in `docs/domain/implementation-status.md`.
-
-Never guess the next revision. Inspect the migration directory and actual Alembic heads/current state before adding another migration.
+Earlier revisions remain authoritative in `database/migrations/versions/`. Never guess a new revision; inspect actual heads/current state before adding migrations.
 
 ## Safety and correctness invariants
 
-Preserve these across all future work:
+Preserve these across future work:
 
 - mandatory adverse reactions and mandatory constraints run before ranking;
 - learned/ML ranking can reorder eligible candidates only;
 - missing candidate nutrient data cannot be interpreted as zero for a mandatory maximum;
-- unsupported mandatory semantics fail explicitly;
-- unsafe required unit conversions fail closed;
-- no inferred density for mass/volume conversion;
-- Serving nutrition keeps explicit versioned composition provenance;
-- recommendation API inputs reference explicit persisted state/composition evidence rather than client-authored nutrition totals;
-- practical source alternatives use any-source semantics;
-- missing practical source evidence remains distinct from explicit unavailability;
+- unsupported mandatory semantics and unsafe required conversions fail closed;
+- no inferred density;
+- Serving/recommendation decisions preserve exact versioned composition provenance;
+- recommendation and bootstrap APIs reference persisted evidence rather than client-authored nutrition totals;
+- planning bootstrap preserves Family isolation, excludes inactive catalogue objects and never uses future composition evidence for an earlier instant;
+- practical source alternatives use any-source semantics and preserve unknown vs explicit unavailability;
 - a practical scheduled instant cannot silently use nutrition state from another local day;
-- pantry quantity/yield evaluation fails explicitly when it cannot be performed safely;
-- commercial offer/price evidence cannot override safety eligibility;
-- web presentation must not reproduce, weaken or override backend eligibility/safety logic;
-- web candidate/state selection must eventually be server-authoritative rather than guessed from timestamps or catalogue state;
-- ineligible recommendation options cannot be materialized through decision APIs;
-- rejected recommendation decisions cannot create meal state;
-- historical recommendation/feedback evidence remains append-only;
-- DailyNutritionState derives from authoritative meal history;
-- Family-scoped catalogue/operational data cannot leak across Families;
+- commercial price/availability cannot override safety eligibility;
+- web presentation must not reproduce or weaken backend eligibility/safety logic;
+- ineligible recommendation options cannot be materialized;
+- rejected decisions cannot create meal state;
+- DailyNutritionState remains derived from authoritative meal history;
 - shared meals retain person-specific portions and safety evaluation;
-- retries and plan replacement preserve idempotency and immutable history where the domain explicitly supports it;
-- warnings are treated as failures rather than casually suppressed.
+- retries/replacements remain idempotent only where explicitly supported;
+- warnings are treated as failures, not suppressed casually.
 
-Current decision API limitation: request-level idempotency and concurrent duplicate suppression are not implemented. Do not infer retry safety from MealEvent idempotency infrastructure elsewhere in the domain.
-
-A separate future decision may be needed if a mandatory nutrient maximum applies but historical DailyNutritionState does not contain enough consumed/planned data for that nutrient. Do not silently treat missing historical state as complete evidence.
+Known follow-up: bootstrap intentionally returns `daily_nutrition_state=null` when the local date has no persisted state. Automatic refresh and NutritionTarget selection remain a separate policy increment.
 
 ## Implemented capability map
 
-Use `docs/domain/implementation-status.md` as the compact status map. Detailed domain documents include:
+Use `docs/domain/implementation-status.md` as the compact status map. Key current references include:
 
-- `docs/domain/core-domain-model.md`;
-- `docs/domain/schedule-model.md`;
-- `docs/domain/nutrition-target-model.md`;
-- `docs/domain/health-connection-model.md`;
-- `docs/domain/health-measurement-model.md`;
-- `docs/domain/daily-state-model.md`;
-- `docs/domain/daily-nutrition-recalculation.md`;
-- `docs/domain/meal-model.md`;
-- `docs/domain/food-catalog-model.md`;
-- `docs/domain/serving-nutrition-calculation.md`;
 - `docs/domain/adaptive-meal-recommendation.md`;
 - `docs/domain/recommendation-feedback-model.md`;
 - `docs/domain/recommendation-to-meal-plan.md`;
 - `docs/domain/recommendation-practical-context.md`;
-- `docs/domain/shared-family-meal-optimization.md`;
-- `docs/domain/shared-family-meal-materialization.md`;
-- `docs/domain/meal-replacement-idempotency.md`;
 - `docs/domain/persisted-practical-availability.md`;
 - `docs/domain/pantry-stock-shopping-requirements.md`;
 - `docs/domain/restaurant-delivery-commercial-context.md`;
 - `docs/domain/planning-api-vertical-slice.md`;
 - `docs/domain/recommendation-decision-api.md`;
-- `docs/domain/practical-recommendation-orchestration-api.md`.
-
-Web/UX foundation:
-
-- `docs/ux/web-recommendation-vertical-slice.md`;
-- ADR-030;
-- `apps/web/README.md`.
+- `docs/domain/practical-recommendation-orchestration-api.md`;
+- `docs/domain/web-planning-bootstrap-api.md`;
+- `docs/ux/web-recommendation-vertical-slice.md`.
 
 Durable decisions are under `docs/decisions/`; ADR-007 governs workflow.
 
 ## Next planned increments
 
-After the current web branch is locally green, PR-tested and merged:
+After the current bootstrap API branch is locally green, PR-tested and merged:
 
-1. add a safe Person planning-bootstrap/discovery API for current DailyNutritionState and eligible current Food/Recipe composition snapshots so the web UI no longer requires UUID entry;
-2. replace UUID-oriented web inputs with normal searchable/selectable product UI using server-authoritative bootstrap data;
-3. add authentication and explicit Family/Person authorization context before real multi-user deployment;
-4. add a committed npm lockfile and switch Web CI to `npm ci` before production deployment;
-5. expand the web app into profile/goals/constraints/preferences, daily plan/history and pantry/shopping vertical slices;
-6. persist shopping-list lifecycle when UI workflows require durable shopping state;
-7. add background/event-driven DailyNutritionState refresh and explicit target-selection policy;
-8. harden request idempotency/concurrent decision races at write API boundaries;
-9. expose shared-family recommendation/decision API and UI boundaries;
-10. add provider connectors/live freshness, basket/order lifecycle and later learned ranking only after deterministic layers remain authoritative.
+1. wire `apps/web` to planning bootstrap, remove manual DailyNutritionState/composition UUID entry and replace it with normal named candidate selection;
+2. add authentication and explicit Family/Person authorization context before real multi-user deployment;
+3. commit an npm lockfile and switch Web CI to `npm ci` before production deployment;
+4. expand the web app into profile/goals/constraints/preferences, daily plan/history and pantry/shopping vertical slices;
+5. persist shopping-list lifecycle when UI workflows require durable shopping state;
+6. add background/event-driven DailyNutritionState refresh and explicit target-selection policy;
+7. harden request idempotency/concurrent decision races;
+8. expose shared-family recommendation/decision API and UI boundaries;
+9. add provider connectors/live freshness and basket/order lifecycle;
+10. add learned ranking only after deterministic safety/practical/nutrition layers remain authoritative.
 
-The immediate priority after the first web merge is usability: remove development UUID entry safely rather than widening backend domains again.
+Any deliberate roadmap reordering must update this file and `docs/domain/implementation-status.md` together.
 
-Any deliberate roadmap reordering must update both this file and `docs/domain/implementation-status.md`.
-
-## Resume procedure for a later session
+## Resume procedure
 
 1. read this file;
 2. read ADR-007;
 3. read `docs/domain/implementation-status.md`;
-4. inspect `git status`, current branch, `git log -1`, `git branch -vv` and remote state;
-5. compare the active feature branch with `main`;
-6. inspect actual Alembic heads/current state;
-7. inspect the relevant application package/workflow and its local validation commands;
-8. verify whether the exact branch head already received explicit local green validation;
-9. do not open or merge a PR unless the exact active head satisfies the workflow;
-10. after merge, verify new `main`, create the next focused branch, then update this file.
-
-Repository state, tests and documentation are the source of truth. Conversation history is optional context only.
+4. inspect current branch, `git status`, `git log -1`, branch tracking and remote compare;
+5. inspect actual Alembic heads/current state;
+6. verify whether the exact active head already received local green validation;
+7. do not open/merge a PR unless the exact head satisfies the workflow;
+8. after merge, verify the new exact `main`, create the next focused branch, and refresh this checkpoint.
