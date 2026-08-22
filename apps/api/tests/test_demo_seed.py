@@ -139,4 +139,4 @@ def test_demo_seed_exercises_ranking_and_mandatory_exclusion(db_session: Session
         "demo:massa-bolonhesa"
     ].explanation
     assert by_key["demo:frango-arroz-legumes"].score is not None
-    assert by_key["demo:frango-arroz-legumes"].score > Decimal("0")
+    assert by_key["demo:frango-arroz-legumes"].score > Decimal(0)
