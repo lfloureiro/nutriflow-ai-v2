@@ -216,8 +216,7 @@ def _ensure_food(session: Session, family: Family, definition: DemoFoodDefinitio
         snapshot.source = "demo"
         snapshot.source_reference = "nutriflow-development-demo"
         snapshot.notes = "Synthetic development-only nutrition data."
-        if snapshot.effective_at > now:
-            snapshot.effective_at = now
+        snapshot.effective_at = min(snapshot.effective_at, now)
 
     nutrients = {
         "protein": (definition.protein_g, "g"),
