@@ -1,5 +1,6 @@
 import uuid
 from collections.abc import Iterable
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy.orm import Session
 
@@ -35,6 +36,25 @@ _COMMERCIAL_SOURCE_KINDS = frozenset({"restaurant", "delivery", "store"})
 
 class PracticalRecommendationApiError(ValueError):
     pass
+
+
+def _validate_planning_instant(
+    data: PracticalMealRecommendationCreate,
+    *,
+    state_timezone: str,
+) -> None:
+    if data.scheduled_at.tzinfo is None or data.scheduled_at.utcoffset() is None:
+        raise PracticalRecommendationApiError("scheduled_at must be timezone-aware.")
+    try:
+        zone = ZoneInfo(state_timezone)
+    except ZoneInfoNotFoundError as exc:
+        raise PracticalRecommendationApiError(
+            f"Unknown DailyNutritionState timezone: {state_timezone!r}."
+        ) from exc
+    if data.scheduled_at.astimezone(zone).date() != data.planning_date:
+        raise PracticalRecommendationApiError(
+            "scheduled_at must fall on planning_date in the DailyNutritionState timezone."
+        )
 
 
 def _profile_map(
@@ -235,6 +255,7 @@ def create_practical_meal_recommendation(
         planning_date=data.planning_date,
         candidates=data.candidates,
     )
+    _validate_planning_instant(data, state_timezone=state.timezone)
 
     try:
         channels, offers = _build_practical_channels(
