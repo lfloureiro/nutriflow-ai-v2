@@ -3,8 +3,8 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { ApiError, getFamilyDashboard } from "./api/client";
 import type { FamilyDashboard } from "./api/types";
 import FamilyHome, { memberDisplayName } from "./FamilyHome";
+import FamilyMealsScreen, { type FamilyMealsMode } from "./FamilyMeals";
 import { useI18n, type Locale } from "./i18n";
-import MealPlanner from "./MealPlanner";
 import PersonOverview from "./PersonOverview";
 import { useTheme, type Appearance } from "./theme";
 
@@ -76,9 +76,10 @@ export default function App() {
   const [dashboardRevision, setDashboardRevision] = useState(0);
   const [view, setView] = useState<View>("home");
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+  const [mealsMode, setMealsMode] = useState<FamilyMealsMode>("today");
 
   useEffect(() => {
-    if (!activeFamilyId || view !== "home") {
+    if (!activeFamilyId) {
       return;
     }
 
@@ -109,7 +110,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [activeFamilyId, dashboardRevision, view]);
+  }, [activeFamilyId, dashboardRevision]);
 
   function handleConnect(event: FormEvent) {
     event.preventDefault();
@@ -121,6 +122,7 @@ export default function App() {
     setDashboard(null);
     setDashboardError(null);
     setSelectedPersonId(null);
+    setMealsMode("today");
     setView("home");
     setActiveFamilyId(nextFamilyId);
     setDashboardRevision((current) => current + 1);
@@ -135,7 +137,15 @@ export default function App() {
     if (nextView === "people") {
       setSelectedPersonId(null);
     }
+    if (nextView === "meals") {
+      setMealsMode("today");
+    }
     setView(nextView);
+  }
+
+  function openMealRecommendation() {
+    setMealsMode("recommend");
+    setView("meals");
   }
 
   function changeFamily() {
@@ -145,6 +155,7 @@ export default function App() {
     setActiveFamilyId("");
     setFamilyInput("");
     setSelectedPersonId(null);
+    setMealsMode("today");
     setView("home");
   }
 
@@ -281,12 +292,19 @@ export default function App() {
               <FamilyHome
                 dashboard={dashboard}
                 onOpenPerson={openPerson}
-                onPlanMeal={() => setView("meals")}
+                onPlanMeal={openMealRecommendation}
               />
             )
           ) : null}
 
-          {view === "meals" ? <MealPlanner familyId={activeFamilyId} /> : null}
+          {view === "meals" ? (
+            <FamilyMealsScreen
+              familyId={activeFamilyId}
+              mode={mealsMode}
+              onModeChange={setMealsMode}
+              referenceDate={dashboard?.dashboard_date}
+            />
+          ) : null}
 
           {view === "people" ? (
             selectedMember && dashboard ? (

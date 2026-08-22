@@ -74,9 +74,31 @@ It does not calculate a Family health score or replace missing evidence with zer
 
 ### Refeições
 
-The practical recommendation vertical slice remains fully reachable under `Refeições`.
+`Refeições` now opens a lightweight Family meal map rather than the recommendation form directly.
 
-The shell supplies the active Family context, so the planner does not ask for the Family UUID again. It still uses server planning bootstrap for current DailyNutritionState/composition evidence and the backend remains authoritative for safety, eligibility and ranking.
+Secondary navigation:
+
+```text
+Hoje
+Semana
+Recomendar
+```
+
+`Hoje` shows the active Family meals for the Family-local dashboard date. `Semana` shows the current Monday-to-Sunday Family-local week as seven readable vertical day sections, including explicit empty days.
+
+Both views use:
+
+```text
+GET /api/families/{family_id}/meals?start_date=YYYY-MM-DD&days=N
+```
+
+The server owns Family-timezone boundaries and active-meal filtering. Shared meals appear once with participant names; Person-specific portions remain a later meal-detail drill-down.
+
+`Recomendar` contains the existing practical recommendation vertical slice. The shell supplies the active Family context, so the planner does not ask for the Family UUID again. It still uses server planning bootstrap for current DailyNutritionState/composition evidence and the backend remains authoritative for safety, eligibility and ranking.
+
+The Family Home `Planear refeição` action opens `Recomendar` directly, while selecting the primary `Refeições` destination starts at `Hoje`.
+
+See `docs/ux/family-meals-today-week.md` and `docs/domain/family-meals-read-model.md`.
 
 ### Pessoas
 
@@ -105,7 +127,7 @@ See `docs/ux/person-overview.md`.
 
 `Mais` currently contains language, appearance and development Family-context controls. Authentication and real Family authorization are still pending.
 
-See `docs/ux/family-home-shell.md`, `docs/ux/frontend-information-architecture.md`, `docs/ux/person-overview.md` and ADR-034.
+See `docs/ux/family-home-shell.md`, `docs/ux/frontend-information-architecture.md`, `docs/ux/person-overview.md`, `docs/ux/family-meals-today-week.md` and ADR-034.
 
 ## Dependency locking
 

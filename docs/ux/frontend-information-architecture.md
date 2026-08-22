@@ -15,7 +15,7 @@ The frontend therefore uses progressive disclosure:
 
 ## Primary navigation
 
-The initial product-level navigation is:
+The product-level navigation is:
 
 1. **Início** — family overview for today;
 2. **Refeições** — family meal map, today/week, recommendations and shared meals;
@@ -23,9 +23,9 @@ The initial product-level navigation is:
 4. **Casa** — pantry and later shopping-list workflows;
 5. **Mais** — family settings, integrations, appearance/language and administration.
 
-Desktop should use a compact persistent side navigation. Mobile should use a compact bottom navigation for the same primary destinations, with lower-frequency actions inside `Mais`.
+Desktop uses a compact persistent side navigation. Mobile uses a compact bottom navigation for the same primary destinations, with lower-frequency actions inside `Mais`.
 
-The navigation should not expand into a large tree permanently. Secondary navigation appears only after entering a Person or a specific workflow.
+The navigation does not expand into a large tree permanently. Secondary navigation appears only after entering a Person or a specific workflow.
 
 ## Family home
 
@@ -33,7 +33,7 @@ The Home answers:
 
 > Como está a família hoje?
 
-It should contain only three lightweight areas.
+It contains only three lightweight areas.
 
 ### 1. Family members
 
@@ -57,7 +57,7 @@ A small chronological list of today's current meal events:
 - whether it is shared and by whom;
 - current state such as planned/completed.
 
-Cancelled and replaced meals should not clutter the normal Home agenda.
+Cancelled and replaced meals do not clutter the normal Home agenda.
 
 ### 3. One next action
 
@@ -67,7 +67,7 @@ At most one prominent next action should be emphasized, for example:
 - review dinner;
 - complete missing profile information.
 
-The first implementation does not need to infer this action automatically.
+The current Home uses `Planear refeição` as an explicit action into the recommendation subflow rather than trying to infer the next best action automatically.
 
 ## Person drill-down
 
@@ -89,9 +89,9 @@ Pessoa
 
 ### Person overview
 
-The overview is intentionally compact. It should show today's most useful values plus one primary trend visualization. Detailed charts belong in the dedicated sections.
+The overview is intentionally compact. It shows today's most useful values and may later add one primary trend visualization when an authoritative historical read model exists. Detailed charts belong in the dedicated sections.
 
-The overview can summarize:
+The implemented overview summarizes:
 
 - energy/nutrition state;
 - activity state;
@@ -117,7 +117,7 @@ Meals remain a primary family workflow rather than becoming the Home itself.
 Refeições
 ├── Hoje
 ├── Semana
-├── Recomendar refeição
+├── Recomendar
 └── Refeição
     ├── resumo familiar
     ├── participantes
@@ -126,7 +126,13 @@ Refeições
     └── alternativas / alterar
 ```
 
-A shared meal is displayed once at family level, while drill-down exposes the individual portions and Person-specific nutrition/safety outcomes that already exist in the backend model.
+Entering the primary `Refeições` destination starts at `Hoje`. The Family Home `Planear refeição` action opens `Recomendar` directly because the user has already expressed recommendation/planning intent.
+
+`Hoje` is a chronological Family-local agenda. `Semana` uses a Monday-to-Sunday vertical sequence of day sections rather than a dense seven-column calendar. Empty days stay explicit.
+
+A shared meal is displayed once at family level. A later meal-detail drill-down will expose individual portions and Person-specific nutrition/safety outcomes already represented in the backend model.
+
+The calendar views use a dedicated server read model so the browser does not decide local-day boundaries or reconstruct participants through request fan-out.
 
 ## Charts
 
@@ -148,6 +154,7 @@ Desktop:
 - compact side navigation;
 - content uses a readable maximum width rather than filling the whole monitor;
 - member cards may form a small grid;
+- weekly meals use vertical day sections rather than forcing a seven-column layout;
 - detail pages can use two columns only where the content remains simple.
 
 Mobile:
@@ -155,7 +162,8 @@ Mobile:
 - bottom primary navigation;
 - single-column screens;
 - horizontal card carousels should be avoided for essential information;
-- detail is reached by tapping rows/cards rather than expanding large accordions in place.
+- detail is reached by tapping rows/cards rather than expanding large accordions in place;
+- meal-day sections remain vertically readable without a separate mobile information architecture.
 
 Tablet follows the same information architecture and chooses side or bottom navigation based on available width.
 
@@ -167,20 +175,21 @@ The browser presents server evidence. It must not:
 - infer medical meaning from raw health measurements;
 - reproduce hard nutrition/safety rules;
 - compute an aggregate family health score without an explicit domain definition;
-- treat missing data as negative or zero.
+- treat missing data as negative or zero;
+- decide which UTC MealEvents belong to a Family-local calendar day.
 
-For Home, the server should expose a compact family read model so the browser does not need many requests or cross-domain aggregation logic.
+Family Home and Family Meals use compact server read models so the browser does not need many requests or cross-domain/timezone aggregation logic.
 
-## Initial implementation sequence
+## Implementation sequence and status
 
-1. Family Home read model/API.
-2. Application shell and primary navigation.
-3. Family Home visual implementation.
-4. Person overview.
-5. Family meals today/week.
-6. Meal drill-down with person-specific portions.
+1. Family Home read model/API — integrated.
+2. Application shell and primary navigation — integrated.
+3. Family Home visual implementation — integrated.
+4. Person overview — integrated.
+5. Family meals today/week — current focused increment.
+6. Meal drill-down with person-specific portions — next.
 7. Person Nutrition/Activity/Health/History screens.
 8. Profile/goals/constraints/preferences screens.
 9. Pantry and shopping workflows.
 
-Every increment should remain usable on its own and keep existing recommendation functionality reachable while the navigation is reorganized.
+Every increment remains usable on its own and keeps existing recommendation functionality reachable while the navigation evolves.

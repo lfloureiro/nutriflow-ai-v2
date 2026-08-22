@@ -7,6 +7,7 @@ import "./styles.css";
 import "./bootstrap.css";
 import "./shell.css";
 import "./person-overview.css";
+import "./family-meals.css";
 import { ThemeProvider } from "./theme";
 
 const root = document.getElementById("root");
