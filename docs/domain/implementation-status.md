@@ -13,53 +13,37 @@ API tests:   110
 Web tests:   19
 ```
 
-The integrated domain already includes Family/Person, MealEvent/MealParticipant/Serving, Food/Recipe composition snapshots, deterministic Serving nutrition, nutrition/health state, safety-first recommendations, pantry-stock logic and Family-first shell/Home/Person/meal-map read views.
-
 ## Current large integration
 
 ```text
 feature/core-meal-planning-foundation
 ```
 
-This branch intentionally combines several tightly connected increments so the product reaches a usable meal-planning loop faster.
+This branch intentionally combines the tightly connected operational meal-planning chain.
 
-### Ingredient catalogue
+### Ingredients
 
-Implemented:
+- Family-scoped list/search/create/update;
+- versioned nutrition evidence;
+- common nutrition editor;
+- referenced Recipes recalculate after ingredient nutrition changes;
+- deactivate/reactivate lifecycle;
+- `Casa -> Ingredientes`.
 
-- Family-scoped ingredient list/search/create/update;
-- versioned nutrition composition;
-- energy, protein, carbohydrate, fat, fibre and sodium editor;
-- ingredient nutrition edits automatically recalculate referencing Family Recipes;
-- inactive/reactivate lifecycle rather than destructive deletion;
-- responsive `Casa -> Ingredientes` workflow.
+### Recipes and nutrition
 
-### Recipe catalogue
-
-Implemented:
-
-- Family-scoped Recipe list/search/create/update/deactivate/reactivate;
+- Recipe CRUD/search/lifecycle;
 - ordered RecipeIngredient editing;
-- quantity/unit/preparation fields;
-- serving count and finished yield;
-- responsive `Casa -> Receitas` default workflow.
+- quantity/unit/preparation/servings/yield;
+- deterministic `recipe-nutrition-v1`;
+- versioned RecipeCompositionSnapshot provenance;
+- total/per-serving nutrition;
+- explicit incomplete/unsafe evidence issues;
+- `Casa -> Receitas`.
 
-### Recipe nutrition
+### Four-slot Family planner
 
-Implemented `recipe-nutrition-v1`:
-
-- scales current ingredient composition snapshots using safe unit conversion;
-- creates a new RecipeCompositionSnapshot for every nutrition-relevant Recipe change and referenced ingredient-composition update;
-- stores ingredient snapshot/version provenance;
-- calculates total energy and per-serving energy when evidence permits;
-- calculates nutrient totals/per-serving values only with complete compatible evidence;
-- records missing composition, missing energy/nutrient evidence and unsafe conversion issues;
-- never treats missing evidence as zero;
-- never silently falls back to stale Recipe nutrition after the Recipe or ingredient evidence changes.
-
-### Four meal types
-
-Shared server request contract now limits normal meal types to:
+Normal meal types are fixed to:
 
 ```text
 breakfast
@@ -68,73 +52,120 @@ snack
 dinner
 ```
 
-This is used by the new Family planner plus existing recommendation request APIs.
+The planner provides:
 
-### Editable Family meal plan
+- 1..14 Family-local days;
+- four slots per day even when empty;
+- Recipe MealEvents;
+- Family participants;
+- Person-specific planned Serving quantities;
+- deterministic planned nutrition;
+- edit/replace/cancel while planned;
+- Today/Week UI plus existing recommendation flow.
 
-Implemented:
+### Pantry
 
-- Family-local 1..14 day read model;
-- exactly four slots for every day including empty slots;
-- create planned Recipe MealEvent;
-- choose Family participants;
-- explicit or Recipe-derived default Person portions;
-- deterministic Recipe Serving nutrition per participant;
-- edit planned date/time/type/Recipe/participants/portions/location/notes;
-- cancel planned meal rather than destructive deletion;
-- prepared/served/completed events locked from planning edits;
-- Today/Week web planner with Add/Edit/Remove;
-- existing recommendation workflow preserved under `Recomendar`.
+Existing `PantryStockLot` now has normal Family CRUD/UI:
+
+- FoodItem identity;
+- quantity/unit;
+- optional location and expiry;
+- active/inactive lifecycle;
+- strict Family isolation;
+- expired/inactive stock excluded from sufficiency;
+- `Casa -> Despensa`.
+
+### Planned requirements
+
+For a selected planning interval:
+
+1. planned Person Recipe Servings are converted to Recipe batch multipliers;
+2. RecipeIngredient quantities are aggregated across all people and meals;
+3. compatible units are normalized safely;
+4. pantry stock is subtracted once from the aggregate requirement;
+5. missing quantities become shopping shortages.
+
+Unsafe or incomplete scaling remains an explicit issue and is never guessed/zero-filled.
+
+### Durable shopping list
+
+New persisted models:
+
+```text
+ShoppingList
+ShoppingListItem
+```
+
+Current migration head:
+
+```text
+d4f1a7c2e9b3
+```
+
+Capabilities:
+
+- active Family shopping list;
+- automatic items generated from plan shortages;
+- manual items;
+- needed/purchased lifecycle;
+- quantity/name adjustment;
+- purchased automatic items retained as checked history;
+- planning range and generation evidence;
+- `Casa -> Compras` with required / stock / missing display.
+
+See `docs/domain/pantry-shopping-workflow.md`.
 
 ## Expected validation
 
-Before local execution, expected counts are:
+The previous local run had 115 existing API tests passing and six new Recipe/planner tests blocked by one SQLAlchemy autoflush warning. That warning has since been corrected by adding new Recipe objects to the Session before ingredient lookup queries.
+
+After Pantry + Shopping, expected counts before the next local run are:
 
 ```text
-API: 121 pytest tests
-Web: 27 Vitest tests
+API: 125 pytest tests
+Web: 30 Vitest tests
 ```
 
-Also required:
+Required gates now include migration execution:
 
-- `alembic check` clean;
-- Ruff clean;
-- strict TypeScript/Vite production build clean;
-- no warnings treated as acceptable failures.
+```text
+alembic upgrade head
+alembic current -> d4f1a7c2e9b3
+alembic check clean
+Ruff clean
+API tests clean
+Web tests clean
+strict TypeScript/Vite build clean
+```
 
-There is no new migration in this integration. Existing catalogue/MealEvent schema is reused. The fixed meal-type rule is enforced at all current user-facing server write/request boundaries; a future DB check constraint remains hardening, not required for the product workflow itself.
+Counts are expectations until validated on the exact final head.
 
-## Core operational chain after this branch
-
-Once locally validated, CI-green and merged, NutriFlow has this product path:
+## Operational chain after this branch
 
 ```text
 Ingredient
 -> Recipe
 -> calculated Recipe nutrition
 -> four-slot Family plan
--> shared MealEvent
--> Person-specific Serving
+-> Person Serving portions
+-> aggregate ingredient requirements
+-> Pantry subtraction
+-> durable ShoppingList
 ```
 
 ## Next large block
 
-Next priority:
+After merge, the next logical block is:
 
 ```text
-Pantry CRUD/UI
-+ aggregate planned Recipe ingredient requirements
-+ subtract quantity-aware stock
-+ shopping requirements
-+ durable ShoppingList lifecycle/UI
+Recipe/Person ratings
++ Family aggregate preference
++ preference history
++ planning/recommendation score integration
++ feedback loop
 ```
 
-After that:
-
-- Recipe/Person ratings and Family aggregate preference;
-- integrate preference + nutrition fit + pantry/practical context into recommendation score;
-- secondary Person analytics/health detail;
-- authentication/authorization and deployment hardening.
+User rating must remain distinct from algorithmic recommendation score.
 
 ## Safety/correctness invariants
 
@@ -143,13 +174,14 @@ Preserve:
 - hard adverse-reaction/mandatory constraints before ranking;
 - missing mandatory evidence fails closed where required;
 - unsafe conversions rejected, no inferred density;
-- versioned composition provenance;
+- versioned nutrition provenance;
 - historical Servings not rewritten by catalogue changes;
 - Family isolation;
+- aggregate requirements before pantry subtraction;
 - missing evidence never zero-filled;
-- browser does not author nutrition calculations or safety decisions;
+- browser does not author nutrition/shopping calculations;
 - warnings are failures.
 
 ## Deferred branch
 
-`feature/web-family-meal-detail` remains unmerged. Its detailed Serving presentation may be reused later, but it no longer blocks the operational meal-planning foundation.
+`feature/web-family-meal-detail` remains unmerged. Its detailed Serving presentation may be reused later but does not block the operational flow.
