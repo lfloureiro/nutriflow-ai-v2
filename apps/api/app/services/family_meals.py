@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -7,8 +8,11 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.family import Family
 from app.models.meal import MealEvent, MealParticipant
 from app.schemas.family_meals import (
+    FamilyMealDetailParticipantRead,
+    FamilyMealDetailRead,
     FamilyMealParticipantRead,
     FamilyMealRead,
+    FamilyMealServingRead,
     FamilyMealsDayRead,
     FamilyMealsRead,
 )
@@ -98,5 +102,62 @@ def build_family_meals(
         days=[
             FamilyMealsDayRead(date=day_date, meals=meals_by_date[day_date])
             for day_date in meals_by_date
+        ],
+    )
+
+
+def build_family_meal_detail(
+    db: Session,
+    family: Family,
+    meal_event_id: uuid.UUID,
+) -> FamilyMealDetailRead | None:
+    meal = db.scalar(
+        select(MealEvent)
+        .options(
+            selectinload(MealEvent.participants).selectinload(MealParticipant.person),
+            selectinload(MealEvent.participants).selectinload(MealParticipant.servings),
+        )
+        .where(
+            MealEvent.family_id == family.id,
+            MealEvent.id == meal_event_id,
+        )
+    )
+    if meal is None:
+        return None
+
+    return FamilyMealDetailRead(
+        family_id=family.id,
+        family_name=family.name,
+        timezone=family.timezone,
+        id=meal.id,
+        meal_type=meal.meal_type,
+        title=meal.title,
+        scheduled_at=meal.scheduled_at,
+        status=meal.status,
+        location=meal.location,
+        participants=[
+            FamilyMealDetailParticipantRead(
+                person_id=participant.person_id,
+                first_name=participant.person.first_name,
+                last_name=participant.person.last_name,
+                status=participant.status,
+                servings=[
+                    FamilyMealServingRead(
+                        id=serving.id,
+                        item_type=serving.item_type,
+                        item_name=serving.item_name,
+                        status=serving.status,
+                        quantity_planned=serving.quantity_planned,
+                        quantity_served=serving.quantity_served,
+                        quantity_consumed=serving.quantity_consumed,
+                        quantity_unit=serving.quantity_unit,
+                        energy_planned_kcal=serving.energy_planned_kcal,
+                        energy_served_kcal=serving.energy_served_kcal,
+                        energy_consumed_kcal=serving.energy_consumed_kcal,
+                    )
+                    for serving in participant.servings
+                ],
+            )
+            for participant in meal.participants
         ],
     )
