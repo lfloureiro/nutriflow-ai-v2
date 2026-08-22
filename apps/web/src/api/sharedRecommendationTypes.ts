@@ -1,4 +1,8 @@
-import type { PracticalSourceKind, RecommendationCandidateInput } from "./types";
+import type {
+  PracticalSourceKind,
+  RecommendationCandidateInput,
+  RecommendationHistoryHint,
+} from "./types";
 
 export type SharedPracticalRecommendationRequest = {
   person_ids: string[];
@@ -10,6 +14,8 @@ export type SharedPracticalRecommendationRequest = {
   available_minutes: number | null;
   has_kitchen: boolean | null;
   source_kinds: PracticalSourceKind[];
+  provisional_history: RecommendationHistoryHint[];
+  max_results: number | null;
 };
 
 export type SharedParticipantEvaluation = {
