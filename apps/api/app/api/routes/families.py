@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -6,8 +7,10 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.schemas.family import FamilyCreate, FamilyRead
+from app.schemas.family_dashboard import FamilyDashboardRead
 from app.schemas.person import PersonCreate, PersonRead
 from app.services.family import create_family, get_family
+from app.services.family_dashboard import build_family_dashboard
 from app.services.person import create_person, list_family_persons
 
 router = APIRouter(prefix="/families", tags=["families"])
@@ -32,6 +35,20 @@ def get_family_endpoint(
         raise HTTPException(status_code=404, detail="Family not found")
 
     return family
+
+
+@router.get("/{family_id}/dashboard", response_model=FamilyDashboardRead)
+def get_family_dashboard_endpoint(
+    family_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    on_date: date | None = None,
+) -> FamilyDashboardRead:
+    family = get_family(db, family_id)
+
+    if family is None:
+        raise HTTPException(status_code=404, detail="Family not found")
+
+    return build_family_dashboard(db, family, on_date=on_date)
 
 
 @router.post(
