@@ -1,4 +1,3 @@
-import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 
@@ -309,6 +308,7 @@ def test_practical_api_respects_preparation_window(db_session: Session) -> None:
 
 def test_practical_api_returns_active_delivery_offer(db_session: Session) -> None:
     family, person, state, food, composition = _persist_base(db_session, key="delivery")
+    assert family.id is not None
     delivery = _availability(
         family,
         food,
@@ -328,7 +328,7 @@ def test_practical_api_returns_active_delivery_offer(db_session: Session) -> Non
     )
     delivery.commercial_offers.append(
         MealCommercialOffer(
-            family=family,
+            family_id=family.id,
             offer_key="offer-delivery",
             provider_key="provider-test",
             provider_name="Provider Test",
