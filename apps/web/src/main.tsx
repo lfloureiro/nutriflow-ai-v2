@@ -9,6 +9,7 @@ import "./shell.css";
 import "./person-overview.css";
 import "./family-meals.css";
 import "./ingredient-catalogue.css";
+import "./core-planning.css";
 import { ThemeProvider } from "./theme";
 
 const root = document.getElementById("root");
