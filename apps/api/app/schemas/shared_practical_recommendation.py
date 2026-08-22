@@ -6,7 +6,11 @@ from pydantic import BaseModel, Field
 
 from app.schemas.meal_recommendation import MealRecommendationCandidateInput
 from app.schemas.meal_type import MealType
-from app.schemas.practical_recommendation import CommercialOfferRead, PracticalSourceKind
+from app.schemas.practical_recommendation import (
+    CommercialOfferRead,
+    PracticalSourceKind,
+    RecommendationHistoryHint,
+)
 
 
 class SharedPracticalRecommendationCreate(BaseModel):
@@ -19,6 +23,11 @@ class SharedPracticalRecommendationCreate(BaseModel):
     available_minutes: int | None = Field(default=None, ge=0)
     has_kitchen: bool | None = None
     source_kinds: list[PracticalSourceKind] = Field(min_length=1, max_length=5)
+    provisional_history: list[RecommendationHistoryHint] = Field(
+        default_factory=list,
+        max_length=14,
+    )
+    max_results: int | None = Field(default=None, ge=1, le=10)
 
 
 class SharedParticipantEvaluationRead(BaseModel):
