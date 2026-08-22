@@ -23,7 +23,10 @@ from app.schemas.family_meal_plan import (
     MealType,
 )
 from app.services.recipe_catalogue import RecipeNotFoundError, get_family_recipe_model
-from app.services.serving_nutrition import ServingNutritionCalculationError, calculate_serving_nutrition
+from app.services.serving_nutrition import (
+    ServingNutritionCalculationError,
+    calculate_serving_nutrition,
+)
 
 ACTIVE_PLAN_STATUSES = frozenset({"planned", "prepared", "served", "completed"})
 
@@ -85,7 +88,10 @@ def _event_recipe(event: MealEvent) -> Recipe | None:
     return None
 
 
-def _participant_serving(participant: MealParticipant, recipe_id: uuid.UUID | None) -> Serving | None:
+def _participant_serving(
+    participant: MealParticipant,
+    recipe_id: uuid.UUID | None,
+) -> Serving | None:
     if recipe_id is not None:
         for serving in participant.servings:
             if serving.recipe_id == recipe_id:
@@ -112,9 +118,9 @@ def _entry_read(event: MealEvent, family_timezone: ZoneInfo) -> MealPlanEntryRea
                 person_id=participant.person_id,
                 first_name=participant.person.first_name,
                 last_name=participant.person.last_name,
-                quantity=(serving.quantity_planned if serving is not None else None),
-                unit=(serving.quantity_unit if serving is not None else None),
-                energy_kcal=(serving.energy_planned_kcal if serving is not None else None),
+                quantity=serving.quantity_planned if serving is not None else None,
+                unit=serving.quantity_unit if serving is not None else None,
+                energy_kcal=serving.energy_planned_kcal if serving is not None else None,
             )
             for participant in event.participants
             for serving in [_participant_serving(participant, recipe_id)]
@@ -227,12 +233,11 @@ def _replace_participants(
         quantity = value.quantity if value.quantity is not None else default_quantity
         unit = value.unit.lower() if value.unit is not None else default_unit
         participant = MealParticipant(
-            meal_event=event,
             person=people[value.person_id],
             status="planned",
         )
+        event.participants.append(participant)
         serving = Serving(
-            meal_participant=participant,
             recipe=recipe,
             item_type="recipe",
             item_key=recipe.recipe_key,
@@ -249,7 +254,6 @@ def _replace_participants(
             except ServingNutritionCalculationError as exc:
                 raise MealPlanError(str(exc)) from exc
         participant.servings.append(serving)
-        event.participants.append(participant)
 
 
 def _scheduled_at(family: Family, on_date: date, local_time: time) -> datetime:
@@ -284,7 +288,6 @@ def create_meal_plan_entry(
     db.flush()
     _replace_participants(db, event, family.id, recipe, data.participants)
     db.commit()
-    db.refresh(event)
     event = _get_event(db, family.id, event.id)
     return _entry_read(event, ZoneInfo(family.timezone))
 
