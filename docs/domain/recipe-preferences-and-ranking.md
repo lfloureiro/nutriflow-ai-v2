@@ -40,9 +40,9 @@ The service keeps one current rating per Person/Recipe and removes duplicate rat
 
 ## Recommendation semantics
 
-Hard safety and mandatory nutrition constraints still run first. Ratings never make an excluded candidate eligible.
+Hard safety and mandatory nutrition constraints always run first. Ratings never make an excluded candidate eligible.
 
-For the selected Person, a 1..5 rating contributes to the existing personal `preferences` score using a centered scale:
+For one selected Person, a 1..5 rating contributes to the existing personal `preferences` score using a centered scale:
 
 ```text
 1 star  -> -1.0
@@ -54,7 +54,7 @@ For the selected Person, a 1..5 rating contributes to the existing personal `pre
 
 Existing explicit `like` / `dislike` preferences remain supported.
 
-For practical Family recommendations, ratings from the other Family members are aggregated per Recipe. Their average contributes a separate secondary `family_preferences` score at half weight:
+When the recommendation is for exactly one Person, ratings from the other Family members are aggregated per Recipe. Their average contributes a separate secondary `family_preferences` score at half weight:
 
 ```text
 family score = ((average rating - 3) / 2) * 0.5
@@ -62,15 +62,20 @@ family score = ((average rating - 3) / 2) * 0.5
 
 The selected Person is excluded from this Family average because their rating is already represented by the stronger personal preference component.
 
-This means preference ordering is explainable and does not replace nutrition/practical ranking signals:
+When two or more Persons are selected, the shared-Family recommendation engine evaluates every selected Person independently. Their own ratings therefore enter their own personal scores directly. Group ranking then prioritizes the lowest participant score and uses the average participant score as the second ordering key. Unselected Family members do not influence that shared-group score.
+
+This keeps preference ordering explainable:
 
 ```text
 eligibility first
--> nutrition fit
--> personal preference
--> smaller Family preference signal
+-> each Person's nutrition fit
+-> each Person's preference
 -> practical availability/context
+-> shared fairness (minimum participant score)
+-> shared average score
 ```
+
+For a one-Person run only, the smaller Family preference signal is added after the selected Person's own preference score.
 
 ## Invariants
 
@@ -79,4 +84,5 @@ eligibility first
 - Family average is presentation/ranking evidence, not a safety rule;
 - missing ratings are neutral, not zero-star ratings;
 - browser code stores ratings but does not calculate recommendation scores;
+- selecting multiple Persons does not average away a mandatory exclusion for one member;
 - historical recommendation runs preserve their stored score/explanation evidence and are not rewritten when ratings change later.
