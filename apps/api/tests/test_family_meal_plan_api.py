@@ -41,7 +41,6 @@ def _recipe(db_session: Session, family: Family) -> str:
     )
     ingredient.compositions.append(
         FoodCompositionSnapshot(
-            food_item=ingredient,
             reference_quantity=Decimal("100"),
             reference_unit="g",
             energy_kcal=Decimal("100"),
