@@ -93,7 +93,6 @@ def _append_composition(
     data: IngredientCompositionWrite,
 ) -> FoodCompositionSnapshot:
     composition = FoodCompositionSnapshot(
-        food_item=item,
         reference_quantity=data.reference_quantity,
         reference_unit=data.reference_unit.lower(),
         energy_kcal=data.energy_kcal,
