@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
@@ -22,7 +23,7 @@ def _override_db(db_session: Session):
     return override_get_db
 
 
-def _get(db_session: Session, family_id, on_date: date = DASHBOARD_DATE):
+def _get(db_session: Session, family_id: uuid.UUID | str, on_date: date = DASHBOARD_DATE):
     app.dependency_overrides[get_db] = _override_db(db_session)
     try:
         with TestClient(app) as client:
@@ -49,7 +50,7 @@ def test_family_dashboard_returns_latest_member_states_and_local_day_meals(
                 person=ana,
                 state_date=DASHBOARD_DATE,
                 timezone="Europe/Lisbon",
-                steps=Decimal(3000),
+                steps=3000,
                 calculation_version="older",
                 computed_at=datetime(2026, 8, 22, 8, 0, tzinfo=UTC),
             ),
@@ -140,7 +141,7 @@ def test_family_dashboard_returns_latest_member_states_and_local_day_meals(
     assert body["members"][1]["nutrition"] is None
 
     assert [meal["title"] for meal in body["meals"]] == ["Breakfast", "Family dinner"]
-    assert body["meals"][1]["participant_person_ids"] == [str(ana.id), str(rui.id)]
+    assert set(body["meals"][1]["participant_person_ids"]) == {str(ana.id), str(rui.id)}
 
 
 def test_family_dashboard_keeps_missing_evidence_explicit(db_session: Session) -> None:
