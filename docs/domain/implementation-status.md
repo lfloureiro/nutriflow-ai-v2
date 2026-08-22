@@ -155,6 +155,36 @@ Integrated by PR #23.
 
 Detailed semantics: `docs/domain/recommendation-decision-api.md`, ADR-028.
 
+### Practical recommendation orchestration API
+
+Integrated by PR #24.
+
+- `POST /api/persons/{person_id}/meal-recommendations/practical`;
+- explicit persisted DailyNutritionState and composition-snapshot evidence boundary remains mandatory;
+- timezone-aware `scheduled_at` must resolve to `planning_date` in the selected DailyNutritionState timezone;
+- persisted Person schedule entries are loaded automatically;
+- request context supports location, available minutes and kitchen availability;
+- practical source kinds are `home`, `pantry`, `restaurant`, `delivery`, `store`;
+- default practical sources are home, pantry, restaurant and delivery;
+- requested source channels use any-source semantics;
+- explicit candidate unavailability occurs only when every requested channel is explicitly unavailable;
+- missing source evidence remains unknown rather than being converted into a false exclusion;
+- pantry combines quantity-aware stock sufficiency with optional persisted pantry-source metadata;
+- commercial sources evaluate opening windows at the requested instant and return active provider offers;
+- practical/commercial evidence cannot override hard allergy or mandatory nutrition rules;
+- run/options persist through the existing recommendation evidence model;
+- request context and active commercial offer keys are recorded for audit.
+
+Integrated baseline after PR #24:
+
+```text
+main SHA:      55a2842b1dcd68541d3dccb73b8580daadf1a4c9
+schema head:   a7c4e9f2b6d1
+API tests:     94
+```
+
+Detailed semantics: `docs/domain/practical-recommendation-orchestration-api.md`, ADR-029.
+
 ### Shared-family planning
 
 - one common candidate evaluated for multiple Persons;
@@ -211,14 +241,18 @@ Integrated by PR #20.
 
 Detailed semantics: `docs/domain/restaurant-delivery-commercial-context.md`, ADR-025.
 
-## Current feature branch: practical recommendation orchestration API
+## Current feature branch: first web recommendation vertical slice
 
-Branch: `feature/practical-recommendation-orchestration-api`.
+Branch:
+
+```text
+feature/web-recommendation-vertical-slice
+```
 
 Merge base / current integrated `main`:
 
 ```text
-f582015ecdf09364d6ef50811b3e3f40f200282e
+55a2842b1dcd68541d3dccb73b8580daadf1a4c9
 ```
 
 Schema head remains:
@@ -227,35 +261,42 @@ Schema head remains:
 a7c4e9f2b6d1
 ```
 
-This branch has no schema change.
+This branch has no database migration and does not change backend recommendation semantics.
 
 Implemented on the branch:
 
-- `POST /api/persons/{person_id}/meal-recommendations/practical`;
-- same explicit persisted DailyNutritionState and composition-snapshot evidence boundary as ADR-027;
-- timezone-aware `scheduled_at` must resolve to `planning_date` in the selected DailyNutritionState timezone;
-- automatic loading of persisted Person schedule entries;
-- request context for scheduled instant, location, available minutes and kitchen availability;
-- requested practical source kinds: `home`, `pantry`, `restaurant`, `delivery`, `store`;
-- default practical sources: home, pantry, restaurant and delivery;
-- independent source-channel evaluation with any-source merge semantics;
-- explicit candidate unavailability only when every requested channel is explicitly unavailable;
-- missing source evidence remains unknown and is not converted into a false exclusion;
-- pantry channel combines quantity-aware stock sufficiency with optional persisted pantry-source metadata;
-- commercial source kinds are evaluated independently at the requested scheduled instant;
-- active provider offers are returned with price/currency/delivery/minimum-order/observation metadata;
-- practical source data cannot override hard allergy or mandatory nutrition rules;
-- recommendation run/options persist through the existing recommendation evidence model;
-- run context records practical request inputs and active commercial offer keys;
-- base recommendation API internals are refactored into reusable loading/persistence helpers without changing its contract;
-- ten API integration tests cover home availability, schedule exclusion, explicit unavailability, pantry insufficiency, any-source availability, preparation windows, active delivery offers, closed commercial sources, unknown source evidence and local planning-date alignment.
+- React + TypeScript + Vite application under `apps/web`;
+- strict TypeScript configuration and production build;
+- typed API contracts/client isolated from presentation code;
+- local Vite `/api` proxy to FastAPI;
+- Family UUID -> persisted Person selection through the existing API;
+- explicit DailyNutritionState and Food/Recipe composition IDs for the current backend contract;
+- practical meal context form for schedule, location, available minutes, kitchen and source kinds;
+- real call to `POST /api/persons/{person_id}/meal-recommendations/practical`;
+- display of all persisted eligible/excluded options, compact nutrition, explanations and exclusion reasons;
+- display of active commercial offers and known provider totals;
+- accept/reject actions through the persisted recommendation decision endpoint;
+- accepted decisions display resulting meal-plan materialization state;
+- Portuguese (`pt-PT`) and English authored UI strings through an i18n boundary;
+- Light, Dark and System appearance modes;
+- responsive desktop/tablet/mobile layout and keyboard focus/accessibility baseline;
+- seven Vitest unit tests covering API URL construction, planning helpers and core translations;
+- separate Web CI workflow for web tests plus strict type-check/production build;
+- pinned direct npm dependencies; committed lockfile intentionally deferred and required before production.
 
-Detailed semantics: `docs/domain/practical-recommendation-orchestration-api.md`, ADR-029.
+The UI deliberately exposes UUID inputs in this first integration slice. It must not guess the current DailyNutritionState or catalogue composition version. Removing those UUID fields requires a safe planning-bootstrap/discovery API.
 
-Expected complete local test suite after this branch:
+Authoritative branch docs:
+
+- `docs/ux/web-recommendation-vertical-slice.md`;
+- `docs/decisions/ADR-030-react-vite-web-foundation.md`;
+- `apps/web/README.md`.
+
+Expected validation baseline:
 
 ```text
-94 tests
+API: 94 pytest tests, Ruff clean, Alembic metadata clean
+Web: 7 Vitest tests, strict TypeScript check, production Vite build
 ```
 
 ## Safety and correctness invariants
@@ -272,6 +313,7 @@ Future work must preserve:
 - practical-source alternatives use any-source semantics rather than accidental all-source requirements;
 - unknown practical source evidence is distinct from explicit unavailability;
 - practical scheduled instants cannot silently use a DailyNutritionState from another local date;
+- web presentation does not reproduce or override recommendation eligibility/safety logic;
 - ineligible persisted options cannot be materialized;
 - rejected decisions cannot create meal state;
 - DailyNutritionState remains derived from authoritative meal history;
@@ -303,17 +345,17 @@ Earlier revisions remain authoritative in `database/migrations/versions/`.
 
 ## Next planned increments
 
-After the current practical-orchestration API branch is locally green, PR-tested and merged:
+After the current web branch is locally green, PR-tested and merged:
 
-1. first responsive web UI vertical slice over Person selection, daily state, practical recommendation generation and recommendation decisions;
-2. minimum catalogue/candidate browse API needed by that UI so clients do not need hard-coded composition IDs;
-3. persisted shopping-list lifecycle when UI/API workflows require durable shopping state;
-4. background/event-driven DailyNutritionState refresh and explicit target-selection policy;
-5. fuller recurrence/calendar override support;
-6. persisted family-level recommendation audit history;
-7. transaction-level idempotency-race handling and request idempotency at write API boundaries;
-8. provider connectors/live freshness policy, basket/order lifecycle and commercial optimization;
-9. shared-family recommendation/decision API boundaries;
-10. learned ranking from feedback only after deterministic safety, practical and nutrition layers remain authoritative.
+1. add a safe Person planning-bootstrap/discovery API for current DailyNutritionState and eligible current Food/Recipe composition snapshots so the web UI no longer requires UUID entry;
+2. replace the temporary UUID-oriented web inputs with normal searchable/selectable product UI using that server-authoritative bootstrap data;
+3. add authentication plus explicit Family/Person authorization context before real multi-user deployment;
+4. commit an npm lockfile and switch Web CI to `npm ci` before production deployment;
+5. expand the web app into profile/goals/constraints/preferences, daily plan/history and pantry/shopping vertical slices;
+6. persist shopping-list lifecycle when UI workflows require durable shopping state;
+7. add background/event-driven DailyNutritionState refresh and explicit target-selection policy;
+8. harden transaction-level request idempotency/concurrent decision races;
+9. expose shared-family recommendation/decision API and UI boundaries;
+10. add provider connectors/live freshness, basket/order lifecycle and later learned ranking only after deterministic layers remain authoritative.
 
-Every increment follows ADR-007: focused branch, code/migration/tests/docs together, local PostgreSQL validation, zero-warning Ruff/pytest, PR only after local green, CI on the exact PR head SHA, guarded squash merge, verify resulting `main`, then start the next branch.
+Every increment follows ADR-007: focused branch, relevant code/tests/docs together, local validation with zero warnings, PR only after local green, CI on the exact PR head SHA, guarded squash merge, verify resulting `main`, then start the next branch.

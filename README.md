@@ -105,7 +105,22 @@ The current backend foundation includes:
 - pytest coverage with warnings treated as errors;
 - Ruff static validation.
 
-Detailed domain status is maintained in `docs/domain/implementation-status.md`.
+The initial web foundation now includes:
+
+- React + TypeScript + Vite under `apps/web`;
+- responsive desktop/tablet/mobile layout;
+- Portuguese and English UI strings through an i18n boundary;
+- Light, Dark and System appearance modes;
+- typed API client isolated from presentation code;
+- an end-to-end practical recommendation UI using the real Family/Person, practical recommendation and decision APIs;
+- eligible/excluded explanations, compact nutrition details and active commercial offer display;
+- accept/reject actions over persisted recommendation options;
+- Vitest unit tests plus strict TypeScript and production-build validation;
+- a separate Web CI workflow.
+
+The first UI intentionally still requires explicit DailyNutritionState and composition snapshot IDs. Safe discovery/selection APIs, authentication and production household context remain follow-up work.
+
+Detailed domain status is maintained in `docs/domain/implementation-status.md`. The first UI flow is documented in `docs/ux/web-recommendation-vertical-slice.md`.
 
 For a later development session, start with `docs/development-continuity.md`. It records the current checkpoint, exact resumption procedure, migration/test baseline and next safe development step.
 
@@ -118,11 +133,11 @@ Before a branch is integrated it must:
 - update relevant documentation and the continuity checkpoint;
 - include or update tests;
 - validate migrations locally when the database changes;
-- pass Ruff and the complete local test suite with zero warnings;
+- pass the relevant local validation gates with zero warnings;
 - open a PR only after local validation is green;
 - pass CI on the exact PR head SHA;
 - be squash-merged only after the tested head is confirmed unchanged.
 
 The authoritative workflow decision is documented in `docs/decisions/ADR-007-development-workflow-and-ci.md`.
 
-GitHub Actions runs Ruff, the API test suite against PostgreSQL, and verifies that the Alembic migration chain is current.
+GitHub Actions runs API migration/Ruff/pytest validation and a separate web test/type-check/production-build gate.
