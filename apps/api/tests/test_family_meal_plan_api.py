@@ -41,9 +41,9 @@ def _recipe(db_session: Session, family: Family) -> str:
     )
     ingredient.compositions.append(
         FoodCompositionSnapshot(
-            reference_quantity=Decimal("100"),
+            reference_quantity=Decimal(100),
             reference_unit="g",
-            energy_kcal=Decimal("100"),
+            energy_kcal=Decimal(100),
             data_version="test-v1",
             source="test",
             effective_at=datetime.now(UTC),
@@ -100,8 +100,8 @@ def test_family_meal_plan_exposes_four_slots_and_supports_create_update_cancel(
     assert entry["meal_type"] == "dinner"
     assert entry["recipe_name"] == "Receita de planeamento"
     assert [Decimal(item["energy_kcal"]) for item in entry["participants"]] == [
-        Decimal("300"),
-        Decimal("500"),
+        Decimal(300),
+        Decimal(500),
     ]
 
     plan = _request(
@@ -129,7 +129,7 @@ def test_family_meal_plan_exposes_four_slots_and_supports_create_update_cancel(
     )
     assert updated.status_code == 200
     assert updated.json()["local_time"].startswith("19:30")
-    assert Decimal(updated.json()["participants"][0]["energy_kcal"]) == Decimal("400")
+    assert Decimal(updated.json()["participants"][0]["energy_kcal"]) == Decimal(400)
 
     removed = _request(
         db_session,
