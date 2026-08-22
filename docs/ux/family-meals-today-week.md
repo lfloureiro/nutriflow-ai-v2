@@ -95,3 +95,7 @@ GET /api/families/{family_id}/meals?start_date=YYYY-MM-DD&days=N
 ```
 
 See `docs/domain/family-meals-read-model.md` for authority, timezone and filtering semantics.
+
+## Implementation checkpoint
+
+The focused branch implementation, tests and documentation are complete. The branch must still pass the full local API/Web validation gates and browser smoke test on its exact head before a pull request is opened.
