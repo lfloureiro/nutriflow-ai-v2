@@ -16,6 +16,7 @@ LEGACY_V1_SOURCE = "legacy-v1-demo"
 LEGACY_V1_SOURCE_REFERENCE = "nutriflow-ai:v1:demo_3_familias_20_receitas"
 LEGACY_V1_DATA_VERSION = "legacy-v1-demo-v1"
 LEGACY_V1_NAMESPACE = uuid.UUID("4f99ec16-c0a4-4b65-b118-2ca0a6f34967")
+LEGACY_V1_SNAPSHOT_AT = datetime(2026, 4, 18, 12, 0, tzinfo=UTC)
 LEGACY_V1_FIXTURE = (
     Path(__file__).resolve().parents[3] / "database" / "legacy-v1" / "demo_catalog_subset.json"
 )
@@ -163,7 +164,7 @@ def _missing_composition(
                     "Legacy v1 demo source contains no ingredient nutrition composition."
                 ],
             },
-            computed_at=now,
+            computed_at=min(now, LEGACY_V1_SNAPSHOT_AT),
         )
     )
 
