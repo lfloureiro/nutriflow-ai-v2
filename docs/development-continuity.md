@@ -66,71 +66,98 @@ Web CI pins npm 11.12.1. A committed lockfile and `npm ci` are still required be
 
 ## Last integrated checkpoint
 
-PR #26 added server-authoritative planning bootstrap discovery and was locally green, CI-green on the exact head, and squash-merged.
+PR #27 wired the web UI to server-authoritative planning bootstrap evidence and was locally green, API/Web CI-green on the exact head, and squash-merged.
 
 Exact integrated baseline:
 
 ```text
-main SHA:        3ae41826a873d428a112c4060c95bea0856ffbbb
+main SHA:        415e56823ae817972162fdc63d39722f58055658
 schema head:     a7c4e9f2b6d1
 API tests:       100
-Web tests:       7
+Web tests:       10
 ```
 
-Integrated planning API flow:
+Integrated web planning flow:
 
 ```text
+Family ID -> Person
 GET  /api/persons/{person_id}/planning-bootstrap?scheduled_at=...
+named Food/Recipe candidate selection
 POST /api/persons/{person_id}/meal-recommendations/practical
 POST /api/recommendation-options/{option_id}/decision
 ```
 
-The bootstrap endpoint resolves the Person local date, latest persisted DailyNutritionState for that date, and current global/same-Family Food/Recipe composition evidence. Missing daily state remains `null`; future composition evidence is never selected.
+DailyNutritionState and composition snapshot UUIDs are no longer user inputs. The browser keeps persisted composition IDs internal and remains subordinate to backend eligibility/ranking/safety semantics.
 
-Detailed semantics: `docs/domain/web-planning-bootstrap-api.md`, ADR-031.
+Detailed semantics: `docs/ux/web-bootstrap-selection-flow.md`, ADR-032.
 
 ## Current feature branch
 
 ```text
-feature/web-bootstrap-selection-ui
+feature/demo-development-dataset
 ```
 
 Merge base:
 
 ```text
-3ae41826a873d428a112c4060c95bea0856ffbbb
+415e56823ae817972162fdc63d39722f58055658
 ```
 
-No schema change. No backend recommendation-rule change.
+Schema head remains:
+
+```text
+a7c4e9f2b6d1
+```
+
+No migration. Production startup is unchanged and never auto-seeds.
 
 Current scope:
 
-- web typed contracts/client call planning bootstrap;
-- selected Person + scheduled instant automatically load bootstrap evidence;
-- DailyNutritionState UUID input removed from the UI;
-- composition UUID inputs removed from the UI;
-- user selects named Food/Recipe candidates with brand/reference serving/energy display;
-- candidate quantity/unit initialize from server reference values and remain editable;
-- technical composition IDs stay internal and are sent to the existing recommendation API;
-- duplicate selected composition IDs are disabled;
-- Person/time changes invalidate old bootstrap, candidate, recommendation and decision state;
-- missing DailyNutritionState and empty catalogue are explicit and recommendation is disabled;
-- backend remains authoritative for eligibility, exclusions, ranking and practical/commercial rules.
+- add `python -m app.demo_seed` as an explicit local-development command;
+- create one fixed `NutriFlow Demo` Family and `Pessoa Demo` Person;
+- create a synthetic current-Europe/Lisbon-date DailyNutritionState;
+- create six Family-scoped demo FoodItems with versioned energy/protein/fiber/sodium composition evidence;
+- add a synthetic pasta preference for ranking explanation;
+- add a synthetic mandatory sodium maximum so the pizza demonstrates a hard exclusion;
+- keep `demo:` catalogue keys and `source="demo"` provenance explicit;
+- make repeated execution idempotent for the same date/catalogue version;
+- never delete or rewrite unrelated Family data;
+- raise on reserved demo catalogue-key ownership conflict;
+- print Family/Person/state/date/candidate information after committing;
+- document that the data is synthetic development data, not production or medical guidance.
 
 Expected validation baseline:
 
 ```text
-API: Alembic metadata clean, Ruff clean, 100 pytest tests
-Web: 10 Vitest tests, strict TypeScript check, production Vite build
+API: Alembic metadata clean, Ruff clean, 103 pytest tests
+Web: unchanged integrated 10 Vitest tests
 ```
 
 Authoritative current-branch docs:
 
-- `docs/ux/web-bootstrap-selection-flow.md`;
-- `docs/decisions/ADR-032-web-planning-uses-server-bootstrap-evidence.md`;
-- `docs/domain/implementation-status.md`.
+- `docs/domain/development-demo-dataset.md`;
+- `docs/decisions/ADR-033-development-demo-data-is-explicit-idempotent-and-isolated.md`;
+- `docs/domain/implementation-status.md`;
+- `apps/web/README.md`.
 
-Do not open a PR until the exact current branch head receives explicit local green confirmation for both API and web gates.
+Do not open a PR until the exact current branch head receives explicit local green confirmation for the API gates. Web code is unchanged, so the existing 10-test web baseline remains integrated.
+
+## Demo execution
+
+After pulling the current feature branch and completing local validation, a developer may populate the local database with:
+
+```powershell
+cd D:\Python\nutriflow-ai-v2\apps\api
+python -m app.demo_seed
+```
+
+The command prints the Family ID currently needed by the pre-authentication UI. On a fresh database the expected fixed ID is:
+
+```text
+11111111-1111-4111-8111-111111111111
+```
+
+The seed is allowed only as an explicit development action. It is not a substitute for authentication/authorization and must not be wired into API/web startup.
 
 ## Safety and correctness invariants
 
@@ -147,15 +174,17 @@ Preserve:
 - commercial price/availability cannot override nutrition safety;
 - web does not reimplement backend safety/ranking;
 - ineligible options cannot be materialized and rejection cannot create meal state;
-- DailyNutritionState remains derived from authoritative meal history;
+- DailyNutritionState remains derived from authoritative meal history outside explicit synthetic development fixtures;
 - shared meals keep person-specific portions/safety checks;
+- demo data remains explicit, isolated, identifiable and never auto-seeded;
 - warnings remain failures rather than suppressions.
 
 Known limitations:
 
 - Family UUID remains a development entrypoint because authentication/authorization is not implemented;
-- bootstrap does not create a missing DailyNutritionState;
-- recommendation decision request-level/concurrent idempotency is not yet guaranteed.
+- bootstrap does not create a missing real DailyNutritionState;
+- recommendation decision request-level/concurrent idempotency is not yet guaranteed;
+- npm lockfile / `npm ci` hardening is still pending.
 
 ## Migration tail
 
@@ -171,16 +200,17 @@ Never guess the next migration revision; inspect the actual migration directory 
 
 ## Next planned increments
 
-After this branch is locally green, PR-tested and merged:
+After the demo branch is locally green, PR-tested and merged:
 
-1. authentication and explicit Family/Person authorization context;
-2. committed npm lockfile and Web CI `npm ci` hardening before production;
-3. web profile/goals/constraints/preferences and daily plan/history slices;
-4. pantry/shopping UI plus durable shopping-list lifecycle when needed;
-5. background/event-driven DailyNutritionState refresh and explicit target-selection policy;
-6. request-idempotency/concurrent decision hardening;
-7. shared-family recommendation/decision API and UI boundaries;
-8. provider connectors/live freshness, basket/order lifecycle, then learned ranking.
+1. seed the local development database and run the complete browser flow end-to-end, fixing any integration/usability defect exposed by real use;
+2. add authentication and explicit Family/Person authorization context;
+3. commit an npm lockfile and switch Web CI to `npm ci` before production;
+4. add profile/goals/constraints/preferences and daily plan/history web slices;
+5. add pantry/shopping UI plus durable shopping-list lifecycle when needed;
+6. add background/event-driven DailyNutritionState refresh and explicit target-selection policy;
+7. harden recommendation-decision request idempotency/concurrency;
+8. expose shared-family recommendation/decision API and UI boundaries;
+9. add provider connectors/live freshness, basket/order lifecycle, then learned ranking.
 
 ## Resume procedure
 
