@@ -101,6 +101,7 @@ The current backend foundation includes:
 - first persisted person-scoped recommendation API using explicit DailyNutritionState and versioned composition snapshot IDs;
 - recommendation decision API for accepted/rejected/modified persisted options, with accepted/modified decisions materialized through the standard MealEvent/MealParticipant/Serving model;
 - practical recommendation orchestration API combining Person schedule, home/pantry availability, pantry stock and commercial opening/offer evidence with any-source semantics;
+- person-scoped planning bootstrap discovery of the latest local-day DailyNutritionState and current Family/global Food/Recipe composition evidence for the web UI;
 - PostgreSQL persistence with Alembic migrations;
 - pytest coverage with warnings treated as errors;
 - Ruff static validation.
@@ -118,7 +119,7 @@ The initial web foundation now includes:
 - Vitest unit tests plus strict TypeScript and production-build validation;
 - a separate Web CI workflow.
 
-The first UI intentionally still requires explicit DailyNutritionState and composition snapshot IDs. Safe discovery/selection APIs, authentication and production household context remain follow-up work.
+The first integrated UI still exposes explicit DailyNutritionState and composition snapshot IDs. The current planning-bootstrap increment adds the read-only server discovery boundary required to remove those technical inputs in the next web wiring slice without weakening persisted-evidence safety.
 
 Detailed domain status is maintained in `docs/domain/implementation-status.md`. The first UI flow is documented in `docs/ux/web-recommendation-vertical-slice.md`.
 
