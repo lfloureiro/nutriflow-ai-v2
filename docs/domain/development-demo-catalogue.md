@@ -18,7 +18,7 @@ The local v2 copy is:
 database/legacy-v1/demo_catalog_subset.json
 ```
 
-It currently contains 24 ingredients and five recipes selected to exercise catalogue, recipe editing, meal planning, preferences, pantry and shopping workflows:
+It currently contains 24 ingredients and five recipes selected to exercise catalogue, recipe editing, meal planning, preferences, pantry, shopping and recommendation workflows:
 
 - Esparguete à bolonhesa
 - Chili con carne
@@ -30,11 +30,21 @@ Names, descriptions, ingredient quantities and units are copied from the v1 snap
 
 ## Nutrition evidence
 
-The v1 demo snapshot does not contain ingredient nutrition composition. The v2 fixture therefore does not invent kcal or nutrient values.
+The v1 demo snapshot does not contain ingredient nutrition composition. Imported ingredients therefore remain without a `FoodCompositionSnapshot`; the seed does not pretend that ingredient-level nutrition came from v1.
 
-Imported ingredients have no `FoodCompositionSnapshot` until a user or later import adds authoritative evidence. Imported recipes receive one deterministic recipe composition snapshot whose energy is `null` and whose calculation inputs explicitly record the missing-evidence issue.
+For browser and recommendation testing only, the five imported recipes receive a **synthetic development-only recipe composition** with energy, protein, fibre and sodium. These values are not represented as v1 data and must not be used as nutritional reference data.
 
-This lets the UI and recommendation engine exercise their existing missing-evidence behavior while preserving provenance.
+The recipe snapshot records this explicitly:
+
+```text
+calculation_version = legacy-v1-demo-synthetic-nutrition-v1
+nutrition_source = synthetic-development-fixture
+issue = Development-only synthetic nutrition estimate; recipe structure comes from v1, nutrition does not.
+```
+
+The composition represents the whole recipe. Planning bootstrap converts it to one default serving per selected Person using `recipe.serving_count`, so a four-serving recipe is not accidentally recommended as four servings per Person.
+
+This development evidence exists so mandatory nutrient constraints and recipe ratings can be exercised end-to-end without weakening fail-safe production behavior for genuinely missing evidence.
 
 ## Provenance and identity
 
@@ -48,7 +58,7 @@ FoodItem.catalog_key = legacy-v1:ingredient:<legacy id>
 Recipe.recipe_key = legacy-v1:recipe:<legacy id>
 ```
 
-The seed is idempotent. Existing user-added nutrition evidence is not deleted on a later seed run.
+The seed is idempotent and upgrades an already-seeded v1 demo recipe snapshot to the current development fixture version. User-created catalogue entries are not touched.
 
 ## Development command
 
@@ -59,6 +69,6 @@ cd D:\Python\nutriflow-ai-v2\apps\api
 python -m app.development_seed
 ```
 
-This first prepares the existing synthetic Family/health/recommendation demo data and then adds the v1 catalogue subset to the same demo Family.
+This first prepares the existing synthetic Family/health/recommendation demo data and then adds or updates the v1 catalogue subset in the same demo Family.
 
 `python -m app.demo_seed` remains available and preserves its previous narrower semantics for existing automated tests.
