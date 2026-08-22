@@ -18,8 +18,10 @@ function errorText(error: unknown): string {
 }
 
 export function startOfWeekDate(isoDate: string): string {
-  const [year, month, day] = isoDate.split("-").map(Number);
-  const value = new Date(Date.UTC(year, month - 1, day));
+  const value = new Date(`${isoDate}T00:00:00Z`);
+  if (Number.isNaN(value.getTime())) {
+    throw new Error("Invalid ISO calendar date.");
+  }
   const weekday = value.getUTCDay();
   const offset = weekday === 0 ? -6 : 1 - weekday;
   value.setUTCDate(value.getUTCDate() + offset);
@@ -259,7 +261,8 @@ export default function FamilyMealsScreen({
             <div className="family-meals-range">
               <span>{t("meals.weekRange")}</span>
               <strong>
-                {formatDate(data.start_date, locale, false)} — {formatDate(data.end_date, locale, false)}
+                {formatDate(data.start_date, locale, false)} —{" "}
+                {formatDate(data.end_date, locale, false)}
               </strong>
             </div>
           ) : null}
