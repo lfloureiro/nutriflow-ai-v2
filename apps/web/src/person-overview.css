@@ -1,0 +1,222 @@
+.person-overview-screen {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.person-header {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.person-back {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.35rem;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+  font-weight: 700;
+}
+
+.person-back span {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.person-header__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.person-header__identity h1 {
+  margin-bottom: 0.2rem;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+}
+
+.person-header__identity p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.person-header__avatar {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+  font-size: 1.15rem;
+}
+
+.person-secondary-nav {
+  display: flex;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  scrollbar-width: thin;
+}
+
+.person-secondary-nav button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  padding: 0.55rem 0.82rem;
+  font-size: 0.78rem;
+  font-weight: 720;
+}
+
+.person-secondary-nav button.active {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.person-overview-content,
+.person-section {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.person-overview-content {
+  gap: var(--space-5);
+}
+
+.person-section {
+  padding: clamp(1.1rem, 2.5vw, 1.6rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.person-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.person-metric-card {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+
+.person-metric-card > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 720;
+}
+
+.person-metric-card strong {
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  overflow-wrap: anywhere;
+}
+
+.person-metric-card small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+.person-meal-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.person-meal-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+
+.person-meal-row time {
+  color: var(--accent-strong);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.person-meal-row > div {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.person-meal-row > div span,
+.person-meal-row > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.person-placeholder {
+  display: grid;
+  gap: var(--space-3);
+  min-height: 260px;
+  align-content: center;
+  padding: clamp(1.3rem, 4vw, 2.4rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.person-placeholder h2,
+.person-placeholder p {
+  margin-bottom: 0;
+}
+
+.person-placeholder p {
+  max-width: 58ch;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.person-empty {
+  min-height: 120px;
+}
+
+@media (max-width: 980px) {
+  .person-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .person-overview-screen {
+    gap: var(--space-4);
+  }
+
+  .person-header__identity {
+    align-items: flex-start;
+  }
+
+  .person-header__avatar {
+    width: 52px;
+    height: 52px;
+    flex-basis: 52px;
+  }
+
+  .person-metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .person-meal-row {
+    grid-template-columns: 58px minmax(0, 1fr);
+  }
+
+  .person-meal-row > span {
+    grid-column: 2;
+  }
+}
