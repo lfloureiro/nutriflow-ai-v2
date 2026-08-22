@@ -1,0 +1,88 @@
+import type {
+  Person,
+  PracticalRecommendationRequest,
+  PracticalRecommendationRun,
+  RecommendationDecision,
+  RecommendationDecisionRequest,
+} from "./types";
+
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "";
+
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+export function normalizeApiBaseUrl(value: string): string {
+  return value.trim().replace(/\/+$/, "");
+}
+
+export function buildApiUrl(path: string, baseUrl = configuredApiBaseUrl): string {
+  const normalizedBase = normalizeApiBaseUrl(baseUrl);
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${normalizedBase}${normalizedPath}`;
+}
+
+async function errorMessage(response: Response): Promise<string> {
+  try {
+    const payload = (await response.json()) as { detail?: unknown };
+    if (typeof payload.detail === "string" && payload.detail.length > 0) {
+      return payload.detail;
+    }
+  } catch {
+    // A non-JSON error body falls through to the HTTP status text below.
+  }
+  return response.statusText || `HTTP ${response.status}`;
+}
+
+async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(buildApiUrl(path), {
+    ...init,
+    headers: {
+      Accept: "application/json",
+      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...init?.headers,
+    },
+  });
+
+  if (!response.ok) {
+    throw new ApiError(await errorMessage(response), response.status);
+  }
+
+  return (await response.json()) as T;
+}
+
+export function listFamilyPersons(familyId: string): Promise<Person[]> {
+  return apiRequest<Person[]>(`/api/families/${encodeURIComponent(familyId)}/persons`);
+}
+
+export function requestPracticalRecommendation(
+  personId: string,
+  payload: PracticalRecommendationRequest,
+): Promise<PracticalRecommendationRun> {
+  return apiRequest<PracticalRecommendationRun>(
+    `/api/persons/${encodeURIComponent(personId)}/meal-recommendations/practical`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function submitRecommendationDecision(
+  optionId: string,
+  payload: RecommendationDecisionRequest,
+): Promise<RecommendationDecision> {
+  return apiRequest<RecommendationDecision>(
+    `/api/recommendation-options/${encodeURIComponent(optionId)}/decision`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
