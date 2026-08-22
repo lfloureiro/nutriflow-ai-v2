@@ -13,78 +13,55 @@ Integrated capabilities include:
 - Family MealEvent with Person-specific MealParticipant and Serving records;
 - FoodItem/Recipe catalogue with versioned composition snapshots and nutrient components;
 - deterministic Serving nutrition calculation with safe unit conversion and exact provenance;
-- deterministic hard-rule-first meal recommendation, including fail-closed missing mandatory nutrient data;
-- persisted recommendation runs/options, append-only feedback and accepted/modified materialization;
-- deterministic DailyNutritionState recalculation from authoritative Serving history;
-- shared-family recommendation/materialization with Person-specific portions and fairness-first ranking;
-- persisted home/pantry/restaurant/delivery/store practical availability;
-- quantity-aware pantry stock and transient shopping requirements;
-- commercial opening windows and provider offer metadata;
-- Person recommendation API, practical orchestration API and recommendation decision API;
-- planning-bootstrap API for server-authoritative current state/composition discovery;
-- explicit development demo dataset for local end-to-end testing;
-- Family dashboard read model for current-day Family member evidence and meal agenda;
-- Family-first progressive-disclosure frontend architecture (ADR-034);
-- visible responsive application shell with `Início`, `Refeições`, `Pessoas`, `Casa`, `Mais`;
-- lightweight Family Home backed by the server dashboard read model;
-- representative four-member synthetic demo data for Family-level UI validation.
+- deterministic hard-rule-first recommendation and persisted recommendation/feedback evidence;
+- shared-family recommendation/materialization with Person-specific portions;
+- persisted practical availability, pantry stock and commercial offer evidence;
+- Person/practical recommendation APIs and planning-bootstrap API;
+- explicit development demo dataset;
+- Family dashboard read model;
+- Family-first responsive application shell;
+- lightweight Family Home;
+- representative four-member synthetic demo data;
+- lightweight Person overview with secondary navigation.
 
-Integrated baseline after PR #31:
+Integrated baseline after PR #32:
 
 ```text
-main SHA:      e95270a4372aa767bded205cdb9f536480cecc27
+main SHA:      715ce09bc2034d6f88165f288b2d79321bdd4599
 schema head:   a7c4e9f2b6d1
 API tests:     107
-Web tests:     14
+Web tests:     16
 ```
 
-## Current feature branch: Person overview
-
-Branch:
+## Current branch: Person meal-label presentation fix
 
 ```text
-feature/web-person-overview
+fix/web-person-meal-labels
 ```
 
 Merge base:
 
 ```text
-e95270a4372aa767bded205cdb9f536480cecc27
+715ce09bc2034d6f88165f288b2d79321bdd4599
 ```
 
-No database migration and no backend-domain behavior change.
+No database migration and no API/backend-domain change.
 
-Implemented on the branch:
+Implemented on this branch:
 
-- first real Person drill-down from a Family Home member card;
-- direct `Pessoas` navigation opens the member list, while a Family Home card opens that Person directly;
-- explicit Person back-navigation to the member list;
-- secondary Person navigation: `Visão geral`, `Nutrição`, `Atividade`, `Saúde`, `Histórico`, `Perfil`;
-- implemented `Visão geral` with a deliberately small current-day metric set;
-- energy consumed and remaining range from persisted DailyNutritionState;
-- steps and active energy from persisted DailyHealthState;
-- latest weight and persisted 7-day trend;
-- sleep duration and resting heart rate;
-- current-day Person meal list filtered from Family dashboard `participant_person_ids`;
-- explicit missing-data presentation rather than zero or previous-day fallback;
-- dedicated section placeholders for later focused screens instead of overloading the overview;
-- no chart yet because the current read model does not provide a historical time series;
-- no medical interpretation, synthetic health score, browser-authored targets or client-side safety logic;
-- responsive Person layout with compact horizontal secondary navigation and mobile single-column metrics;
-- Web unit coverage for Person meal filtering.
-
-Authoritative docs:
-
-- `docs/ux/person-overview.md`;
-- `docs/ux/frontend-information-architecture.md`;
-- `docs/ux/family-home-shell.md`;
-- `docs/decisions/ADR-034-family-first-progressive-disclosure-web-navigation.md`.
+- localizes known Person meal type labels for the active locale;
+- localizes known MealEvent status labels for the active locale;
+- Portuguese examples: `lunch` -> `Almoço`, `planned` -> `Planeada`, `completed` -> `Concluída`;
+- English labels are normalized for presentation as well;
+- unknown type/status values remain unchanged rather than being guessed;
+- unit coverage verifies known and unknown label behavior;
+- distinct persisted MealEvents remain distinct rows even when title/time repeat.
 
 Expected validation baseline:
 
 ```text
 API: Alembic metadata clean, Ruff clean, 107 pytest tests
-Web: 16 Vitest tests, strict TypeScript check, production Vite build
+Web: 18 Vitest tests, strict TypeScript check, production Vite build
 ```
 
 ## Person overview UX boundary
@@ -93,64 +70,41 @@ The Person overview answers:
 
 > Como está esta pessoa hoje?
 
-It is a presentation of current persisted evidence, not an analytical or clinical dashboard. It intentionally contains a small metric set and current-day meal participation.
+It presents current persisted evidence without becoming a dense analytical/clinical dashboard. Known domain enum values are translated into user-facing labels, but the browser does not alter the underlying domain records.
 
-The overview does not add a chart yet because there is no authoritative time series in the current Family dashboard response. A future Person read model can provide a single primary trend visualization while detailed analytics remain in dedicated sections.
+A screenshot during visual review also showed several separate planned MealEvents at 11:14. They were created by previous recommendation smoke tests and are real persisted rows, not one row rendered repeatedly. Client-side deduplication would hide authoritative state and is therefore not used.
 
-Secondary destinations are visible now to establish the navigation structure, but they remain placeholders until their data/read-model requirements are implemented in focused branches.
+## Family/Meals boundaries
 
-## Family Home UX boundary
+Family Home remains lightweight. `Refeições` continues to own planning/recommendation. Accepted recommendation options can materialize MealEvents, so persistent development data can accumulate during repeated smoke tests.
 
-Home continues to answer:
-
-> Como está a família hoje?
-
-It remains a lightweight Family orientation screen rather than a comprehensive analytics page. Person detail is reached through drill-down.
-
-## Meals UX boundary
-
-`Refeições` owns the recommendation flow. The current slice still starts with recommendation planning rather than the future `Hoje`/`Semana` meal map.
-
-The browser remains subordinate to backend semantics:
-
-- DailyNutritionState is selected by planning bootstrap;
-- Food/Recipe composition version is selected by the server;
-- hard constraints and safety run before ranking;
-- commercial availability cannot override nutrition safety;
-- accepted options materialize through the recommendation-decision API.
+An explicit development-demo reset/cleanup path is the next focused development-data increment.
 
 ## Safety and correctness invariants
 
 Future work must preserve:
 
-- mandatory adverse reactions and mandatory constraints before ranking;
-- learned ranking may reorder eligible candidates only;
-- missing candidate nutrient data cannot satisfy a mandatory nutrient maximum;
-- unsupported mandatory semantics and unsafe required conversions fail closed;
-- no inferred density;
+- mandatory safety/constraints before ranking;
+- missing mandatory evidence fails closed;
 - exact versioned composition provenance;
-- recommendation APIs use persisted source evidence, not client-authored nutrition totals;
-- planning bootstrap preserves Person/Family isolation and as-of composition semantics;
-- Family dashboard exposes persisted evidence without medical interpretation;
-- Person overview presents that evidence without inventing cross-domain meaning;
-- missing dashboard evidence remains `null` rather than zero or previous-day fallback;
-- web does not select state/composition versions independently or reproduce safety/ranking rules;
-- ineligible options cannot be materialized and rejected decisions cannot create meal state;
-- DailyNutritionState remains derived from authoritative meal history outside explicit synthetic development fixtures;
-- shared meals retain Person-specific portions and safety checks;
-- commercial price/availability cannot override safety eligibility;
-- demo data is explicit, synthetic, isolated and never auto-seeded;
-- warnings remain failures rather than being suppressed.
+- server authority over state/composition/safety/ranking;
+- missing dashboard evidence remains `null` rather than zero;
+- Person overview does not infer clinical meaning;
+- separate persisted MealEvents are not hidden by presentation deduplication;
+- shared meals retain Person-specific portions;
+- demo data remains explicit, synthetic and never auto-seeded;
+- warnings remain failures.
 
 Known limitations:
 
+- persistent demo databases can accumulate accepted recommendation MealEvents until reset is added;
 - recommendation decision request-level/concurrent idempotency is not yet guaranteed;
 - missing real DailyNutritionState is not automatically recalculated by bootstrap/dashboard;
-- Family selection remains a development context pending authentication/authorization;
-- Person detailed section read models are not yet implemented;
+- Family selection remains development context pending authentication/authorization;
+- detailed Person section read models are not yet implemented;
 - `Casa` is not yet functional;
 - URL/deep-link routing is not yet introduced;
-- recommendation wall-time input retains the existing browser-timezone limitation;
+- recommendation wall-time input retains the browser-timezone limitation;
 - committed npm lockfile / `npm ci` hardening is still pending.
 
 ## Current migration tail
@@ -169,15 +123,14 @@ d9f2a7          DailyHealthState/DailyNutritionState
 
 ## Next planned increments
 
-After this branch is locally green, PR-tested, visually checked and merged:
+1. explicit development-demo reset/cleanup;
+2. Family Meals `Hoje` and `Semana`;
+3. shared-meal drill-down with Person-specific portions;
+4. dedicated Person Nutrition/Activity/Health/History read models/screens;
+5. Person profile/goals/constraints/preferences;
+6. pantry/shopping UI;
+7. authentication/authorization;
+8. npm lockfile / `npm ci` hardening;
+9. provider/live freshness, basket/order and later learned ranking.
 
-1. implement Family Meals `Hoje` and `Semana` before the recommendation subflow;
-2. add shared-meal drill-down with Person-specific portions;
-3. add dedicated Person Nutrition/Activity/Health/History read models/screens;
-4. add Person profile/goals/constraints/preferences screens;
-5. add pantry/shopping UI and durable shopping-list lifecycle;
-6. add authentication/authorization before real multi-user deployment;
-7. add committed npm lockfile and `npm ci` production hardening;
-8. continue provider/live freshness, basket/order and later learned-ranking work.
-
-Every increment follows ADR-007: focused branch, relevant code/tests/docs together, local validation with zero warnings, PR only after local green, CI on the exact head SHA, guarded squash merge, verify new `main`, then start the next branch.
+Every increment follows ADR-007.
