@@ -74,13 +74,14 @@ The branch was created from the completed ingredient-catalogue head:
 c0a47011ab5acd1f79acd71d9d3e4f8e164cc11e
 ```
 
-That ancestor itself descends directly from integrated `main` `e0bdd8a9...`, so the eventual PR contains the complete core block from `main`:
+That ancestor itself descends directly from integrated `main` `e0bdd8a9...`, so the eventual PR contains the complete core block from `main`.
 
 ### 1. Ingredients
 
 - Family ingredient list/search;
 - create/edit identity and nutrition evidence;
 - versioned FoodCompositionSnapshot on nutrition changes;
+- changing ingredient composition automatically recalculates Family Recipes that reference it;
 - deactivate/reactivate rather than destructive delete;
 - lightweight `Casa -> Ingredientes` UI.
 
@@ -91,9 +92,9 @@ That ancestor itself descends directly from integrated `main` `e0bdd8a9...`, so 
 - quantities, units and preparation notes;
 - serving count and finished yield;
 - deterministic `recipe-nutrition-v1` calculation;
-- new RecipeCompositionSnapshot on nutrition-relevant Recipe changes;
+- new RecipeCompositionSnapshot on nutrition-relevant Recipe changes or referenced ingredient-composition changes;
 - total and per-serving energy/nutrients;
-- explicit issues for missing/unsafe nutrition evidence;
+- explicit issues for missing/unsafe/incomplete nutrition evidence;
 - no client-side calorie calculation.
 
 ### 3. Four fixed meal types
@@ -152,7 +153,7 @@ Today/Week expose the four slots and add/edit/remove operations. The old recomme
 Current expected counts before local execution:
 
 ```text
-API: 120 pytest tests
+API: 121 pytest tests
 Web: 27 Vitest tests
 ```
 
