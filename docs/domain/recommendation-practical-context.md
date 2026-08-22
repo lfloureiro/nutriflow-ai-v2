@@ -2,121 +2,128 @@
 
 ## Purpose
 
-Nutrition fit is not sufficient for a useful meal recommendation.
+Nutrition fit is not sufficient for a useful meal recommendation. A candidate can be nutritionally appropriate and still be impractical because the Person is unavailable, is in the wrong location, lacks preparation time/kitchen access, has insufficient pantry stock, or cannot currently obtain the item from a modeled restaurant/delivery/store source.
 
-A candidate can be nutritionally appropriate and still be impractical because the Person is unavailable, is in a location where the candidate cannot be obtained, has too little time to prepare it, or does not have access to required kitchen facilities.
-
-This increment introduces a deterministic practical-context layer around the existing meal-recommendation engine.
+The practical-context layer is deterministic and runs before the existing nutrition/safety ranking engine.
 
 ## Separation from nutrition and safety
 
-The existing recommendation engine remains responsible for:
+The nutrition/safety engine remains authoritative for:
 
 - mandatory adverse-reaction exclusion;
-- mandatory nutrition constraints;
-- energy fit;
-- nutrient fit;
+- mandatory NutritionConstraint rules;
+- energy/nutrient fit;
 - preferences;
 - advisory reactions.
 
-Practical context is evaluated as an additional eligibility layer before the remaining candidates are passed to the existing recommendation engine.
-
-This separation keeps medical/allergy safety rules independent from schedule or convenience rules.
+Practical context can make a candidate ineligible, but it can never make an otherwise safety-ineligible candidate eligible.
 
 ## PracticalMealContext
 
-`PracticalMealContext` is an in-memory planning input rather than a new database entity.
+`PracticalMealContext` is request-specific and contains:
 
-It contains:
-
-- `scheduled_at` — timezone-aware intended meal time;
+- timezone-aware `scheduled_at`;
 - optional explicit `location`;
 - optional `available_minutes`;
-- optional `has_kitchen` flag;
-- zero or more existing `ScheduleEntry` records.
+- optional `has_kitchen`;
+- zero or more ScheduleEntry records.
 
-The context is deliberately request-specific. The same FoodItem or Recipe may be practical at home in the evening and impractical at work during a short lunch window.
+The same candidate may therefore be practical at home in the evening and impractical at work during a short lunch window.
 
 ## CandidatePracticalProfile
 
-Candidate-specific practical metadata is supplied independently through `CandidatePracticalProfile`.
+Candidate-specific practical feasibility is normalized through `CandidatePracticalProfile`.
 
-Initial fields are:
+Current fields:
 
 - `candidate_key`;
-- optional set of `available_locations`;
+- optional explicit `is_available`;
+- optional `available_locations`;
 - optional `preparation_minutes`;
 - `requires_kitchen`.
 
-This first increment does not persist these profiles in the catalogue. That avoids prematurely committing practical metadata to FoodItem/Recipe schema before restaurant, delivery, pantry and preparation modelling are defined.
+A missing profile means practical metadata is unknown rather than unavailable.
 
-A candidate without a practical profile is not excluded merely because profile metadata is absent.
+Profiles can now come from several deterministic sources:
+
+- request-local caller metadata;
+- persisted `MealCandidateAvailability` source rows;
+- quantity-aware pantry sufficiency;
+- time-aware restaurant/delivery/store commercial-source evaluation.
+
+These sources all adapt into the same practical interface rather than creating competing recommendation engines.
+
+Detailed source semantics:
+
+- `docs/domain/persisted-practical-availability.md`;
+- `docs/domain/pantry-stock-shopping-requirements.md`;
+- `docs/domain/restaurant-delivery-commercial-context.md`.
 
 ## Schedule evaluation
 
-The service evaluates ScheduleEntry records at the exact `scheduled_at` instant.
+ScheduleEntry records are evaluated at the exact intended meal instant.
 
 ### One-off precedence
 
-Date-specific one-off entries are more specific than recurring entries.
-
-When matching one-off entries provide a non-neutral availability effect, those effects take precedence over recurring availability effects for the same instant.
-
-This allows an exceptional meeting, trip or appointment to block a habitual preferred meal window without modifying the recurring entry.
+When matching one-off entries have a non-neutral availability effect, they take precedence over matching recurring effects. A date-specific meeting/trip can therefore block a habitual preferred meal window without changing the recurring schedule.
 
 ### Availability effects
 
-Matching effective entries are interpreted as follows:
+- `unavailable` blocks recommendation at that instant;
+- `available` permits it explicitly;
+- `preferred` permits it and adds an explanation marker;
+- `neutral` contributes contextual information such as location/event type without declaring availability.
 
-- `unavailable` blocks meal recommendation at that instant;
-- `available` permits the instant explicitly;
-- `preferred` permits the instant and adds an explanation that it is preferred;
-- `neutral` provides context such as location/event type but does not itself declare availability.
-
-An unavailable schedule instant excludes every candidate before ranking.
+An unavailable schedule instant excludes all candidates before ranking.
 
 ### Location
 
-If the request supplies an explicit location, that location is authoritative for candidate filtering.
+An explicit request location is authoritative. Otherwise, exactly one location derived from effective schedule context may be used.
 
-Otherwise, when the effective matching schedule context yields exactly one location, that location is used as the inferred planning location.
-
-A candidate with `available_locations` is excluded when the resolved planning location is not in that set.
-
-If location is unknown or ambiguous, the engine does not invent one.
+If a candidate/profile has restrictive available locations and the resolved location is outside them, the candidate is excluded. Unknown/ambiguous location is not invented.
 
 ## Recurrence support
 
-Recurring ScheduleEntry values remain stored as RFC 5545-style text.
-
-The practical-context evaluator currently interprets a deliberately conservative subset:
+Schedule recurrence uses a conservative interpreted subset of stored RFC 5545-style text:
 
 - `FREQ=DAILY`;
 - `FREQ=WEEKLY`;
-- optional `BYDAY` weekday lists using `MO` through `SU`;
+- optional `BYDAY` using `MO` through `SU`;
 - `INTERVAL=1` only;
 - optional `RRULE:` prefix.
 
-Recurring intervals may cross midnight. In an overnight interval, the recurrence date is the date on which the interval started.
+Overnight intervals belong to the date on which the interval starts.
 
-Unsupported recurrence keys, frequencies, intervals or weekday values raise `UnsupportedRecurrenceRuleError`. The service does not silently ignore a recurrence rule it cannot interpret because doing so could produce recommendations at the wrong time.
-
-Future calendar work can replace or extend this evaluator with fuller RFC 5545 support without changing ScheduleEntry persistence.
+Unsupported keys/frequencies/intervals/weekdays raise `UnsupportedRecurrenceRuleError`; recurrence is never silently ignored.
 
 ## Preparation and kitchen constraints
 
 A candidate is excluded when:
 
-- its `preparation_minutes` exceed `available_minutes`; or
-- it requires a kitchen while `has_kitchen` is explicitly false.
+- explicit profile availability is false;
+- preparation time exceeds the available window;
+- a kitchen is required while kitchen access is explicitly false;
+- resolved location is outside restrictive available locations.
 
-Unknown preparation time or unknown kitchen availability is not treated as a negative fact.
+Unknown values are not treated as negative facts.
 
-This distinction prevents missing metadata from becoming an implicit exclusion while still allowing callers to provide concrete practical constraints when known.
+## Pantry-derived feasibility
+
+`build_pantry_stock_practical_profiles()` evaluates FoodItem or Recipe candidate quantities against current Family pantry stock.
+
+A pantry-derived profile is explicitly available only when required quantities are satisfied under safe unit-conversion rules. Unsafe cross-dimension comparison fails explicitly; no density is inferred.
+
+## Commercial-source feasibility
+
+`build_commercial_planning_context()` evaluates modeled restaurant/delivery/store sources at a timezone-aware planned instant.
+
+Commercial source opening windows can make a modeled source closed. Missing opening-window data remains unknown rather than closed. Active provider offers are returned separately from practical profiles: missing current price data does not by itself make an otherwise open source unavailable.
+
+Commercial price never bypasses safety/nutrition rules and is not currently part of ranking.
 
 ## Recommendation result semantics
 
-Candidates excluded by practical context remain in the RecommendationResult with:
+Practical exclusions remain normal `CandidateEvaluation` records with:
 
 - `eligible = false`;
 - no rank;
@@ -126,28 +133,32 @@ Candidates excluded by practical context remain in the RecommendationResult with
 Examples include:
 
 - `schedule_unavailable`;
-- `candidate_unavailable_at_location:Office`;
+- `candidate_unavailable`;
+- `candidate_unavailable_at_location:<location>`;
 - `preparation_time_exceeds_available_window`;
 - `kitchen_required`.
 
-Candidates that pass practical filtering are ranked by the existing deterministic nutrition/safety engine. Practical context may add explanation markers such as `schedule_preferred_window`, `schedule_available_window`, and `planning_location:<location>`.
+Candidates that pass practical filtering continue through deterministic safety/nutrition ranking. Explanations can include `schedule_preferred_window`, `schedule_available_window` and `planning_location:<location>`.
 
-The wrapper uses engine version `meal-recommendation-practical-v1` by default so persisted recommendation history can identify the behaviour that produced the result.
+The wrapper engine version remains `meal-recommendation-practical-v1` unless a future behaviour change deliberately introduces a new version.
 
-## No schema change
+## Persistence boundary
 
-This increment adds no database tables or columns.
+The original practical-context wrapper itself did not require schema changes. Later increments added operational persistence around it:
 
-It consumes existing ScheduleEntry records and in-memory practical profiles. Recommendation persistence already stores eligibility, exclusion reasons and explanations, so practical decisions remain auditable when the result is persisted.
+- MealCandidateAvailability — ADR-023;
+- PantryStockLot — ADR-024;
+- MealSourceOpeningWindow/MealCommercialOffer — ADR-025.
+
+Recommendation history already persists resulting eligibility, exclusions and explanations independently from operational source rows.
 
 ## Future evolution
 
-Planned follow-up work includes:
+Remaining planned work includes:
 
-- shared-family meal optimization across several Persons;
-- persisted preparation/availability metadata once pantry, restaurant and delivery domains are designed;
-- fuller recurrence support and calendar occurrence overrides;
-- automatic derivation of available preparation windows from surrounding schedule intervals;
-- travel-aware location context;
-- restaurant opening/delivery availability;
-- pantry and shopping feasibility.
+- fuller recurrence/calendar override support;
+- automatic derivation of preparation windows from surrounding schedule intervals;
+- travel/geographic routing context;
+- provider live-freshness policies and connectors;
+- basket/order workflows and deliberate commercial optimization;
+- API/UI vertical slices that compose schedule, pantry, source and deterministic nutrition context coherently.
