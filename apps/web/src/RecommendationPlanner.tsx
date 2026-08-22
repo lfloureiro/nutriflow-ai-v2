@@ -23,6 +23,7 @@ import type {
   PracticalRecommendationRequest,
   PracticalRecommendationRun,
   RecommendationDecision,
+  RecommendationHistoryHint,
   RecommendationOption,
 } from "./api/types";
 import { useI18n, type Locale } from "./i18n";
@@ -40,10 +41,12 @@ import {
   type RecommendationSource,
 } from "./recommendationPlanning";
 
+const MAX_VISIBLE_RESULTS = 3;
+
 const COPY = {
   "pt-PT": {
     title: "Recomendar refeições",
-    help: "Escolhe quem vai comer, os dias, o tipo de refeição e onde queres procurar. O NutriFlow compara automaticamente as opções elegíveis.",
+    help: "Escolhe quem vai comer, os dias, o tipo de refeição e onde queres procurar. O NutriFlow cruza nutrição, preferências, disponibilidade e variedade.",
     people: "Pessoas",
     peopleLower: "pessoas",
     allPeople: "Todos",
@@ -70,9 +73,11 @@ const COPY = {
     peopleRequired: "Escolhe pelo menos uma pessoa.",
     sourceRequired: "Escolhe pelo menos uma origem para a recomendação.",
     noCandidates: "Não existem refeições elegíveis no catálogo para as origens escolhidas.",
-    noResults: "Não foram encontradas opções disponíveis para este dia e origem.",
+    noResults: "Não foram encontradas opções adequadas para este dia.",
     error: "Não foi possível obter a recomendação",
     results: "Recomendações",
+    best: "Melhor escolha",
+    alternative: "Alternativa",
     planned: "Adicionada ao plano",
     accept: "Adicionar ao plano",
     reject: "Rejeitar",
@@ -81,12 +86,14 @@ const COPY = {
     snack: "Lanche",
     dinner: "Jantar",
     from: "Origem",
+    deliverySource: "Encomenda",
+    restaurantSource: "Restaurante",
     groupFit: "Adequação do grupo",
     portion: "Porção",
   },
   en: {
     title: "Meal recommendations",
-    help: "Choose who will eat, the days, meal type and where to search. NutriFlow automatically compares eligible options.",
+    help: "Choose who will eat, the days, meal type and where to search. NutriFlow combines nutrition, preferences, availability and variety.",
     people: "People",
     peopleLower: "people",
     allPeople: "Everyone",
@@ -113,9 +120,11 @@ const COPY = {
     peopleRequired: "Choose at least one person.",
     sourceRequired: "Choose at least one recommendation source.",
     noCandidates: "There are no eligible catalogue meals for the selected sources.",
-    noResults: "No available options were found for this day and source.",
+    noResults: "No suitable options were found for this day.",
     error: "The recommendation could not be created",
     results: "Recommendations",
+    best: "Best choice",
+    alternative: "Alternative",
     planned: "Added to plan",
     accept: "Add to plan",
     reject: "Reject",
@@ -124,6 +133,8 @@ const COPY = {
     snack: "Snack",
     dinner: "Dinner",
     from: "Source",
+    deliverySource: "Delivery",
+    restaurantSource: "Restaurant",
     groupFit: "Group fit",
     portion: "Portion",
   },
@@ -238,6 +249,15 @@ function visibleSharedOptions(
   });
 }
 
+function topCandidateKey(day: DayResult): string | null {
+  if (!day.run) return null;
+  const options =
+    day.mode === "single"
+      ? visibleSingleOptions(day.run, day.sources)
+      : visibleSharedOptions(day.run, day.sources);
+  return options.at(0)?.candidate_key ?? null;
+}
+
 function SourceChoice({
   source,
   selected,
@@ -249,12 +269,11 @@ function SourceChoice({
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
-  const label = copy[source];
   const helpKey = `${source}Help` as "cookedHelp" | "deliveryHelp" | "restaurantHelp";
   return (
     <label className={`recommend-source-card ${selected ? "selected" : ""}`}>
       <input checked={selected} onChange={onChange} type="checkbox" />
-      <span><strong>{label}</strong><small>{copy[helpKey]}</small></span>
+      <span><strong>{copy[source]}</strong><small>{copy[helpKey]}</small></span>
     </label>
   );
 }
@@ -272,7 +291,8 @@ function OfferList({ offers }: { offers: OfferLike[] }) {
             <div>
               <strong>{offer.provider_name ?? offer.provider_key}</strong>
               <span className="muted">
-                {offer.source_kind}{offer.location ? ` · ${offer.location}` : ""}
+                {offer.source_kind === "delivery" ? copy.deliverySource : copy.restaurantSource}
+                {offer.location ? ` · ${offer.location}` : ""}
               </span>
             </div>
             <strong>{formatMoney(offer.total_known_price, offer.currency, locale)}</strong>
@@ -281,6 +301,12 @@ function OfferList({ offers }: { offers: OfferLike[] }) {
       </div>
     </div>
   );
+}
+
+function ResultEyebrow({ rank }: { rank: number | null }) {
+  const { locale } = useI18n();
+  const copy = COPY[locale];
+  return <span className="eyebrow">{rank === 1 ? copy.best : copy.alternative}</span>;
 }
 
 function SingleResultCard({
@@ -302,10 +328,10 @@ function SingleResultCard({
   const copy = COPY[locale];
   const offers = matchingOffers(run.commercial_offers, option.candidate_key, sources);
   return (
-    <article className="recommendation-card eligible">
+    <article className={`recommendation-card eligible ${option.rank === 1 ? "best" : ""}`}>
       <div className="recommendation-card__header">
         <div>
-          <span className="eyebrow">{option.rank !== null ? `#${option.rank}` : copy.results}</span>
+          <ResultEyebrow rank={option.rank} />
           <h3>{option.candidate_name}</h3>
           <p className="muted compact">
             {formatNumber(option.quantity, locale)} {option.quantity_unit}
@@ -321,7 +347,7 @@ function SingleResultCard({
       {option.explanation.length > 0 ? (
         <div className="detail-block">
           <ul className="compact-list">
-            {option.explanation.slice(0, 3).map((message) => <li key={message}>{message}</li>)}
+            {option.explanation.slice(0, 4).map((message) => <li key={message}>{message}</li>)}
           </ul>
         </div>
       ) : null}
@@ -374,10 +400,10 @@ function SharedResultCard({
   const copy = COPY[locale];
   const offers = matchingOffers(run.commercial_offers, option.candidate_key, sources);
   return (
-    <article className="recommendation-card eligible shared-recommendation-card">
+    <article className={`recommendation-card eligible shared-recommendation-card ${option.rank === 1 ? "best" : ""}`}>
       <div className="recommendation-card__header">
         <div>
-          <span className="eyebrow">{option.rank !== null ? `#${option.rank}` : copy.results}</span>
+          <ResultEyebrow rank={option.rank} />
           <h3>{option.candidate_name}</h3>
           <p className="muted compact">
             {option.participants.length} {copy.peopleLower}
@@ -404,6 +430,15 @@ function SharedResultCard({
         })}
       </div>
       <OfferList offers={offers} />
+      {option.participants.at(0)?.explanation.length ? (
+        <div className="detail-block">
+          <ul className="compact-list">
+            {option.participants[0].explanation.slice(0, 4).map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {planned ? (
         <div className="decision-result" role="status"><strong>{copy.planned}</strong></div>
       ) : (
@@ -459,8 +494,12 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
         setPeople(loaded);
         setSelectedPersonIds(loaded.map((person) => person.id));
       })
-      .catch((caught: unknown) => { if (!cancelled) setError(errorText(caught)); });
-    return () => { cancelled = true; };
+      .catch((caught: unknown) => {
+        if (!cancelled) setError(errorText(caught));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [familyId]);
 
   function togglePerson(personId: string) {
@@ -494,15 +533,16 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
     return Number.isFinite(value) ? value : null;
   }
 
-  async function recommendDay(date: string): Promise<DayResult> {
+  async function recommendDay(
+    date: string,
+    provisionalHistory: RecommendationHistoryHint[],
+  ): Promise<DayResult> {
     const personIds = selectedPeople.map((person) => person.id);
     const mode = personIds.length === 1 ? "single" : "shared";
     const scheduledLocal = recommendationScheduledLocal(date, mealType, localTime);
     const scheduledAt = scheduledIso(scheduledLocal);
     const firstPerson = selectedPeople.at(0);
-    if (!firstPerson) {
-      throw new Error(copy.peopleRequired);
-    }
+    if (!firstPerson) throw new Error(copy.peopleRequired);
 
     try {
       const bootstrap = await getRecommendationBootstrap(firstPerson.id, scheduledAt);
@@ -532,6 +572,8 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
         available_minutes: parsedAvailableMinutes(),
         has_kitchen: sources.includes("cooked") ? true : null,
         source_kinds: recommendationSourceKinds(sources),
+        provisional_history: [...provisionalHistory],
+        max_results: MAX_VISIBLE_RESULTS,
       };
 
       if (mode === "single") {
@@ -586,9 +628,19 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
     setError(null);
     setDecisions({});
     setSharedPlans({});
-    if (people.length === 0) { setError(copy.noPeople); return; }
-    if (selectedPeople.length === 0) { setError(copy.peopleRequired); return; }
-    if (sources.length === 0) { setError(copy.sourceRequired); return; }
+    setResults([]);
+    if (people.length === 0) {
+      setError(copy.noPeople);
+      return;
+    }
+    if (selectedPeople.length === 0) {
+      setError(copy.peopleRequired);
+      return;
+    }
+    if (sources.length === 0) {
+      setError(copy.sourceRequired);
+      return;
+    }
 
     let dates: string[];
     try {
@@ -600,7 +652,20 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
 
     setBusy({ kind: "recommend" });
     try {
-      setResults(await Promise.all(dates.map(recommendDay)));
+      const nextResults: DayResult[] = [];
+      let provisionalHistory: RecommendationHistoryHint[] = [];
+      for (const date of dates) {
+        const day = await recommendDay(date, provisionalHistory);
+        nextResults.push(day);
+        setResults([...nextResults]);
+        const topKey = topCandidateKey(day);
+        if (topKey) {
+          provisionalHistory = [
+            ...provisionalHistory,
+            { plan_date: date, candidate_key: topKey },
+          ];
+        }
+      }
     } finally {
       setBusy(null);
     }
@@ -626,9 +691,9 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
               timezone: person.timezone,
               meal_type: mealType,
               location: location.trim() || null,
-              feedback_metadata: { entrypoint: "web-v2-multi-day-recommendation" },
+              feedback_metadata: { entrypoint: "web-v2-smart-recommendation" },
             }
-          : { action, feedback_metadata: { entrypoint: "web-v2-multi-day-recommendation" } },
+          : { action, feedback_metadata: { entrypoint: "web-v2-smart-recommendation" } },
       );
       setDecisions((current) => ({ ...current, [option.id]: decision }));
     } catch (caught: unknown) {
@@ -661,10 +726,16 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
     <div className="recommend-planner">
       <section className="recommend-setup">
         <header className="screen-header compact-screen-header">
-          <div><span className="eyebrow">Recomendar</span><h1>{copy.title}</h1><p>{copy.help}</p></div>
+          <div>
+            <span className="eyebrow">Recomendar</span>
+            <h1>{copy.title}</h1>
+            <p>{copy.help}</p>
+          </div>
         </header>
         {error ? (
-          <div className="error-banner" role="alert"><strong>{copy.error}</strong><span>{error}</span></div>
+          <div className="error-banner" role="alert">
+            <strong>{copy.error}</strong><span>{error}</span>
+          </div>
         ) : null}
         <form className="stack" onSubmit={submit}>
           <div className="field-group recommend-people-group">
