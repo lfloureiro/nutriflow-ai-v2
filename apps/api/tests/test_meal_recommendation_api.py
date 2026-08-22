@@ -311,8 +311,7 @@ def test_meal_recommendation_api_rejects_unsafe_candidate_quantity_unit(
     )
     payload = _request_payload(state, [composition.id])
     candidates = payload["candidates"]
-    if not isinstance(candidates, list):
-        raise AssertionError("Candidate payload must be a list.")
+    assert isinstance(candidates, list)
     candidates[0]["quantity_unit"] = "ml"
 
     app.dependency_overrides[get_db] = _override_db(db_session)
