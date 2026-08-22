@@ -1,3 +1,4 @@
+import type { FamilyMealDetail } from "./familyMealDetailTypes";
 import type {
   FamilyDashboard,
   FamilyMeals,
@@ -49,6 +50,10 @@ export function familyMealsPath(familyId: string, startDate?: string, days = 7):
   return `${base}?${query.toString()}`;
 }
 
+export function familyMealDetailPath(familyId: string, mealEventId: string): string {
+  return `/api/families/${encodeURIComponent(familyId)}/meals/${encodeURIComponent(mealEventId)}`;
+}
+
 export function planningBootstrapPath(personId: string, scheduledAt: string): string {
   const encodedPersonId = encodeURIComponent(personId);
   const query = new URLSearchParams({ scheduled_at: scheduledAt });
@@ -96,6 +101,13 @@ export function getFamilyMeals(
   days = 7,
 ): Promise<FamilyMeals> {
   return apiRequest<FamilyMeals>(familyMealsPath(familyId, startDate, days));
+}
+
+export function getFamilyMealDetail(
+  familyId: string,
+  mealEventId: string,
+): Promise<FamilyMealDetail> {
+  return apiRequest<FamilyMealDetail>(familyMealDetailPath(familyId, mealEventId));
 }
 
 export function listFamilyPersons(familyId: string): Promise<Person[]> {
