@@ -67,56 +67,53 @@ Warnings are failures. The API pytest fixture isolates tests from committed deve
 
 ## Last integrated checkpoint
 
-PR #32 added the first lightweight Person overview drill-down. It was locally approved, API/Web CI-green on the exact head and guarded squash-merged.
+PR #33 added the Family meal-map workflow (`Refeições > Hoje / Semana / Recomendar`). It was explicitly locally approved, API/Web CI-green on exact head `52b1ba0e21fc4beffabdca7c6a9ae3d300f2f5b8`, and guarded squash-merged.
 
 Exact integrated baseline:
 
 ```text
-main SHA:        715ce09bc2034d6f88165f288b2d79321bdd4599
+main SHA:        e0bdd8a9c8cc40f58ab67f14727ab134ac2156dc
 schema head:     a7c4e9f2b6d1
-API tests:       107
-Web tests:       16
+API tests:       110
+Web tests:       19
 ```
 
-Integrated frontend now includes Family Home, Person selection/overview and the existing practical recommendation flow under the primary `Refeições` destination.
+Integrated frontend now includes Family Home, Person selection/overview, Family meals Today/Week and the existing practical recommendation flow under `Refeições > Recomendar`.
 
 ## Current feature branch
 
 ```text
-feature/web-family-meals-today-week
+feature/web-family-meal-detail
 ```
 
 Merge base:
 
 ```text
-715ce09bc2034d6f88165f288b2d79321bdd4599
+e0bdd8a9c8cc40f58ab67f14727ab134ac2156dc
 ```
 
 No database migration.
 
 Current scope:
 
-- make primary `Refeições` open a lightweight Family meal map rather than the recommendation form directly;
-- secondary meal navigation: `Hoje`, `Semana`, `Recomendar`;
-- default primary `Refeições` navigation to `Hoje`;
-- keep the Family Home `Planear refeição` action intent-specific by opening `Recomendar` directly;
-- add `GET /api/families/{family_id}/meals?start_date=YYYY-MM-DD&days=N` with `days` constrained to 1..14;
-- interpret requested dates in the persisted Family timezone and query UTC boundaries derived from local midnights;
-- return every requested calendar day, including explicit empty days;
-- include only planned/prepared/served/completed MealEvents in normal meal-map views;
-- omit cancelled/replaced events;
-- return compact participant names/statuses with each Family meal;
-- keep shared meals as one Family row; Person-specific portions remain a later drill-down;
-- render `Hoje` as a simple chronological Family agenda;
-- render `Semana` as seven vertical Monday-to-Sunday day sections rather than a dense calendar grid;
-- keep the existing practical recommendation component unchanged inside `Recomendar`;
-- do not add nutrition charts, Serving calculations or recommendation logic to the calendar read model or browser.
+- add `GET /api/families/{family_id}/meals/{meal_event_id}` as a read-only Family-scoped detail projection;
+- expose persisted MealEvent summary, MealParticipants and each participant's persisted Servings;
+- expose planned/served/consumed quantity and energy lifecycle values without recalculating them;
+- return `404` for a missing/cross-Family meal ID;
+- make meal rows in `Hoje`/`Semana` open a separate focused `Refeição` drill-down;
+- preserve `Hoje` and `Semana` as compact orientation screens rather than expanding rows in place;
+- show Family-local date/time, optional location, MealEvent status, participant names/statuses and Person-specific portions;
+- show the most realized persisted Serving evidence for concise presentation: consumed, else served, else planned;
+- keep missing Serving evidence explicit rather than inferring another Person's portion or zero;
+- keep the browser out of nutrition/safety/ranking calculations;
+- add deterministic/idempotent synthetic Serving fixtures to the existing demo meals so the drill-down is immediately testable;
+- keep advanced explanation, alternatives/edit commands, nutrient breakdowns and safety-result rendering outside this increment.
 
 Expected validation baseline after implementation:
 
 ```text
-API: Alembic metadata clean, Ruff clean, 110 pytest tests
-Web: 19 Vitest tests, strict TypeScript check, production Vite build
+API: Alembic metadata clean, Ruff clean, 112 pytest tests
+Web: 21 Vitest tests, strict TypeScript check, production Vite build
 ```
 
 These counts are expectations only until the exact branch head is locally validated.
@@ -124,6 +121,7 @@ These counts are expectations only until the exact branch head is locally valida
 Authoritative branch documentation:
 
 - `docs/domain/family-meals-read-model.md`;
+- `docs/ux/family-meal-detail.md`;
 - `docs/ux/family-meals-today-week.md`;
 - `docs/ux/frontend-information-architecture.md`;
 - `docs/decisions/ADR-034-family-first-progressive-disclosure-web-navigation.md`;
@@ -146,7 +144,9 @@ Fixed demo Family ID:
 11111111-1111-4111-8111-111111111111
 ```
 
-The demo includes three current-day Family meals, so after seeding it exercises `Refeições > Hoje`. `Semana` also deliberately contains empty days because the API returns the complete requested calendar range.
+The demo includes four Family members and three current-day meals. Each of the ten demo MealParticipants now has a deterministic Person-specific Serving fixture, with different quantities across participants. This makes `Refeições > Hoje -> Refeição` directly testable after seeding.
+
+`Semana` deliberately contains empty days because the API returns the complete requested local calendar range.
 
 ## Current frontend structure
 
@@ -157,7 +157,9 @@ Início
 
 Refeições
   ├── Hoje        Family-local daily agenda
+  │    -> Refeição -> participantes + porções individuais
   ├── Semana      Monday-Sunday Family map
+  │    -> Refeição -> participantes + porções individuais
   └── Recomendar  practical recommendation flow
 
 Pessoas
@@ -179,6 +181,7 @@ Density rules remain:
 - one screen answers one primary question;
 - Family Home remains compact;
 - Family meals calendar uses readable vertical day sections instead of a dense seven-column planner;
+- meal detail is a separate focused screen, not an expanded calendar row;
 - Person overview remains compact and has at most one future primary chart;
 - detailed analytics belong on dedicated sections;
 - missing evidence is unavailable/unknown, never zero.
@@ -195,9 +198,11 @@ Preserve:
 - browser does not author nutrition totals or choose state/composition versions itself;
 - planning bootstrap preserves Family isolation and as-of version selection;
 - Family dashboard returns persisted evidence without medical interpretation or invented health scores;
-- Family meals read model uses Family-local calendar boundaries and persisted participants only;
+- Family meals calendar uses Family-local calendar boundaries and persisted participants only;
+- Family meal detail uses persisted `MealEvent -> MealParticipant -> Serving` ownership and never infers portions across Persons;
+- direct detail lookup is Family-scoped;
 - Person overview only presents dashboard evidence and Person meal participation;
-- missing dashboard evidence remains `null`, not zero;
+- missing evidence remains missing, not zero;
 - commercial price/availability cannot override nutrition safety;
 - web does not reimplement backend safety/ranking;
 - ineligible options cannot be materialized and rejection cannot create meal state;
@@ -208,7 +213,7 @@ Preserve:
 Known limitations:
 
 - Family UUID is development context, not authorization;
-- Family meal detail/Serving portions are not yet implemented;
+- meal-detail explanation/alternatives/edit commands are not yet implemented;
 - detailed Person section read models are not yet implemented;
 - `Casa` is not yet functional;
 - no URL/deep-link router yet;
@@ -233,12 +238,12 @@ Never guess the next migration revision; inspect the actual migration directory 
 
 After this branch is locally green, PR-tested, visually checked and merged:
 
-1. add shared-meal drill-down with Person-specific portions;
-2. add dedicated Person Nutrition/Activity/Health/History read models/screens;
-3. add Person profile/goals/constraints/preferences screens;
-4. add pantry/shopping UI and durable shopping-list lifecycle;
-5. add authentication and explicit Family/Person authorization before real multi-user deployment;
-6. commit npm lockfile and switch CI to `npm ci` before production;
+1. add dedicated Person Nutrition/Activity/Health/History read models/screens;
+2. add Person profile/goals/constraints/preferences screens;
+3. add pantry/shopping UI and durable shopping-list lifecycle;
+4. add authentication and explicit Family/Person authorization before real multi-user deployment;
+5. commit npm lockfile and switch CI to `npm ci` before production;
+6. add advanced meal explanation/alternatives/edit flows when their authoritative semantics are defined;
 7. continue provider/live/basket/order and later learned-ranking work.
 
 ## Resume procedure
