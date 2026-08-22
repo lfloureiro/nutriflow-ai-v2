@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -7,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.main import app
 from app.models.family import Family
-from app.models.meal import MealEvent, MealParticipant
+from app.models.meal import MealEvent, MealParticipant, Serving
 from app.models.person import Person
 
 START_DATE = date(2026, 8, 22)
@@ -34,6 +35,19 @@ def _get(
                 f"/api/families/{family_id}/meals",
                 params={"start_date": start_date.isoformat(), "days": days},
             )
+    finally:
+        app.dependency_overrides.clear()
+
+
+def _get_detail(
+    db_session: Session,
+    family_id: uuid.UUID | str,
+    meal_event_id: uuid.UUID | str,
+):
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    try:
+        with TestClient(app) as client:
+            return client.get(f"/api/families/{family_id}/meals/{meal_event_id}")
     finally:
         app.dependency_overrides.clear()
 
@@ -148,3 +162,88 @@ def test_family_meals_returns_404_for_unknown_family(db_session: Session) -> Non
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Family not found"
+
+
+def test_family_meal_detail_returns_person_specific_servings(db_session: Session) -> None:
+    family = Family(name="Detail family", timezone="Europe/Lisbon")
+    ana = Person(family=family, first_name="Ana", last_name="Silva", timezone="Europe/Lisbon")
+    rui = Person(family=family, first_name="Rui", timezone="Europe/Lisbon")
+    meal = MealEvent(
+        family=family,
+        meal_type="dinner",
+        title="Jantar em família",
+        scheduled_at=datetime.fromisoformat("2026-08-22T19:00:00+00:00"),
+        timezone="Europe/Lisbon",
+        status="planned",
+        location="Casa",
+    )
+    ana_participant = MealParticipant(meal_event=meal, person=ana, status="planned")
+    rui_participant = MealParticipant(meal_event=meal, person=rui, status="planned")
+    ana_serving = Serving(
+        meal_participant=ana_participant,
+        item_type="dish",
+        item_name="Salmão com batata e salada",
+        status="planned",
+        quantity_planned=Decimal("320.0000"),
+        quantity_unit="g",
+        energy_planned_kcal=Decimal("448.00"),
+    )
+    rui_serving = Serving(
+        meal_participant=rui_participant,
+        item_type="dish",
+        item_name="Salmão com batata e salada",
+        status="planned",
+        quantity_planned=Decimal("500.0000"),
+        quantity_unit="g",
+        energy_planned_kcal=Decimal("700.00"),
+    )
+    db_session.add_all([meal, ana_serving, rui_serving])
+    db_session.flush()
+
+    response = _get_detail(db_session, family.id, meal.id)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["family_id"] == str(family.id)
+    assert body["family_name"] == "Detail family"
+    assert body["timezone"] == "Europe/Lisbon"
+    assert body["id"] == str(meal.id)
+    assert body["title"] == "Jantar em família"
+    assert body["location"] == "Casa"
+    assert [participant["first_name"] for participant in body["participants"]] == ["Ana", "Rui"]
+    assert body["participants"][0]["servings"] == [
+        {
+            "id": str(ana_serving.id),
+            "item_type": "dish",
+            "item_name": "Salmão com batata e salada",
+            "status": "planned",
+            "quantity_planned": "320.0000",
+            "quantity_served": None,
+            "quantity_consumed": None,
+            "quantity_unit": "g",
+            "energy_planned_kcal": "448.00",
+            "energy_served_kcal": None,
+            "energy_consumed_kcal": None,
+        }
+    ]
+    assert body["participants"][1]["servings"][0]["quantity_planned"] == "500.0000"
+    assert body["participants"][1]["servings"][0]["energy_planned_kcal"] == "700.00"
+
+
+def test_family_meal_detail_is_scoped_to_family(db_session: Session) -> None:
+    family = Family(name="Requested family", timezone="Europe/Lisbon")
+    other_family = Family(name="Other family", timezone="Europe/Lisbon")
+    other_meal = MealEvent(
+        family=other_family,
+        meal_type="lunch",
+        scheduled_at=datetime.fromisoformat("2026-08-22T12:00:00+00:00"),
+        timezone="Europe/Lisbon",
+        status="planned",
+    )
+    db_session.add_all([family, other_family, other_meal])
+    db_session.flush()
+
+    response = _get_detail(db_session, family.id, other_meal.id)
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Meal not found"
