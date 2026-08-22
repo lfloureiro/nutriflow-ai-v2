@@ -4,7 +4,7 @@ from decimal import Decimal
 from app.models.daily_nutrition_state import DailyNutritionState, DailyNutritionStateComponent
 from app.models.nutrition_constraint import NutritionConstraint
 from app.services.meal_recommendation import MealCandidate, recommend_meals
-from app.services.serving_nutrition import NutritionSnapshot, NutrientSnapshot
+from app.services.serving_nutrition import NutrientSnapshot, NutritionSnapshot
 
 PLANNING_DATE = date(2026, 8, 22)
 
