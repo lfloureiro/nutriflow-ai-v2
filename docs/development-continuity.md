@@ -55,6 +55,8 @@ python -m pytest -q
 
 Schema-changing branches additionally run `alembic upgrade head` and `alembic current`.
 
+The API pytest fixture now clears application tables inside the test transaction before each test and rolls the outer transaction back afterwards. This keeps tests isolated even when the developer database contains the explicit demo seed or browser-smoke-test records, while restoring those committed development records after each test. Tests must not depend on the developer database being globally empty.
+
 Web:
 
 ```powershell
@@ -119,6 +121,7 @@ Current scope:
 - expose current local-day active MealEvents with participants;
 - exclude cancelled/replaced meals from the normal Home agenda;
 - add typed web contracts/client support for the Family dashboard endpoint;
+- harden API-test isolation so committed demo/smoke-test data cannot leak into tests that require a clean transactional view;
 - do not yet replace the existing recommendation screen with the new visual shell in this branch.
 
 Expected validation baseline:
