@@ -245,8 +245,8 @@ def create_family_recipe(db: Session, family: Family, data: RecipeCreate) -> Rec
         source_reference="nutriflow-family-recipe-editor",
         is_active=True,
     )
-    recipe.ingredients.extend(_build_ingredients(db, family.id, data.ingredients))
     db.add(recipe)
+    recipe.ingredients.extend(_build_ingredients(db, family.id, data.ingredients))
     db.flush()
     build_recipe_composition(recipe)
     db.commit()
