@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildApiUrl, normalizeApiBaseUrl } from "./client";
+import { buildApiUrl, normalizeApiBaseUrl, planningBootstrapPath } from "./client";
 
 describe("API URL construction", () => {
   it("removes trailing slashes from an explicit API base URL", () => {
@@ -16,6 +16,12 @@ describe("API URL construction", () => {
   it("joins an explicit API base URL and path without duplicate slashes", () => {
     expect(buildApiUrl("/api/health", "https://api.example.test/")).toBe(
       "https://api.example.test/api/health",
+    );
+  });
+
+  it("encodes the planning instant in the bootstrap query", () => {
+    expect(planningBootstrapPath("person/id", "2026-08-22T11:30:00+01:00")).toBe(
+      "/api/persons/person%2Fid/planning-bootstrap?scheduled_at=2026-08-22T11%3A30%3A00%2B01%3A00",
     );
   });
 });
