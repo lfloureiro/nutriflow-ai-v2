@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.demo_seed import DEMO_FAMILY_ID, seed_demo_dataset
+from app.demo_seed import DEMO_FAMILY_ID, DEMO_PERSON_ID, seed_demo_dataset
 from app.legacy_v1_demo_seed import (
     LEGACY_V1_SOURCE,
     LEGACY_V1_SOURCE_REFERENCE,
@@ -11,6 +11,7 @@ from app.legacy_v1_demo_seed import (
 )
 from app.models.family import Family
 from app.models.food_catalog import FoodItem, Recipe
+from app.services.planning_bootstrap_api import get_planning_bootstrap
 from app.services.recipe_catalogue import list_family_recipes
 
 NOW = datetime(2026, 8, 22, 18, 30, tzinfo=UTC)
@@ -78,3 +79,15 @@ def test_legacy_v1_demo_catalog_is_idempotent_and_keeps_missing_evidence(
         == ["Legacy v1 demo source contains no ingredient nutrition composition."]
         for recipe in legacy_recipes
     )
+
+    bootstrap = get_planning_bootstrap(
+        db_session,
+        person_id=DEMO_PERSON_ID,
+        scheduled_at=NOW,
+    )
+    legacy_candidates = [
+        candidate
+        for candidate in bootstrap.candidates
+        if candidate.catalog_key.startswith("legacy-v1:recipe:")
+    ]
+    assert len(legacy_candidates) == 5
