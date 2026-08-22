@@ -12,4 +12,9 @@ describe("web translations", () => {
     expect(translate("pt-PT", "app.brand")).toBe("NutriFlow AI");
     expect(translate("en", "app.brand")).toBe("NutriFlow AI");
   });
+
+  it("describes server-authoritative planning discovery in both locales", () => {
+    expect(translate("pt-PT", "planner.stateReady")).toBe("Estado diário encontrado");
+    expect(translate("en", "planner.stateReady")).toBe("Daily state found");
+  });
 });

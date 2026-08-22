@@ -93,35 +93,38 @@ The current backend foundation includes:
 - deterministic DailyNutritionState recalculation from authoritative Serving history using explicit local-day and target semantics;
 - deterministic recommendation practical-context filtering from ScheduleEntry, location, preparation-window and kitchen availability inputs;
 - fairness-first shared-family meal recommendation with person-specific portions and per-Person hard-rule evaluation;
-- materialization of accepted shared-family recommendations into one planned MealEvent with person-specific MealParticipant and Serving records;
+- materialization of accepted shared-family recommendations into one MealEvent with person-specific Servings;
 - Family-scoped MealEvent idempotency and immutable planned-meal replacement history for safe retries and later edits;
 - persisted Family-scoped practical availability for home, pantry, restaurant, delivery and store meal sources;
 - quantity-aware Family pantry stock with expiry, Recipe ingredient sufficiency and exact shopping requirements for missing quantities;
 - restaurant/delivery/store opening windows plus provider-observed commercial offers with price, currency, delivery-fee, minimum-order and validity metadata;
-- first persisted person-scoped recommendation API using explicit DailyNutritionState and versioned composition snapshot IDs;
+- persisted person-scoped recommendation APIs using explicit DailyNutritionState and versioned composition evidence;
 - recommendation decision API for accepted/rejected/modified persisted options, with accepted/modified decisions materialized through the standard MealEvent/MealParticipant/Serving model;
-- practical recommendation orchestration API combining Person schedule, home/pantry availability, pantry stock and commercial opening/offer evidence with any-source semantics;
+- practical recommendation orchestration combining Person schedule, home/pantry availability, pantry stock and commercial opening/offer evidence with any-source semantics;
 - person-scoped planning bootstrap discovery of the latest local-day DailyNutritionState and current Family/global Food/Recipe composition evidence for the web UI;
 - PostgreSQL persistence with Alembic migrations;
 - pytest coverage with warnings treated as errors;
 - Ruff static validation.
 
-The initial web foundation now includes:
+The initial web application includes:
 
 - React + TypeScript + Vite under `apps/web`;
 - responsive desktop/tablet/mobile layout;
 - Portuguese and English UI strings through an i18n boundary;
 - Light, Dark and System appearance modes;
 - typed API client isolated from presentation code;
-- an end-to-end practical recommendation UI using the real Family/Person, practical recommendation and decision APIs;
+- Family -> Person selection followed by automatic server-authoritative planning bootstrap discovery;
+- automatic DailyNutritionState selection for the chosen local meal instant;
+- selectable FoodItem/Recipe names backed by current persisted composition snapshots, with technical composition UUIDs kept internal to the client;
+- practical recommendation generation through the real orchestration API;
 - eligible/excluded explanations, compact nutrition details and active commercial offer display;
 - accept/reject actions over persisted recommendation options;
 - Vitest unit tests plus strict TypeScript and production-build validation;
 - a separate Web CI workflow.
 
-The first integrated UI still exposes explicit DailyNutritionState and composition snapshot IDs. The current planning-bootstrap increment adds the read-only server discovery boundary required to remove those technical inputs in the next web wiring slice without weakening persisted-evidence safety.
+The web still uses a development Family UUID entrypoint because authentication and household authorization context are not implemented yet. The meal-planning flow no longer requires users to type DailyNutritionState or composition snapshot UUIDs.
 
-Detailed domain status is maintained in `docs/domain/implementation-status.md`. The first UI flow is documented in `docs/ux/web-recommendation-vertical-slice.md`.
+Detailed domain status is maintained in `docs/domain/implementation-status.md`. Web flow decisions are documented under `docs/ux/` and `docs/decisions/`.
 
 For a later development session, start with `docs/development-continuity.md`. It records the current checkpoint, exact resumption procedure, migration/test baseline and next safe development step.
 

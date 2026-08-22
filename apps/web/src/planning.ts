@@ -1,4 +1,8 @@
-import type { PracticalSourceKind, RecommendationCandidateInput } from "./api/types";
+import type {
+  PlanningCandidate,
+  PracticalSourceKind,
+  RecommendationCandidateInput,
+} from "./api/types";
 
 export type CandidateDraft = RecommendationCandidateInput & {
   rowId: string;
@@ -38,6 +42,19 @@ export function newCandidateDraft(rowId: string = crypto.randomUUID()): Candidat
     composition_id: "",
     quantity: "100",
     quantity_unit: "g",
+  };
+}
+
+export function candidateDraftFromBootstrap(
+  candidate: PlanningCandidate,
+  rowId: string = crypto.randomUUID(),
+): CandidateDraft {
+  return {
+    rowId,
+    candidate_kind: candidate.candidate_kind,
+    composition_id: candidate.composition_id,
+    quantity: candidate.reference_quantity,
+    quantity_unit: candidate.reference_unit,
   };
 }
 
