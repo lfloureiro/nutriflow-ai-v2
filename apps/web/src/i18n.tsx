@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type PropsWithChildren,
@@ -179,9 +180,12 @@ export function translate(locale: Locale, key: MessageKey): string {
 export function I18nProvider({ children }: PropsWithChildren) {
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
 
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
+
   const setLocale = useCallback((nextLocale: Locale) => {
     window.localStorage.setItem("nutriflow-locale", nextLocale);
-    document.documentElement.lang = nextLocale;
     setLocaleState(nextLocale);
   }, []);
 
