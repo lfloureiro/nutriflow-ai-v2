@@ -26,10 +26,10 @@ Authoritative decision: `docs/decisions/ADR-007-development-workflow-and-ci.md`.
 
 Use this sequence for every non-trivial increment:
 
-1. verify exact current `main` SHA;
+1. verify the exact current `main` SHA;
 2. create one focused branch from that SHA;
-3. implement code, migration, tests and documentation together;
-4. run local PostgreSQL migration validation;
+3. implement code, migration, tests and relevant documentation together;
+4. run local PostgreSQL/migration validation;
 5. require `alembic check`, Ruff and the complete pytest suite to pass with zero warnings;
 6. open a PR only after explicit local green confirmation;
 7. verify GitHub Actions on the exact PR head SHA;
@@ -37,7 +37,7 @@ Use this sequence for every non-trivial increment:
 9. squash-merge guarded by the tested head SHA;
 10. verify the merged PR and resulting exact `main` SHA;
 11. only then create the next branch;
-12. refresh this continuity checkpoint on the next branch.
+12. refresh this continuity checkpoint on that next branch.
 
 Never commit feature work directly to `main`. Never merge an untested head. CI for an earlier SHA does not validate a later SHA. Documentation is part of the Definition of Done.
 
@@ -55,7 +55,7 @@ python -m ruff check .
 python -m pytest -q
 ```
 
-For a branch without schema changes, `alembic upgrade head/current` may be unnecessary, but `alembic check`, Ruff and the complete pytest suite remain required.
+For a branch without schema changes, `alembic upgrade head/current` are optional, but `alembic check`, Ruff and the complete pytest suite remain required.
 
 Current backend baseline:
 
@@ -70,84 +70,79 @@ Current backend baseline:
 
 ## Last integrated checkpoint
 
-PR #19 integrated pantry stock and shopping requirements.
+PR #20 integrated restaurant/delivery/store commercial planning context.
 
 Exact integrated baseline:
 
 ```text
-main SHA:        672f32673102da9db1e686c89c1f8a0c61ba222f
-schema head:     f6b3d8e1a5c2
-test baseline:   64 tests
+main SHA:        4f7c56a1c609665fb6c06168df96fdc3e977bf26
+schema head:     a7c4e9f2b6d1
+test baseline:   71 tests
 ```
 
-PR #19 was locally validated, passed CI on the exact tested head and was squash-merged.
+PR #20 was locally validated, passed CI on the exact tested head and was squash-merged.
 
-Integrated pantry capability includes:
+Integrated commercial capability includes:
 
-- Family-scoped PantryStockLot;
-- quantity/unit, expiry and availability;
-- safe mass/volume aggregation without inferred density;
-- Recipe ingredient sufficiency;
-- duplicate ingredient aggregation;
-- exact transient shopping requirements for missing quantities;
-- pantry-derived practical availability.
+- MealSourceOpeningWindow linked to MealCandidateAvailability;
+- weekly local opening windows with explicit timezone;
+- same-day, overnight and full-day semantics;
+- absent hours treated as unknown rather than closed;
+- MealCommercialOffer with Family/provider identity;
+- item price/currency plus optional delivery fee and minimum order;
+- offer validity and provider observation time;
+- deterministic commercial practical-context evaluation;
+- no FX inference and no commercial override of nutrition/safety eligibility.
 
-Detailed semantics: `docs/domain/pantry-stock-shopping-requirements.md`, ADR-024.
+Detailed semantics: `docs/domain/restaurant-delivery-commercial-context.md`, ADR-025.
 
 ## Current feature branch
 
 Current branch:
 
 ```text
-feature/restaurant-delivery-commercial-context
+fix/fail-closed-missing-mandatory-nutrient
 ```
 
 Merge base:
 
 ```text
-672f32673102da9db1e686c89c1f8a0c61ba222f
+4f7c56a1c609665fb6c06168df96fdc3e977bf26
 ```
 
-Current branch migration:
+Schema head remains:
 
 ```text
 a7c4e9f2b6d1
 ```
 
-Expected complete test baseline after the seven new tests:
+This branch has no database migration.
+
+Expected complete test baseline after its focused regression test:
 
 ```text
-71 tests
+72 tests
 ```
 
-No PR should be opened until this branch receives explicit local green confirmation for Alembic, Ruff and all tests.
+No PR should be opened until this branch receives explicit local green confirmation for Alembic metadata, Ruff and all tests.
 
 ### Current branch scope
 
-The branch adds volatile commercial/provider state without changing FoodItem/Recipe nutrition composition:
+The branch hardens mandatory nutrient maximum semantics:
 
-- MealSourceOpeningWindow linked to MealCandidateAvailability;
-- weekly local opening windows with explicit timezone;
-- same-day, overnight and full-day semantics;
-- optional local-date validity ranges;
-- missing windows mean unknown hours, not closed;
-- MealCommercialOffer linked to one concrete practical source;
-- Family-scoped stable offer key;
-- provider identity/name;
-- item price/currency;
-- optional delivery fee and minimum order;
-- absolute offer validity and timezone-aware provider observation time;
-- deterministic commercial planning service;
-- practical profiles generated from currently usable restaurant/delivery/store sources;
-- current active offers returned separately from practical eligibility;
-- no FX conversion;
-- no price-based nutrition ranking;
-- Family and source-kind boundaries enforced explicitly.
+- a candidate must contain an explicit value for every nutrient governed by an active mandatory maximum;
+- missing candidate nutrient data is not treated as zero;
+- missing data excludes that candidate as `mandatory_nutrient_data_missing:<nutrient_key>`;
+- an explicit measured zero remains valid data;
+- the exclusion is candidate-scoped, allowing other candidates with sufficient evidence to continue;
+- unsupported mandatory rules and unsafe unit conversion continue to fail closed;
+- one regression test proves missing data and known zero are distinct;
+- no schema change.
 
 Authoritative current-branch docs:
 
-- `docs/domain/restaurant-delivery-commercial-context.md`;
-- `docs/decisions/ADR-025-commercial-source-hours-and-offers-are-operational-state.md`;
+- `docs/domain/adaptive-meal-recommendation.md`;
+- `docs/decisions/ADR-026-mandatory-nutrient-maxima-require-candidate-data.md`;
 - `docs/domain/implementation-status.md`.
 
 ## Current migration tail
@@ -156,13 +151,13 @@ Authoritative current-branch docs:
 a7c4e9f2b6d1  commercial source opening windows and offers
 f6b3d8e1a5c2  quantity-aware Family pantry stock lots
 e5a2c7d9f4b1  Family-scoped meal candidate availability
-d4f8a1b2c6e9  MealEvent idempotency
+d4f8a1b2c6e9  MealEvent Family-scoped idempotency
 c3e7f9a1b5d2  recommendation run/option/feedback
 ```
 
 Earlier revisions remain authoritative in `database/migrations/versions/` and are summarized in `docs/domain/implementation-status.md`.
 
-Never guess the next revision. Inspect current `alembic current`, `alembic heads` and the migration directory before adding another migration.
+Never guess the next revision. Inspect the migration directory and actual Alembic heads/current state before adding another migration.
 
 ## Safety and correctness invariants
 
@@ -170,6 +165,7 @@ Preserve these across all future work:
 
 - mandatory adverse reactions and mandatory constraints run before ranking;
 - learned/ML ranking can reorder eligible candidates only;
+- missing candidate nutrient data cannot be interpreted as zero for a mandatory maximum;
 - unsupported mandatory semantics fail explicitly;
 - unsafe required unit conversions fail closed;
 - no inferred density for mass/volume conversion;
@@ -183,15 +179,11 @@ Preserve these across all future work:
 - commercial availability/price cannot make a safety-ineligible candidate eligible;
 - warnings are treated as failures rather than casually suppressed.
 
-### Known safety-hardening item
-
-Mandatory nutrient maxima currently need an explicit fail-closed policy for candidates whose composition omits the constrained nutrient. Do not alter this incidentally in another feature.
-
-Schedule a dedicated focused increment, tests and documentation before broad API/UI exposure.
+A separate future decision may be needed if a mandatory nutrient maximum applies but historical DailyNutritionState does not contain enough consumed/planned data for that nutrient. Do not silently treat missing historical state as complete evidence.
 
 ## Implemented capability map
 
-Use `docs/domain/implementation-status.md` for the compact current capability status. Detailed domain documents include:
+Use `docs/domain/implementation-status.md` as the compact status map. Detailed domain documents include:
 
 - `docs/domain/core-domain-model.md`;
 - `docs/domain/schedule-model.md`;
@@ -218,16 +210,16 @@ Durable decisions are under `docs/decisions/`; ADR-007 governs workflow.
 
 ## Next planned increments
 
-After the current commercial-context branch is locally green, PR-tested and merged:
+After the current safety branch is locally green, PR-tested and merged:
 
-1. dedicated fail-closed hardening for missing candidate nutrient data under mandatory nutrient maxima;
-2. API and UI vertical slices over the deterministic planning flow;
-3. persisted shopping-list lifecycle when API/UI workflows need durable shopping state;
-4. background/event-driven DailyNutritionState refresh and explicit target-selection policy;
-5. fuller recurrence/calendar override support;
-6. persisted family-level recommendation audit history;
-7. transaction-level idempotency-race handling at the write API boundary;
-8. provider connectors/live freshness policy, basket/order lifecycle and commercial optimization;
+1. API and UI vertical slices over the deterministic planning flow;
+2. persisted shopping-list lifecycle when API/UI workflows need durable shopping state;
+3. background/event-driven DailyNutritionState refresh and explicit target-selection policy;
+4. fuller recurrence/calendar override support;
+5. persisted family-level recommendation audit history;
+6. transaction-level idempotency-race handling at the write API boundary;
+7. provider connectors/live freshness policy, basket/order lifecycle and commercial optimization;
+8. explicit historical-nutrient-state safety policy if needed;
 9. learned ranking from feedback only after deterministic safety/practical/nutrition layers remain authoritative.
 
 Any deliberate roadmap reordering must update both this file and `docs/domain/implementation-status.md`.
@@ -241,7 +233,7 @@ Any deliberate roadmap reordering must update both this file and `docs/domain/im
 5. compare the active feature branch with `main`;
 6. inspect actual Alembic heads/current state;
 7. verify whether the branch already received local green validation;
-8. do not open/merge a PR unless the exact active head satisfies the workflow;
+8. do not open or merge a PR unless the exact active head satisfies the workflow;
 9. after merge, verify new `main`, create the next focused branch, then update this file.
 
 Repository state, tests and documentation are the source of truth. Conversation history is optional context only.
