@@ -6,7 +6,7 @@ The primary `Refeições` destination answers:
 
 > O que está planeado para a família?
 
-It should not open directly into a large recommendation form. The meal calendar is the orientation layer; recommendation is an explicit subflow reached only when the user wants help choosing a meal.
+It does not open directly into a large recommendation form. The meal calendar is the orientation layer; recommendation is an explicit subflow reached only when the user wants help choosing a meal.
 
 ## Secondary navigation
 
@@ -39,7 +39,7 @@ The view remains useful with zero meals: an explicit empty state is preferable t
 
 `Semana` shows the current Family-local Monday-to-Sunday calendar week.
 
-The first implementation uses a vertical list of seven day sections rather than a dense spreadsheet/calendar grid. This choice follows the product preference for more focused, readable screens over high-density dashboards and remains usable on narrow mobile screens.
+The implementation uses a vertical list of seven day sections rather than a dense spreadsheet/calendar grid. This follows the product preference for focused, readable screens over high-density dashboards and remains usable on narrow mobile screens.
 
 Every day is visible even when empty. Days with meals list the same compact rows used by `Hoje`.
 
@@ -59,11 +59,13 @@ Existing server-authoritative behavior remains unchanged:
 - commercial availability cannot override safety;
 - accepted options materialize through the decision API.
 
-## Shared meals
+## Shared meals and drill-down
 
 A shared meal is shown once in the Family calendar with its participant names.
 
-This screen does not yet expose Person-specific portions. Selecting a Family meal and drilling into individual portions/outcomes is the next meal-detail increment.
+Selecting a row now opens the dedicated Family meal-detail drill-down. Person-specific portions remain outside the calendar itself, preserving the low-density Today/Week views.
+
+See `docs/ux/family-meal-detail.md` for the focused detail-screen semantics.
 
 ## Responsive behavior
 
@@ -96,6 +98,14 @@ GET /api/families/{family_id}/meals?start_date=YYYY-MM-DD&days=N
 
 See `docs/domain/family-meals-read-model.md` for authority, timezone and filtering semantics.
 
-## Implementation checkpoint
+## Integrated checkpoint
 
-The focused branch implementation, tests and documentation are complete. The branch must still pass the full local API/Web validation gates and browser smoke test on its exact head before a pull request is opened.
+`Hoje`, `Semana` and `Recomendar` were locally validated, API/Web CI-green on the exact branch head, and squash-merged in PR #33.
+
+Integrated main checkpoint:
+
+```text
+e0bdd8a9c8cc40f58ab67f14727ab134ac2156dc
+```
+
+The current follow-up increment adds the separate shared-meal detail screen without increasing the density of these calendar views.
