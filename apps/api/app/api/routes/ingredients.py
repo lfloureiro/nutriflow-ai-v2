@@ -5,7 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.ingredient_catalogue import IngredientCreate, IngredientRead, IngredientUpdate
+from app.models.family import Family
+from app.schemas.ingredient_catalogue import (
+    IngredientCreate,
+    IngredientRead,
+    IngredientUpdate,
+)
 from app.services.family import get_family
 from app.services.ingredient_catalogue import (
     IngredientNotFoundError,
@@ -19,7 +24,7 @@ from app.services.ingredient_catalogue import (
 router = APIRouter(prefix="/families/{family_id}/ingredients", tags=["ingredients"])
 
 
-def _require_family(db: Session, family_id: uuid.UUID):
+def _require_family(db: Session, family_id: uuid.UUID) -> Family:
     family = get_family(db, family_id)
     if family is None:
         raise HTTPException(status_code=404, detail="Family not found")
