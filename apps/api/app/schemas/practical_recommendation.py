@@ -14,6 +14,11 @@ from app.schemas.meal_type import MealType
 PracticalSourceKind = Literal["home", "pantry", "restaurant", "delivery", "store"]
 
 
+class RecommendationHistoryHint(BaseModel):
+    plan_date: date
+    candidate_key: str = Field(min_length=1, max_length=160)
+
+
 class PracticalMealRecommendationCreate(BaseModel):
     daily_nutrition_state_id: uuid.UUID
     planning_date: date
@@ -28,6 +33,11 @@ class PracticalMealRecommendationCreate(BaseModel):
         min_length=1,
         max_length=5,
     )
+    provisional_history: list[RecommendationHistoryHint] = Field(
+        default_factory=list,
+        max_length=14,
+    )
+    max_results: int | None = Field(default=None, ge=1, le=10)
 
 
 class CommercialOfferRead(BaseModel):
