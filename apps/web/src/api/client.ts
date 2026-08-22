@@ -1,5 +1,6 @@
 import type {
   FamilyDashboard,
+  FamilyMeals,
   Person,
   PlanningBootstrap,
   PracticalRecommendationRequest,
@@ -36,6 +37,15 @@ export function familyDashboardPath(familyId: string, onDate?: string): string {
     return base;
   }
   const query = new URLSearchParams({ on_date: onDate });
+  return `${base}?${query.toString()}`;
+}
+
+export function familyMealsPath(familyId: string, startDate?: string, days = 7): string {
+  const base = `/api/families/${encodeURIComponent(familyId)}/meals`;
+  const query = new URLSearchParams({ days: String(days) });
+  if (startDate) {
+    query.set("start_date", startDate);
+  }
   return `${base}?${query.toString()}`;
 }
 
@@ -78,6 +88,14 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getFamilyDashboard(familyId: string, onDate?: string): Promise<FamilyDashboard> {
   return apiRequest<FamilyDashboard>(familyDashboardPath(familyId, onDate));
+}
+
+export function getFamilyMeals(
+  familyId: string,
+  startDate?: string,
+  days = 7,
+): Promise<FamilyMeals> {
+  return apiRequest<FamilyMeals>(familyMealsPath(familyId, startDate, days));
 }
 
 export function listFamilyPersons(familyId: string): Promise<Person[]> {
