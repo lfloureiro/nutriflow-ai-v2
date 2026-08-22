@@ -15,10 +15,10 @@ The frontend therefore uses progressive disclosure:
 
 ## Primary navigation
 
-The initial product-level navigation is:
+The product-level navigation is:
 
 1. **Início** — family overview for today;
-2. **Refeições** — family meal map, today/week, recommendations and shared meals;
+2. **Refeições** — family meal map, week planning, dish catalogue and recommendations;
 3. **Pessoas** — direct access to each person's overview and detail screens;
 4. **Casa** — pantry and later shopping-list workflows;
 5. **Mais** — family settings, integrations, appearance/language and administration.
@@ -111,13 +111,14 @@ Each detailed section answers one question:
 
 ## Meals information architecture
 
-Meals remain a primary family workflow rather than becoming the Home itself.
+Meals remain a primary Family workflow rather than becoming the Home itself. The initial recommendation form was an integration slice, not the target meal UX.
 
 ```text
 Refeições
 ├── Hoje
 ├── Semana
-├── Recomendar refeição
+├── Pratos
+├── Recomendar
 └── Refeição
     ├── resumo familiar
     ├── participantes
@@ -126,7 +127,39 @@ Refeições
     └── alternativas / alterar
 ```
 
-A shared meal is displayed once at family level, while drill-down exposes the individual portions and Person-specific nutrition/safety outcomes that already exist in the backend model.
+### Hoje
+
+Answers: **what is the Family eating today?**
+
+Shows the chronological Family meal map. A shared meal is displayed once at Family level. Person-specific exceptions or portions are drill-down details rather than duplicate top-level events.
+
+### Semana
+
+Answers: **what is planned for this week?**
+
+Shows the planning horizon with one logical slot per Family/Person meal assignment. It must support a focused `Planear semana` preview/apply flow that can fill several free slots together while preserving existing/locked meals by default.
+
+### Pratos
+
+Answers: **what meals/recipes can we choose from?**
+
+Shows the complete usable dish/recipe catalogue with Family preference score, per-Person ratings, suitability and planning metadata. This keeps the catalogue visible instead of forcing users to discover dishes only through recommendation results.
+
+### Recomendar
+
+Answers: **what makes sense for this specific slot/context?**
+
+The normal flow supplies Person/Family, slot and practical context; the server evaluates the current catalogue. Users do not manually assemble technical candidate rows. Hard safety/nutrition eligibility remains server-authoritative before preference/heuristic ranking.
+
+The Family preference score is a taste/acceptance signal, not a health score.
+
+### Meal detail
+
+A shared MealEvent is shown once at Family level, while drill-down exposes individual portions and Person-specific nutrition/safety outcomes that already exist in the backend model.
+
+Normal scheduling must not silently create duplicate active meal assignments for the same Person and logical meal slot. Replacing an occupied slot is explicit and server-enforced.
+
+Detailed design: `docs/ux/family-meals-planning.md` and ADR-035.
 
 ## Charts
 
@@ -169,18 +202,23 @@ The browser presents server evidence. It must not:
 - compute an aggregate family health score without an explicit domain definition;
 - treat missing data as negative or zero.
 
-For Home, the server should expose a compact family read model so the browser does not need many requests or cross-domain aggregation logic.
+For Home, the server exposes a compact family read model so the browser does not need many requests or cross-domain aggregation logic.
 
-## Initial implementation sequence
+For Meals, the server owns slot-conflict checks, whole-catalog eligibility/ranking, weekly plan generation and application semantics. The browser presents and edits intent; it does not reconstruct these rules.
 
-1. Family Home read model/API.
-2. Application shell and primary navigation.
-3. Family Home visual implementation.
-4. Person overview.
-5. Family meals today/week.
-6. Meal drill-down with person-specific portions.
-7. Person Nutrition/Activity/Health/History screens.
-8. Profile/goals/constraints/preferences screens.
-9. Pantry and shopping workflows.
+## Implementation sequence
 
-Every increment should remain usable on its own and keep existing recommendation functionality reachable while the navigation is reorganized.
+1. Family Home read model/API. **Done.**
+2. Application shell and primary navigation. **Done.**
+3. Family Home visual implementation. **Done.**
+4. Person overview. **Done.**
+5. Family Meals information architecture and slot-safe planning foundation.
+6. `Hoje` + `Semana` read/write flows and weekly preview/apply planning.
+7. `Pratos` catalogue + Family 0-5 preference scoring.
+8. Whole-catalog `Recomendar` UX replacing the technical manual-candidate form.
+9. Meal drill-down with Person-specific portions.
+10. Person Nutrition/Activity/Health/History screens.
+11. Profile/goals/constraints/preferences screens.
+12. Pantry and shopping workflows.
+
+Every increment should remain usable on its own and preserve the backend safety/provenance authority boundary.
