@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import or_, select
@@ -200,6 +201,15 @@ def _food_candidates(
     return result
 
 
+def _recipe_candidate_quantity(
+    recipe: Recipe,
+    snapshot: RecipeCompositionSnapshot,
+) -> Decimal:
+    if recipe.serving_count is None:
+        return snapshot.reference_quantity
+    return snapshot.reference_quantity / recipe.serving_count
+
+
 def _recipe_candidates(
     session: Session,
     *,
@@ -241,9 +251,13 @@ def _recipe_candidates(
                 category="recipe",
                 brand=None,
                 description=recipe.description,
-                reference_quantity=snapshot.reference_quantity,
+                reference_quantity=_recipe_candidate_quantity(recipe, snapshot),
                 reference_unit=snapshot.reference_unit,
-                energy_kcal=snapshot.energy_kcal,
+                energy_kcal=(
+                    snapshot.energy_kcal / recipe.serving_count
+                    if snapshot.energy_kcal is not None and recipe.serving_count is not None
+                    else snapshot.energy_kcal
+                ),
                 composition_version=snapshot.composition_version,
                 composition_at=snapshot.computed_at,
             )
