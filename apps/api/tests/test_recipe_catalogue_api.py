@@ -50,7 +50,6 @@ def _ingredient(
     )
     if energy is not None or protein is not None:
         composition = FoodCompositionSnapshot(
-            food_item=item,
             reference_quantity=Decimal("100"),
             reference_unit="g",
             energy_kcal=Decimal(energy) if energy is not None else None,
