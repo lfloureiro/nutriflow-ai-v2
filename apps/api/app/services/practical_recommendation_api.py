@@ -272,6 +272,10 @@ def create_practical_meal_recommendation(
             planning_date=data.planning_date,
             exclude_person_id=person.id,
         )
+        has_rating_signal = bool(family_recipe_ratings) or any(
+            preference.preference_type == "rating"
+            for preference in person.food_preferences
+        )
         recommendation = recommend_meals_with_practical_context(
             daily_state=state,
             candidates=candidates,
@@ -288,7 +292,11 @@ def create_practical_meal_recommendation(
             ),
             practical_profiles=practical_profiles,
             family_recipe_ratings=family_recipe_ratings,
-            engine_version="meal-recommendation-practical-v2",
+            engine_version=(
+                "meal-recommendation-practical-v2"
+                if has_rating_signal
+                else "meal-recommendation-practical-v1"
+            ),
         )
     except (
         CommercialAvailabilityError,
