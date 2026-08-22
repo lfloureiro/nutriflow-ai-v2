@@ -1,7 +1,7 @@
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -107,7 +107,7 @@ def _candidate_identity(
 def _window_occurrence_date(
     window: MealSourceOpeningWindow,
     scheduled_at: datetime,
-):
+) -> date | None:
     try:
         zone = ZoneInfo(window.timezone)
     except ZoneInfoNotFoundError as exc:
@@ -169,6 +169,14 @@ def _offer_is_active(
         raise CommercialAvailabilityError(
             f"Commercial offer {offer.offer_key!r} has a non-timezone-aware observed_at."
         )
+    for field_name, value in (
+        ("valid_from", offer.valid_from),
+        ("valid_until", offer.valid_until),
+    ):
+        if value is not None and not _is_timezone_aware(value):
+            raise CommercialAvailabilityError(
+                f"Commercial offer {offer.offer_key!r} has a non-timezone-aware {field_name}."
+            )
     if not offer.is_available:
         return False
     if offer.valid_from is not None and scheduled_at < offer.valid_from:
@@ -220,8 +228,8 @@ def _offer_snapshot(
     source: MealCandidateAvailability,
     offer: MealCommercialOffer,
 ) -> CommercialOfferSnapshot:
-    currency = offer.currency.upper()
-    if len(currency) != 3:
+    currency = offer.currency.strip().upper()
+    if len(currency) != 3 or not currency.isalpha():
         raise CommercialAvailabilityError(
             f"Commercial offer {offer.offer_key!r} has an invalid currency code."
         )
