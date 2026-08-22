@@ -56,6 +56,34 @@ Composition IDs remain internal to the typed API client. If the server reports n
 
 Authentication and production household authorization context are not implemented yet, so Family ID remains a development entrypoint.
 
+## Family-first product direction
+
+The existing recommendation screen is an integration slice, not the final application Home.
+
+The agreed primary navigation is:
+
+```text
+Início
+Refeições
+Pessoas
+Casa
+Mais
+```
+
+The application starts conceptually at Family level. `Início` is a lightweight view of how the Family is doing today, with compact Person cards and today's meal agenda. Person detail, health/activity/nutrition analytics and meal detail are reached through drill-down rather than expanding one large dashboard.
+
+The browser client now has typed support for:
+
+```text
+GET /api/families/{family_id}/dashboard?on_date=YYYY-MM-DD
+```
+
+This endpoint is the read-model foundation for the future Family Home. It exposes current-day member health/nutrition evidence and current Family meals without inventing cross-domain scores or converting missing data to zero.
+
+The visual application shell and Family Home are deliberately the next focused increments rather than being mixed into the read-model branch.
+
+See `docs/ux/frontend-information-architecture.md` and ADR-034.
+
 ## Dependency locking
 
 Direct dependency versions are pinned but an npm lockfile is not yet committed. Local and CI validation therefore use `npm install --no-package-lock`. A committed lockfile and `npm ci` are required before production deployment and should be added in a focused dependency-management hardening increment.
