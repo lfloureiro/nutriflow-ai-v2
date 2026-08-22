@@ -1,7 +1,23 @@
 import uuid
+from datetime import date, datetime, time
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, Integer, String, Text, Uuid
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    Time,
+    UniqueConstraint,
+    Uuid,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -13,6 +29,7 @@ if TYPE_CHECKING:
 
 
 AVAILABILITY_KINDS = frozenset({"home", "pantry", "restaurant", "delivery", "store"})
+COMMERCIAL_AVAILABILITY_KINDS = frozenset({"restaurant", "delivery", "store"})
 
 
 class MealCandidateAvailability(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -85,3 +102,138 @@ class MealCandidateAvailability(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     family: Mapped["Family"] = relationship()
     food_item: Mapped["FoodItem | None"] = relationship()
     recipe: Mapped["Recipe | None"] = relationship()
+    opening_windows: Mapped[list["MealSourceOpeningWindow"]] = relationship(
+        back_populates="availability",
+        cascade="all, delete-orphan",
+        order_by=lambda: (
+            MealSourceOpeningWindow.weekday,
+            MealSourceOpeningWindow.local_start_time,
+        ),
+    )
+    commercial_offers: Mapped[list["MealCommercialOffer"]] = relationship(
+        back_populates="availability",
+        cascade="all, delete-orphan",
+        order_by=lambda: MealCommercialOffer.offer_key,
+    )
+
+
+class MealSourceOpeningWindow(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "meal_source_opening_windows"
+    __table_args__ = (
+        CheckConstraint(
+            "weekday >= 0 AND weekday <= 6",
+            name="ck_meal_source_opening_windows_weekday_valid",
+        ),
+        CheckConstraint(
+            "length(timezone) > 0",
+            name="ck_meal_source_opening_windows_timezone_nonempty",
+        ),
+        CheckConstraint(
+            "valid_until IS NULL OR valid_from IS NULL OR valid_until >= valid_from",
+            name="ck_meal_source_opening_windows_valid_range",
+        ),
+        Index(
+            "ix_meal_source_opening_windows_availability_weekday",
+            "availability_id",
+            "weekday",
+        ),
+    )
+
+    availability_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("meal_candidate_availability.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    weekday: Mapped[int] = mapped_column(Integer, nullable=False)
+    local_start_time: Mapped[time] = mapped_column(Time(), nullable=False)
+    local_end_time: Mapped[time] = mapped_column(Time(), nullable=False)
+    timezone: Mapped[str] = mapped_column(String(64), nullable=False)
+    valid_from: Mapped[date | None] = mapped_column(Date(), nullable=True)
+    valid_until: Mapped[date | None] = mapped_column(Date(), nullable=True)
+
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="user")
+    source_reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    availability: Mapped[MealCandidateAvailability] = relationship(
+        back_populates="opening_windows"
+    )
+
+
+class MealCommercialOffer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "meal_commercial_offers"
+    __table_args__ = (
+        CheckConstraint(
+            "length(offer_key) > 0",
+            name="ck_meal_commercial_offers_offer_key_nonempty",
+        ),
+        CheckConstraint(
+            "length(provider_key) > 0",
+            name="ck_meal_commercial_offers_provider_key_nonempty",
+        ),
+        CheckConstraint(
+            "length(currency) = 3",
+            name="ck_meal_commercial_offers_currency_length",
+        ),
+        CheckConstraint(
+            "item_price >= 0",
+            name="ck_meal_commercial_offers_item_price_nonnegative",
+        ),
+        CheckConstraint(
+            "delivery_fee IS NULL OR delivery_fee >= 0",
+            name="ck_meal_commercial_offers_delivery_fee_nonnegative",
+        ),
+        CheckConstraint(
+            "minimum_order IS NULL OR minimum_order >= 0",
+            name="ck_meal_commercial_offers_minimum_order_nonnegative",
+        ),
+        CheckConstraint(
+            "valid_until IS NULL OR valid_from IS NULL OR valid_until > valid_from",
+            name="ck_meal_commercial_offers_valid_range",
+        ),
+        UniqueConstraint(
+            "family_id",
+            "offer_key",
+            name="uq_meal_commercial_offers_family_offer_key",
+        ),
+        Index(
+            "ix_meal_commercial_offers_availability",
+            "availability_id",
+        ),
+        Index(
+            "ix_meal_commercial_offers_family_provider",
+            "family_id",
+            "provider_key",
+        ),
+    )
+
+    family_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("families.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    availability_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("meal_candidate_availability.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    offer_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    provider_key: Mapped[str] = mapped_column(String(120), nullable=False)
+    provider_name: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    item_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    delivery_fee: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    minimum_order: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    is_available: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    valid_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="provider")
+    source_reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    availability: Mapped[MealCandidateAvailability] = relationship(
+        back_populates="commercial_offers"
+    )
