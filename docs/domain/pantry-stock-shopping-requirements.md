@@ -97,6 +97,8 @@ The resulting practical profile only contributes explicit `is_available`. It doe
 
 Pantry availability still precedes the existing hard-rule-first recommendation engine. It cannot override allergies, adverse reactions or mandatory NutritionConstraint rules.
 
+Restaurant/delivery/store prices and opening hours are now modeled separately in `docs/domain/restaurant-delivery-commercial-context.md`; they do not change pantry stock semantics.
+
 ## Current limitations
 
 This increment intentionally does not yet implement:
@@ -113,7 +115,7 @@ These can be layered on the quantity-safe pantry assessment without changing rec
 
 ## Next steps
 
-1. persist shopping lists and requirement lifecycle when API/UI workflows need them;
-2. add restaurant/delivery commercial context such as price and opening hours;
-3. expose pantry and shopping workflows through API/UI vertical slices;
-4. later add stock movements/reservations if concurrent meal planning requires them.
+1. persist shopping-list and requirement lifecycle when API/UI workflows need durable shopping state;
+2. expose pantry/shopping operations through coherent API/UI vertical slices;
+3. add stock movements/reservations if concurrent meal planning requires them;
+4. add package-size optimization, retailer inventory and price comparison only with explicit provider/freshness rules.

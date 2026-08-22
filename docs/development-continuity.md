@@ -1,61 +1,49 @@
 # NutriFlow AI v2 development continuity
 
-This document is the handover entry point for resuming NutriFlow AI v2 development in a later session. It records the current repository checkpoint, the mandatory development workflow and where the authoritative design information lives.
+This document is the handover entry point for resuming NutriFlow AI v2 development in a later session. It records the current repository checkpoint, mandatory workflow, safety invariants and next planned steps so development can continue from the repository without relying on conversation history.
 
-It is intentionally a continuity map rather than a second copy of all domain documentation. When details differ, the relevant domain document, ADR, migration and code on the current branch are authoritative.
+When details differ, repository state, code, migrations, tests, the relevant domain document and ADR are authoritative.
 
 ## Product and architecture baseline
 
-NutriFlow AI v2 is a standalone implementation. It must not depend on a legacy repository, legacy schema or compatibility layer.
+NutriFlow AI v2 is standalone. Do not introduce legacy repository/schema dependencies or compatibility layers unless a future explicit decision changes that direction.
 
-Core direction:
+Core architecture:
 
-- Person-centric nutrition model;
-- Person belongs to a Family;
-- shared Family meals use one MealEvent with person-specific MealParticipant and Serving records;
+- Person belongs to Family;
+- shared meals use one MealEvent with person-specific MealParticipant and Serving rows;
 - safety and mandatory nutrition rules are deterministic and cannot be bypassed by learned ranking;
-- health-provider data is normalized with provenance and remains in a health/wellness boundary rather than autonomous diagnosis/treatment;
-- historical source records remain authoritative while DailyHealthState and DailyNutritionState are derived/recalculable snapshots;
-- versioned food/recipe composition is used for reproducible Serving nutrition and recommendation decisions;
-- recommendation history and feedback remain audit evidence rather than authoritative meal-plan state;
-- multilingual, responsive, light/dark/system-capable web/mobile product direction remains part of the intended platform.
+- food/recipe composition is versioned for reproducible Serving and recommendation calculations;
+- DailyHealthState/DailyNutritionState are derived and recalculable;
+- recommendation history/feedback are audit evidence rather than authoritative meal-plan state;
+- practical, pantry and commercial source data are operational state separate from nutrition composition;
+- API namespace is `/api/...`, not `/api/v1`;
+- multilingual, responsive web/mobile and light/dark/system support remain product requirements.
 
-The current API namespace is `/api/...`; there is no `/api/v1` compatibility requirement.
+## Mandatory workflow
 
-## Mandatory development workflow
+Authoritative decision: `docs/decisions/ADR-007-development-workflow-and-ci.md`.
 
-The authoritative workflow is ADR-007: `docs/decisions/ADR-007-development-workflow-and-ci.md`.
+Use this sequence for every non-trivial increment:
 
-In abbreviated form:
-
-1. start from the exact current `main` SHA;
-2. create one focused feature branch;
-3. implement code, migration, tests and relevant documentation together;
-4. test locally against PostgreSQL;
-5. require Alembic metadata, Ruff and the complete pytest suite to pass with zero warnings;
-6. open a PR only after local validation is explicitly green;
+1. verify exact current `main` SHA;
+2. create one focused branch from that SHA;
+3. implement code, migration, tests and documentation together;
+4. run local PostgreSQL migration validation;
+5. require `alembic check`, Ruff and the complete pytest suite to pass with zero warnings;
+6. open a PR only after explicit local green confirmation;
 7. verify GitHub Actions on the exact PR head SHA;
-8. confirm the PR is mergeable and its head has not changed;
-9. squash-merge guarded by the exact tested head SHA;
+8. confirm PR mergeability and unchanged head SHA;
+9. squash-merge guarded by the tested head SHA;
 10. verify the merged PR and resulting exact `main` SHA;
-11. only then create the next feature branch.
+11. only then create the next branch;
+12. refresh this continuity checkpoint on the next branch.
 
-Do not commit directly to `main`. Do not merge an untested branch. Do not treat CI for an earlier SHA as validation of a later SHA. Documentation is part of the definition of done.
+Never commit feature work directly to `main`. Never merge an untested head. CI for an earlier SHA does not validate a later SHA. Documentation is part of the Definition of Done.
 
-## Local environment and validation
+## Local validation commands
 
-Current backend baseline:
-
-- Python >= 3.13;
-- FastAPI;
-- SQLAlchemy 2.x;
-- Alembic;
-- PostgreSQL;
-- psycopg 3.x;
-- pytest with warnings treated as errors;
-- Ruff target `py313`, line length 100.
-
-Typical schema-changing branch validation from the repository root:
+For a schema-changing branch, from repository root:
 
 ```powershell
 python -m alembic upgrade head
@@ -67,72 +55,143 @@ python -m ruff check .
 python -m pytest -q
 ```
 
-For a branch without schema changes, `alembic upgrade head/current` are optional but `alembic check`, Ruff and the complete pytest suite remain required.
+For a branch without schema changes, `alembic upgrade head/current` may be unnecessary, but `alembic check`, Ruff and the complete pytest suite remain required.
 
-The local development database configuration and migration bootstrap are defined in the repository configuration and Alembic environment. CI independently applies the complete migration chain to an empty PostgreSQL database.
+Current backend baseline:
 
-## Current repository checkpoint
+- Python >= 3.13;
+- FastAPI;
+- SQLAlchemy 2.x;
+- Alembic;
+- PostgreSQL;
+- psycopg 3.x;
+- pytest warnings treated as errors;
+- Ruff target `py313`, line length 100.
 
-Last fully integrated feature before the current branch:
+## Last integrated checkpoint
 
-- PR #18: persisted practical meal availability;
-- resulting `main` SHA: `d2fbda5e2a3770a35fcb500bb163e888cdf93bfd`;
-- schema head on that `main`: `e5a2c7d9f4b1`;
-- validated test baseline after PR #18: 58 tests.
+PR #19 integrated pantry stock and shopping requirements.
 
-Current feature branch:
-
-- branch: `feature/pantry-stock-shopping-requirements`;
-- merge base: `d2fbda5e2a3770a35fcb500bb163e888cdf93bfd`;
-- current branch introduces migration `f6b3d8e1a5c2`;
-- expected complete test baseline: 64 tests;
-- PR has not yet been opened at this checkpoint;
-- branch must receive explicit local green confirmation before PR creation.
-
-The current branch implements:
-
-- Family-scoped `PantryStockLot` operational stock records;
-- quantity and unit per stock lot;
-- optional expiry and explicit availability state;
-- safe aggregation across compatible mass or volume units;
-- expired/unavailable stock exclusion;
-- deterministic Recipe ingredient sufficiency evaluation;
-- duplicate RecipeIngredient aggregation before stock comparison;
-- exact missing quantities represented as shopping requirements;
-- candidate-level pantry availability profiles for FoodItem and Recipe recommendation candidates;
-- Recipe candidate scaling from requested candidate quantity to recipe yield;
-- fail-closed behaviour for unsafe mass/volume conversion and cross-Family catalogue references;
-- migration, tests, domain documentation and ADR-024.
-
-Current branch authoritative documents:
-
-- `docs/domain/pantry-stock-shopping-requirements.md`;
-- `docs/decisions/ADR-024-pantry-stock-is-family-scoped-operational-state.md`;
-- `docs/domain/implementation-status.md`.
-
-## Current migration chain
-
-The current branch migration head is:
+Exact integrated baseline:
 
 ```text
-f6b3d8e1a5c2
+main SHA:        672f32673102da9db1e686c89c1f8a0c61ba222f
+schema head:     f6b3d8e1a5c2
+test baseline:   64 tests
 ```
 
-It follows:
+PR #19 was locally validated, passed CI on the exact tested head and was squash-merged.
+
+Integrated pantry capability includes:
+
+- Family-scoped PantryStockLot;
+- quantity/unit, expiry and availability;
+- safe mass/volume aggregation without inferred density;
+- Recipe ingredient sufficiency;
+- duplicate ingredient aggregation;
+- exact transient shopping requirements for missing quantities;
+- pantry-derived practical availability.
+
+Detailed semantics: `docs/domain/pantry-stock-shopping-requirements.md`, ADR-024.
+
+## Current feature branch
+
+Current branch:
 
 ```text
-e5a2c7d9f4b1  persisted meal candidate availability
+feature/restaurant-delivery-commercial-context
+```
+
+Merge base:
+
+```text
+672f32673102da9db1e686c89c1f8a0c61ba222f
+```
+
+Current branch migration:
+
+```text
+a7c4e9f2b6d1
+```
+
+Expected complete test baseline after the seven new tests:
+
+```text
+71 tests
+```
+
+No PR should be opened until this branch receives explicit local green confirmation for Alembic, Ruff and all tests.
+
+### Current branch scope
+
+The branch adds volatile commercial/provider state without changing FoodItem/Recipe nutrition composition:
+
+- MealSourceOpeningWindow linked to MealCandidateAvailability;
+- weekly local opening windows with explicit timezone;
+- same-day, overnight and full-day semantics;
+- optional local-date validity ranges;
+- missing windows mean unknown hours, not closed;
+- MealCommercialOffer linked to one concrete practical source;
+- Family-scoped stable offer key;
+- provider identity/name;
+- item price/currency;
+- optional delivery fee and minimum order;
+- absolute offer validity and timezone-aware provider observation time;
+- deterministic commercial planning service;
+- practical profiles generated from currently usable restaurant/delivery/store sources;
+- current active offers returned separately from practical eligibility;
+- no FX conversion;
+- no price-based nutrition ranking;
+- Family and source-kind boundaries enforced explicitly.
+
+Authoritative current-branch docs:
+
+- `docs/domain/restaurant-delivery-commercial-context.md`;
+- `docs/decisions/ADR-025-commercial-source-hours-and-offers-are-operational-state.md`;
+- `docs/domain/implementation-status.md`.
+
+## Current migration tail
+
+```text
+a7c4e9f2b6d1  commercial source opening windows and offers
+f6b3d8e1a5c2  quantity-aware Family pantry stock lots
+e5a2c7d9f4b1  Family-scoped meal candidate availability
 d4f8a1b2c6e9  MealEvent idempotency
 c3e7f9a1b5d2  recommendation run/option/feedback
 ```
 
-Earlier migration history remains authoritative in `database/migrations/versions/` and is summarized in `docs/domain/implementation-status.md`.
+Earlier revisions remain authoritative in `database/migrations/versions/` and are summarized in `docs/domain/implementation-status.md`.
 
-Never invent or reorder a migration revision when resuming work. Inspect the current branch and `alembic current/heads` before adding another migration.
+Never guess the next revision. Inspect current `alembic current`, `alembic heads` and the migration directory before adding another migration.
+
+## Safety and correctness invariants
+
+Preserve these across all future work:
+
+- mandatory adverse reactions and mandatory constraints run before ranking;
+- learned/ML ranking can reorder eligible candidates only;
+- unsupported mandatory semantics fail explicitly;
+- unsafe required unit conversions fail closed;
+- no inferred density for mass/volume conversion;
+- Serving nutrition keeps explicit versioned composition provenance;
+- historical recommendation/feedback evidence remains append-only;
+- materialized plans use normal MealEvent/MealParticipant/Serving records;
+- DailyNutritionState derives from authoritative meal history;
+- Family-scoped catalogue/operational data cannot leak across Families;
+- shared meals retain person-specific portions and safety evaluation;
+- retries and plan replacement preserve idempotency and immutable history;
+- commercial availability/price cannot make a safety-ineligible candidate eligible;
+- warnings are treated as failures rather than casually suppressed.
+
+### Known safety-hardening item
+
+Mandatory nutrient maxima currently need an explicit fail-closed policy for candidates whose composition omits the constrained nutrient. Do not alter this incidentally in another feature.
+
+Schedule a dedicated focused increment, tests and documentation before broad API/UI exposure.
 
 ## Implemented capability map
 
-Use `docs/domain/implementation-status.md` as the compact current-status document. Detailed domain semantics are split across documents including:
+Use `docs/domain/implementation-status.md` for the compact current capability status. Detailed domain documents include:
 
 - `docs/domain/core-domain-model.md`;
 - `docs/domain/schedule-model.md`;
@@ -152,55 +211,37 @@ Use `docs/domain/implementation-status.md` as the compact current-status documen
 - `docs/domain/shared-family-meal-materialization.md`;
 - `docs/domain/meal-replacement-idempotency.md`;
 - `docs/domain/persisted-practical-availability.md`;
-- `docs/domain/pantry-stock-shopping-requirements.md`.
+- `docs/domain/pantry-stock-shopping-requirements.md`;
+- `docs/domain/restaurant-delivery-commercial-context.md`.
 
-Durable architecture/design choices are recorded under `docs/decisions/`. ADR-007 governs workflow; later ADRs cover domain decisions for the corresponding capability increments.
-
-## Important safety and correctness invariants
-
-These invariants must remain true across future increments:
-
-- mandatory adverse reactions and mandatory constraints are evaluated before ranking;
-- learned/ML ranking may reorder eligible options but may never make an ineligible option eligible;
-- unsupported mandatory semantics and unsafe required unit conversions fail closed;
-- Serving nutrition uses explicit versioned composition provenance;
-- no inferred density is used for mass/volume conversion;
-- historical recommendations and feedback remain append-only evidence;
-- materialized meal plans use normal MealEvent/MealParticipant/Serving records;
-- DailyNutritionState derives from authoritative meal/Serving history and is recalculable;
-- Family-specific catalogue and operational records cannot leak across Families;
-- shared meals retain person-specific portions and person-specific safety evaluation;
-- retries and plan replacements must preserve idempotency and immutable replacement history;
-- warnings are treated as test failures rather than suppressed casually.
-
-One known area for a future dedicated safety-hardening increment is the behaviour of mandatory nutrient maxima when a candidate has no value for the constrained nutrient. Do not silently change this as an unrelated side effect; review and document the fail-closed policy explicitly when that increment is scheduled.
+Durable decisions are under `docs/decisions/`; ADR-007 governs workflow.
 
 ## Next planned increments
 
-After the current pantry-stock branch is locally validated, PR-tested and merged, the planned sequence is synchronized with `docs/domain/implementation-status.md`:
+After the current commercial-context branch is locally green, PR-tested and merged:
 
-1. add restaurant/delivery commercial context such as price, opening hours and provider synchronization;
-2. expose coherent API and UI vertical slices over the completed planning flow;
-3. persist shopping-list lifecycle when API/UI workflows require durable shopping state;
-4. add background/event-driven DailyNutritionState refresh and explicit target-selection policy;
-5. extend recurrence/calendar override support;
-6. persist family-level recommendation audit history where needed;
-7. harden transaction-level idempotency races at the write API boundary;
-8. introduce learned ranking from feedback only after deterministic safety, practical and nutrition layers remain authoritative.
+1. dedicated fail-closed hardening for missing candidate nutrient data under mandatory nutrient maxima;
+2. API and UI vertical slices over the deterministic planning flow;
+3. persisted shopping-list lifecycle when API/UI workflows need durable shopping state;
+4. background/event-driven DailyNutritionState refresh and explicit target-selection policy;
+5. fuller recurrence/calendar override support;
+6. persisted family-level recommendation audit history;
+7. transaction-level idempotency-race handling at the write API boundary;
+8. provider connectors/live freshness policy, basket/order lifecycle and commercial optimization;
+9. learned ranking from feedback only after deterministic safety/practical/nutrition layers remain authoritative.
 
-The exact next increment may be reordered deliberately, but any change to this sequence must be reflected in both `docs/domain/implementation-status.md` and this continuity document.
+Any deliberate roadmap reordering must update both this file and `docs/domain/implementation-status.md`.
 
-## How to resume safely in a later session
-
-When returning to the project:
+## Resume procedure for a later session
 
 1. read this file;
 2. read ADR-007;
-3. inspect `docs/domain/implementation-status.md`;
+3. read `docs/domain/implementation-status.md`;
 4. inspect `git status`, current branch, `git log -1`, `git branch -vv` and remote state;
-5. compare the active feature branch to `main` before assuming the checkpoint above is still current;
-6. inspect the current Alembic head rather than relying only on the revision written here;
-7. run or request the local validation gates before opening a PR;
-8. after a merge, update this document with the new `main` SHA, migration/test baseline, active branch and next safe step.
+5. compare the active feature branch with `main`;
+6. inspect actual Alembic heads/current state;
+7. verify whether the branch already received local green validation;
+8. do not open/merge a PR unless the exact active head satisfies the workflow;
+9. after merge, verify new `main`, create the next focused branch, then update this file.
 
-Repository state, tests and documentation are the source of truth. Conversation history may help with context, but it is never required to reconstruct the approved workflow or current architecture.
+Repository state, tests and documentation are the source of truth. Conversation history is optional context only.
