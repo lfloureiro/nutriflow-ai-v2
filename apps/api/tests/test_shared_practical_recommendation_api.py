@@ -122,7 +122,7 @@ def test_shared_practical_recommendation_returns_one_group_option(db_session: Se
     assert response.status_code == 201
     body = response.json()
     assert body["person_ids"] == [str(ana.id), str(bruno.id)]
-    assert body["engine_version"] == "shared-family-practical-v1"
+    assert body["engine_version"] == "shared-family-practical-v1+diversity-v1"
     assert len(body["options"]) == 1
     option = body["options"][0]
     assert option["eligible"] is True
