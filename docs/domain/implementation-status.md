@@ -28,55 +28,55 @@ Integrated capabilities include:
 - visible responsive application shell with `Início`, `Refeições`, `Pessoas`, `Casa`, `Mais`;
 - lightweight Family Home backed by the server dashboard read model;
 - representative four-member synthetic demo data for Family-level UI validation;
-- first lightweight Person overview drill-down with focused secondary navigation.
+- first lightweight Person overview drill-down;
+- Family `Refeições > Hoje / Semana / Recomendar` workflow backed by the Family-local calendar read model.
 
-Integrated baseline after PR #32:
+Integrated baseline after PR #33:
 
 ```text
-main SHA:      715ce09bc2034d6f88165f288b2d79321bdd4599
+main SHA:      e0bdd8a9c8cc40f58ab67f14727ab134ac2156dc
 schema head:   a7c4e9f2b6d1
-API tests:     107
-Web tests:     16
+API tests:     110
+Web tests:     19
 ```
 
-## Current feature branch: Family Meals Hoje/Semana
+## Current feature branch: shared Family meal detail
 
 Branch:
 
 ```text
-feature/web-family-meals-today-week
+feature/web-family-meal-detail
 ```
 
 Merge base:
 
 ```text
-715ce09bc2034d6f88165f288b2d79321bdd4599
+e0bdd8a9c8cc40f58ab67f14727ab134ac2156dc
 ```
 
 No database migration.
 
 Implemented on the branch:
 
-- new Family meal-calendar read model at `GET /api/families/{family_id}/meals`;
-- optional Family-local `start_date` and bounded `days` range (1..14, default 7);
-- local-midnight range construction in persisted Family timezone, converted to UTC for querying;
-- one explicit response day for every requested local calendar date, including empty days;
-- normal Family meal-map statuses limited to planned/prepared/served/completed;
-- cancelled/replaced events omitted;
-- compact persisted MealParticipant Person names and participant status returned with each meal;
-- web contracts/client coverage for the Family meal range;
-- primary `Refeições` destination now starts at `Hoje` rather than the recommendation form;
-- secondary navigation `Hoje`, `Semana`, `Recomendar`;
-- `Hoje` chronological Family agenda;
-- `Semana` current Monday-to-Sunday Family-local week as seven readable vertical day sections;
-- existing recommendation vertical slice retained under `Recomendar` without changing its safety/ranking semantics;
-- Family Home `Planear refeição` opens `Recomendar` directly;
-- shared meals remain one Family calendar row with participant names; Person-specific portions remain a later drill-down;
-- responsive single-column mobile behavior rather than a dense calendar grid.
+- `GET /api/families/{family_id}/meals/{meal_event_id}` Family-scoped read-only detail endpoint;
+- endpoint query constrained by both Family ID and MealEvent ID;
+- persisted MealParticipant Person identity/name/status returned for the selected shared meal;
+- persisted Person-specific Serving rows returned with planned/served/consumed quantity and energy lifecycle evidence;
+- no Serving recalculation, nutrient aggregation, recommendation ranking or safety inference in the detail read model;
+- cross-Family meal lookup returns `404` rather than exposing another Family's meal;
+- `Hoje` and `Semana` meal rows are accessible drill-down buttons rather than expanded dense rows;
+- selecting a meal opens a separate focused `Refeição` screen;
+- detail shows Family-local date/time, location/status, vertical participant cards and each Person's recorded portions;
+- concise Serving presentation chooses existing consumed evidence, then served, then planned; this is presentation selection only;
+- missing Serving rows stay explicit rather than being inferred or displayed as zero;
+- pt-PT/en copy and responsive single-column detail layout;
+- explicit demo seed enriched with deterministic/idempotent Person-specific Serving fixtures for all ten demo MealParticipants;
+- advanced explanation, alternatives/edit commands, nutrient breakdowns and safety-result UI deliberately remain outside this increment.
 
 Authoritative docs:
 
 - `docs/domain/family-meals-read-model.md`;
+- `docs/ux/family-meal-detail.md`;
 - `docs/ux/family-meals-today-week.md`;
 - `docs/ux/frontend-information-architecture.md`;
 - `docs/decisions/ADR-034-family-first-progressive-disclosure-web-navigation.md`.
@@ -84,23 +84,25 @@ Authoritative docs:
 Expected validation baseline after implementation:
 
 ```text
-API: Alembic metadata clean, Ruff clean, 110 pytest tests
-Web: 19 Vitest tests, strict TypeScript check, production Vite build
+API: Alembic metadata clean, Ruff clean, 112 pytest tests
+Web: 21 Vitest tests, strict TypeScript check, production Vite build
 ```
 
-These counts are not integrated claims until the exact branch head passes local validation and CI.
+These counts are expectations only until the exact branch head is locally validated.
 
 ## Family Meals UX boundary
 
-`Refeições` answers:
+`Refeições` first answers:
 
 > O que está planeado para a família?
 
-The orientation layer is the Family meal map, not the recommendation form. Users see `Hoje` or `Semana` first and enter `Recomendar` only when they want a generated option.
+`Hoje` and `Semana` remain low-density orientation screens. A shared MealEvent appears once and can now be opened into the dedicated `Refeição` screen.
 
-The weekly view intentionally avoids a dense seven-column planner. Empty days are explicit and active meals remain compact rows with time, title, participants, optional location and state.
+The detail screen answers:
 
-The meal calendar does not calculate nutrition or surface Serving-level portions. Shared-meal detail is the next dedicated drill-down.
+> Qual é a refeição e qual é a porção de cada pessoa?
+
+It preserves the domain structure `MealEvent -> MealParticipant -> Serving` rather than duplicating the shared meal per Person.
 
 ## Person overview UX boundary
 
@@ -124,8 +126,9 @@ Future work must preserve:
 - planning bootstrap preserves Person/Family isolation and as-of composition semantics;
 - Family dashboard exposes persisted evidence without medical interpretation;
 - Family meal range uses Family-local calendar boundaries and persisted participant membership;
+- Family meal detail exposes persisted Serving evidence without deriving another Person's portion or new nutrition totals;
 - Person overview presents persisted evidence without inventing cross-domain meaning;
-- missing dashboard evidence remains `null` rather than zero or previous-day fallback;
+- missing dashboard/detail evidence remains missing rather than zero or previous-value fallback;
 - web does not select state/composition versions independently or reproduce safety/ranking rules;
 - ineligible options cannot be materialized and rejected decisions cannot create meal state;
 - DailyNutritionState remains derived from authoritative meal history outside explicit synthetic development fixtures;
@@ -139,7 +142,7 @@ Known limitations:
 - recommendation decision request-level/concurrent idempotency is not yet guaranteed;
 - missing real DailyNutritionState is not automatically recalculated by bootstrap/dashboard;
 - Family selection remains a development context pending authentication/authorization;
-- Family meal detail/Serving portions are not yet implemented;
+- meal-detail explanation/alternatives/edit commands are not yet implemented;
 - Person detailed section read models are not yet implemented;
 - `Casa` is not yet functional;
 - URL/deep-link routing is not yet introduced;
@@ -164,12 +167,12 @@ d9f2a7          DailyHealthState/DailyNutritionState
 
 After this branch is locally green, PR-tested, visually checked and merged:
 
-1. add shared-meal drill-down with Person-specific portions;
-2. add dedicated Person Nutrition/Activity/Health/History read models/screens;
-3. add Person profile/goals/constraints/preferences screens;
-4. add pantry/shopping UI and durable shopping-list lifecycle;
-5. add authentication/authorization before real multi-user deployment;
-6. add committed npm lockfile and `npm ci` production hardening;
+1. add dedicated Person Nutrition/Activity/Health/History read models/screens;
+2. add Person profile/goals/constraints/preferences screens;
+3. add pantry/shopping UI and durable shopping-list lifecycle;
+4. add authentication/authorization before real multi-user deployment;
+5. add committed npm lockfile and `npm ci` production hardening;
+6. continue meal explanation/alternative/edit flows when their command/read semantics are defined;
 7. continue provider/live freshness, basket/order and later learned-ranking work.
 
 Every increment follows ADR-007: focused branch, relevant code/tests/docs together, local validation with zero warnings, PR only after local green, CI on the exact head SHA, guarded squash merge, verify new `main`, then start the next branch.
