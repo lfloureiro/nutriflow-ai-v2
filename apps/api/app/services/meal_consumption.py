@@ -168,8 +168,7 @@ def _refresh_event_status(event: MealEvent, *, now: datetime) -> None:
     any_eaten = any(status in _EATEN_STATUSES for status in statuses)
     if statuses and all(status in _REALIZED_STATUSES for status in statuses):
         event.status = "completed"
-        if any_eaten:
-            event.served_at = event.served_at or now
+        event.served_at = (event.served_at or now) if any_eaten else None
         event.completed_at = now
         return
     if any_eaten:
@@ -178,6 +177,7 @@ def _refresh_event_status(event: MealEvent, *, now: datetime) -> None:
         event.completed_at = None
         return
     event.status = "planned"
+    event.served_at = None
     event.completed_at = None
 
 
