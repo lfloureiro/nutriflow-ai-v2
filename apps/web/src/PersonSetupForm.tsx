@@ -5,10 +5,18 @@ import { createFamilyPerson, getPersonEnergyProfile } from "./api/setupClient";
 import type {
   ActivityLevel,
   EnergyCalculationSex,
+  MealDiscoverySource,
   NutritionGoalType,
   PersonEnergyProfile,
 } from "./api/setupTypes";
 import { useI18n } from "./i18n";
+
+const SOURCE_OPTIONS: MealDiscoverySource[] = [
+  "shared_recipes",
+  "uber_eats",
+  "glovo",
+  "restaurants",
+];
 
 const COPY = {
   "pt-PT": {
@@ -35,6 +43,19 @@ const COPY = {
     rate: "Ritmo (kg/semana)",
     breakfast: "Pequeno-almoço padrão (kcal)",
     breakfastHelp: "Usado apenas como estimativa quando o pequeno-almoço não está declarado. Usa 0 se normalmente não toma pequeno-almoço.",
+    mealSources: "Onde procurar refeições para esta pessoa?",
+    inheritSources: "Usar as opções da família",
+    overrideHelp: "Desativa apenas se esta pessoa usar providers, morada ou zona diferentes.",
+    shared_recipes: "Receitas partilhadas",
+    uber_eats: "Uber Eats",
+    glovo: "Glovo",
+    restaurants: "Restaurantes na área",
+    deliveryAddress: "Morada de entrega desta pessoa",
+    restaurantArea: "Área de restaurantes desta pessoa",
+    providerNote: "Uber Eats e Glovo só ficam live quando a integração oficial estiver configurada.",
+    sourceRequired: "Escolhe pelo menos uma origem de refeições.",
+    deliveryAddressRequired: "Indica a morada de entrega desta pessoa.",
+    restaurantAreaRequired: "Indica a área onde procurar restaurantes.",
     adultHelp: "O cálculo automático atual usa Mifflin-St Jeor e está limitado a adultos (18+).",
     save: "Criar pessoa",
     saving: "A criar…",
@@ -67,6 +88,19 @@ const COPY = {
     rate: "Rate (kg/week)",
     breakfast: "Standard breakfast (kcal)",
     breakfastHelp: "Used only as an estimate when breakfast is not declared. Use 0 if breakfast is normally skipped.",
+    mealSources: "Where should meals be discovered for this person?",
+    inheritSources: "Use family options",
+    overrideHelp: "Disable only if this person uses different providers, address or area.",
+    shared_recipes: "Shared recipes",
+    uber_eats: "Uber Eats",
+    glovo: "Glovo",
+    restaurants: "Restaurants in the area",
+    deliveryAddress: "This person's delivery address",
+    restaurantArea: "This person's restaurant area",
+    providerNote: "Uber Eats and Glovo become live only when the official integration is configured.",
+    sourceRequired: "Choose at least one meal source.",
+    deliveryAddressRequired: "Enter this person's delivery address.",
+    restaurantAreaRequired: "Enter the area where restaurants should be discovered.",
     adultHelp: "The current automatic calculation uses Mifflin-St Jeor and is limited to adults (18+).",
     save: "Create person",
     saving: "Creating…",
@@ -109,15 +143,42 @@ export default function PersonSetupForm({
   const [goal, setGoal] = useState<NutritionGoalType>("maintain");
   const [rate, setRate] = useState("0.5");
   const [breakfast, setBreakfast] = useState("350");
+  const [inheritSources, setInheritSources] = useState(true);
+  const [sources, setSources] = useState<MealDiscoverySource[]>(["shared_recipes"]);
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [restaurantArea, setRestaurantArea] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<PersonEnergyProfile | null>(null);
 
+  const wantsDelivery = sources.includes("uber_eats") || sources.includes("glovo");
+  const wantsRestaurants = sources.includes("restaurants");
+
+  function toggleSource(source: MealDiscoverySource) {
+    setSources((current) =>
+      current.includes(source)
+        ? current.filter((item) => item !== source)
+        : [...current, source],
+    );
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
-    setBusy(true);
     setError(null);
     setProfile(null);
+    if (!inheritSources && sources.length === 0) {
+      setError(copy.sourceRequired);
+      return;
+    }
+    if (!inheritSources && wantsDelivery && !deliveryAddress.trim()) {
+      setError(copy.deliveryAddressRequired);
+      return;
+    }
+    if (!inheritSources && wantsRestaurants && !restaurantArea.trim()) {
+      setError(copy.restaurantAreaRequired);
+      return;
+    }
+    setBusy(true);
     try {
       const created = await createFamilyPerson(familyId, {
         first_name: firstName.trim(),
@@ -134,6 +195,13 @@ export default function PersonSetupForm({
           target_rate_kg_per_week: goal === "maintain" ? null : rate,
           standard_breakfast_kcal: breakfast,
         },
+        meal_discovery: inheritSources
+          ? null
+          : {
+              meal_discovery_sources: sources,
+              delivery_address: deliveryAddress.trim() || null,
+              restaurant_area: restaurantArea.trim() || null,
+            },
       });
       const energy = await getPersonEnergyProfile(created.id);
       setProfile(energy);
@@ -174,6 +242,31 @@ export default function PersonSetupForm({
           {goal !== "maintain" ? <label className="field"><span>{copy.rate}</span><input min="0.1" max="1" required type="number" step="0.1" value={rate} onChange={(event) => setRate(event.target.value)} /></label> : null}
           <label className="field"><span>{copy.breakfast}</span><input min="0" max="1000" required type="number" step="10" value={breakfast} onChange={(event) => setBreakfast(event.target.value)} /><small>{copy.breakfastHelp}</small></label>
         </div>
+        <section className="person-discovery-setup">
+          <div>
+            <strong>{copy.mealSources}</strong>
+            <p className="muted compact">{copy.overrideHelp}</p>
+          </div>
+          <label className="ingredient-check">
+            <input checked={inheritSources} onChange={(event) => setInheritSources(event.target.checked)} type="checkbox" />
+            <span>{copy.inheritSources}</span>
+          </label>
+          {!inheritSources ? (
+            <>
+              <div className="family-source-grid">
+                {SOURCE_OPTIONS.map((source) => (
+                  <label className={`recommend-source-card ${sources.includes(source) ? "selected" : ""}`} key={source}>
+                    <input checked={sources.includes(source)} onChange={() => toggleSource(source)} type="checkbox" />
+                    <span><strong>{copy[source]}</strong></span>
+                  </label>
+                ))}
+              </div>
+              {wantsDelivery ? <label className="field"><span>{copy.deliveryAddress}</span><input required value={deliveryAddress} onChange={(event) => setDeliveryAddress(event.target.value)} /></label> : null}
+              {wantsRestaurants ? <label className="field"><span>{copy.restaurantArea}</span><input required value={restaurantArea} onChange={(event) => setRestaurantArea(event.target.value)} /></label> : null}
+              {(sources.includes("uber_eats") || sources.includes("glovo")) ? <small className="muted">{copy.providerNote}</small> : null}
+            </>
+          ) : null}
+        </section>
         <p className="muted compact">{copy.adultHelp}</p>
         <div className="button-row">
           <button className="button primary" disabled={busy} type="submit">{busy ? copy.saving : copy.save}</button>
