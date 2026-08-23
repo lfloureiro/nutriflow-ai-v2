@@ -5,12 +5,13 @@ import type {
 } from "./api/types";
 
 export type RecommendationPeriodMode = "single" | "range";
-export type RecommendationSource = "cooked" | "delivery" | "restaurant";
+export type RecommendationSource = "cooked" | "uber_eats" | "glovo" | "restaurant";
 export type RecommendationMealType = "breakfast" | "lunch" | "snack" | "dinner";
 
 export const RECOMMENDATION_SOURCES: RecommendationSource[] = [
   "cooked",
-  "delivery",
+  "uber_eats",
+  "glovo",
   "restaurant",
 ];
 
@@ -66,9 +67,18 @@ export function recommendationSourceKinds(
 ): PracticalSourceKind[] {
   const result: PracticalSourceKind[] = [];
   if (sources.includes("cooked")) result.push("home");
-  if (sources.includes("delivery")) result.push("delivery");
+  if (sources.includes("uber_eats") || sources.includes("glovo")) result.push("delivery");
   if (sources.includes("restaurant")) result.push("restaurant");
   return result;
+}
+
+export function recommendationDeliveryProviderKeys(
+  sources: RecommendationSource[],
+): string[] {
+  const providers: string[] = [];
+  if (sources.includes("uber_eats")) providers.push("uber_eats");
+  if (sources.includes("glovo")) providers.push("glovo");
+  return providers;
 }
 
 export function recommendationCandidates(
@@ -76,7 +86,10 @@ export function recommendationCandidates(
   sources: RecommendationSource[],
 ): RecommendationCandidateInput[] {
   const allowCooked = sources.includes("cooked");
-  const allowCommercial = sources.includes("delivery") || sources.includes("restaurant");
+  const allowCommercial =
+    sources.includes("uber_eats") ||
+    sources.includes("glovo") ||
+    sources.includes("restaurant");
   return candidates
     .filter((candidate) => {
       if (candidate.candidate_kind === "recipe") return allowCooked;
