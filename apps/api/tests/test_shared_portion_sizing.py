@@ -76,5 +76,8 @@ def test_shared_proposal_sizes_same_meal_per_person() -> None:
 
     assert len(proposals) == 1
     portions = {portion.person_id: portion for portion in proposals[0].portions}
-    assert portions[ANA_ID].quantity == Decimal("1.2500")
-    assert portions[RUI_ID].quantity == Decimal("1.5000")
+    assert portions[ANA_ID].quantity == Decimal("1.7500")
+    assert portions[RUI_ID].quantity == Decimal("2.0000")
+    assert portions[ANA_ID].meal_energy_target_min_kcal == Decimal("840.00")
+    assert portions[ANA_ID].meal_energy_target_max_kcal == Decimal("933.33")
+    assert portions[ANA_ID].energy_allocation_policy == "meal-energy-allocation-v2"
