@@ -10,7 +10,12 @@ from app.schemas.family import FamilyCreate, FamilyRead, FamilyUpdate
 from app.schemas.family_dashboard import FamilyDashboardRead
 from app.schemas.family_meals import FamilyMealsRead
 from app.schemas.person import PersonCreate, PersonRead
-from app.services.family import create_family, get_family, update_family
+from app.services.family import (
+    FamilyDiscoveryConfigurationError,
+    create_family,
+    get_family,
+    update_family,
+)
 from app.services.family_dashboard import build_family_dashboard
 from app.services.family_meals import build_family_meals
 from app.services.person import create_person, list_family_persons
@@ -24,7 +29,10 @@ def create_family_endpoint(
     data: FamilyCreate,
     db: Annotated[Session, Depends(get_db)],
 ) -> FamilyRead:
-    return create_family(db, data)
+    try:
+        return create_family(db, data)
+    except FamilyDiscoveryConfigurationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/{family_id}", response_model=FamilyRead)
@@ -49,7 +57,10 @@ def update_family_endpoint(
     family = get_family(db, family_id)
     if family is None:
         raise HTTPException(status_code=404, detail="Family not found")
-    return update_family(db, family, data)
+    try:
+        return update_family(db, family, data)
+    except FamilyDiscoveryConfigurationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/{family_id}/dashboard", response_model=FamilyDashboardRead)
