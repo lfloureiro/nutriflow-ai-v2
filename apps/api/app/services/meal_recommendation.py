@@ -45,6 +45,10 @@ class MealCandidate:
     recipe: Recipe | None = None
     food_composition: FoodCompositionSnapshot | None = None
     recipe_composition: RecipeCompositionSnapshot | None = None
+    portion_factor: Decimal | None = None
+    meal_energy_target_min_kcal: Decimal | None = None
+    meal_energy_target_max_kcal: Decimal | None = None
+    energy_allocation_policy: str | None = None
 
 
 @dataclass(frozen=True)
@@ -268,32 +272,64 @@ def _advisory_reaction_score(
     return penalty, reasons
 
 
-def _energy_score(candidate: MealCandidate, daily_state: DailyNutritionState) -> tuple[Decimal, str | None]:
+def _energy_bounds(
+    candidate: MealCandidate,
+    daily_state: DailyNutritionState,
+) -> tuple[Decimal | None, Decimal | None, bool]:
+    meal_specific = (
+        candidate.meal_energy_target_min_kcal is not None
+        or candidate.meal_energy_target_max_kcal is not None
+    )
+    if meal_specific:
+        return (
+            candidate.meal_energy_target_min_kcal,
+            candidate.meal_energy_target_max_kcal,
+            True,
+        )
+    return (
+        daily_state.energy_remaining_min_kcal,
+        daily_state.energy_remaining_max_kcal,
+        False,
+    )
+
+
+def _energy_score(
+    candidate: MealCandidate,
+    daily_state: DailyNutritionState,
+) -> tuple[Decimal, str | None]:
     energy = candidate.nutrition.energy_kcal
     if energy is None:
         return ZERO, None
 
-    remaining_min = daily_state.energy_remaining_min_kcal
-    remaining_max = daily_state.energy_remaining_max_kcal
-    if remaining_min is None and remaining_max is None:
-        return ZERO, None
-
-    if remaining_max is not None and remaining_max <= ZERO:
+    if (
+        daily_state.energy_remaining_max_kcal is not None
+        and daily_state.energy_remaining_max_kcal <= ZERO
+    ):
         return -ONE, "energy_target_already_exceeded"
 
-    if remaining_min is not None and remaining_max is not None:
-        target = max((remaining_min + remaining_max) / Decimal(2), ONE)
-    elif remaining_min is not None:
-        target = max(remaining_min, ONE)
+    target_min, target_max, meal_specific = _energy_bounds(candidate, daily_state)
+    if target_min is None and target_max is None:
+        return ZERO, None
+
+    if target_min is not None and target_max is not None:
+        target = max((target_min + target_max) / Decimal(2), ONE)
+    elif target_min is not None:
+        target = max(target_min, ONE)
     else:
-        target = max(remaining_max or ONE, ONE)
+        target = max(target_max or ONE, ONE)
 
     distance = abs(energy - target) / target
     score = max(-ONE, ONE - distance)
-    if remaining_max is not None and energy > remaining_max:
+    if (
+        daily_state.energy_remaining_max_kcal is not None
+        and energy > daily_state.energy_remaining_max_kcal
+    ):
         score -= ONE
         return score, "candidate_exceeds_remaining_energy_max"
-    return score, "candidate_fits_remaining_energy"
+    return (
+        score,
+        "candidate_fits_meal_energy" if meal_specific else "candidate_fits_remaining_energy",
+    )
 
 
 def _nutrient_score(
