@@ -59,7 +59,7 @@ def load_person_feedback_signals(
         )
         .where(
             MealRecommendationRun.person_id == person_id,
-            MealRecommendationRun.planning_date < planning_date,
+            MealRecommendationRun.planning_date <= planning_date,
             MealRecommendationRun.planning_date
             >= planning_date - timedelta(days=FEEDBACK_LOOKBACK_DAYS),
         )
