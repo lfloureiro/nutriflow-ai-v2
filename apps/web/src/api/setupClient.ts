@@ -7,6 +7,7 @@ import type {
   PersonCreate,
   PersonEnergyProfile,
   PersonMealDiscovery,
+  PersonMealDiscoveryUpdate,
 } from "./setupTypes";
 import type { Person, PlanningBootstrap } from "./types";
 
@@ -66,6 +67,19 @@ export function getPersonEnergyProfile(personId: string): Promise<PersonEnergyPr
 export function getPersonMealDiscovery(personId: string): Promise<PersonMealDiscovery> {
   return setupRequest<PersonMealDiscovery>(
     `/api/persons/${encodeURIComponent(personId)}/meal-discovery`,
+  );
+}
+
+export function updatePersonMealDiscovery(
+  personId: string,
+  payload: PersonMealDiscoveryUpdate,
+): Promise<PersonMealDiscovery> {
+  return setupRequest<PersonMealDiscovery>(
+    `/api/persons/${encodeURIComponent(personId)}/meal-discovery`,
+    {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    },
   );
 }
 
