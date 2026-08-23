@@ -143,9 +143,11 @@ def create_energy_profile(
         status="active",
         source="user",
     )
+    session.add(goal)
+    session.flush()
     target = NutritionTarget(
         person=person,
-        nutrition_goal=goal,
+        nutrition_goal_id=goal.id,
         valid_from=local_date,
         estimated_bmr_kcal=bmr,
         bmr_method="Mifflin-St Jeor",
@@ -175,7 +177,7 @@ def create_energy_profile(
         source="system",
         notes="Automatically estimated from the Person setup profile.",
     )
-    session.add_all([goal, target])
+    session.add(target)
     return target
 
 
