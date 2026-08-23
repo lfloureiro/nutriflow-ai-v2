@@ -11,6 +11,7 @@ from app.services.family import (
     create_family,
     update_family,
 )
+from app.services.meal_discovery_capability import build_meal_discovery_capabilities
 from app.services.person import (
     get_person_meal_discovery,
     update_person_meal_discovery,
@@ -152,3 +153,30 @@ def test_partial_family_update_cannot_break_restaurant_configuration(
             family,
             FamilyUpdate(restaurant_area=None),
         )
+
+
+def test_capabilities_separate_live_sources_from_pending_integrations() -> None:
+    family = Family(
+        name="Família",
+        timezone="Europe/Lisbon",
+        meal_discovery_sources=[
+            "shared_recipes",
+            "restaurants",
+            "uber_eats",
+            "glovo",
+        ],
+        delivery_address="Rua Exemplo, Lisboa",
+        restaurant_area="Benfica, Lisboa",
+    )
+
+    capabilities = {
+        item.source: item for item in build_meal_discovery_capabilities(family).capabilities
+    }
+
+    assert capabilities["shared_recipes"].status == "ready"
+    assert capabilities["restaurants"].status == "ready"
+    assert capabilities["restaurants"].live
+    assert capabilities["uber_eats"].status == "integration_required"
+    assert not capabilities["uber_eats"].live
+    assert capabilities["glovo"].status == "integration_required"
+    assert not capabilities["glovo"].live
