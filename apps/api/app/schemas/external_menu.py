@@ -60,6 +60,16 @@ class ExternalMenuItemObservationWrite(BaseModel):
     source_reference: str = Field(min_length=1, max_length=255)
     nutrition: ExternalMenuNutritionWrite | None = None
 
+    @field_validator("observed_at", "valid_until")
+    @classmethod
+    def validate_timezone(
+        cls,
+        value: datetime | None,
+    ) -> datetime | None:
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError("provider observation timestamps must include a timezone.")
+        return value
+
     @model_validator(mode="after")
     def validate_validity_window(self) -> "ExternalMenuItemObservationWrite":
         if self.valid_until is not None and self.valid_until <= self.observed_at:
