@@ -10,6 +10,8 @@ const COPY = {
     target: "Meta",
     consumed: "Consumidas",
     planned: "Planeadas",
+    assumed: "Assumidas",
+    assumedHelp: "Estimativa usada quando o pequeno-almoço ainda não foi declarado.",
     remaining: "Restam",
     unavailable: "Sem objetivo definido",
   },
@@ -18,6 +20,8 @@ const COPY = {
     target: "Target",
     consumed: "Consumed",
     planned: "Planned",
+    assumed: "Assumed",
+    assumedHelp: "Estimate used when breakfast has not been declared yet.",
     remaining: "Remaining",
     unavailable: "No target defined",
   },
@@ -72,6 +76,7 @@ export default function RecommendationNutritionBudgetPanel({
               <div className="nutrition-budget-stats">
                 <span><small>{copy.consumed}</small><strong>{kcal(budget.consumedKcal, locale)}</strong></span>
                 <span><small>{copy.planned}</small><strong>{kcal(budget.plannedKcal, locale)}</strong></span>
+                <span title={copy.assumedHelp}><small>{copy.assumed}</small><strong>{kcal(budget.assumedKcal, locale)}</strong></span>
                 <span><small>{copy.remaining}</small><strong>{range(budget.remainingMinKcal, budget.remainingMaxKcal, locale, "—")}</strong></span>
               </div>
             </article>
