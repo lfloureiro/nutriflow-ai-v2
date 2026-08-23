@@ -7,6 +7,7 @@ from app.providers.meal_delivery import (
     MealDeliveryDiscoveryAdapter,
     MealDeliveryDiscoveryRequest,
 )
+from app.providers.registry import get_registered_meal_delivery_adapter
 from app.schemas.external_menu import ExternalMenuItemIngestedRead
 from app.services.external_menu_ingestion import ingest_external_menu_item
 from app.services.meal_delivery_provider import get_meal_delivery_provider_integration
@@ -81,4 +82,29 @@ def sync_meal_delivery_provider(
         provider_key=provider_key,
         observed_count=len(observations),
         ingested=tuple(ingested),
+    )
+
+
+def sync_registered_meal_delivery_provider(
+    db: Session,
+    *,
+    family: Family,
+    provider_key: str,
+    delivery_address: str,
+    query: str | None = None,
+    limit: int = 30,
+) -> MealDeliverySyncResult:
+    adapter = get_registered_meal_delivery_adapter(provider_key)
+    if adapter is None:
+        raise MealDeliveryProviderUnavailable(
+            f"No executable adapter is registered for provider {provider_key}."
+        )
+    return sync_meal_delivery_provider(
+        db,
+        family=family,
+        provider_key=provider_key,
+        adapter=adapter,
+        delivery_address=delivery_address,
+        query=query,
+        limit=limit,
     )
