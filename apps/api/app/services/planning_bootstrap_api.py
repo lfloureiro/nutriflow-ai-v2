@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -13,6 +13,7 @@ from app.models.food_catalog import (
     Recipe,
     RecipeCompositionSnapshot,
 )
+from app.models.meal import MealEvent, MealParticipant
 from app.models.nutrition_target import NutritionTarget
 from app.models.person import Person
 from app.schemas.planning_bootstrap import (
@@ -22,6 +23,9 @@ from app.schemas.planning_bootstrap import (
     PlanningNutritionComponentRead,
 )
 from app.services.daily_nutrition_state import recalculate_daily_nutrition_state
+
+DEFAULT_STANDARD_BREAKFAST_KCAL = Decimal("350")
+BREAKFAST_ASSUMPTION_CUTOFF = time(10, 0)
 
 
 class PlanningBootstrapApiError(ValueError):
@@ -100,16 +104,86 @@ def _active_target(
     )
 
 
+def _declared_breakfast(
+    session: Session,
+    *,
+    person: Person,
+    planning_date,
+) -> bool:
+    try:
+        zone = ZoneInfo(person.timezone)
+    except ZoneInfoNotFoundError as exc:
+        raise PlanningBootstrapApiError(
+            f"Person has an unknown timezone: {person.timezone!r}."
+        ) from exc
+    start = datetime.combine(planning_date, time.min, tzinfo=zone)
+    end = start + timedelta(days=1)
+    event_id = session.scalar(
+        select(MealEvent.id)
+        .join(MealParticipant, MealParticipant.meal_event_id == MealEvent.id)
+        .where(
+            MealParticipant.person_id == person.id,
+            MealEvent.meal_type == "breakfast",
+            MealEvent.scheduled_at >= start,
+            MealEvent.scheduled_at < end,
+            ~MealEvent.status.in_(("cancelled", "replaced")),
+            ~MealParticipant.status.in_(("skipped", "replaced")),
+        )
+        .limit(1)
+    )
+    return event_id is not None
+
+
+def _breakfast_assumption(
+    session: Session,
+    *,
+    person: Person,
+    planning_date,
+    scheduled_at: datetime,
+) -> tuple[Decimal, dict[str, object]]:
+    local_time = scheduled_at.astimezone(ZoneInfo(person.timezone)).time().replace(tzinfo=None)
+    if local_time < BREAKFAST_ASSUMPTION_CUTOFF:
+        return Decimal(0), {"standard_breakfast": {"applied": False, "reason": "before_cutoff"}}
+    if _declared_breakfast(session, person=person, planning_date=planning_date):
+        return Decimal(0), {"standard_breakfast": {"applied": False, "reason": "declared"}}
+
+    configured = (
+        person.profile.standard_breakfast_kcal
+        if person.profile is not None and person.profile.standard_breakfast_kcal is not None
+        else DEFAULT_STANDARD_BREAKFAST_KCAL
+    )
+    return configured, {
+        "standard_breakfast": {
+            "applied": configured > 0,
+            "kcal": str(configured),
+            "reason": "breakfast_not_declared",
+            "cutoff_local_time": BREAKFAST_ASSUMPTION_CUTOFF.isoformat(timespec="minutes"),
+            "source": (
+                "person_profile"
+                if person.profile is not None and person.profile.standard_breakfast_kcal is not None
+                else "system_default"
+            ),
+        }
+    }
+
+
 def _ensure_daily_state(
     session: Session,
     *,
     person: Person,
     planning_date,
+    scheduled_at: datetime,
 ) -> DailyNutritionState:
     target = _active_target(
         session,
         person_id=person.id,
         planning_date=planning_date,
+    )
+    assumed_energy, assumption_inputs = _breakfast_assumption(
+        session,
+        person=person,
+        planning_date=planning_date,
+        scheduled_at=scheduled_at,
     )
     state = recalculate_daily_nutrition_state(
         session,
@@ -117,6 +191,8 @@ def _ensure_daily_state(
         state_date=planning_date,
         timezone=person.timezone,
         nutrition_target=target,
+        assumed_energy_kcal=assumed_energy,
+        assumption_inputs=assumption_inputs,
     )
     session.commit()
     return state
@@ -139,6 +215,7 @@ def _daily_state_read(state: DailyNutritionState) -> PlanningDailyNutritionState
         timezone=state.timezone,
         energy_consumed_kcal=state.energy_consumed_kcal,
         energy_planned_kcal=state.energy_planned_kcal,
+        energy_assumed_kcal=state.energy_assumed_kcal,
         energy_remaining_min_kcal=state.energy_remaining_min_kcal,
         energy_remaining_max_kcal=state.energy_remaining_max_kcal,
         calculation_version=state.calculation_version,
@@ -293,6 +370,7 @@ def get_planning_bootstrap(
             session,
             person=person,
             planning_date=planning_date,
+            scheduled_at=scheduled_at,
         )
     candidates = _food_candidates(
         session,
