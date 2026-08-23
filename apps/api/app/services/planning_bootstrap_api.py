@@ -24,11 +24,15 @@ from app.schemas.planning_bootstrap import (
     PlanningNutritionComponentRead,
 )
 from app.services.daily_nutrition_state import recalculate_daily_nutrition_state
+from app.services.meal_suitability import (
+    MAIN_MEAL_TYPES,
+    MealSuitabilityError,
+    food_default_meal_types,
+    resolve_meal_types,
+)
 
 DEFAULT_STANDARD_BREAKFAST_KCAL = Decimal(350)
 BREAKFAST_ASSUMPTION_CUTOFF = time(10, 0)
-VALID_MEAL_TYPES = frozenset({"breakfast", "lunch", "snack", "dinner"})
-MAIN_MEAL_TYPES = ("lunch", "dinner")
 
 
 class PlanningBootstrapApiError(ValueError):
@@ -264,24 +268,22 @@ def _planning_profile_maps(
     return food_profiles, recipe_profiles
 
 
-def _suitable_meal_types(
+def _resolved_meal_types(
     profile: MealCandidatePlanningProfile | None,
     *,
+    catalogue_meal_types: list[str] | None,
     defaults: tuple[str, ...],
 ) -> list[str]:
-    if profile is None:
-        return list(defaults)
-    if not profile.auto_plan_enabled:
-        return []
-    configured = profile.suitable_meal_types
-    if configured is None:
-        return list(defaults)
-    invalid = [meal_type for meal_type in configured if meal_type not in VALID_MEAL_TYPES]
-    if invalid:
-        raise PlanningBootstrapApiError(
-            f"Planning profile contains invalid meal types: {invalid!r}."
+    try:
+        return list(
+            resolve_meal_types(
+                profile=profile,
+                catalogue_meal_types=catalogue_meal_types,
+                defaults=defaults,
+            )
         )
-    return list(dict.fromkeys(configured))
+    except MealSuitabilityError as exc:
+        raise PlanningBootstrapApiError(str(exc)) from exc
 
 
 def _food_candidates(
@@ -317,7 +319,6 @@ def _food_candidates(
         if snapshot.id is None:
             raise PlanningBootstrapApiError("Food composition snapshot must be persisted.")
         food = snapshot.food_item
-        defaults = MAIN_MEAL_TYPES if food.food_kind == "dish" else ()
         result.append(
             PlanningCandidateRead(
                 candidate_kind="food_item",
@@ -332,9 +333,10 @@ def _food_candidates(
                 energy_kcal=snapshot.energy_kcal,
                 composition_version=snapshot.data_version,
                 composition_at=snapshot.effective_at,
-                suitable_meal_types=_suitable_meal_types(
+                suitable_meal_types=_resolved_meal_types(
                     profiles.get(food.id),
-                    defaults=defaults,
+                    catalogue_meal_types=food.suitable_meal_types,
+                    defaults=food_default_meal_types(food.food_kind),
                 ),
             )
         )
@@ -401,8 +403,9 @@ def _recipe_candidates(
                 ),
                 composition_version=snapshot.composition_version,
                 composition_at=snapshot.computed_at,
-                suitable_meal_types=_suitable_meal_types(
+                suitable_meal_types=_resolved_meal_types(
                     profiles.get(recipe.id),
+                    catalogue_meal_types=recipe.suitable_meal_types,
                     defaults=MAIN_MEAL_TYPES,
                 ),
             )
