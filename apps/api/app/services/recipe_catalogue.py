@@ -21,6 +21,7 @@ from app.schemas.recipe_catalogue import (
     RecipeRead,
     RecipeUpdate,
 )
+from app.services.meal_suitability import recipe_default_meal_types
 from app.services.recipe_nutrition import build_recipe_composition
 
 
@@ -112,6 +113,9 @@ def _recipe_read(recipe: Recipe) -> RecipeRead:
         recipe_key=recipe.recipe_key,
         name=recipe.name,
         description=recipe.description,
+        suitable_meal_types=list(
+            recipe.suitable_meal_types or recipe_default_meal_types(recipe.source)
+        ),
         yield_quantity=recipe.yield_quantity,
         yield_unit=recipe.yield_unit,
         serving_count=recipe.serving_count,
@@ -253,6 +257,7 @@ def create_family_recipe(db: Session, family: Family, data: RecipeCreate) -> Rec
         recipe_key=f"family:{family.id}:recipe:{uuid.uuid4()}",
         name=data.name,
         description=_optional_text(data.description),
+        suitable_meal_types=list(data.suitable_meal_types),
         yield_quantity=data.yield_quantity,
         yield_unit=data.yield_unit.lower() if data.yield_unit else None,
         serving_count=data.serving_count,
@@ -287,6 +292,8 @@ def update_family_recipe(
         recipe.name = data.name
     if "description" in fields:
         recipe.description = _optional_text(data.description)
+    if "suitable_meal_types" in fields and data.suitable_meal_types is not None:
+        recipe.suitable_meal_types = list(data.suitable_meal_types)
     if "yield_quantity" in fields:
         recipe.yield_quantity = data.yield_quantity
     if "yield_unit" in fields:
