@@ -54,6 +54,7 @@ class FoodItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     food_kind: Mapped[str] = mapped_column(String(32), nullable=False, default="ingredient")
     brand: Mapped[str | None] = mapped_column(String(120), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    suitable_meal_types: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
 
     source: Mapped[str] = mapped_column(String(32), nullable=False, default="user")
     source_reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -177,6 +178,7 @@ class Recipe(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     recipe_key: Mapped[str] = mapped_column(String(120), nullable=False)
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    suitable_meal_types: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
 
     yield_quantity: Mapped[Decimal | None] = mapped_column(Numeric(14, 4), nullable=True)
     yield_unit: Mapped[str | None] = mapped_column(String(24), nullable=True)
