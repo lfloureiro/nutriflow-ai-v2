@@ -4,6 +4,7 @@ import { ApiError } from "./api/client";
 import { getFamily, updateFamily } from "./api/setupClient";
 import type { MealDiscoverySource } from "./api/setupTypes";
 import { useI18n } from "./i18n";
+import PersonMealDiscoveryOverrides from "./PersonMealDiscoveryOverrides";
 import "./meal-discovery-settings.css";
 
 const SOURCES: MealDiscoverySource[] = [
@@ -208,6 +209,8 @@ export default function MealDiscoverySettings({ familyId }: { familyId: string }
           {busy ? copy.saving : copy.save}
         </button>
       </form>
+
+      <PersonMealDiscoveryOverrides familyId={familyId} />
     </div>
   );
 }
