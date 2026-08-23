@@ -9,7 +9,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.legacy_v1_demo_seed import LEGACY_V1_NAMESPACE
@@ -325,21 +325,44 @@ def _replace_recipe_ingredients(
     ingredients: dict[int, FoodItem],
 ) -> None:
     recipe_ids = [recipe.id for recipe in recipes.values()]
-    if recipe_ids:
-        session.execute(
-            delete(RecipeIngredient).where(RecipeIngredient.recipe_id.in_(recipe_ids))
+    source_rows = [
+        row
+        for row in rows
+        if _as_int(row.get("recipe_id"), field="recipe ingredient recipe id") in recipes
+    ]
+    desired_ids = {
+        uuid.uuid5(
+            LOUREIRO_NAMESPACE,
+            f"recipe-ingredient:{_as_int(row.get('id'), field='recipe ingredient id')}",
         )
-        session.execute(
-            delete(RecipeCompositionSnapshot).where(
+        for row in source_rows
+    }
+
+    existing_rows = list(
+        session.scalars(
+            select(RecipeIngredient).where(RecipeIngredient.recipe_id.in_(recipe_ids))
+        ).all()
+    )
+    existing_by_id = {row.id: row for row in existing_rows}
+    for existing in existing_rows:
+        if existing.id not in desired_ids:
+            session.delete(existing)
+
+    synthetic_compositions = list(
+        session.scalars(
+            select(RecipeCompositionSnapshot).where(
                 RecipeCompositionSnapshot.recipe_id.in_(recipe_ids),
                 RecipeCompositionSnapshot.calculation_version
                 == OLD_SYNTHETIC_CALCULATION_VERSION,
             )
-        )
-        session.flush()
+        ).all()
+    )
+    for composition in synthetic_compositions:
+        session.delete(composition)
+    session.flush()
 
     sort_orders: dict[int, int] = {}
-    for row in rows:
+    for row in source_rows:
         legacy_row_id = _as_int(row.get("id"), field="recipe ingredient id")
         recipe_legacy_id = _as_int(
             row.get("recipe_id"), field="recipe ingredient recipe id"
@@ -348,10 +371,8 @@ def _replace_recipe_ingredients(
             row.get("ingredient_id"),
             field="recipe ingredient ingredient id",
         )
-        recipe = recipes.get(recipe_legacy_id)
+        recipe = recipes[recipe_legacy_id]
         ingredient = ingredients.get(ingredient_legacy_id)
-        if recipe is None:
-            continue
         if ingredient is None:
             raise LegacyV1LoureiroSeedError(
                 f"Recipe {recipe_legacy_id} references missing ingredient {ingredient_legacy_id}."
@@ -359,21 +380,18 @@ def _replace_recipe_ingredients(
         quantity, unit, note = _quantity_and_unit(row)
         sort_order = sort_orders.get(recipe_legacy_id, 0)
         sort_orders[recipe_legacy_id] = sort_order + 1
-        session.add(
-            RecipeIngredient(
-                id=uuid.uuid5(
-                    LOUREIRO_NAMESPACE,
-                    f"recipe-ingredient:{legacy_row_id}",
-                ),
-                recipe_id=recipe.id,
-                food_item_id=ingredient.id,
-                quantity=quantity,
-                unit=unit,
-                preparation=None,
-                sort_order=sort_order,
-                notes=note or "Importado do snapshot real NutriFlow v1.",
-            )
-        )
+        row_id = uuid.uuid5(LOUREIRO_NAMESPACE, f"recipe-ingredient:{legacy_row_id}")
+        recipe_ingredient = existing_by_id.get(row_id)
+        if recipe_ingredient is None:
+            recipe_ingredient = RecipeIngredient(id=row_id)
+            session.add(recipe_ingredient)
+        recipe_ingredient.recipe_id = recipe.id
+        recipe_ingredient.food_item_id = ingredient.id
+        recipe_ingredient.quantity = quantity
+        recipe_ingredient.unit = unit
+        recipe_ingredient.preparation = None
+        recipe_ingredient.sort_order = sort_order
+        recipe_ingredient.notes = note or "Importado do snapshot real NutriFlow v1."
     session.flush()
 
 
