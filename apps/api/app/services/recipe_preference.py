@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.food_catalog import Recipe
@@ -29,7 +29,13 @@ class RecipePreferenceNotFoundError(RecipePreferenceError):
 
 def _recipe(db: Session, family_id: uuid.UUID, recipe_id: uuid.UUID) -> Recipe:
     recipe = db.scalar(
-        select(Recipe).where(Recipe.id == recipe_id, Recipe.family_id == family_id)
+        select(Recipe).where(
+            Recipe.id == recipe_id,
+            or_(
+                Recipe.family_id == family_id,
+                and_(Recipe.family_id.is_(None), Recipe.is_active.is_(True)),
+            ),
+        )
     )
     if recipe is None:
         raise RecipePreferenceNotFoundError("Recipe not found")
