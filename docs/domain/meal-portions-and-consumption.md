@@ -10,55 +10,65 @@ NutriFlow separates three concepts that must not be conflated:
 
 Recommendation uses the first two. Daily nutrition state ultimately follows the third.
 
-## Meal energy allocation v1
+## Meal energy allocation v2
 
-Version: `meal-energy-allocation-v1`.
+Version: `meal-energy-allocation-v2`.
 
-The first deterministic allocation policy uses these shares of the Person's daily energy target:
+The deterministic policy retains these base shares:
 
-| Meal | Share |
+| Meal | Base share |
 | --- | ---: |
 | Breakfast | 25% |
 | Lunch | 35% |
 | Snack | 10% |
 | Dinner | 30% |
 
+They are weights, not rigid calorie reservations. NutriFlow redistributes the energy that is still available across the current and remaining meal slots.
+
+For the current meal:
+
+`meal target = remaining daily energy × current meal weight / sum(current + later meal weights)`
+
+This means earlier outcomes automatically affect later recommendations without rewriting the Person's daily target.
+
+Examples:
+
+- after 350 kcal have already been consumed or explicitly assumed, with 1450–1650 kcal remaining, lunch receives about 676.67–770 kcal because lunch is 35/75 of the remaining meal weights;
+- if breakfast is explicitly skipped and 1800–2000 kcal remain, lunch receives about 840–933.33 kcal;
+- at dinner there are no later meal slots, so dinner uses the energy still available for the day.
+
 The daily target is reconstructed from the authoritative daily state:
 
 `consumed + planned + assumed + remaining`.
 
-The meal target is the corresponding share of the daily target, bounded by the energy still available for the day. This prevents a late meal from being allocated more energy than remains in the daily budget.
-
-These shares are an explicit v1 heuristic. They are not a medical claim and can later become Person-specific or adaptive without rewriting historical recommendation runs.
+The base shares are an explicit heuristic. They are not a medical claim and can later become Person-specific or activity-aware without rewriting historical recommendation runs.
 
 ## Automatic portion sizing v1
 
 Version: `portion-sizing-v1`.
 
-Automatic sizing is opt-in at API level through `auto_size_portions`. Current NutriFlow Web requests enable it; older clients that omit the field retain the previous fixed-portion semantics.
+Automatic sizing is opt-in at API level through `auto_size_portions`. NutriFlow Web enables it on its recommendation calls; external/older clients that omit the field retain the previous fixed-portion semantics.
 
 For each candidate and Person:
 
-1. calculate the meal energy target midpoint;
+1. calculate the dynamically redistributed meal energy target midpoint;
 2. divide it by the candidate's energy at its catalogue portion;
 3. clamp the factor to 0.50–2.00;
 4. round to the nearest 0.25 portion;
 5. rebuild candidate nutrition at the adjusted quantity;
 6. run safety, nutrient and ranking logic on that adjusted nutrition.
 
-Examples:
+The energy score uses the meal-specific energy target after sizing, while the daily remaining maximum remains a hard whole-day cap. Therefore a correctly sized lunch is not penalized for being much smaller than all calories remaining until the end of the day.
 
-- a 500 kcal standard portion against a 630–700 kcal lunch target becomes 1.25 portions;
-- the same dish can be 1.25 portions for one Person and 1.50 portions for another;
-- extreme suggestions are bounded rather than producing impractical 0.13 or 4.7 portion values.
+The same dish can have different quantities for different people. Extreme suggestions are bounded rather than producing impractical values such as 0.13 or 4.7 portions.
 
 Shared Family recommendations therefore keep one MealEvent but can materialize a different Serving quantity for each participant.
 
-The individual practical recommendation run stores the allocation policy and candidate portion factors in run context. Engine versions include `+portion-sizing-v1` when sizing is enabled.
+The individual practical recommendation run stores the allocation policy, meal targets and candidate portion factors in run context. Engine versions include `+portion-sizing-v1` when sizing is enabled.
 
 ## Commercial offers
 
-The recommended quantity describes how much of the candidate the Person should eat. A commercial offer still represents the provider's listed item price. In v1 this does **not** yet multiply the commercial price when a recommended amount exceeds one provider item.
+The recommended quantity describes how much of the candidate the Person should eat. A commercial offer still represents the provider's listed item price. In this version it does **not** yet multiply the commercial price when a recommended amount exceeds one provider item.
 
 A later commercial-order layer must translate recommended edible portion into whole order items, leftovers and true order cost. Until then the UI/provider price must not imply that fractional or multiple provider items have already been priced.
 
@@ -72,7 +82,7 @@ A planned Serving can be recorded as:
 
 For catalogue-backed Servings, nutrition is recalculated from the immutable composition snapshot at the actual consumed quantity. If a legacy Serving has planned nutrition but no catalogue composition, the consumed nutrition is scaled proportionally from planned quantity as an explicit fallback.
 
-After consumption is recorded, the Person's DailyNutritionState is recalculated immediately. Real user activity forces replacement of a synthetic development baseline so demo behaviour follows the same accounting path as production after the first real action.
+After consumption is recorded, the Person's DailyNutritionState is recalculated immediately. Real user activity can replace a synthetic development baseline so demo behaviour follows the production accounting path once actual meal data exists.
 
 ## Breakfast semantics
 
@@ -84,7 +94,7 @@ An explicitly skipped breakfast is different from an undeclared breakfast:
 - planned/consumed breakfast -> real planned/consumed energy is used;
 - explicitly skipped breakfast -> known 0 kcal; no standard breakfast assumption is applied later that day.
 
-This allows NutriFlow to distinguish missing information from a deliberate decision not to eat.
+Because meal allocation v2 redistributes remaining energy, a skipped or unusually small breakfast can increase the sensible target for lunch and later meals. An unusually large earlier meal decreases later targets.
 
 ## State progression
 
@@ -92,15 +102,14 @@ Consumption updates Serving and MealParticipant status. MealEvent status is deri
 
 - some participants have eaten -> `served`;
 - all participants are realized (`consumed`, `partial` or `skipped`) -> `completed`;
-- all skipped can complete without pretending that food was served.
+- if everybody skipped, the event can be completed with `served_at = null`, avoiding a false claim that food was served.
 
 Cancelled or replaced MealEvents cannot record consumption.
 
 ## Next evolution
 
-The deterministic v1 allocation intentionally leaves room for:
+The deterministic policies intentionally leave room for:
 
-- redistribution of unused breakfast/snack calories across remaining meal slots;
 - Person-specific meal-share preferences;
 - activity-aware intraday adjustment;
 - commercial whole-item ordering and leftover accounting;
