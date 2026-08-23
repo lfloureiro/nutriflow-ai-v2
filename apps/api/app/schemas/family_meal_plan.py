@@ -49,9 +49,13 @@ class MealPlanParticipantRead(BaseModel):
     person_id: uuid.UUID
     first_name: str
     last_name: str | None
+    serving_id: uuid.UUID | None
+    status: str
     quantity: Decimal | None
+    quantity_consumed: Decimal | None
     unit: str | None
     energy_kcal: Decimal | None
+    energy_consumed_kcal: Decimal | None
 
 
 class MealPlanEntryRead(BaseModel):
