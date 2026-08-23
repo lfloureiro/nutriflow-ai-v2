@@ -150,6 +150,94 @@
   margin-top: 0;
 }
 
+.meal-plan-entry-group {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.meal-consumption-list {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0 0.35rem 0.25rem;
+}
+
+.meal-consumption-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) auto;
+  gap: 0.45rem 0.75rem;
+  align-items: center;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-soft) 70%, transparent);
+}
+
+.meal-consumption-person {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.meal-consumption-person strong {
+  font-size: 0.78rem;
+}
+
+.meal-consumption-person span,
+.meal-consumption-state,
+.meal-consumption-error {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.meal-consumption-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.3rem;
+}
+
+.meal-consumption-actions .button,
+.meal-consumption-partial .button {
+  min-height: 30px;
+  padding: 0.3rem 0.55rem;
+  border-radius: 10px;
+  font-size: 0.68rem;
+}
+
+.meal-consumption-partial {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) auto;
+  gap: 0.45rem;
+  align-items: end;
+}
+
+.meal-consumption-partial .field {
+  gap: 0.2rem;
+}
+
+.meal-consumption-partial .field > span {
+  font-size: 0.65rem;
+}
+
+.meal-consumption-partial input {
+  min-height: 34px;
+}
+
+.meal-consumption-state {
+  justify-self: end;
+  padding: 0.2rem 0.4rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.meal-consumption-error {
+  grid-column: 1 / -1;
+  color: var(--danger, #9d2a2a);
+}
+
 @media (max-width: 620px) {
   .family-meals-header {
     align-items: flex-start;
@@ -172,5 +260,17 @@
     align-items: flex-start;
     flex-direction: column;
     gap: 0.2rem;
+  }
+
+  .meal-consumption-row {
+    grid-template-columns: 1fr;
+  }
+
+  .meal-consumption-actions {
+    justify-content: flex-start;
+  }
+
+  .meal-consumption-state {
+    justify-self: start;
   }
 }
