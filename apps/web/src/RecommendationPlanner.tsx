@@ -28,6 +28,11 @@ import type {
 } from "./api/types";
 import { useI18n, type Locale } from "./i18n";
 import { localDateValue, scheduledIso } from "./planning";
+import RecommendationNutritionBudgetPanel from "./RecommendationNutritionBudget";
+import {
+  recommendationNutritionBudget,
+  type RecommendationNutritionBudget,
+} from "./recommendationNutrition";
 import {
   DEFAULT_MEAL_TIMES,
   RECOMMENDATION_MEAL_TYPES,
@@ -46,7 +51,7 @@ const MAX_VISIBLE_RESULTS = 3;
 const COPY = {
   "pt-PT": {
     title: "Recomendar refeições",
-    help: "Escolhe quem vai comer, os dias, o tipo de refeição e onde queres procurar. O NutriFlow cruza nutrição, preferências, disponibilidade e variedade.",
+    help: "Escolhe quem vai comer, os dias, o tipo de refeição e onde queres procurar. O NutriFlow cruza calorias, nutrição, preferências, disponibilidade e variedade.",
     people: "Pessoas",
     peopleLower: "pessoas",
     allPeople: "Todos",
@@ -74,6 +79,7 @@ const COPY = {
     sourceRequired: "Escolhe pelo menos uma origem para a recomendação.",
     noCandidates: "Não existem refeições elegíveis no catálogo para as origens escolhidas.",
     noResults: "Não foram encontradas opções adequadas para este dia.",
+    stateUnavailable: "Não foi possível preparar o orçamento nutricional para",
     error: "Não foi possível obter a recomendação",
     results: "Recomendações",
     best: "Melhor escolha",
@@ -93,7 +99,7 @@ const COPY = {
   },
   en: {
     title: "Meal recommendations",
-    help: "Choose who will eat, the days, meal type and where to search. NutriFlow combines nutrition, preferences, availability and variety.",
+    help: "Choose who will eat, the days, meal type and where to search. NutriFlow combines calories, nutrition, preferences, availability and variety.",
     people: "People",
     peopleLower: "people",
     allPeople: "Everyone",
@@ -121,6 +127,7 @@ const COPY = {
     sourceRequired: "Choose at least one recommendation source.",
     noCandidates: "There are no eligible catalogue meals for the selected sources.",
     noResults: "No suitable options were found for this day.",
+    stateUnavailable: "Could not prepare the nutrition budget for",
     error: "The recommendation could not be created",
     results: "Recommendations",
     best: "Best choice",
@@ -145,6 +152,7 @@ type DayResultBase = {
   scheduledLocal: string;
   personIds: string[];
   sources: RecommendationSource[];
+  nutritionBudgets: RecommendationNutritionBudget[];
   error: string | null;
 };
 
@@ -544,18 +552,32 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
     const firstPerson = selectedPeople.at(0);
     if (!firstPerson) throw new Error(copy.peopleRequired);
 
+    let nutritionBudgets: RecommendationNutritionBudget[] = [];
     try {
-      const bootstrap = await getRecommendationBootstrap(firstPerson.id, scheduledAt);
-      if (!bootstrap.daily_nutrition_state) {
-        throw new Error("Daily nutrition state is unavailable.");
-      }
-      const candidates = recommendationCandidates(bootstrap.candidates, sources);
+      const bootstraps = await Promise.all(
+        selectedPeople.map((person) => getRecommendationBootstrap(person.id, scheduledAt)),
+      );
+      const firstBootstrap = bootstraps.at(0);
+      if (!firstBootstrap) throw new Error(copy.peopleRequired);
+
+      nutritionBudgets = bootstraps.map((bootstrap, index) => {
+        const person = selectedPeople[index];
+        if (!bootstrap.daily_nutrition_state) {
+          throw new Error(`${copy.stateUnavailable} ${displayName(person)}.`);
+        }
+        return recommendationNutritionBudget(person, bootstrap.daily_nutrition_state);
+      });
+
+      const firstState = firstBootstrap.daily_nutrition_state;
+      if (!firstState) throw new Error(`${copy.stateUnavailable} ${displayName(firstPerson)}.`);
+      const candidates = recommendationCandidates(firstBootstrap.candidates, sources);
       if (candidates.length === 0) {
         const base = {
           date,
           scheduledLocal,
           personIds,
           sources: [...sources],
+          nutritionBudgets,
           error: copy.noCandidates,
         };
         return mode === "single"
@@ -564,7 +586,7 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
       }
 
       const common = {
-        planning_date: bootstrap.planning_date,
+        planning_date: firstBootstrap.planning_date,
         scheduled_at: scheduledAt,
         meal_type: mealType,
         candidates,
@@ -578,7 +600,7 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
 
       if (mode === "single") {
         const request: PracticalRecommendationRequest = {
-          daily_nutrition_state_id: bootstrap.daily_nutrition_state.id,
+          daily_nutrition_state_id: firstState.id,
           ...common,
         };
         const run = await requestPracticalRecommendation(firstPerson.id, request);
@@ -588,6 +610,7 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
           scheduledLocal,
           personIds,
           sources: [...sources],
+          nutritionBudgets,
           run,
           request,
           error: null,
@@ -605,6 +628,7 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
         scheduledLocal,
         personIds,
         sources: [...sources],
+        nutritionBudgets,
         run,
         request,
         error: null,
@@ -615,6 +639,7 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
         scheduledLocal,
         personIds,
         sources: [...sources],
+        nutritionBudgets,
         error: errorText(caught),
       };
       return mode === "single"
@@ -836,6 +861,7 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
                     <h3>{formatDate(day.date, locale)}</h3>
                     <span>{copy[mealType]} · {localTime} · {day.personIds.length} {copy.peopleLower}</span>
                   </div>
+                  <RecommendationNutritionBudgetPanel budgets={day.nutritionBudgets} />
                   {day.error ? <div className="error-banner"><span>{day.error}</span></div> : null}
                   {!day.error && day.run && optionCount === 0 ? (
                     <div className="empty-state compact-empty-state"><p>{copy.noResults}</p></div>
