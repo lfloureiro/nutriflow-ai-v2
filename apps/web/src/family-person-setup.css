@@ -1,0 +1,86 @@
+.family-entry-card {
+  width: min(100%, 620px);
+}
+
+.family-entry-mode {
+  width: 100%;
+}
+
+.family-entry-mode button {
+  flex: 1;
+}
+
+.people-screen-header {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.person-setup-card {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.person-setup-card header h2 {
+  margin-bottom: 0.35rem;
+}
+
+.person-setup-card header p {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.person-setup-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.person-setup-form .field small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.person-energy-result {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+}
+
+.person-energy-result > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.person-energy-result span {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.person-energy-result strong {
+  font-size: 1rem;
+}
+
+@media (max-width: 720px) {
+  .people-screen-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .people-screen-header .button {
+    width: 100%;
+  }
+
+  .person-energy-result {
+    grid-template-columns: 1fr;
+  }
+}
