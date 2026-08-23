@@ -1,8 +1,15 @@
+import pytest
 from sqlalchemy.orm import Session
 
 from app.models.family import Family
 from app.models.person import Person
 from app.models.person_profile import PersonProfile
+from app.schemas.family import FamilyCreate, FamilyUpdate
+from app.services.family import (
+    FamilyDiscoveryConfigurationError,
+    create_family,
+    update_family,
+)
 from app.services.person import get_person_meal_discovery
 
 
@@ -65,3 +72,39 @@ def test_person_can_override_family_meal_discovery(db_session: Session) -> None:
     assert discovery.meal_discovery_sources == ["shared_recipes", "glovo"]
     assert discovery.delivery_address == "Morada do Rui"
     assert discovery.restaurant_area == "Alvalade, Lisboa"
+
+
+def test_delivery_source_requires_family_delivery_address(db_session: Session) -> None:
+    with pytest.raises(FamilyDiscoveryConfigurationError, match="delivery address"):
+        create_family(
+            db_session,
+            FamilyCreate(
+                name="Família",
+                timezone="Europe/Lisbon",
+                meal_discovery_sources=["shared_recipes", "uber_eats"],
+                delivery_address=None,
+                restaurant_area=None,
+            ),
+        )
+
+
+def test_partial_family_update_cannot_break_restaurant_configuration(
+    db_session: Session,
+) -> None:
+    family = create_family(
+        db_session,
+        FamilyCreate(
+            name="Família",
+            timezone="Europe/Lisbon",
+            meal_discovery_sources=["shared_recipes", "restaurants"],
+            delivery_address=None,
+            restaurant_area="Benfica, Lisboa",
+        ),
+    )
+
+    with pytest.raises(FamilyDiscoveryConfigurationError, match="restaurant area"):
+        update_family(
+            db_session,
+            family,
+            FamilyUpdate(restaurant_area=None),
+        )
