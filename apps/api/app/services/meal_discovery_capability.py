@@ -44,6 +44,9 @@ def _provider_capability(
         live=integration.live,
         status=status,
         detail=detail,
+        credentials_configured=integration.credentials_present,
+        access_enabled=integration.consumer_discovery_enabled,
+        adapter_available=integration.adapter_available,
     )
 
 
