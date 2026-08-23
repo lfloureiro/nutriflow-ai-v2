@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from sqlalchemy import String
+from sqlalchemy import JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -21,6 +21,13 @@ class Family(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=False,
         default="Europe/Lisbon",
     )
+    meal_discovery_sources: Mapped[list[str]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=lambda: ["shared_recipes"],
+    )
+    delivery_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    restaurant_area: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     persons: Mapped[list["Person"]] = relationship(
         back_populates="family",
