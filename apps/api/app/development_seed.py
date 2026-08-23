@@ -4,8 +4,9 @@ from app.commercial_demo_seed import COMMERCIAL_DEMO_REFERENCE
 from app.db.session import SessionLocal
 from app.demo_nutrition_target_seed import seed_demo_nutrition_targets
 from app.demo_seed import seed_demo_dataset
+from app.development_breakfast_seed import seed_development_breakfast_catalog
 from app.development_planning_profile_seed import seed_development_planning_profiles
-from app.legacy_v1_demo_seed import seed_legacy_v1_demo_catalog
+from app.legacy_v1_loureiro_seed import seed_loureiro_v1_snapshot
 from app.models.family import Family
 from app.models.meal_candidate_availability import (
     MealCandidateAvailability,
@@ -30,24 +31,37 @@ def main() -> None:
     with SessionLocal() as session:
         demo = seed_demo_dataset(session)
         session.flush()
-        family = session.get(Family, demo.family_id)
-        if family is None:
+        demo_family = session.get(Family, demo.family_id)
+        if demo_family is None:
             raise RuntimeError("Development demo Family could not be loaded.")
+
         nutrition = seed_demo_nutrition_targets(session)
-        legacy = seed_legacy_v1_demo_catalog(session, family=family)
+        loureiro = seed_loureiro_v1_snapshot(session)
+        loureiro_family = session.get(Family, loureiro.family_id)
+        if loureiro_family is None:
+            raise RuntimeError("Família Loureiro could not be loaded after v1 import.")
+
+        breakfasts = seed_development_breakfast_catalog(
+            session,
+            families=(demo_family, loureiro_family),
+        )
         _remove_fake_commercial_browser_data(session)
-        planning = seed_development_planning_profiles(session, family=family)
+        planning = seed_development_planning_profiles(session, family=demo_family)
         session.commit()
 
     print("NutriFlow complete development dataset ready.")
-    print(f"Family ID: {demo.family_id}")
+    print(f"Technical demo Family ID: {demo.family_id}")
+    print(f"Família Loureiro ID: {loureiro.family_id}")
     print(f"Planning date: {demo.planning_date.isoformat()}")
-    print(f"Members: {demo.member_count}")
-    print(f"Demo meal candidates: {demo.candidate_count}")
+    print(f"Technical demo members: {demo.member_count}")
+    print(f"Família Loureiro members: {loureiro.member_count}")
+    print(f"Real v1 recipe ingredients used: {loureiro.ingredient_count}")
+    print(f"Real v1 shared recipes: {loureiro.recipe_count}")
+    print(f"Família Loureiro v1 ratings: {loureiro.rating_count}")
+    print(f"Shared breakfast recipes: {breakfasts.recipe_count}")
+    print(f"Shared breakfast ingredients: {breakfasts.ingredient_count}")
     print(f"Demo nutrition targets: {nutrition.target_count}")
     print(f"Demo calorie budget states: {nutrition.state_count}")
-    print(f"Shared v1 ingredients: {legacy.ingredient_count}")
-    print(f"Shared v1 recipes: {legacy.recipe_count}")
     print("Commercial demo providers: removed/disabled")
     print(f"Planning profiles: {planning.profile_count}")
 
