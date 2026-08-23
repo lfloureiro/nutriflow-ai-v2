@@ -37,6 +37,7 @@ class PracticalMealRecommendationCreate(BaseModel):
         default_factory=list,
         max_length=14,
     )
+    auto_size_portions: bool = False
     max_results: int | None = Field(default=None, ge=1, le=10)
 
 
