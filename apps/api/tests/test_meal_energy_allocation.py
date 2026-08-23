@@ -53,17 +53,18 @@ def _candidate(energy: str = "500.00"):
     )
 
 
-def test_lunch_budget_uses_explicit_daily_target_weight() -> None:
+def test_lunch_budget_redistributes_remaining_daily_energy() -> None:
     allocation = allocate_meal_energy(_state(), meal_type="lunch")
 
     assert allocation.daily_target_min_kcal == Decimal("1800.00")
     assert allocation.daily_target_max_kcal == Decimal("2000.00")
     assert allocation.weight == Decimal("0.35")
-    assert allocation.meal_target_min_kcal == Decimal("630.00")
-    assert allocation.meal_target_max_kcal == Decimal("700.00")
+    assert allocation.remaining_weight == Decimal("0.75")
+    assert allocation.meal_target_min_kcal == Decimal("676.67")
+    assert allocation.meal_target_max_kcal == Decimal("770.00")
 
 
-def test_assumed_breakfast_is_part_of_daily_target_reconstruction() -> None:
+def test_assumed_breakfast_counts_as_spent_energy_before_redistribution() -> None:
     allocation = allocate_meal_energy(
         _state(
             consumed="0.00",
@@ -76,8 +77,38 @@ def test_assumed_breakfast_is_part_of_daily_target_reconstruction() -> None:
 
     assert allocation.daily_target_min_kcal == Decimal("1800.00")
     assert allocation.daily_target_max_kcal == Decimal("2000.00")
-    assert allocation.meal_target_min_kcal == Decimal("630.00")
-    assert allocation.meal_target_max_kcal == Decimal("700.00")
+    assert allocation.meal_target_min_kcal == Decimal("676.67")
+    assert allocation.meal_target_max_kcal == Decimal("770.00")
+
+
+def test_skipped_breakfast_redistributes_its_budget_to_remaining_meals() -> None:
+    allocation = allocate_meal_energy(
+        _state(
+            consumed="0.00",
+            assumed="0.00",
+            remaining_min="1800.00",
+            remaining_max="2000.00",
+        ),
+        meal_type="lunch",
+    )
+
+    assert allocation.meal_target_min_kcal == Decimal("840.00")
+    assert allocation.meal_target_max_kcal == Decimal("933.33")
+
+
+def test_dinner_uses_the_remaining_daily_energy() -> None:
+    allocation = allocate_meal_energy(
+        _state(
+            consumed="1200.00",
+            remaining_min="600.00",
+            remaining_max="800.00",
+        ),
+        meal_type="dinner",
+    )
+
+    assert allocation.remaining_weight == Decimal("0.30")
+    assert allocation.meal_target_min_kcal == Decimal("600.00")
+    assert allocation.meal_target_max_kcal == Decimal("800.00")
 
 
 def test_candidate_is_rounded_to_practical_quarter_serving() -> None:
@@ -87,9 +118,9 @@ def test_candidate_is_rounded_to_practical_quarter_serving() -> None:
         meal_type="lunch",
     )
 
-    assert result.portion_factor == Decimal("1.25")
-    assert result.candidate.quantity == Decimal("1.2500")
-    assert result.candidate.nutrition.energy_kcal == Decimal("625.00")
+    assert result.portion_factor == Decimal("1.50")
+    assert result.candidate.quantity == Decimal("1.5000")
+    assert result.candidate.nutrition.energy_kcal == Decimal("750.00")
 
 
 def test_portion_factor_is_bounded_for_extreme_candidates() -> None:
