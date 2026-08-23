@@ -13,8 +13,8 @@ from app.models.meal_candidate_availability import (
 from app.models.person import Person
 from app.schemas.external_menu import (
     ExternalMenuItemObservationWrite,
-    ExternalMenuNutritionWrite,
     ExternalMenuNutrientWrite,
+    ExternalMenuNutritionWrite,
 )
 from app.services.external_menu_ingestion import ingest_external_menu_item
 from app.services.planning_bootstrap_api import get_planning_bootstrap
