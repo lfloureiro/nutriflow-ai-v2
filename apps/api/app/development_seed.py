@@ -6,6 +6,7 @@ from app.demo_nutrition_target_seed import seed_demo_nutrition_targets
 from app.demo_seed import seed_demo_dataset
 from app.development_breakfast_seed import seed_development_breakfast_catalog
 from app.development_planning_profile_seed import seed_development_planning_profiles
+from app.development_snack_seed import seed_development_snack_catalog
 from app.legacy_v1_loureiro_seed import seed_loureiro_v1_snapshot
 from app.models.family import Family
 from app.models.meal_candidate_availability import (
@@ -27,6 +28,14 @@ def _remove_fake_commercial_browser_data(session) -> None:
     )
 
 
+def _configure_loureiro_meal_sources(family: Family) -> None:
+    family.meal_discovery_sources = list(
+        dict.fromkeys([*family.meal_discovery_sources, "shared_recipes", "restaurants"])
+    )
+    if not (family.restaurant_area or "").strip():
+        family.restaurant_area = "Lisboa"
+
+
 def main() -> None:
     with SessionLocal() as session:
         demo = seed_demo_dataset(session)
@@ -40,8 +49,13 @@ def main() -> None:
         loureiro_family = session.get(Family, loureiro.family_id)
         if loureiro_family is None:
             raise RuntimeError("Família Loureiro could not be loaded after v1 import.")
+        _configure_loureiro_meal_sources(loureiro_family)
 
         breakfasts = seed_development_breakfast_catalog(
+            session,
+            families=(demo_family, loureiro_family),
+        )
+        snacks = seed_development_snack_catalog(
             session,
             families=(demo_family, loureiro_family),
         )
@@ -60,8 +74,11 @@ def main() -> None:
     print(f"Família Loureiro v1 ratings: {loureiro.rating_count}")
     print(f"Shared breakfast recipes: {breakfasts.recipe_count}")
     print(f"Shared breakfast ingredients: {breakfasts.ingredient_count}")
+    print(f"Shared snack recipes: {snacks.recipe_count}")
+    print(f"New shared snack ingredients: {snacks.new_ingredient_count}")
     print(f"Demo nutrition targets: {nutrition.target_count}")
     print(f"Demo calorie budget states: {nutrition.state_count}")
+    print("Família Loureiro meal sources: shared recipes + live restaurants")
     print("Commercial demo providers: removed/disabled")
     print(f"Planning profiles: {planning.profile_count}")
 
