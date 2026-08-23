@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import ROUND_HALF_UP, Decimal
 
 from app.models.daily_nutrition_state import DailyNutritionState
@@ -176,6 +176,21 @@ def _rebuild_candidate(candidate: MealCandidate, *, quantity: Decimal) -> MealCa
     )
 
 
+def _with_allocation(
+    candidate: MealCandidate,
+    *,
+    allocation: MealEnergyAllocation,
+    portion_factor: Decimal,
+) -> MealCandidate:
+    return replace(
+        candidate,
+        portion_factor=portion_factor,
+        meal_energy_target_min_kcal=allocation.meal_target_min_kcal,
+        meal_energy_target_max_kcal=allocation.meal_target_max_kcal,
+        energy_allocation_policy=allocation.policy_version,
+    )
+
+
 def size_candidate_for_meal(
     candidate: MealCandidate,
     state: DailyNutritionState,
@@ -188,7 +203,11 @@ def size_candidate_for_meal(
 
     if target is None or energy is None or energy <= ZERO or target <= ZERO:
         return PortionSizingResult(
-            candidate=candidate,
+            candidate=_with_allocation(
+                candidate,
+                allocation=allocation,
+                portion_factor=ONE,
+            ),
             allocation=allocation,
             portion_factor=ONE,
         )
@@ -198,8 +217,13 @@ def size_candidate_for_meal(
         QUANTITY_QUANTUM,
         rounding=ROUND_HALF_UP,
     )
+    resized = _rebuild_candidate(candidate, quantity=quantity)
     return PortionSizingResult(
-        candidate=_rebuild_candidate(candidate, quantity=quantity),
+        candidate=_with_allocation(
+            resized,
+            allocation=allocation,
+            portion_factor=factor,
+        ),
         allocation=allocation,
         portion_factor=factor,
     )
