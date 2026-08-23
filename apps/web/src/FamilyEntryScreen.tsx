@@ -11,6 +11,7 @@ const SOURCE_OPTIONS: MealDiscoverySource[] = [
   "shared_recipes",
   "uber_eats",
   "glovo",
+  "bolt_food",
   "restaurants",
 ];
 
@@ -28,12 +29,14 @@ const COPY = {
     shared_recipes: "Receitas partilhadas",
     uber_eats: "Uber Eats",
     glovo: "Glovo",
+    bolt_food: "Bolt Food",
     restaurants: "Restaurantes na área",
     deliveryAddress: "Morada de entrega",
     deliveryAddressPlaceholder: "Rua, número, localidade…",
     restaurantArea: "Área onde procurar restaurantes",
     restaurantAreaPlaceholder: "Ex.: Benfica, Lisboa ou perto de casa",
-    providerNote: "Uber Eats e Glovo só ficam live quando a integração oficial do provider estiver configurada.",
+    providerNote:
+      "Uber Eats, Glovo e Bolt Food só ficam live quando existir uma integração oficial autorizada e credenciais configuradas nesta instalação.",
     createButton: "Criar família",
     creating: "A criar…",
     openTitle: "Abrir uma família existente",
@@ -59,12 +62,14 @@ const COPY = {
     shared_recipes: "Shared recipes",
     uber_eats: "Uber Eats",
     glovo: "Glovo",
+    bolt_food: "Bolt Food",
     restaurants: "Restaurants in the area",
     deliveryAddress: "Delivery address",
     deliveryAddressPlaceholder: "Street, number, city…",
     restaurantArea: "Restaurant search area",
     restaurantAreaPlaceholder: "E.g. Benfica, Lisbon or near home",
-    providerNote: "Uber Eats and Glovo become live only when the official provider integration is configured.",
+    providerNote:
+      "Uber Eats, Glovo and Bolt Food become live only when an authorized official integration and credentials are configured in this installation.",
     createButton: "Create family",
     creating: "Creating…",
     openTitle: "Open an existing family",
@@ -109,7 +114,9 @@ export default function FamilyEntryScreen({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const wantsDelivery = sources.includes("uber_eats") || sources.includes("glovo");
+  const wantsDelivery = ["uber_eats", "glovo", "bolt_food"].some((source) =>
+    sources.includes(source as MealDiscoverySource),
+  );
   const wantsRestaurants = sources.includes("restaurants");
 
   function toggleSource(source: MealDiscoverySource) {
@@ -219,7 +226,7 @@ export default function FamilyEntryScreen({
                   <input required placeholder={copy.restaurantAreaPlaceholder} value={restaurantArea} onChange={(event) => setRestaurantArea(event.target.value)} />
                 </label>
               ) : null}
-              {(sources.includes("uber_eats") || sources.includes("glovo")) ? <small className="muted">{copy.providerNote}</small> : null}
+              {wantsDelivery ? <small className="muted">{copy.providerNote}</small> : null}
             </section>
             <button className="button primary large" disabled={busy} type="submit">{busy ? copy.creating : copy.createButton}</button>
           </form>
