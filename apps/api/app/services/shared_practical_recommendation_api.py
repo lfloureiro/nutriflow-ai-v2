@@ -26,6 +26,10 @@ from app.services.practical_recommendation_api import (
     _merge_source_channels,
 )
 from app.services.recommendation_diversity import apply_diversity_to_shared_recommendation
+from app.services.recommendation_feedback_learning import (
+    apply_feedback_to_shared_recommendation,
+    load_person_feedback_signals,
+)
 from app.services.recommendation_practical_context import (
     CandidatePracticalProfile,
     PracticalMealContext,
@@ -247,6 +251,18 @@ def _compute_shared_recommendation(
         meal_type=data.meal_type,
         recommendation=result,
         provisional_history=data.provisional_history,
+    )
+    feedback_signals_by_person = {
+        person.id: load_person_feedback_signals(
+            session,
+            person_id=person.id,
+            planning_date=data.planning_date,
+        )
+        for person, _ in loaded
+    }
+    result = apply_feedback_to_shared_recommendation(
+        result,
+        feedback_signals_by_person=feedback_signals_by_person,
     )
     return result, offers
 
