@@ -23,6 +23,7 @@ class SharedPracticalRecommendationCreate(BaseModel):
     available_minutes: int | None = Field(default=None, ge=0)
     has_kitchen: bool | None = None
     source_kinds: list[PracticalSourceKind] = Field(min_length=1, max_length=5)
+    delivery_provider_keys: list[str] = Field(default_factory=list, max_length=20)
     provisional_history: list[RecommendationHistoryHint] = Field(
         default_factory=list,
         max_length=14,
