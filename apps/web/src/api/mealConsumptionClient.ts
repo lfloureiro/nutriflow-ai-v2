@@ -16,6 +16,19 @@ async function errorMessage(response: Response): Promise<string> {
   return response.statusText || `HTTP ${response.status}`;
 }
 
+export function mealConsumptionPath(
+  familyId: string,
+  mealEventId: string,
+  personId: string,
+  servingId: string,
+): string {
+  return (
+    `/api/families/${encodeURIComponent(familyId)}/meal-plan/` +
+    `${encodeURIComponent(mealEventId)}/participants/${encodeURIComponent(personId)}/` +
+    `servings/${encodeURIComponent(servingId)}/consumption`
+  );
+}
+
 export async function recordMealConsumption(
   familyId: string,
   mealEventId: string,
@@ -23,18 +36,17 @@ export async function recordMealConsumption(
   servingId: string,
   payload: MealConsumptionUpdate,
 ): Promise<MealConsumptionResult> {
-  const path =
-    `/api/families/${encodeURIComponent(familyId)}/meal-plan/` +
-    `${encodeURIComponent(mealEventId)}/participants/${encodeURIComponent(personId)}/` +
-    `servings/${encodeURIComponent(servingId)}/consumption`;
-  const response = await fetch(buildApiUrl(path), {
-    method: "PATCH",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
+  const response = await fetch(
+    buildApiUrl(mealConsumptionPath(familyId, mealEventId, personId, servingId)),
+    {
+      method: "PATCH",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
+  );
   if (!response.ok) {
     throw new ApiError(await errorMessage(response), response.status);
   }
