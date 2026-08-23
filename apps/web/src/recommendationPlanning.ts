@@ -87,6 +87,7 @@ export function recommendationDeliveryProviderKeys(
 export function recommendationCandidates(
   candidates: PlanningCandidate[],
   sources: RecommendationSource[],
+  mealType: RecommendationMealType,
 ): RecommendationCandidateInput[] {
   const allowCooked = sources.includes("cooked");
   const allowCommercial =
@@ -95,6 +96,7 @@ export function recommendationCandidates(
     sources.includes("restaurant");
   return candidates
     .filter((candidate) => {
+      if (!candidate.suitable_meal_types.includes(mealType)) return false;
       if (candidate.candidate_kind === "recipe") return allowCooked;
       return allowCommercial && candidate.category === "dish";
     })
