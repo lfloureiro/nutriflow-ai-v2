@@ -31,7 +31,9 @@ export type RecipeComposition = {
 
 export type Recipe = {
   id: string;
-  family_id: string;
+  family_id: string | null;
+  scope: "shared" | "family";
+  editable: boolean;
   recipe_key: string;
   name: string;
   description: string | null;
