@@ -44,3 +44,62 @@
   color: var(--muted);
   line-height: 1.3;
 }
+
+.person-source-overrides {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+}
+
+.person-source-overrides > header h2,
+.person-source-overrides > header p {
+  margin: 0;
+}
+
+.person-source-overrides > header p {
+  color: var(--muted);
+  margin-top: 0.3rem;
+}
+
+.person-source-override-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.person-source-override-card {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem;
+}
+
+.person-source-override-heading {
+  align-items: center;
+  display: flex;
+  gap: 0.8rem;
+  justify-content: space-between;
+}
+
+.person-source-pills {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+}
+
+.person-source-pills .meal-source-setting {
+  align-items: center;
+  min-height: 48px;
+  padding: 0.65rem;
+}
+
+@media (max-width: 720px) {
+  .person-source-override-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
