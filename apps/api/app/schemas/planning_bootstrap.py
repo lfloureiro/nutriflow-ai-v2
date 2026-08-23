@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+MealType = Literal["breakfast", "lunch", "snack", "dinner"]
+
 
 class PlanningNutritionComponentRead(BaseModel):
     target_type: str
@@ -43,6 +45,7 @@ class PlanningCandidateRead(BaseModel):
     energy_kcal: Decimal | None
     composition_version: str
     composition_at: datetime
+    suitable_meal_types: list[MealType]
 
 
 class PlanningBootstrapRead(BaseModel):
