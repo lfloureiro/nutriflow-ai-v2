@@ -17,6 +17,8 @@ import type {
   SharedPracticalRecommendationRequest,
   SharedRecommendationOption,
 } from "./api/sharedRecommendationTypes";
+import { getPersonMealDiscovery } from "./api/setupClient";
+import type { PersonMealDiscovery } from "./api/setupTypes";
 import type {
   CommercialOffer,
   Person,
@@ -39,6 +41,7 @@ import {
   RECOMMENDATION_SOURCES,
   recommendationCandidates,
   recommendationDates,
+  recommendationDeliveryProviderKeys,
   recommendationScheduledLocal,
   recommendationSourceKinds,
   type RecommendationMealType,
@@ -62,21 +65,25 @@ const COPY = {
     endDate: "Até",
     mealType: "Tipo de refeição",
     sources: "Onde procurar",
-    cooked: "Receitas / cozinhar",
-    cookedHelp: "Refeições da lista de receitas da família",
-    delivery: "Encomenda",
-    deliveryHelp: "Opções disponíveis para entrega",
-    restaurant: "Restaurante",
-    restaurantHelp: "Opções disponíveis em restaurante",
+    cooked: "Receitas",
+    cookedHelp: "Receitas partilhadas e receitas próprias da família",
+    uber_eats: "Uber Eats",
+    uber_eatsHelp: "Entrega pela Uber Eats na morada configurada",
+    glovo: "Glovo",
+    glovoHelp: "Entrega pela Glovo na morada configurada",
+    restaurant: "Restaurantes",
+    restaurantHelp: "Restaurantes na área configurada",
+    sourceUnavailable: "Não está configurado para todas as pessoas selecionadas",
+    providerNote: "Uber Eats e Glovo só devolvem resultados live quando a integração oficial do provider está configurada nesta instalação. O NutriFlow não mistura ofertas demo com resultados reais.",
     more: "Mais opções",
     time: "Hora",
-    location: "Local",
+    location: "Local / área (override opcional)",
     minutes: "Tempo disponível (min)",
     recommend: "Obter recomendações",
     recommending: "A calcular recomendações…",
     noPeople: "Não existem pessoas nesta família.",
     peopleRequired: "Escolhe pelo menos uma pessoa.",
-    sourceRequired: "Escolhe pelo menos uma origem para a recomendação.",
+    sourceRequired: "As pessoas selecionadas não têm nenhuma origem de refeições comum configurada.",
     noCandidates: "Não existem refeições elegíveis no catálogo para as origens escolhidas.",
     noResults: "Não foram encontradas opções adequadas para este dia.",
     stateUnavailable: "Não foi possível preparar o orçamento nutricional para",
@@ -92,7 +99,7 @@ const COPY = {
     snack: "Lanche",
     dinner: "Jantar",
     from: "Origem",
-    deliverySource: "Encomenda",
+    deliverySource: "Entrega",
     restaurantSource: "Restaurante",
     groupFit: "Adequação do grupo",
     portion: "Porção",
@@ -110,21 +117,25 @@ const COPY = {
     endDate: "To",
     mealType: "Meal type",
     sources: "Where to search",
-    cooked: "Recipes / cook",
-    cookedHelp: "Meals from the family's recipe list",
-    delivery: "Delivery",
-    deliveryHelp: "Options available for delivery",
-    restaurant: "Restaurant",
-    restaurantHelp: "Options available at restaurants",
+    cooked: "Recipes",
+    cookedHelp: "Shared recipes and the family's own recipes",
+    uber_eats: "Uber Eats",
+    uber_eatsHelp: "Uber Eats delivery at the configured address",
+    glovo: "Glovo",
+    glovoHelp: "Glovo delivery at the configured address",
+    restaurant: "Restaurants",
+    restaurantHelp: "Restaurants in the configured area",
+    sourceUnavailable: "Not configured for every selected person",
+    providerNote: "Uber Eats and Glovo return live results only when the official provider integration is configured in this installation. NutriFlow does not mix demo offers with real results.",
     more: "More options",
     time: "Time",
-    location: "Location",
+    location: "Location / area (optional override)",
     minutes: "Available time (min)",
     recommend: "Get recommendations",
     recommending: "Calculating recommendations…",
     noPeople: "There are no people in this family.",
     peopleRequired: "Choose at least one person.",
-    sourceRequired: "Choose at least one recommendation source.",
+    sourceRequired: "The selected people have no common meal source configured.",
     noCandidates: "There are no eligible catalogue meals for the selected sources.",
     noResults: "No suitable options were found for this day.",
     stateUnavailable: "Could not prepare the nutrition budget for",
@@ -222,17 +233,44 @@ function formatMoney(value: string, currency: string, locale: Locale): string {
   }
 }
 
+function discoveryToRecommendationSources(
+  discovery: PersonMealDiscovery,
+): RecommendationSource[] {
+  const mapped: RecommendationSource[] = [];
+  if (discovery.meal_discovery_sources.includes("shared_recipes")) mapped.push("cooked");
+  if (discovery.meal_discovery_sources.includes("uber_eats")) mapped.push("uber_eats");
+  if (discovery.meal_discovery_sources.includes("glovo")) mapped.push("glovo");
+  if (discovery.meal_discovery_sources.includes("restaurants")) mapped.push("restaurant");
+  return mapped;
+}
+
+function commonRecommendationSources(
+  personIds: string[],
+  discoveryByPersonId: Record<string, PersonMealDiscovery>,
+): RecommendationSource[] {
+  if (personIds.length === 0) return [];
+  const configured = personIds.map((personId) =>
+    new Set(discoveryToRecommendationSources(discoveryByPersonId[personId]!)),
+  );
+  if (configured.some((set) => set.size === 0)) return [];
+  return RECOMMENDATION_SOURCES.filter((source) =>
+    configured.every((set) => set.has(source)),
+  );
+}
+
 function matchingOffers(
   offers: OfferLike[],
   candidateKey: string,
   sources: RecommendationSource[],
 ): OfferLike[] {
-  const allowed = new Set<string>();
-  if (sources.includes("delivery")) allowed.add("delivery");
-  if (sources.includes("restaurant")) allowed.add("restaurant");
-  return offers.filter(
-    (offer) => offer.candidate_key === candidateKey && allowed.has(offer.source_kind),
-  );
+  return offers.filter((offer) => {
+    if (offer.candidate_key !== candidateKey) return false;
+    if (offer.source_kind === "restaurant") return sources.includes("restaurant");
+    if (offer.source_kind !== "delivery") return false;
+    if (offer.provider_key === "uber_eats") return sources.includes("uber_eats");
+    if (offer.provider_key === "glovo") return sources.includes("glovo");
+    return false;
+  });
 }
 
 function visibleSingleOptions(
@@ -269,19 +307,28 @@ function topCandidateKey(day: DayResult): string | null {
 function SourceChoice({
   source,
   selected,
+  disabled,
   onChange,
 }: {
   source: RecommendationSource;
   selected: boolean;
+  disabled: boolean;
   onChange: () => void;
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
-  const helpKey = `${source}Help` as "cookedHelp" | "deliveryHelp" | "restaurantHelp";
+  const helpKey = `${source}Help` as
+    | "cookedHelp"
+    | "uber_eatsHelp"
+    | "glovoHelp"
+    | "restaurantHelp";
   return (
-    <label className={`recommend-source-card ${selected ? "selected" : ""}`}>
-      <input checked={selected} onChange={onChange} type="checkbox" />
-      <span><strong>{copy[source]}</strong><small>{copy[helpKey]}</small></span>
+    <label className={`recommend-source-card ${selected ? "selected" : ""} ${disabled ? "disabled" : ""}`}>
+      <input checked={selected} disabled={disabled} onChange={onChange} type="checkbox" />
+      <span>
+        <strong>{copy[source]}</strong>
+        <small>{disabled ? copy.sourceUnavailable : copy[helpKey]}</small>
+      </span>
     </label>
   );
 }
@@ -465,17 +512,14 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
   const copy = COPY[locale];
   const today = localDateValue();
   const [people, setPeople] = useState<Person[]>([]);
+  const [discoveryByPersonId, setDiscoveryByPersonId] = useState<Record<string, PersonMealDiscovery>>({});
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([]);
   const [periodMode, setPeriodMode] = useState<RecommendationPeriodMode>("single");
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
   const [mealType, setMealType] = useState<RecommendationMealType>("lunch");
   const [localTime, setLocalTime] = useState(DEFAULT_MEAL_TIMES.lunch);
-  const [sources, setSources] = useState<RecommendationSource[]>([
-    "cooked",
-    "delivery",
-    "restaurant",
-  ]);
+  const [sources, setSources] = useState<RecommendationSource[]>([]);
   const [location, setLocation] = useState("");
   const [availableMinutes, setAvailableMinutes] = useState("");
   const [results, setResults] = useState<DayResult[]>([]);
@@ -492,15 +536,26 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
     () => new Map<string, Person>(people.map((person) => [person.id, person])),
     [people],
   );
+  const allowedSources = useMemo(
+    () => commonRecommendationSources(selectedPersonIds, discoveryByPersonId),
+    [discoveryByPersonId, selectedPersonIds],
+  );
   const allSelected = people.length > 0 && selectedPersonIds.length === people.length;
 
   useEffect(() => {
     let cancelled = false;
     void listFamilyPersons(familyId)
-      .then((loaded) => {
+      .then(async (loaded) => {
+        const discoveryPairs = await Promise.all(
+          loaded.map(async (person) => [person.id, await getPersonMealDiscovery(person.id)] as const),
+        );
         if (cancelled) return;
+        const discovery = Object.fromEntries(discoveryPairs);
+        const personIds = loaded.map((person) => person.id);
         setPeople(loaded);
-        setSelectedPersonIds(loaded.map((person) => person.id));
+        setDiscoveryByPersonId(discovery);
+        setSelectedPersonIds(personIds);
+        setSources(commonRecommendationSources(personIds, discovery));
       })
       .catch((caught: unknown) => {
         if (!cancelled) setError(errorText(caught));
@@ -509,6 +564,10 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
       cancelled = true;
     };
   }, [familyId]);
+
+  useEffect(() => {
+    setSources(allowedSources);
+  }, [allowedSources]);
 
   function togglePerson(personId: string) {
     setSelectedPersonIds((current) =>
@@ -523,6 +582,7 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
   }
 
   function toggleSource(source: RecommendationSource) {
+    if (!allowedSources.includes(source)) return;
     setSources((current) =>
       current.includes(source)
         ? current.filter((item) => item !== source)
@@ -597,6 +657,7 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
         available_minutes: parsedAvailableMinutes(),
         has_kitchen: sources.includes("cooked") ? true : null,
         source_kinds: recommendationSourceKinds(sources),
+        delivery_provider_keys: recommendationDeliveryProviderKeys(sources),
         provisional_history: [...provisionalHistory],
         max_results: MAX_VISIBLE_RESULTS,
       };
@@ -824,6 +885,7 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
             <div className="recommend-source-grid">
               {RECOMMENDATION_SOURCES.map((source) => (
                 <SourceChoice
+                  disabled={!allowedSources.includes(source)}
                   key={source}
                   onChange={() => toggleSource(source)}
                   selected={sources.includes(source)}
@@ -831,6 +893,9 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
                 />
               ))}
             </div>
+            {(sources.includes("uber_eats") || sources.includes("glovo")) ? (
+              <p className="muted compact">{copy.providerNote}</p>
+            ) : null}
           </div>
 
           <details className="recommend-more">
