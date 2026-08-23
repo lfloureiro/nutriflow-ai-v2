@@ -103,15 +103,22 @@ def test_recipe_rating_rejects_person_from_another_family(db_session: Session) -
         app.dependency_overrides.clear()
 
 
-def test_recipe_rating_validates_one_to_five(db_session: Session) -> None:
+def test_recipe_rating_validates_zero_to_five(db_session: Session) -> None:
     family, ana, _, recipe = _base(db_session)
     app.dependency_overrides[get_db] = _override_db(db_session)
     try:
         with TestClient(app) as client:
-            response = client.put(
+            zero_response = client.put(
+                f"/api/families/{family.id}/recipes/{recipe.id}/preferences/{ana.id}",
+                json={"rating": 0},
+            )
+            assert zero_response.status_code == 200
+            assert zero_response.json()["average_rating"] == "0.00"
+
+            invalid_response = client.put(
                 f"/api/families/{family.id}/recipes/{recipe.id}/preferences/{ana.id}",
                 json={"rating": 6},
             )
-            assert response.status_code == 422
+            assert invalid_response.status_code == 422
     finally:
         app.dependency_overrides.clear()
