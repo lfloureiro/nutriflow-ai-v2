@@ -1,7 +1,7 @@
 import uuid
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.models.family import Family
@@ -57,14 +57,14 @@ def _candidate(
         candidate = session.scalar(
             select(FoodItem).where(
                 FoodItem.catalog_key == definition.candidate_key,
-                FoodItem.family_id == family.id,
+                or_(FoodItem.family_id.is_(None), FoodItem.family_id == family.id),
             )
         )
     else:
         candidate = session.scalar(
             select(Recipe).where(
                 Recipe.recipe_key == definition.candidate_key,
-                Recipe.family_id == family.id,
+                or_(Recipe.family_id.is_(None), Recipe.family_id == family.id),
             )
         )
     if candidate is None:
