@@ -46,12 +46,17 @@ describe("recommendation planning helpers", () => {
 
   it("maps provider choices to backend channels without duplicating delivery", () => {
     expect(
-      recommendationSourceKinds(["cooked", "uber_eats", "glovo", "restaurant"]),
+      recommendationSourceKinds([
+        "cooked",
+        "uber_eats",
+        "glovo",
+        "bolt_food",
+        "restaurant",
+      ]),
     ).toEqual(["home", "delivery", "restaurant"]);
-    expect(recommendationDeliveryProviderKeys(["uber_eats", "glovo"])).toEqual([
-      "uber_eats",
-      "glovo",
-    ]);
+    expect(
+      recommendationDeliveryProviderKeys(["uber_eats", "glovo", "bolt_food"]),
+    ).toEqual(["uber_eats", "glovo", "bolt_food"]);
   });
 
   it("uses recipes for cooked meals and dishes for commercial sources", () => {
@@ -62,7 +67,7 @@ describe("recommendation planning helpers", () => {
     ];
 
     expect(
-      recommendationCandidates(candidates, ["cooked", "uber_eats"]).map(
+      recommendationCandidates(candidates, ["cooked", "bolt_food"]).map(
         (item) => item.composition_id,
       ),
     ).toEqual(["recipe-1", "dish-1"]);
