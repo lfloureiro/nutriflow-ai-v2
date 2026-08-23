@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from app.models.family import Family
 from app.schemas.family import FamilyCreate, FamilyUpdate
 
+DELIVERY_DISCOVERY_SOURCES = frozenset({"uber_eats", "glovo", "bolt_food"})
+
 
 class FamilyDiscoveryConfigurationError(ValueError):
     pass
@@ -18,10 +20,10 @@ def _validate_discovery_configuration(
 ) -> None:
     if not sources:
         raise FamilyDiscoveryConfigurationError("At least one meal discovery source is required.")
-    wants_delivery = "uber_eats" in sources or "glovo" in sources
+    wants_delivery = bool(DELIVERY_DISCOVERY_SOURCES.intersection(sources))
     if wants_delivery and not (delivery_address or "").strip():
         raise FamilyDiscoveryConfigurationError(
-            "A delivery address is required when Uber Eats or Glovo is enabled."
+            "A delivery address is required when a delivery provider is enabled."
         )
     if "restaurants" in sources and not (restaurant_area or "").strip():
         raise FamilyDiscoveryConfigurationError(
