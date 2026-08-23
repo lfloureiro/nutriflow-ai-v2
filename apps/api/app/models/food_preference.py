@@ -17,7 +17,7 @@ class FoodPreference(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     __table_args__ = (
         CheckConstraint(
-            "intensity >= 1 AND intensity <= 5",
+            "intensity >= 0 AND intensity <= 5",
             name="ck_food_preferences_intensity_range",
         ),
         CheckConstraint(
