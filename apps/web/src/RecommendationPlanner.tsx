@@ -7,6 +7,8 @@ import {
   submitRecommendationDecision,
 } from "./api/client";
 import { getRecommendationBootstrap } from "./api/recommendationClient";
+import { discoverRestaurants } from "./api/restaurantDiscoveryClient";
+import type { RestaurantDiscovery } from "./api/restaurantDiscoveryTypes";
 import {
   planSharedPracticalRecommendation,
   requestSharedPracticalRecommendation,
@@ -50,14 +52,17 @@ import {
 } from "./recommendationPlanning";
 
 const MAX_VISIBLE_RESULTS = 3;
+const RESTAURANT_LIMIT = 8;
+const MAIN_MEAL_TYPES = new Set<RecommendationMealType>(["lunch", "dinner"]);
 
 const COPY = {
   "pt-PT": {
     title: "Recomendar refeições",
-    help: "Escolhe quem vai comer, os dias, o tipo de refeição e onde queres procurar. O NutriFlow cruza calorias, nutrição, preferências, disponibilidade e variedade.",
+    help: "Escolhe quem vai comer, quando e onde procurar. As receitas são avaliadas pelas necessidades nutricionais e preferências; restaurantes são pesquisados live na área configurada.",
     people: "Pessoas",
     peopleLower: "pessoas",
     allPeople: "Todos",
+    period: "Período",
     single: "1 dia",
     range: "Vários dias",
     date: "Dia",
@@ -66,26 +71,25 @@ const COPY = {
     mealType: "Tipo de refeição",
     sources: "Onde procurar",
     cooked: "Receitas",
-    cookedHelp: "Receitas partilhadas e receitas próprias da família",
+    cookedHelp: "Receitas partilhadas e receitas próprias da família, filtradas para esta refeição",
     uber_eats: "Uber Eats",
-    uber_eatsHelp: "Entrega pela Uber Eats na morada configurada",
+    uber_eatsHelp: "Menus live quando a integração oficial estiver disponível",
     glovo: "Glovo",
-    glovoHelp: "Entrega pela Glovo na morada configurada",
+    glovoHelp: "Menus live quando a integração oficial estiver disponível",
     restaurant: "Restaurantes",
-    restaurantHelp: "Restaurantes na área configurada",
-    sourceUnavailable: "Não está configurado para todas as pessoas selecionadas",
-    providerNote: "Uber Eats e Glovo só devolvem resultados live quando a integração oficial do provider está configurada nesta instalação. O NutriFlow não mistura ofertas demo com resultados reais.",
+    restaurantHelp: "Restaurantes live na área configurada; usado apenas em almoço e jantar",
+    sourceUnavailable: "Não está disponível para esta refeição ou para todas as pessoas selecionadas",
     more: "Mais opções",
     time: "Hora",
-    location: "Local / área (override opcional)",
+    location: "Área / local (override opcional)",
     minutes: "Tempo disponível (min)",
     recommend: "Obter recomendações",
     recommending: "A calcular recomendações…",
     noPeople: "Não existem pessoas nesta família.",
     peopleRequired: "Escolhe pelo menos uma pessoa.",
-    sourceRequired: "As pessoas selecionadas não têm nenhuma origem de refeições comum configurada.",
-    noCandidates: "Não existem refeições elegíveis no catálogo para as origens escolhidas.",
-    noResults: "Não foram encontradas opções adequadas para este dia.",
+    sourceRequired: "Escolhe pelo menos uma origem disponível.",
+    noCandidates: "Não existem receitas ou pratos com dados suficientes para esta refeição.",
+    noResults: "Não foram encontradas receitas adequadas para este dia.",
     stateUnavailable: "Não foi possível preparar o orçamento nutricional para",
     error: "Não foi possível obter a recomendação",
     results: "Recomendações",
@@ -100,16 +104,25 @@ const COPY = {
     dinner: "Jantar",
     from: "Origem",
     deliverySource: "Entrega",
-    restaurantSource: "Restaurante",
     groupFit: "Adequação do grupo",
     portion: "Porção",
+    restaurants: "Restaurantes na área",
+    restaurantLiveNote: "Descoberta live de restaurantes. Sem menu nutricional real, estes locais ainda não são ordenados por calorias, dieta ou preferências de pratos.",
+    restaurantAreaRequired: "Configura uma área de restaurantes em Casa → Fontes ou indica uma área em Mais opções.",
+    restaurantAreaMismatch: "As pessoas selecionadas têm áreas de restaurantes diferentes. Indica uma área comum em Mais opções.",
+    restaurantUnavailable: "Não foi possível pesquisar restaurantes nesta área.",
+    cuisine: "Cozinha",
+    address: "Morada",
+    openingHours: "Horário",
+    website: "Site",
   },
   en: {
     title: "Meal recommendations",
-    help: "Choose who will eat, the days, meal type and where to search. NutriFlow combines calories, nutrition, preferences, availability and variety.",
+    help: "Choose who will eat, when and where to search. Recipes are evaluated against nutrition needs and preferences; restaurants are searched live in the configured area.",
     people: "People",
     peopleLower: "people",
     allPeople: "Everyone",
+    period: "Period",
     single: "1 day",
     range: "Several days",
     date: "Day",
@@ -118,26 +131,25 @@ const COPY = {
     mealType: "Meal type",
     sources: "Where to search",
     cooked: "Recipes",
-    cookedHelp: "Shared recipes and the family's own recipes",
+    cookedHelp: "Shared and Family recipes filtered for this meal",
     uber_eats: "Uber Eats",
-    uber_eatsHelp: "Uber Eats delivery at the configured address",
+    uber_eatsHelp: "Live menus when the official integration is available",
     glovo: "Glovo",
-    glovoHelp: "Glovo delivery at the configured address",
+    glovoHelp: "Live menus when the official integration is available",
     restaurant: "Restaurants",
-    restaurantHelp: "Restaurants in the configured area",
-    sourceUnavailable: "Not configured for every selected person",
-    providerNote: "Uber Eats and Glovo return live results only when the official provider integration is configured in this installation. NutriFlow does not mix demo offers with real results.",
+    restaurantHelp: "Live restaurants in the configured area; lunch and dinner only",
+    sourceUnavailable: "Not available for this meal or every selected person",
     more: "More options",
     time: "Time",
-    location: "Location / area (optional override)",
+    location: "Area / location (optional override)",
     minutes: "Available time (min)",
     recommend: "Get recommendations",
     recommending: "Calculating recommendations…",
-    noPeople: "There are no people in this family.",
+    noPeople: "There are no people in this Family.",
     peopleRequired: "Choose at least one person.",
-    sourceRequired: "The selected people have no common meal source configured.",
-    noCandidates: "There are no eligible catalogue meals for the selected sources.",
-    noResults: "No suitable options were found for this day.",
+    sourceRequired: "Choose at least one available source.",
+    noCandidates: "There are no recipes or dishes with enough data for this meal.",
+    noResults: "No suitable recipes were found for this day.",
     stateUnavailable: "Could not prepare the nutrition budget for",
     error: "The recommendation could not be created",
     results: "Recommendations",
@@ -152,9 +164,17 @@ const COPY = {
     dinner: "Dinner",
     from: "Source",
     deliverySource: "Delivery",
-    restaurantSource: "Restaurant",
     groupFit: "Group fit",
     portion: "Portion",
+    restaurants: "Restaurants in the area",
+    restaurantLiveNote: "Live restaurant discovery. Without real menu nutrition, these places are not yet ordered by calories, diet or dish preferences.",
+    restaurantAreaRequired: "Configure a restaurant area under Home base → Sources or enter an area in More options.",
+    restaurantAreaMismatch: "The selected people have different restaurant areas. Enter one common area in More options.",
+    restaurantUnavailable: "Restaurants could not be searched in this area.",
+    cuisine: "Cuisine",
+    address: "Address",
+    openingHours: "Opening hours",
+    website: "Website",
   },
 } as const;
 
@@ -164,6 +184,8 @@ type DayResultBase = {
   personIds: string[];
   sources: RecommendationSource[];
   nutritionBudgets: RecommendationNutritionBudget[];
+  restaurants: RestaurantDiscovery | null;
+  restaurantError: string | null;
   error: string | null;
 };
 
@@ -258,15 +280,38 @@ function commonRecommendationSources(
   );
 }
 
+function sourceSupportsMeal(
+  source: RecommendationSource,
+  mealType: RecommendationMealType,
+): boolean {
+  if (source === "restaurant") return MAIN_MEAL_TYPES.has(mealType);
+  return true;
+}
+
+export function restaurantAreaForPeople(
+  personIds: string[],
+  discoveryByPersonId: Record<string, PersonMealDiscovery>,
+  override: string,
+): string | null | "mismatch" {
+  const normalizedOverride = override.trim();
+  if (normalizedOverride) return normalizedOverride;
+  const areas = new Set(
+    personIds
+      .map((personId) => discoveryByPersonId[personId]?.restaurant_area?.trim() ?? "")
+      .filter(Boolean),
+  );
+  if (areas.size === 0) return null;
+  if (areas.size > 1) return "mismatch";
+  return [...areas][0] ?? null;
+}
+
 function matchingOffers(
   offers: OfferLike[],
   candidateKey: string,
   sources: RecommendationSource[],
 ): OfferLike[] {
   return offers.filter((offer) => {
-    if (offer.candidate_key !== candidateKey) return false;
-    if (offer.source_kind === "restaurant") return sources.includes("restaurant");
-    if (offer.source_kind !== "delivery") return false;
+    if (offer.candidate_key !== candidateKey || offer.source_kind !== "delivery") return false;
     if (offer.provider_key === "uber_eats") return sources.includes("uber_eats");
     if (offer.provider_key === "glovo") return sources.includes("glovo");
     return false;
@@ -346,8 +391,7 @@ function OfferList({ offers }: { offers: OfferLike[] }) {
             <div>
               <strong>{offer.provider_name ?? offer.provider_key}</strong>
               <span className="muted">
-                {offer.source_kind === "delivery" ? copy.deliverySource : copy.restaurantSource}
-                {offer.location ? ` · ${offer.location}` : ""}
+                {copy.deliverySource}{offer.location ? ` · ${offer.location}` : ""}
               </span>
             </div>
             <strong>{formatMoney(offer.total_known_price, offer.currency, locale)}</strong>
@@ -360,8 +404,7 @@ function OfferList({ offers }: { offers: OfferLike[] }) {
 
 function ResultEyebrow({ rank }: { rank: number | null }) {
   const { locale } = useI18n();
-  const copy = COPY[locale];
-  return <span className="eyebrow">{rank === 1 ? copy.best : copy.alternative}</span>;
+  return <span className="eyebrow">{rank === 1 ? COPY[locale].best : COPY[locale].alternative}</span>;
 }
 
 function SingleResultCard({
@@ -388,14 +431,10 @@ function SingleResultCard({
         <div>
           <ResultEyebrow rank={option.rank} />
           <h3>{option.candidate_name}</h3>
-          <p className="muted compact">
-            {formatNumber(option.quantity, locale)} {option.quantity_unit}
-          </p>
+          <p className="muted compact">{formatNumber(option.quantity, locale)} {option.quantity_unit}</p>
         </div>
         {option.nutrition.energy_kcal !== null ? (
-          <div className="energy-pill">
-            <strong>{formatNumber(option.nutrition.energy_kcal, locale, 0)}</strong><span>kcal</span>
-          </div>
+          <div className="energy-pill"><strong>{formatNumber(option.nutrition.energy_kcal, locale, 0)}</strong><span>kcal</span></div>
         ) : null}
       </div>
       <OfferList offers={offers} />
@@ -407,27 +446,11 @@ function SingleResultCard({
         </div>
       ) : null}
       {decision ? (
-        <div className="decision-result" role="status">
-          <strong>{decision.action === "accepted" ? copy.planned : copy.reject}</strong>
-        </div>
+        <div className="decision-result" role="status"><strong>{decision.action === "accepted" ? copy.planned : copy.reject}</strong></div>
       ) : (
         <div className="button-row">
-          <button
-            className="button primary"
-            disabled={busy}
-            onClick={() => onDecision(option, "accepted")}
-            type="button"
-          >
-            {copy.accept}
-          </button>
-          <button
-            className="button ghost"
-            disabled={busy}
-            onClick={() => onDecision(option, "rejected")}
-            type="button"
-          >
-            {copy.reject}
-          </button>
+          <button className="button primary" disabled={busy} onClick={() => onDecision(option, "accepted")} type="button">{copy.accept}</button>
+          <button className="button ghost" disabled={busy} onClick={() => onDecision(option, "rejected")} type="button">{copy.reject}</button>
         </div>
       )}
     </article>
@@ -462,9 +485,7 @@ function SharedResultCard({
           <h3>{option.candidate_name}</h3>
           <p className="muted compact">
             {option.participants.length} {copy.peopleLower}
-            {option.average_score !== null
-              ? ` · ${copy.groupFit}: ${formatNumber(option.average_score, locale, 2)}`
-              : ""}
+            {option.average_score !== null ? ` · ${copy.groupFit}: ${formatNumber(option.average_score, locale, 2)}` : ""}
           </p>
         </div>
       </div>
@@ -476,34 +497,52 @@ function SharedResultCard({
               <strong>{person ? displayName(person) : participant.person_id}</strong>
               <span>
                 {copy.portion}: {formatNumber(participant.quantity, locale)} {participant.quantity_unit}
-                {participant.energy_kcal !== null
-                  ? ` · ${formatNumber(participant.energy_kcal, locale, 0)} kcal`
-                  : ""}
+                {participant.energy_kcal !== null ? ` · ${formatNumber(participant.energy_kcal, locale, 0)} kcal` : ""}
               </span>
             </div>
           );
         })}
       </div>
       <OfferList offers={offers} />
-      {option.participants.at(0)?.explanation.length ? (
-        <div className="detail-block">
-          <ul className="compact-list">
-            {option.participants[0].explanation.slice(0, 4).map((message) => (
-              <li key={message}>{message}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
       {planned ? (
         <div className="decision-result" role="status"><strong>{copy.planned}</strong></div>
       ) : (
         <div className="button-row">
-          <button className="button primary" disabled={busy} onClick={() => onPlan(option)} type="button">
-            {copy.accept}
-          </button>
+          <button className="button primary" disabled={busy} onClick={() => onPlan(option)} type="button">{copy.accept}</button>
         </div>
       )}
     </article>
+  );
+}
+
+function RestaurantResults({ result }: { result: RestaurantDiscovery }) {
+  const { locale } = useI18n();
+  const copy = COPY[locale];
+  return (
+    <section className="restaurant-results">
+      <div className="section-heading">
+        <div>
+          <h3>{copy.restaurants}</h3>
+          <p>{result.area} · {copy.restaurantLiveNote}</p>
+        </div>
+      </div>
+      <div className="recommendation-grid">
+        {result.restaurants.map((restaurant) => (
+          <article className="recommendation-card eligible" key={restaurant.provider_place_id}>
+            <div className="recommendation-card__header">
+              <div>
+                <span className="eyebrow">Live · {result.provider}</span>
+                <h3>{restaurant.name}</h3>
+              </div>
+            </div>
+            {restaurant.cuisine.length > 0 ? <p><strong>{copy.cuisine}:</strong> {restaurant.cuisine.join(", ")}</p> : null}
+            {restaurant.address ? <p><strong>{copy.address}:</strong> {restaurant.address}</p> : null}
+            {restaurant.opening_hours ? <p><strong>{copy.openingHours}:</strong> {restaurant.opening_hours}</p> : null}
+            {restaurant.website ? <a href={restaurant.website} rel="noreferrer" target="_blank">{copy.website} ↗</a> : null}
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -536,9 +575,13 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
     () => new Map<string, Person>(people.map((person) => [person.id, person])),
     [people],
   );
-  const allowedSources = useMemo(
+  const configuredSources = useMemo(
     () => commonRecommendationSources(selectedPersonIds, discoveryByPersonId),
     [discoveryByPersonId, selectedPersonIds],
+  );
+  const allowedSources = useMemo(
+    () => configuredSources.filter((source) => sourceSupportsMeal(source, mealType)),
+    [configuredSources, mealType],
   );
   const allSelected = people.length > 0 && selectedPersonIds.length === people.length;
 
@@ -555,7 +598,6 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
         setPeople(loaded);
         setDiscoveryByPersonId(discovery);
         setSelectedPersonIds(personIds);
-        setSources(commonRecommendationSources(personIds, discovery));
       })
       .catch((caught: unknown) => {
         if (!cancelled) setError(errorText(caught));
@@ -593,12 +635,28 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
   function changeMealType(value: RecommendationMealType) {
     setMealType(value);
     setLocalTime(DEFAULT_MEAL_TIMES[value]);
+    setResults([]);
   }
 
   function parsedAvailableMinutes(): number | null {
     if (!availableMinutes.trim()) return null;
     const value = Number(availableMinutes);
     return Number.isFinite(value) ? value : null;
+  }
+
+  async function discoverRestaurantOptions(personIds: string[]): Promise<{
+    result: RestaurantDiscovery | null;
+    error: string | null;
+  }> {
+    if (!sources.includes("restaurant")) return { result: null, error: null };
+    const area = restaurantAreaForPeople(personIds, discoveryByPersonId, location);
+    if (area === null) return { result: null, error: copy.restaurantAreaRequired };
+    if (area === "mismatch") return { result: null, error: copy.restaurantAreaMismatch };
+    try {
+      return { result: await discoverRestaurants(familyId, area, RESTAURANT_LIMIT), error: null };
+    } catch (caught: unknown) {
+      return { result: null, error: `${copy.restaurantUnavailable} ${errorText(caught)}` };
+    }
   }
 
   async function recommendDay(
@@ -613,6 +671,7 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
     if (!firstPerson) throw new Error(copy.peopleRequired);
 
     let nutritionBudgets: RecommendationNutritionBudget[] = [];
+    const restaurantPromise = discoverRestaurantOptions(personIds);
     try {
       const personBootstraps = await Promise.all(
         selectedPeople.map(async (person) => ({
@@ -633,19 +692,19 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
 
       const firstState = firstBootstrap.daily_nutrition_state;
       if (!firstState) throw new Error(`${copy.stateUnavailable} ${displayName(firstPerson)}.`);
-      const candidates = recommendationCandidates(
-        firstBootstrap.candidates,
-        sources,
-        mealType,
-      );
+      const candidates = recommendationCandidates(firstBootstrap.candidates, sources, mealType);
+      const restaurants = await restaurantPromise;
+
       if (candidates.length === 0) {
-        const base = {
+        const base: DayResultBase = {
           date,
           scheduledLocal,
           personIds,
           sources: [...sources],
           nutritionBudgets,
-          error: copy.noCandidates,
+          restaurants: restaurants.result,
+          restaurantError: restaurants.error,
+          error: sources.includes("restaurant") ? null : copy.noCandidates,
         };
         return mode === "single"
           ? { ...base, mode, run: null, request: null }
@@ -663,6 +722,7 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
         source_kinds: recommendationSourceKinds(sources),
         delivery_provider_keys: recommendationDeliveryProviderKeys(sources),
         provisional_history: [...provisionalHistory],
+        auto_size_portions: true,
         max_results: MAX_VISIBLE_RESULTS,
       };
 
@@ -679,6 +739,8 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
           personIds,
           sources: [...sources],
           nutritionBudgets,
+          restaurants: restaurants.result,
+          restaurantError: restaurants.error,
           run,
           request,
           error: null,
@@ -697,17 +759,22 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
         personIds,
         sources: [...sources],
         nutritionBudgets,
+        restaurants: restaurants.result,
+        restaurantError: restaurants.error,
         run,
         request,
         error: null,
       };
     } catch (caught: unknown) {
-      const base = {
+      const restaurants = await restaurantPromise;
+      const base: DayResultBase = {
         date,
         scheduledLocal,
         personIds,
         sources: [...sources],
         nutritionBudgets,
+        restaurants: restaurants.result,
+        restaurantError: restaurants.error,
         error: errorText(caught),
       };
       return mode === "single"
@@ -753,10 +820,7 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
         setResults([...nextResults]);
         const topKey = topCandidateKey(day);
         if (topKey) {
-          provisionalHistory = [
-            ...provisionalHistory,
-            { plan_date: date, candidate_key: topKey },
-          ];
+          provisionalHistory = [...provisionalHistory, { plan_date: date, candidate_key: topKey }];
         }
       }
     } finally {
@@ -826,9 +890,7 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
           </div>
         </header>
         {error ? (
-          <div className="error-banner" role="alert">
-            <strong>{copy.error}</strong><span>{error}</span>
-          </div>
+          <div className="error-banner" role="alert"><strong>{copy.error}</strong><span>{error}</span></div>
         ) : null}
         <form className="stack" onSubmit={submit}>
           <div className="field-group recommend-people-group">
@@ -852,7 +914,7 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
 
           <div className="recommend-primary-grid">
             <div className="field-group">
-              <span className="field-group__label">Período</span>
+              <span className="field-group__label">{copy.period}</span>
               <div className="segmented-control">
                 <button className={periodMode === "single" ? "active" : ""} onClick={() => setPeriodMode("single")} type="button">{copy.single}</button>
                 <button className={periodMode === "range" ? "active" : ""} onClick={() => setPeriodMode("range")} type="button">{copy.range}</button>
@@ -861,14 +923,7 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
             {periodMode === "single" ? (
               <label className="field">
                 <span>{copy.date}</span>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(event) => {
-                    setStartDate(event.target.value);
-                    setEndDate(event.target.value);
-                  }}
-                />
+                <input type="date" value={startDate} onChange={(event) => { setStartDate(event.target.value); setEndDate(event.target.value); }} />
               </label>
             ) : (
               <div className="recommend-date-range">
@@ -897,9 +952,6 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
                 />
               ))}
             </div>
-            {(sources.includes("uber_eats") || sources.includes("glovo")) ? (
-              <p className="muted compact">{copy.providerNote}</p>
-            ) : null}
           </div>
 
           <details className="recommend-more">
@@ -972,6 +1024,8 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
                       })}
                     </div>
                   ) : null}
+                  {day.restaurantError ? <div className="error-banner"><span>{day.restaurantError}</span></div> : null}
+                  {day.restaurants ? <RestaurantResults result={day.restaurants} /> : null}
                 </section>
               );
             })}
