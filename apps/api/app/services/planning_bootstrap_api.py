@@ -14,6 +14,7 @@ from app.models.food_catalog import (
     RecipeCompositionSnapshot,
 )
 from app.models.meal import MealEvent, MealParticipant
+from app.models.meal_candidate_planning_profile import MealCandidatePlanningProfile
 from app.models.nutrition_target import NutritionTarget
 from app.models.person import Person
 from app.schemas.planning_bootstrap import (
@@ -26,6 +27,8 @@ from app.services.daily_nutrition_state import recalculate_daily_nutrition_state
 
 DEFAULT_STANDARD_BREAKFAST_KCAL = Decimal(350)
 BREAKFAST_ASSUMPTION_CUTOFF = time(10, 0)
+VALID_MEAL_TYPES = frozenset({"breakfast", "lunch", "snack", "dinner"})
+MAIN_MEAL_TYPES = ("lunch", "dinner")
 
 
 class PlanningBootstrapApiError(ValueError):
@@ -235,11 +238,58 @@ def _daily_state_read(state: DailyNutritionState) -> PlanningDailyNutritionState
     )
 
 
+def _planning_profile_maps(
+    session: Session,
+    *,
+    family_id: uuid.UUID,
+) -> tuple[
+    dict[uuid.UUID, MealCandidatePlanningProfile],
+    dict[uuid.UUID, MealCandidatePlanningProfile],
+]:
+    profiles = session.scalars(
+        select(MealCandidatePlanningProfile).where(
+            MealCandidatePlanningProfile.family_id == family_id
+        )
+    ).all()
+    food_profiles = {
+        profile.food_item_id: profile
+        for profile in profiles
+        if profile.food_item_id is not None
+    }
+    recipe_profiles = {
+        profile.recipe_id: profile
+        for profile in profiles
+        if profile.recipe_id is not None
+    }
+    return food_profiles, recipe_profiles
+
+
+def _suitable_meal_types(
+    profile: MealCandidatePlanningProfile | None,
+    *,
+    defaults: tuple[str, ...],
+) -> list[str]:
+    if profile is None:
+        return list(defaults)
+    if not profile.auto_plan_enabled:
+        return []
+    configured = profile.suitable_meal_types
+    if configured is None:
+        return list(defaults)
+    invalid = [meal_type for meal_type in configured if meal_type not in VALID_MEAL_TYPES]
+    if invalid:
+        raise PlanningBootstrapApiError(
+            f"Planning profile contains invalid meal types: {invalid!r}."
+        )
+    return list(dict.fromkeys(configured))
+
+
 def _food_candidates(
     session: Session,
     *,
     family_id: uuid.UUID,
     scheduled_at: datetime,
+    profiles: dict[uuid.UUID, MealCandidatePlanningProfile],
 ) -> list[PlanningCandidateRead]:
     snapshots = session.scalars(
         select(FoodCompositionSnapshot)
@@ -267,6 +317,7 @@ def _food_candidates(
         if snapshot.id is None:
             raise PlanningBootstrapApiError("Food composition snapshot must be persisted.")
         food = snapshot.food_item
+        defaults = MAIN_MEAL_TYPES if food.food_kind == "dish" else ()
         result.append(
             PlanningCandidateRead(
                 candidate_kind="food_item",
@@ -281,6 +332,10 @@ def _food_candidates(
                 energy_kcal=snapshot.energy_kcal,
                 composition_version=snapshot.data_version,
                 composition_at=snapshot.effective_at,
+                suitable_meal_types=_suitable_meal_types(
+                    profiles.get(food.id),
+                    defaults=defaults,
+                ),
             )
         )
     return result
@@ -300,6 +355,7 @@ def _recipe_candidates(
     *,
     family_id: uuid.UUID,
     scheduled_at: datetime,
+    profiles: dict[uuid.UUID, MealCandidatePlanningProfile],
 ) -> list[PlanningCandidateRead]:
     snapshots = session.scalars(
         select(RecipeCompositionSnapshot)
@@ -345,6 +401,10 @@ def _recipe_candidates(
                 ),
                 composition_version=snapshot.composition_version,
                 composition_at=snapshot.computed_at,
+                suitable_meal_types=_suitable_meal_types(
+                    profiles.get(recipe.id),
+                    defaults=MAIN_MEAL_TYPES,
+                ),
             )
         )
     return result
@@ -374,14 +434,20 @@ def get_planning_bootstrap(
             planning_date=planning_date,
             scheduled_at=scheduled_at,
         )
+    food_profiles, recipe_profiles = _planning_profile_maps(
+        session,
+        family_id=person.family_id,
+    )
     candidates = _food_candidates(
         session,
         family_id=person.family_id,
         scheduled_at=scheduled_at,
+        profiles=food_profiles,
     ) + _recipe_candidates(
         session,
         family_id=person.family_id,
         scheduled_at=scheduled_at,
+        profiles=recipe_profiles,
     )
     candidates.sort(key=lambda candidate: (candidate.name.casefold(), candidate.catalog_key))
 
