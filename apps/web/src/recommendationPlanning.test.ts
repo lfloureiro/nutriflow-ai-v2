@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { PlanningCandidate } from "./api/types";
 import {
+  RECOMMENDATION_SOURCES,
   recommendationCandidates,
   recommendationDates,
   recommendationDeliveryProviderKeys,
@@ -30,6 +31,10 @@ function candidate(
 }
 
 describe("recommendation planning helpers", () => {
+  it("only exposes currently executable sources in the browser selector", () => {
+    expect(RECOMMENDATION_SOURCES).toEqual(["cooked", "restaurant"]);
+  });
+
   it("returns one day in single-day mode", () => {
     expect(recommendationDates("single", "2026-08-22", "2026-08-30")).toEqual([
       "2026-08-22",
