@@ -33,7 +33,7 @@ function candidate(
 }
 
 describe("recommendation planning helpers", () => {
-  it("only exposes currently executable sources in the browser selector", () => {
+  it("exposes recipes and live restaurant discovery in the browser selector", () => {
     expect(RECOMMENDATION_SOURCES).toEqual(["cooked", "restaurant"]);
   });
 
@@ -51,17 +51,17 @@ describe("recommendation planning helpers", () => {
     ]);
   });
 
-  it("maps executable provider choices to backend channels without duplicating delivery", () => {
+  it("only sends menu-backed sources into nutritional ranking", () => {
     expect(
       recommendationSourceKinds(["cooked", "uber_eats", "glovo", "restaurant"]),
-    ).toEqual(["home", "delivery", "restaurant"]);
+    ).toEqual(["home", "delivery"]);
     expect(recommendationDeliveryProviderKeys(["uber_eats", "glovo"])).toEqual([
       "uber_eats",
       "glovo",
     ]);
   });
 
-  it("uses recipes for cooked meals and dishes for commercial sources", () => {
+  it("does not pretend a discovered restaurant is a nutrition-ranked menu dish", () => {
     const candidates = [
       candidate("recipe", "recipe", "recipe-1"),
       candidate("food_item", "dish", "dish-1"),
@@ -72,7 +72,12 @@ describe("recommendation planning helpers", () => {
       recommendationCandidates(candidates, ["cooked", "restaurant"], "lunch").map(
         (item) => item.composition_id,
       ),
-    ).toEqual(["recipe-1", "dish-1"]);
+    ).toEqual(["recipe-1"]);
+    expect(
+      recommendationCandidates(candidates, ["uber_eats"], "lunch").map(
+        (item) => item.composition_id,
+      ),
+    ).toEqual(["dish-1"]);
   });
 
   it("keeps breakfast, snack and main-meal candidates in their own slots", () => {
@@ -80,29 +85,28 @@ describe("recommendation planning helpers", () => {
       candidate("recipe", "recipe", "breakfast", ["breakfast"]),
       candidate("recipe", "recipe", "snack", ["snack"]),
       candidate("recipe", "recipe", "main", ["lunch", "dinner"]),
-      candidate("food_item", "dish", "restaurant-main", ["lunch", "dinner"]),
+      candidate("food_item", "dish", "delivery-main", ["lunch", "dinner"]),
     ];
-    const sources = ["cooked", "restaurant"] as const;
 
     expect(
-      recommendationCandidates(candidates, [...sources], "breakfast").map(
+      recommendationCandidates(candidates, ["cooked"], "breakfast").map(
         (item) => item.composition_id,
       ),
     ).toEqual(["breakfast"]);
     expect(
-      recommendationCandidates(candidates, [...sources], "snack").map(
+      recommendationCandidates(candidates, ["cooked"], "snack").map(
         (item) => item.composition_id,
       ),
     ).toEqual(["snack"]);
     expect(
-      recommendationCandidates(candidates, [...sources], "lunch").map(
+      recommendationCandidates(candidates, ["cooked", "restaurant"], "lunch").map(
         (item) => item.composition_id,
       ),
-    ).toEqual(["main", "restaurant-main"]);
+    ).toEqual(["main"]);
     expect(
-      recommendationCandidates(candidates, [...sources], "dinner").map(
+      recommendationCandidates(candidates, ["cooked", "uber_eats"], "dinner").map(
         (item) => item.composition_id,
       ),
-    ).toEqual(["main", "restaurant-main"]);
+    ).toEqual(["main", "delivery-main"]);
   });
 });
