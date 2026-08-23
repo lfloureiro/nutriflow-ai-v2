@@ -1,3 +1,5 @@
+export type RecipeMealType = "breakfast" | "lunch" | "snack" | "dinner";
+
 export type RecipeIngredient = {
   id: string;
   food_item_id: string;
@@ -37,6 +39,7 @@ export type Recipe = {
   recipe_key: string;
   name: string;
   description: string | null;
+  suitable_meal_types: RecipeMealType[];
   yield_quantity: string | null;
   yield_unit: string | null;
   serving_count: string | null;
@@ -60,6 +63,7 @@ export type RecipeIngredientWrite = {
 export type RecipeCreate = {
   name: string;
   description?: string | null;
+  suitable_meal_types: RecipeMealType[];
   yield_quantity?: string | null;
   yield_unit?: string | null;
   serving_count?: string | null;
