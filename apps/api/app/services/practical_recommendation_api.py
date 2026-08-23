@@ -334,6 +334,7 @@ def create_practical_meal_recommendation(
         daily_nutrition_state_id=data.daily_nutrition_state_id,
         planning_date=data.planning_date,
         candidates=data.candidates,
+        meal_type=data.meal_type,
     )
     _validate_planning_instant(data, state_timezone=state.timezone)
     feedback_signals = {}
