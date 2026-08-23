@@ -1,9 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { getPerson, getPersonEnergyProfile, getPersonPlanningContext } from "./api/setupClient";
+import type { PersonEnergyProfile } from "./api/setupTypes";
 import type {
   FamilyDashboard,
   FamilyDashboardMeal,
   FamilyDashboardMember,
+  Person,
+  PlanningDailyNutritionState,
 } from "./api/types";
 import { memberDisplayName } from "./FamilyHome";
 import type { Locale } from "./i18n";
@@ -38,10 +42,17 @@ const COPY = {
     today: "Hoje",
     todayHelp: "O essencial desta pessoa para o dia atual.",
     consumed: "Energia consumida",
+    planned: "Planeadas",
+    assumed: "Assumidas",
     remaining: "Energia restante",
+    target: "Meta diária",
+    bmr: "Metabolismo basal",
+    tdee: "Gasto diário estimado",
     steps: "Passos",
     activeEnergy: "Energia ativa",
+    usualActivity: "Atividade habitual",
     weight: "Peso",
+    height: "Altura",
     weightTrend: "Tendência 7 dias",
     sleep: "Sono",
     restingHeartRate: "FC repouso",
@@ -50,16 +61,30 @@ const COPY = {
     noMeals: "Sem refeições para esta pessoa hoje.",
     noData: "Sem dados",
     kcal: "kcal",
-    placeholderNutrition:
-      "Aqui ficará a comparação detalhada entre consumo, planeamento e objetivos nutricionais.",
-    placeholderActivity:
-      "Aqui ficará o detalhe de movimento, energia ativa e histórico de atividade.",
+    breakfast: "Pequeno-almoço padrão",
+    goal: "Objetivo",
+    birthDate: "Data de nascimento",
+    sex: "Sexo para cálculo energético",
+    timezone: "Fuso horário",
+    male: "Masculino",
+    female: "Feminino",
+    sedentary: "Sedentário",
+    light: "Ligeira",
+    moderate: "Moderada",
+    active: "Ativo",
+    very_active: "Muito ativo",
+    maintain: "Manter peso",
+    lose: "Perder peso",
+    gain: "Ganhar peso",
+    perWeek: "kg/semana",
+    nutritionHelp: "Objetivos energéticos e estado do dia usados pelo recomendador.",
+    activityHelp:
+      "O nível habitual usado no cálculo energético aparece já; medições de atividade entram quando houver uma fonte ligada.",
+    profileHelp: "Dados de base usados para calcular necessidades energéticas e personalizar o planeamento.",
     placeholderHealth:
       "Aqui ficará a evidência de saúde e bem-estar proveniente das fontes ligadas, sem interpretação clínica automática.",
     placeholderHistory:
       "Aqui ficará a linha temporal de peso, atividade, nutrição e refeições.",
-    placeholderProfile:
-      "Aqui ficarão objetivos, restrições, preferências e integrações desta pessoa.",
     comingNext: "Ecrã dedicado",
   },
   en: {
@@ -73,10 +98,17 @@ const COPY = {
     today: "Today",
     todayHelp: "The essentials for this person today.",
     consumed: "Energy consumed",
+    planned: "Planned",
+    assumed: "Assumed",
     remaining: "Energy remaining",
+    target: "Daily target",
+    bmr: "Basal metabolism",
+    tdee: "Estimated daily expenditure",
     steps: "Steps",
     activeEnergy: "Active energy",
+    usualActivity: "Usual activity",
     weight: "Weight",
+    height: "Height",
     weightTrend: "7-day trend",
     sleep: "Sleep",
     restingHeartRate: "Resting HR",
@@ -85,16 +117,30 @@ const COPY = {
     noMeals: "No meals for this person today.",
     noData: "No data",
     kcal: "kcal",
-    placeholderNutrition:
-      "This screen will show detailed intake, planning and nutrition-target comparisons.",
-    placeholderActivity:
-      "This screen will show movement, active energy and activity history.",
+    breakfast: "Standard breakfast",
+    goal: "Goal",
+    birthDate: "Date of birth",
+    sex: "Sex for energy calculation",
+    timezone: "Timezone",
+    male: "Male",
+    female: "Female",
+    sedentary: "Sedentary",
+    light: "Light",
+    moderate: "Moderate",
+    active: "Active",
+    very_active: "Very active",
+    maintain: "Maintain weight",
+    lose: "Lose weight",
+    gain: "Gain weight",
+    perWeek: "kg/week",
+    nutritionHelp: "Energy targets and today's state used by the recommendation engine.",
+    activityHelp:
+      "The usual activity level used for energy calculations is available now; measured activity appears when a source is connected.",
+    profileHelp: "Base data used to calculate energy needs and personalize planning.",
     placeholderHealth:
       "This screen will show connected-source health and wellness evidence without automatic clinical interpretation.",
     placeholderHistory:
       "This screen will show the timeline of weight, activity, nutrition and meals.",
-    placeholderProfile:
-      "This screen will hold goals, constraints, preferences and integrations for this person.",
     comingNext: "Dedicated screen",
   },
 } as const;
@@ -108,10 +154,25 @@ export function personMeals(
 
 function formatNumber(value: string | number, locale: Locale, digits = 0): string {
   const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return String(value);
-  }
+  if (!Number.isFinite(numeric)) return String(value);
   return new Intl.NumberFormat(locale, { maximumFractionDigits: digits }).format(numeric);
+}
+
+function kcal(value: string | number | null | undefined, locale: Locale): string | null {
+  if (value === null || value === undefined) return null;
+  return `${formatNumber(value, locale)} kcal`;
+}
+
+function energyRange(
+  minimum: string | null | undefined,
+  maximum: string | null | undefined,
+  locale: Locale,
+): string | null {
+  if (minimum === null || minimum === undefined) {
+    return maximum === null || maximum === undefined ? null : kcal(maximum, locale);
+  }
+  if (maximum === null || maximum === undefined) return kcal(minimum, locale);
+  return `${formatNumber(minimum, locale)}–${formatNumber(maximum, locale)} kcal`;
 }
 
 function formatMealTime(scheduledAt: string, timezone: string, locale: Locale): string {
@@ -122,23 +183,24 @@ function formatMealTime(scheduledAt: string, timezone: string, locale: Locale): 
   }).format(new Date(scheduledAt));
 }
 
+function formatDate(value: string | null, locale: Locale): string | null {
+  if (!value) return null;
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "UTC" }).format(
+    new Date(`${value}T00:00:00Z`),
+  );
+}
+
 function formatSleep(minutes: number | null, locale: Locale): string | null {
-  if (minutes === null) {
-    return null;
-  }
+  if (minutes === null) return null;
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
   return locale === "pt-PT" ? `${hours} h ${rest} min` : `${hours}h ${rest}m`;
 }
 
 function signedTrend(value: string | null, locale: Locale): string | null {
-  if (value === null) {
-    return null;
-  }
+  if (value === null) return null;
   const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return value;
-  }
+  if (!Number.isFinite(numeric)) return value;
   const formatted = new Intl.NumberFormat(locale, {
     maximumFractionDigits: 1,
     signDisplay: "always",
@@ -150,26 +212,31 @@ function sectionLabel(section: PersonSection, locale: Locale): string {
   return COPY[locale][section];
 }
 
-function PlaceholderSection({ section, locale }: { section: PersonSection; locale: Locale }) {
-  const copy = COPY[locale];
-  const text =
-    section === "nutrition"
-      ? copy.placeholderNutrition
-      : section === "activity"
-        ? copy.placeholderActivity
-        : section === "health"
-          ? copy.placeholderHealth
-          : section === "history"
-            ? copy.placeholderHistory
-            : copy.placeholderProfile;
+function DetailItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="person-detail-item">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
 
+function PlaceholderSection({ section, locale }: { section: "health" | "history"; locale: Locale }) {
+  const copy = COPY[locale];
   return (
     <section className="person-placeholder">
       <span className="eyebrow">{copy.comingNext}</span>
       <h2>{sectionLabel(section, locale)}</h2>
-      <p>{text}</p>
+      <p>{section === "health" ? copy.placeholderHealth : copy.placeholderHistory}</p>
     </section>
   );
+}
+
+function goalText(profile: PersonEnergyProfile, locale: Locale): string {
+  const copy = COPY[locale];
+  const base = copy[profile.goal_type];
+  if (profile.target_rate_kg_per_week === null) return base;
+  return `${base} · ${formatNumber(profile.target_rate_kg_per_week, locale, 1)} ${copy.perWeek}`;
 }
 
 export default function PersonOverview({
@@ -184,20 +251,43 @@ export default function PersonOverview({
   const { locale } = useI18n();
   const copy = COPY[locale];
   const [section, setSection] = useState<PersonSection>("overview");
+  const [person, setPerson] = useState<Person | null>(null);
+  const [profile, setProfile] = useState<PersonEnergyProfile | null>(null);
+  const [dailyState, setDailyState] = useState<PlanningDailyNutritionState | null>(null);
   const meals = useMemo(
     () => personMeals(dashboard, member.person_id),
     [dashboard, member.person_id],
   );
 
-  const remaining = member.nutrition
-    ? [member.nutrition.energy_remaining_min_kcal, member.nutrition.energy_remaining_max_kcal]
-        .filter((value): value is string => value !== null)
-        .map((value) => formatNumber(value, locale))
-        .join("–")
-    : "";
+  useEffect(() => {
+    let cancelled = false;
+    const now = new Date().toISOString();
+    void Promise.all([
+      getPerson(member.person_id).catch(() => null),
+      getPersonEnergyProfile(member.person_id).catch(() => null),
+      getPersonPlanningContext(member.person_id, now).catch(() => null),
+    ]).then(([personResult, profileResult, contextResult]) => {
+      if (cancelled) return;
+      setPerson(personResult);
+      setProfile(profileResult);
+      setDailyState(contextResult?.daily_nutrition_state ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [member.person_id]);
 
+  const consumed = dailyState?.energy_consumed_kcal ?? member.nutrition?.energy_consumed_kcal;
+  const planned = dailyState?.energy_planned_kcal ?? member.nutrition?.energy_planned_kcal;
+  const assumed = dailyState?.energy_assumed_kcal ?? "0";
+  const remainingMin =
+    dailyState?.energy_remaining_min_kcal ?? member.nutrition?.energy_remaining_min_kcal;
+  const remainingMax =
+    dailyState?.energy_remaining_max_kcal ?? member.nutrition?.energy_remaining_max_kcal;
+  const remaining = energyRange(remainingMin, remainingMax, locale);
   const sleep = member.health ? formatSleep(member.health.sleep_duration_minutes, locale) : null;
   const trend = member.health ? signedTrend(member.health.weight_trend_7d_kg, locale) : null;
+  const weight = profile?.weight_kg ?? member.health?.latest_weight_kg ?? null;
 
   return (
     <div className="person-overview-screen">
@@ -245,16 +335,8 @@ export default function PersonOverview({
             <div className="person-metric-grid">
               <article className="person-metric-card">
                 <span>{copy.consumed}</span>
-                <strong>
-                  {member.nutrition
-                    ? `${formatNumber(member.nutrition.energy_consumed_kcal, locale)} ${copy.kcal}`
-                    : copy.noData}
-                </strong>
-                <small>
-                  {member.nutrition && remaining
-                    ? `${copy.remaining}: ${remaining} ${copy.kcal}`
-                    : copy.noData}
-                </small>
+                <strong>{kcal(consumed, locale) ?? copy.noData}</strong>
+                <small>{remaining ? `${copy.remaining}: ${remaining}` : copy.noData}</small>
               </article>
 
               <article className="person-metric-card">
@@ -265,20 +347,18 @@ export default function PersonOverview({
                     : copy.noData}
                 </strong>
                 <small>
-                  {member.health?.active_energy_kcal
-                    ? `${copy.activeEnergy}: ${formatNumber(member.health.active_energy_kcal, locale)} ${copy.kcal}`
-                    : copy.noData}
+                  {profile
+                    ? `${copy.usualActivity}: ${copy[profile.activity_level]}`
+                    : member.health?.active_energy_kcal
+                      ? `${copy.activeEnergy}: ${formatNumber(member.health.active_energy_kcal, locale)} ${copy.kcal}`
+                      : copy.noData}
                 </small>
               </article>
 
               <article className="person-metric-card">
                 <span>{copy.weight}</span>
-                <strong>
-                  {member.health?.latest_weight_kg
-                    ? `${formatNumber(member.health.latest_weight_kg, locale, 1)} kg`
-                    : copy.noData}
-                </strong>
-                <small>{trend ? `${copy.weightTrend}: ${trend}` : copy.noData}</small>
+                <strong>{weight ? `${formatNumber(weight, locale, 1)} kg` : copy.noData}</strong>
+                <small>{trend ? `${copy.weightTrend}: ${trend}` : profile ? copy.goal + ": " + goalText(profile, locale) : copy.noData}</small>
               </article>
 
               <article className="person-metric-card">
@@ -321,9 +401,86 @@ export default function PersonOverview({
             )}
           </section>
         </div>
-      ) : (
+      ) : null}
+
+      {section === "nutrition" ? (
+        <section className="person-section">
+          <div className="home-section__heading">
+            <div>
+              <h2>{copy.nutrition}</h2>
+              <p>{copy.nutritionHelp}</p>
+            </div>
+          </div>
+          <div className="person-detail-grid">
+            <DetailItem
+              label={copy.target}
+              value={profile ? energyRange(profile.energy_min_kcal, profile.energy_max_kcal, locale) ?? copy.noData : copy.noData}
+            />
+            <DetailItem label={copy.consumed} value={kcal(consumed, locale) ?? copy.noData} />
+            <DetailItem label={copy.planned} value={kcal(planned, locale) ?? copy.noData} />
+            <DetailItem label={copy.assumed} value={kcal(assumed, locale) ?? copy.noData} />
+            <DetailItem label={copy.remaining} value={remaining ?? copy.noData} />
+            <DetailItem label={copy.tdee} value={profile ? kcal(profile.estimated_tdee_kcal, locale) ?? copy.noData : copy.noData} />
+            <DetailItem label={copy.bmr} value={profile ? kcal(profile.estimated_bmr_kcal, locale) ?? copy.noData : copy.noData} />
+            <DetailItem label={copy.breakfast} value={profile ? kcal(profile.standard_breakfast_kcal, locale) ?? copy.noData : copy.noData} />
+            <DetailItem label={copy.goal} value={profile ? goalText(profile, locale) : copy.noData} />
+          </div>
+        </section>
+      ) : null}
+
+      {section === "activity" ? (
+        <section className="person-section">
+          <div className="home-section__heading">
+            <div>
+              <h2>{copy.activity}</h2>
+              <p>{copy.activityHelp}</p>
+            </div>
+          </div>
+          <div className="person-detail-grid">
+            <DetailItem
+              label={copy.usualActivity}
+              value={profile ? copy[profile.activity_level] : copy.noData}
+            />
+            <DetailItem
+              label={copy.tdee}
+              value={profile ? kcal(profile.estimated_tdee_kcal, locale) ?? copy.noData : copy.noData}
+            />
+            <DetailItem
+              label={copy.steps}
+              value={member.health?.steps !== null && member.health?.steps !== undefined ? formatNumber(member.health.steps, locale) : copy.noData}
+            />
+            <DetailItem
+              label={copy.activeEnergy}
+              value={member.health?.active_energy_kcal ? kcal(member.health.active_energy_kcal, locale) ?? copy.noData : copy.noData}
+            />
+          </div>
+        </section>
+      ) : null}
+
+      {section === "profile" ? (
+        <section className="person-section">
+          <div className="home-section__heading">
+            <div>
+              <h2>{copy.profile}</h2>
+              <p>{copy.profileHelp}</p>
+            </div>
+          </div>
+          <div className="person-detail-grid">
+            <DetailItem label={copy.birthDate} value={formatDate(person?.birth_date ?? null, locale) ?? copy.noData} />
+            <DetailItem label={copy.sex} value={profile ? copy[profile.sex_for_energy_calculation] : copy.noData} />
+            <DetailItem label={copy.height} value={profile ? `${formatNumber(profile.height_cm, locale, 1)} cm` : copy.noData} />
+            <DetailItem label={copy.weight} value={profile ? `${formatNumber(profile.weight_kg, locale, 1)} kg` : copy.noData} />
+            <DetailItem label={copy.usualActivity} value={profile ? copy[profile.activity_level] : copy.noData} />
+            <DetailItem label={copy.goal} value={profile ? goalText(profile, locale) : copy.noData} />
+            <DetailItem label={copy.timezone} value={person?.timezone ?? member.timezone} />
+            <DetailItem label={copy.breakfast} value={profile ? kcal(profile.standard_breakfast_kcal, locale) ?? copy.noData : copy.noData} />
+          </div>
+        </section>
+      ) : null}
+
+      {section === "health" || section === "history" ? (
         <PlaceholderSection locale={locale} section={section} />
-      )}
+      ) : null}
     </div>
   );
 }
