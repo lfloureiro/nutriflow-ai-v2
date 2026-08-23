@@ -14,6 +14,7 @@ export type SharedPracticalRecommendationRequest = {
   available_minutes: number | null;
   has_kitchen: boolean | null;
   source_kinds: PracticalSourceKind[];
+  delivery_provider_keys: string[];
   provisional_history: RecommendationHistoryHint[];
   auto_size_portions?: boolean;
   max_results: number | null;
