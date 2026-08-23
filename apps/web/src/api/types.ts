@@ -261,3 +261,5 @@ export type RecommendationDecision = {
   scheduled_at: string | null;
   quantity_planned: string | null;
   quantity_unit: string | null;
+  energy_planned_kcal: string | null;
+};
