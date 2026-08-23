@@ -5,6 +5,9 @@ from app.db.session import SessionLocal
 from app.demo_nutrition_target_seed import seed_demo_nutrition_targets
 from app.demo_seed import seed_demo_dataset
 from app.development_breakfast_seed import seed_development_breakfast_catalog
+from app.development_legacy_recipe_planning_seed import (
+    seed_development_legacy_recipe_planning_catalog,
+)
 from app.development_planning_profile_seed import seed_development_planning_profiles
 from app.development_snack_seed import seed_development_snack_catalog
 from app.legacy_v1_loureiro_seed import seed_loureiro_v1_snapshot
@@ -50,6 +53,7 @@ def main() -> None:
         if loureiro_family is None:
             raise RuntimeError("Família Loureiro could not be loaded after v1 import.")
         _configure_loureiro_meal_sources(loureiro_family)
+        legacy_planning = seed_development_legacy_recipe_planning_catalog(session)
 
         breakfasts = seed_development_breakfast_catalog(
             session,
@@ -71,6 +75,7 @@ def main() -> None:
     print(f"Família Loureiro members: {loureiro.member_count}")
     print(f"Real v1 recipe ingredients used: {loureiro.ingredient_count}")
     print(f"Real v1 shared recipes: {loureiro.recipe_count}")
+    print(f"Planning-visible real v1 shared recipes: {legacy_planning.recipe_count}")
     print(f"Família Loureiro v1 ratings: {loureiro.rating_count}")
     print(f"Shared breakfast recipes: {breakfasts.recipe_count}")
     print(f"Shared breakfast ingredients: {breakfasts.ingredient_count}")
