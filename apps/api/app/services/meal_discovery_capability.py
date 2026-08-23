@@ -20,7 +20,12 @@ def _provider_capability(
     if integration.live:
         status = "ready"
         detail = f"{integration.display_name} live provider adapter is configured."
-    elif integration.credentials_present:
+    elif not integration.credentials_present:
+        status = "integration_required"
+        detail = (
+            f"{integration.display_name} credentials are not configured. {integration.detail}"
+        )
+    elif not integration.consumer_discovery_enabled:
         status = "integration_required"
         detail = (
             f"Credentials for {integration.display_name} are present, but consumer discovery "
@@ -29,7 +34,8 @@ def _provider_capability(
     else:
         status = "integration_required"
         detail = (
-            f"{integration.display_name} credentials are not configured. {integration.detail}"
+            f"{integration.display_name} credentials and consumer access are configured, but no "
+            "executable provider adapter is registered in this installation."
         )
     return MealDiscoveryCapabilityRead(
         source=provider_key,
