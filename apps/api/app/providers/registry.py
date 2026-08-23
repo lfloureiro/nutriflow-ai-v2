@@ -1,5 +1,9 @@
-from app.providers.meal_delivery import MealDeliveryDiscoveryAdapter
+from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.providers.meal_delivery import MealDeliveryDiscoveryAdapter
 
 _MEAL_DELIVERY_ADAPTERS: dict[str, MealDeliveryDiscoveryAdapter] = {}
 
