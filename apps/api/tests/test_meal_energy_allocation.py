@@ -89,7 +89,7 @@ def test_candidate_is_rounded_to_practical_quarter_serving() -> None:
 
     assert result.portion_factor == Decimal("1.25")
     assert result.candidate.quantity == Decimal("1.2500")
-    assert result.candidate.nutrition.energy_kcal == Decimal("625.0000")
+    assert result.candidate.nutrition.energy_kcal == Decimal("625.00")
 
 
 def test_portion_factor_is_bounded_for_extreme_candidates() -> None:
