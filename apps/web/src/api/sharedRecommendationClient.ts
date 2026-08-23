@@ -41,7 +41,7 @@ export function requestSharedPracticalRecommendation(
 ): Promise<SharedPracticalRecommendation> {
   return request<SharedPracticalRecommendation>(basePath(familyId), {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, auto_size_portions: true }),
   });
 }
 
@@ -51,6 +51,6 @@ export function planSharedPracticalRecommendation(
 ): Promise<SharedPracticalPlan> {
   return request<SharedPracticalPlan>(`${basePath(familyId)}/plan`, {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, auto_size_portions: true }),
   });
 }
