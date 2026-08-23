@@ -356,6 +356,7 @@ def get_planning_bootstrap(
     person_id: uuid.UUID,
     scheduled_at: datetime,
     ensure_state: bool = False,
+    force_state_refresh: bool = False,
 ) -> PlanningBootstrapRead:
     _validate_scheduled_at(scheduled_at)
     person = _load_person(session, person_id)
@@ -365,7 +366,8 @@ def get_planning_bootstrap(
         person_id=person_id,
         planning_date=planning_date,
     )
-    if ensure_state and (state is None or not _preserve_synthetic_demo_state(state)):
+    should_refresh = force_state_refresh or state is None or not _preserve_synthetic_demo_state(state)
+    if ensure_state and should_refresh:
         state = _ensure_daily_state(
             session,
             person=person,
