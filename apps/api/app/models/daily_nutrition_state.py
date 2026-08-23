@@ -38,6 +38,10 @@ class DailyNutritionState(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             name="ck_daily_nutrition_states_energy_planned_nonnegative",
         ),
         CheckConstraint(
+            "energy_assumed_kcal >= 0",
+            name="ck_daily_nutrition_states_energy_assumed_nonnegative",
+        ),
+        CheckConstraint(
             "energy_remaining_min_kcal IS NULL OR energy_remaining_max_kcal IS NULL "
             "OR energy_remaining_max_kcal >= energy_remaining_min_kcal",
             name="ck_daily_nutrition_states_energy_remaining_range_valid",
@@ -83,6 +87,11 @@ class DailyNutritionState(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         default=Decimal(0),
     )
     energy_planned_kcal: Mapped[Decimal] = mapped_column(
+        Numeric(10, 2),
+        nullable=False,
+        default=Decimal(0),
+    )
+    energy_assumed_kcal: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         default=Decimal(0),
