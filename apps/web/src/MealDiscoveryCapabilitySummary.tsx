@@ -29,6 +29,23 @@ const STATUS_LABELS = {
   },
 } as const;
 
+function detail(capability: MealDiscoveryCapability, locale: "pt-PT" | "en"): string {
+  if (locale === "en") return capability.detail;
+  if (capability.source === "shared_recipes") {
+    return "Catálogo partilhado e receitas próprias da família prontos a usar.";
+  }
+  if (capability.source === "restaurants") {
+    if (capability.status === "ready") {
+      return "Descoberta live de restaurantes através de OpenStreetMap disponível.";
+    }
+    if (capability.status === "needs_configuration") {
+      return "Define uma área de restaurantes para ativar a pesquisa live.";
+    }
+    return "Pesquisa live de restaurantes desativada nesta instalação.";
+  }
+  return `É necessário configurar uma integração autorizada com ${SOURCE_LABELS[capability.source][locale]}.`;
+}
+
 export default function MealDiscoveryCapabilitySummary({ familyId }: { familyId: string }) {
   const { locale } = useI18n();
   const [capabilities, setCapabilities] = useState<MealDiscoveryCapability[]>([]);
@@ -59,7 +76,7 @@ export default function MealDiscoveryCapabilitySummary({ familyId }: { familyId:
               {STATUS_LABELS[locale][capability.status]}
             </span>
           </div>
-          <small>{capability.detail}</small>
+          <small>{detail(capability, locale)}</small>
         </article>
       ))}
     </div>
