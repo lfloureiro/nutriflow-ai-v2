@@ -14,6 +14,12 @@ from app.services.commercial_availability import (
     CommercialOfferSnapshot,
     build_commercial_planning_context,
 )
+from app.services.meal_energy_allocation import (
+    PORTION_VERSION,
+    MealEnergyAllocation,
+    MealEnergyAllocationError,
+    size_candidates_for_meal,
+)
 from app.services.meal_recommendation import MealCandidate
 from app.services.meal_recommendation_api import (
     load_recommendation_inputs,
@@ -248,6 +254,41 @@ def _build_practical_channels(
     return channels, offers
 
 
+def _allocation_context(
+    allocation: MealEnergyAllocation | None,
+    factors: dict[str, object],
+) -> dict[str, object] | None:
+    if allocation is None:
+        return None
+    return {
+        "policy_version": allocation.policy_version,
+        "portion_version": PORTION_VERSION,
+        "meal_type": allocation.meal_type,
+        "weight": str(allocation.weight),
+        "daily_target_min_kcal": (
+            str(allocation.daily_target_min_kcal)
+            if allocation.daily_target_min_kcal is not None
+            else None
+        ),
+        "daily_target_max_kcal": (
+            str(allocation.daily_target_max_kcal)
+            if allocation.daily_target_max_kcal is not None
+            else None
+        ),
+        "meal_target_min_kcal": (
+            str(allocation.meal_target_min_kcal)
+            if allocation.meal_target_min_kcal is not None
+            else None
+        ),
+        "meal_target_max_kcal": (
+            str(allocation.meal_target_max_kcal)
+            if allocation.meal_target_max_kcal is not None
+            else None
+        ),
+        "portion_factors": {key: str(value) for key, value in sorted(factors.items())},
+    }
+
+
 def create_practical_meal_recommendation(
     session: Session,
     *,
@@ -263,8 +304,21 @@ def create_practical_meal_recommendation(
     )
     _validate_planning_instant(data, state_timezone=state.timezone)
     feedback_signals = {}
+    allocation: MealEnergyAllocation | None = None
+    portion_factors: dict[str, object] = {}
 
     try:
+        if data.auto_size_portions:
+            if data.meal_type is None:
+                raise PracticalRecommendationApiError(
+                    "auto_size_portions requires a meal_type."
+                )
+            candidates, allocation, portion_factors = size_candidates_for_meal(
+                candidates,
+                state,
+                meal_type=data.meal_type,
+            )
+
         channels, offers = _build_practical_channels(
             session,
             family_id=person.family_id,
@@ -282,6 +336,14 @@ def create_practical_meal_recommendation(
             preference.preference_type == "rating"
             for preference in person.food_preferences
         )
+        base_engine_version = (
+            "meal-recommendation-practical-v2"
+            if has_rating_signal
+            else "meal-recommendation-practical-v1"
+        )
+        if data.auto_size_portions:
+            base_engine_version = f"{base_engine_version}+{PORTION_VERSION}"
+
         recommendation = recommend_meals_with_practical_context(
             daily_state=state,
             candidates=candidates,
@@ -298,11 +360,7 @@ def create_practical_meal_recommendation(
             ),
             practical_profiles=practical_profiles,
             family_recipe_ratings=family_recipe_ratings,
-            engine_version=(
-                "meal-recommendation-practical-v2"
-                if has_rating_signal
-                else "meal-recommendation-practical-v1"
-            ),
+            engine_version=base_engine_version,
         )
         if data.meal_type is not None:
             recommendation = apply_diversity_to_recommendation(
@@ -324,6 +382,7 @@ def create_practical_meal_recommendation(
         )
     except (
         CommercialAvailabilityError,
+        MealEnergyAllocationError,
         PantryPlanningError,
         PersistedPracticalAvailabilityError,
         PracticalRecommendationError,
@@ -359,6 +418,8 @@ def create_practical_meal_recommendation(
                 {"plan_date": item.plan_date.isoformat(), "candidate_key": item.candidate_key}
                 for item in data.provisional_history
             ],
+            "auto_size_portions": data.auto_size_portions,
+            "meal_energy_allocation": _allocation_context(allocation, portion_factors),
             "max_results": data.max_results,
         },
     )
