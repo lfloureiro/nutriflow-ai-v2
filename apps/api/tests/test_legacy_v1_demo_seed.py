@@ -22,7 +22,7 @@ from app.services.recipe_catalogue import list_family_recipes
 NOW = datetime(2026, 8, 22, 18, 30, tzinfo=UTC)
 
 
-def test_legacy_v1_demo_catalog_is_idempotent_and_recommendation_ready(
+def test_legacy_v1_demo_catalog_is_idempotent_shared_and_recommendation_ready(
     db_session: Session,
 ) -> None:
     demo = seed_demo_dataset(db_session, now=NOW)
@@ -42,7 +42,7 @@ def test_legacy_v1_demo_catalog_is_idempotent_and_recommendation_ready(
         select(func.count())
         .select_from(FoodItem)
         .where(
-            FoodItem.family_id == DEMO_FAMILY_ID,
+            FoodItem.family_id.is_(None),
             FoodItem.source == LEGACY_V1_SOURCE,
             FoodItem.food_kind == "ingredient",
         )
@@ -51,7 +51,7 @@ def test_legacy_v1_demo_catalog_is_idempotent_and_recommendation_ready(
         select(func.count())
         .select_from(Recipe)
         .where(
-            Recipe.family_id == DEMO_FAMILY_ID,
+            Recipe.family_id.is_(None),
             Recipe.source == LEGACY_V1_SOURCE,
         )
     )
@@ -60,7 +60,7 @@ def test_legacy_v1_demo_catalog_is_idempotent_and_recommendation_ready(
 
     ingredients = db_session.scalars(
         select(FoodItem).where(
-            FoodItem.family_id == DEMO_FAMILY_ID,
+            FoodItem.family_id.is_(None),
             FoodItem.source == LEGACY_V1_SOURCE,
         )
     ).all()
@@ -76,6 +76,9 @@ def test_legacy_v1_demo_catalog_is_idempotent_and_recommendation_ready(
         "Esparguete à bolonhesa",
         "Salmão no forno com legumes",
     }
+    assert all(recipe.family_id is None for recipe in legacy_recipes)
+    assert all(recipe.scope == "shared" for recipe in legacy_recipes)
+    assert all(not recipe.editable for recipe in legacy_recipes)
     assert all(recipe.serving_count == 4 for recipe in legacy_recipes)
     assert all(recipe.latest_composition is not None for recipe in legacy_recipes)
     assert all(
@@ -89,6 +92,14 @@ def test_legacy_v1_demo_catalog_is_idempotent_and_recommendation_ready(
         for recipe in legacy_recipes
     )
     assert all(recipe.nutrition_issues == [SYNTHETIC_NUTRITION_NOTE] for recipe in legacy_recipes)
+
+    other_family = Family(name="Other family", timezone="Europe/Lisbon")
+    db_session.add(other_family)
+    db_session.flush()
+    other_family_recipes = list_family_recipes(db_session, other_family.id)
+    assert {recipe.recipe_key for recipe in other_family_recipes} == {
+        recipe.recipe_key for recipe in legacy_recipes
+    }
 
     bootstrap = get_planning_bootstrap(
         db_session,
