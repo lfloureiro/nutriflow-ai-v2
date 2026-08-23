@@ -2,6 +2,25 @@ import type { Person } from "./types";
 
 export type MealDiscoverySource = "shared_recipes" | "uber_eats" | "glovo" | "restaurants";
 
+export type MealDiscoveryCapabilityStatus =
+  | "ready"
+  | "needs_configuration"
+  | "integration_required"
+  | "disabled";
+
+export type MealDiscoveryCapability = {
+  source: MealDiscoverySource;
+  selected: boolean;
+  supported: boolean;
+  live: boolean;
+  status: MealDiscoveryCapabilityStatus;
+  detail: string;
+};
+
+export type MealDiscoveryCapabilities = {
+  capabilities: MealDiscoveryCapability[];
+};
+
 export type Family = {
   id: string;
   name: string;
