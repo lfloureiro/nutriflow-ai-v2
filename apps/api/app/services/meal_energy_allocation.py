@@ -1,4 +1,4 @@
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 
 from app.models.daily_nutrition_state import DailyNutritionState
@@ -85,7 +85,8 @@ def _bounded_meal_target(
         return None
     target = _q_energy(daily_target * weight)
     if remaining_max is not None:
-        target = min(target, _positive_remaining(remaining_max) or ZERO)
+        positive_remaining = _positive_remaining(remaining_max)
+        target = min(target, positive_remaining if positive_remaining is not None else ZERO)
     return _q_energy(max(target, ZERO))
 
 
@@ -97,7 +98,9 @@ def allocate_meal_energy(
     try:
         weight = MEAL_ENERGY_WEIGHTS[meal_type]
     except KeyError as exc:
-        raise MealEnergyAllocationError(f"Unsupported meal type for energy allocation: {meal_type!r}.") from exc
+        raise MealEnergyAllocationError(
+            f"Unsupported meal type for energy allocation: {meal_type!r}."
+        ) from exc
 
     daily_min = _daily_target(state, state.energy_remaining_min_kcal)
     daily_max = _daily_target(state, state.energy_remaining_max_kcal)
@@ -170,17 +173,10 @@ def size_candidate_for_meal(
     energy = candidate.nutrition.energy_kcal
 
     if target is None or energy is None or energy <= ZERO or target <= ZERO:
-        factor = ONE
-        resized = replace(
-            candidate,
-            portion_factor=factor,
-            meal_energy_target_min_kcal=allocation.meal_target_min_kcal,
-            meal_energy_target_max_kcal=allocation.meal_target_max_kcal,
-        )
         return PortionSizingResult(
-            candidate=resized,
+            candidate=candidate,
             allocation=allocation,
-            portion_factor=factor,
+            portion_factor=ONE,
         )
 
     factor = _round_portion_factor(target / energy)
@@ -188,15 +184,8 @@ def size_candidate_for_meal(
         QUANTITY_QUANTUM,
         rounding=ROUND_HALF_UP,
     )
-    rebuilt = _rebuild_candidate(candidate, quantity=quantity)
-    resized = replace(
-        rebuilt,
-        portion_factor=factor,
-        meal_energy_target_min_kcal=allocation.meal_target_min_kcal,
-        meal_energy_target_max_kcal=allocation.meal_target_max_kcal,
-    )
     return PortionSizingResult(
-        candidate=resized,
+        candidate=_rebuild_candidate(candidate, quantity=quantity),
         allocation=allocation,
         portion_factor=factor,
     )
@@ -207,10 +196,12 @@ def size_candidates_for_meal(
     state: DailyNutritionState,
     *,
     meal_type: str,
-) -> tuple[list[MealCandidate], MealEnergyAllocation]:
+) -> tuple[list[MealCandidate], MealEnergyAllocation, dict[str, Decimal]]:
     allocation = allocate_meal_energy(state, meal_type=meal_type)
     resized: list[MealCandidate] = []
+    factors: dict[str, Decimal] = {}
     for candidate in candidates:
         result = size_candidate_for_meal(candidate, state, meal_type=meal_type)
         resized.append(result.candidate)
-    return resized, allocation
+        factors[candidate.key] = result.portion_factor
+    return resized, allocation, factors
