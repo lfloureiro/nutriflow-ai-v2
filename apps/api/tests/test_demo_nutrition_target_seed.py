@@ -49,5 +49,6 @@ def test_demo_nutrition_targets_cover_all_people_and_future_planning(db_session:
     assert future.daily_nutrition_state is not None
     assert future.daily_nutrition_state.energy_consumed_kcal == Decimal("0.00")
     assert future.daily_nutrition_state.energy_planned_kcal == Decimal("0.00")
-    assert future.daily_nutrition_state.energy_remaining_min_kcal == Decimal("1800.00")
-    assert future.daily_nutrition_state.energy_remaining_max_kcal == Decimal("2000.00")
+    assert future.daily_nutrition_state.energy_assumed_kcal == Decimal("350.00")
+    assert future.daily_nutrition_state.energy_remaining_min_kcal == Decimal("1450.00")
+    assert future.daily_nutrition_state.energy_remaining_max_kcal == Decimal("1650.00")
