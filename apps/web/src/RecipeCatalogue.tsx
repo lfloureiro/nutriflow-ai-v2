@@ -9,8 +9,15 @@ import {
   updateFamilyRecipe,
 } from "./api/client";
 import type { Ingredient } from "./api/ingredientTypes";
-import type { Recipe, RecipeCreate, RecipeIngredientWrite } from "./api/recipeTypes";
+import type {
+  Recipe,
+  RecipeCreate,
+  RecipeIngredientWrite,
+  RecipeMealType,
+} from "./api/recipeTypes";
 import { useI18n, type Locale } from "./i18n";
+
+const MEAL_TYPES: RecipeMealType[] = ["breakfast", "lunch", "snack", "dinner"];
 
 const COPY = {
   "pt-PT": {
@@ -37,6 +44,12 @@ const COPY = {
     identity: "Receita",
     name: "Nome",
     description: "Descrição / preparação",
+    mealTypes: "Pode ser sugerida em",
+    mealTypesHelp: "Isto impede, por exemplo, um pequeno-almoço de aparecer ao almoço ou jantar.",
+    breakfast: "Pequeno-almoço",
+    lunch: "Almoço",
+    snack: "Lanche",
+    dinner: "Jantar",
     servings: "Número de doses",
     yieldQuantity: "Rendimento final",
     yieldUnit: "Unidade do rendimento",
@@ -62,6 +75,7 @@ const COPY = {
     issues: "Dados em falta",
     kcal: "kcal",
     requiredName: "Indica o nome da receita.",
+    requiredMealType: "Seleciona pelo menos um tipo de refeição.",
     requiredIngredient: "Escolhe um ingrediente em todas as linhas.",
     invalidQuantity: "As quantidades têm de ser números maiores que zero.",
     invalidYield: "O rendimento e a respetiva unidade têm de ser preenchidos em conjunto.",
@@ -91,6 +105,12 @@ const COPY = {
     identity: "Recipe",
     name: "Name",
     description: "Description / preparation",
+    mealTypes: "Can be suggested for",
+    mealTypesHelp: "This prevents, for example, a breakfast recipe from appearing at lunch or dinner.",
+    breakfast: "Breakfast",
+    lunch: "Lunch",
+    snack: "Snack",
+    dinner: "Dinner",
     servings: "Serving count",
     yieldQuantity: "Finished yield",
     yieldUnit: "Yield unit",
@@ -116,6 +136,7 @@ const COPY = {
     issues: "Missing evidence",
     kcal: "kcal",
     requiredName: "Enter a recipe name.",
+    requiredMealType: "Select at least one meal type.",
     requiredIngredient: "Choose an ingredient on every row.",
     invalidQuantity: "Quantities must be numbers greater than zero.",
     invalidYield: "Yield quantity and unit must be provided together.",
@@ -133,6 +154,7 @@ type EditableIngredient = {
 type EditorValues = {
   name: string;
   description: string;
+  mealTypes: RecipeMealType[];
   servingCount: string;
   yieldQuantity: string;
   yieldUnit: string;
@@ -159,6 +181,7 @@ function initialValues(recipe: Recipe | null): EditorValues {
   return {
     name: recipe?.name ?? "",
     description: recipe?.description ?? "",
+    mealTypes: recipe?.suitable_meal_types ?? ["lunch", "dinner"],
     servingCount: recipe?.serving_count ?? "4",
     yieldQuantity: recipe?.yield_quantity ?? "",
     yieldUnit: recipe?.yield_unit ?? "g",
@@ -233,6 +256,10 @@ function SharedRecipeViewer({ recipe, onDone }: { recipe: Recipe; onDone: () => 
           </div>
           <div className="person-detail-grid">
             <div className="person-detail-item">
+              <span>{copy.mealTypes}</span>
+              <strong>{recipe.suitable_meal_types.map((type) => copy[type]).join(" · ")}</strong>
+            </div>
+            <div className="person-detail-item">
               <span>{copy.servings}</span>
               <strong>{recipe.serving_count ?? "—"}</strong>
             </div>
@@ -304,11 +331,24 @@ function RecipeEditor({
     });
   }
 
+  function toggleMealType(mealType: RecipeMealType) {
+    setValues((current) => ({
+      ...current,
+      mealTypes: current.mealTypes.includes(mealType)
+        ? current.mealTypes.filter((value) => value !== mealType)
+        : [...current.mealTypes, mealType],
+    }));
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     if (!values.name.trim()) {
       setError(copy.requiredName);
+      return;
+    }
+    if (values.mealTypes.length === 0) {
+      setError(copy.requiredMealType);
       return;
     }
     if (values.ingredients.some((item) => !item.foodItemId)) {
@@ -338,6 +378,7 @@ function RecipeEditor({
     const payload: RecipeCreate = {
       name: values.name.trim(),
       description: values.description.trim() || null,
+      suitable_meal_types: values.mealTypes,
       serving_count: values.servingCount.trim() ? decimalText(values.servingCount) : null,
       yield_quantity: hasYield ? decimalText(values.yieldQuantity) : null,
       yield_unit: hasYield ? values.yieldUnit : null,
@@ -419,6 +460,22 @@ function RecipeEditor({
                 onChange={(event) => setValues({ ...values, description: event.target.value })}
               />
             </label>
+            <div className="field recipe-wide">
+              <span>{copy.mealTypes}</span>
+              <small className="muted">{copy.mealTypesHelp}</small>
+              <div className="segmented-control">
+                {MEAL_TYPES.map((mealType) => (
+                  <button
+                    className={values.mealTypes.includes(mealType) ? "active" : ""}
+                    key={mealType}
+                    onClick={() => toggleMealType(mealType)}
+                    type="button"
+                  >
+                    {copy[mealType]}
+                  </button>
+                ))}
+              </div>
+            </div>
             <label className="field">
               <span>{copy.servings}</span>
               <input
@@ -612,12 +669,7 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
 
   if (selected !== undefined) {
     if (selected !== null && !selected.editable) {
-      return (
-        <SharedRecipeViewer
-          recipe={selected}
-          onDone={() => setSelected(undefined)}
-        />
-      );
+      return <SharedRecipeViewer recipe={selected} onDone={() => setSelected(undefined)} />;
     }
     return (
       <RecipeEditor
@@ -685,7 +737,7 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
               <span className="ingredient-row__main">
                 <strong>{recipe.name}</strong>
                 <small>
-                  {recipe.ingredients.length} {copy.ingredients.toLowerCase()} · {recipeNutritionSummary(recipe, locale)}
+                  {recipe.suitable_meal_types.map((type) => copy[type]).join(" · ")} · {recipe.ingredients.length} {copy.ingredients.toLowerCase()} · {recipeNutritionSummary(recipe, locale)}
                 </small>
               </span>
               <span className="ingredient-row__end">
