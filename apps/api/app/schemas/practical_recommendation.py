@@ -33,6 +33,7 @@ class PracticalMealRecommendationCreate(BaseModel):
         min_length=1,
         max_length=5,
     )
+    delivery_provider_keys: list[str] = Field(default_factory=list, max_length=20)
     provisional_history: list[RecommendationHistoryHint] = Field(
         default_factory=list,
         max_length=14,
