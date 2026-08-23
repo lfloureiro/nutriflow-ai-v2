@@ -122,6 +122,14 @@ def _ensure_daily_state(
     return state
 
 
+def _preserve_synthetic_demo_state(state: DailyNutritionState) -> bool:
+    inputs = state.calculation_inputs or {}
+    return (
+        state.calculation_version == "demo-energy-budget-v1"
+        and inputs.get("source") == "synthetic-development-demo"
+    )
+
+
 def _daily_state_read(state: DailyNutritionState) -> PlanningDailyNutritionStateRead:
     if state.id is None:
         raise PlanningBootstrapApiError("DailyNutritionState must be persisted.")
@@ -280,7 +288,7 @@ def get_planning_bootstrap(
         person_id=person_id,
         planning_date=planning_date,
     )
-    if state is None and ensure_state:
+    if ensure_state and (state is None or not _preserve_synthetic_demo_state(state)):
         state = _ensure_daily_state(
             session,
             person=person,
