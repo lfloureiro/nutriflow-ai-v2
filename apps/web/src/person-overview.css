@@ -93,13 +93,15 @@
   box-shadow: var(--shadow-soft);
 }
 
-.person-metric-grid {
+.person-metric-grid,
+.person-detail-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3);
 }
 
-.person-metric-card {
+.person-metric-card,
+.person-detail-item {
   display: grid;
   gap: 0.35rem;
   min-width: 0;
@@ -109,7 +111,8 @@
   background: var(--surface-soft);
 }
 
-.person-metric-card > span {
+.person-metric-card > span,
+.person-detail-item > span {
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 720;
@@ -117,6 +120,11 @@
 
 .person-metric-card strong {
   font-size: clamp(1.05rem, 2vw, 1.35rem);
+  overflow-wrap: anywhere;
+}
+
+.person-detail-item strong {
+  font-size: 0.95rem;
   overflow-wrap: anywhere;
 }
 
@@ -188,7 +196,8 @@
 }
 
 @media (max-width: 980px) {
-  .person-metric-grid {
+  .person-metric-grid,
+  .person-detail-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -208,7 +217,8 @@
     flex-basis: 52px;
   }
 
-  .person-metric-grid {
+  .person-metric-grid,
+  .person-detail-grid {
     grid-template-columns: 1fr;
   }
 
