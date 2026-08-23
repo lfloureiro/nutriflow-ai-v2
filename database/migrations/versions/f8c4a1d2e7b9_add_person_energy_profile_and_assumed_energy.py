@@ -32,9 +32,9 @@ def upgrade() -> None:
         "('sedentary', 'light', 'moderate', 'active', 'very_active')",
     )
     op.create_check_constraint(
-        "ck_person_profiles_standard_breakfast_positive",
+        "ck_person_profiles_standard_breakfast_nonnegative",
         "person_profiles",
-        "standard_breakfast_kcal IS NULL OR standard_breakfast_kcal > 0",
+        "standard_breakfast_kcal IS NULL OR standard_breakfast_kcal >= 0",
     )
 
     op.add_column(
@@ -62,7 +62,7 @@ def downgrade() -> None:
     op.drop_column("daily_nutrition_states", "energy_assumed_kcal")
 
     op.drop_constraint(
-        "ck_person_profiles_standard_breakfast_positive",
+        "ck_person_profiles_standard_breakfast_nonnegative",
         "person_profiles",
         type_="check",
     )
