@@ -10,12 +10,14 @@ from app.models.meal_candidate_availability import (
     MealCandidateAvailability,
     MealCommercialOffer,
 )
+from app.models.person import Person
 from app.schemas.external_menu import (
     ExternalMenuItemObservationWrite,
     ExternalMenuNutritionWrite,
     ExternalMenuNutrientWrite,
 )
 from app.services.external_menu_ingestion import ingest_external_menu_item
+from app.services.planning_bootstrap_api import get_planning_bootstrap
 
 NOW = datetime(2026, 8, 23, 19, 0, tzinfo=UTC)
 
@@ -114,6 +116,14 @@ def test_external_menu_item_with_nutrition_creates_versioned_evidence(
     db_session: Session,
 ) -> None:
     family = _family(db_session)
+    person = Person(
+        family=family,
+        first_name="Ana",
+        preferred_locale="pt-PT",
+        timezone="Europe/Lisbon",
+    )
+    db_session.add(person)
+    db_session.flush()
 
     first = ingest_external_menu_item(
         db_session,
@@ -142,3 +152,14 @@ def test_external_menu_item_with_nutrition_creates_versioned_evidence(
     assert composition.source_reference == "https://example.invalid/menu/dish-456"
     assert composition.notes is not None
     assert '"evidence_level": "official"' in composition.notes
+
+    bootstrap = get_planning_bootstrap(
+        db_session,
+        person_id=person.id,
+        scheduled_at=NOW + timedelta(minutes=1),
+    )
+    candidate = next(
+        item for item in bootstrap.candidates if item.catalog_key == first.catalog_key
+    )
+    assert candidate.category == "dish"
+    assert candidate.energy_kcal == Decimal("640.0000")
