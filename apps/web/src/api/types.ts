@@ -175,6 +175,7 @@ export type PracticalRecommendationRequest = {
   has_kitchen: boolean | null;
   source_kinds: PracticalSourceKind[];
   provisional_history: RecommendationHistoryHint[];
+  auto_size_portions: boolean;
   max_results: number | null;
 };
 
