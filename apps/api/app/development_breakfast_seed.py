@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.family import Family
@@ -85,7 +85,12 @@ RECIPES = (
         Decimal(11),
         Decimal("2.5"),
         Decimal(330),
-        (_ri("coffee", "60", "ml"), _ri("milk", "180", "ml"), _ri("toast-bread", "60", "g"), _ri("butter", "10", "g")),
+        (
+            _ri("coffee", "60", "ml"),
+            _ri("milk", "180", "ml"),
+            _ri("toast-bread", "60", "g"),
+            _ri("butter", "10", "g"),
+        ),
     ),
     BreakfastRecipeDefinition(
         "cereal-milk",
@@ -135,7 +140,10 @@ RECIPES = (
         Decimal(11),
         Decimal(3),
         Decimal(170),
-        (_ri("natural-yogurt", "170", "g"), _ri("breakfast-cereal", "35", "g")),
+        (
+            _ri("natural-yogurt", "170", "g"),
+            _ri("breakfast-cereal", "35", "g"),
+        ),
     ),
     BreakfastRecipeDefinition(
         "yogurt-muesli-banana",
@@ -145,7 +153,11 @@ RECIPES = (
         Decimal(14),
         Decimal(8),
         Decimal(155),
-        (_ri("natural-yogurt", "170", "g"), _ri("muesli", "40", "g"), _ri("banana", "100", "g")),
+        (
+            _ri("natural-yogurt", "170", "g"),
+            _ri("muesli", "40", "g"),
+            _ri("banana", "100", "g"),
+        ),
     ),
     BreakfastRecipeDefinition(
         "cereal-milk-banana",
@@ -155,7 +167,11 @@ RECIPES = (
         Decimal(11),
         Decimal(7),
         Decimal(250),
-        (_ri("breakfast-cereal", "40", "g"), _ri("milk", "200", "ml"), _ri("banana", "100", "g")),
+        (
+            _ri("breakfast-cereal", "40", "g"),
+            _ri("milk", "200", "ml"),
+            _ri("banana", "100", "g"),
+        ),
     ),
     BreakfastRecipeDefinition(
         "greek-yogurt-muesli-berries",
@@ -165,7 +181,11 @@ RECIPES = (
         Decimal(18),
         Decimal(7),
         Decimal(145),
-        (_ri("greek-yogurt", "170", "g"), _ri("muesli", "40", "g"), _ri("berries", "100", "g")),
+        (
+            _ri("greek-yogurt", "170", "g"),
+            _ri("muesli", "40", "g"),
+            _ri("berries", "100", "g"),
+        ),
     ),
     BreakfastRecipeDefinition(
         "muesli-milk-apple",
@@ -175,7 +195,11 @@ RECIPES = (
         Decimal(11),
         Decimal(9),
         Decimal(155),
-        (_ri("muesli", "50", "g"), _ri("milk", "200", "ml"), _ri("apple", "120", "g")),
+        (
+            _ri("muesli", "50", "g"),
+            _ri("milk", "200", "ml"),
+            _ri("apple", "120", "g"),
+        ),
     ),
     BreakfastRecipeDefinition(
         "nestum-milk",
@@ -194,7 +218,10 @@ def _stable_id(kind: str, key: str) -> uuid.UUID:
     return uuid.uuid5(BREAKFAST_NAMESPACE, f"{kind}:{key}")
 
 
-def _ensure_ingredient(session: Session, definition: BreakfastIngredientDefinition) -> FoodItem:
+def _ensure_ingredient(
+    session: Session,
+    definition: BreakfastIngredientDefinition,
+) -> FoodItem:
     item_id = _stable_id("ingredient", definition.key)
     catalog_key = f"breakfast:ingredient:{definition.key}"
     owner = session.scalar(select(FoodItem).where(FoodItem.catalog_key == catalog_key))
@@ -212,6 +239,43 @@ def _ensure_ingredient(session: Session, definition: BreakfastIngredientDefiniti
     item.source_reference = BREAKFAST_SOURCE_REFERENCE
     item.is_active = True
     return item
+
+
+def _ensure_recipe_ingredients(
+    session: Session,
+    recipe: Recipe,
+    definition: BreakfastRecipeDefinition,
+    ingredients: dict[str, FoodItem],
+) -> None:
+    desired_ids = {
+        _stable_id("recipe-ingredient", f"{definition.key}:{index}")
+        for index in range(len(definition.ingredients))
+    }
+    existing_rows = list(
+        session.scalars(
+            select(RecipeIngredient).where(RecipeIngredient.recipe_id == recipe.id)
+        ).all()
+    )
+    existing_by_id = {row.id: row for row in existing_rows}
+    for row in existing_rows:
+        if row.id not in desired_ids:
+            session.delete(row)
+
+    for index, ingredient_definition in enumerate(definition.ingredients):
+        row_id = _stable_id("recipe-ingredient", f"{definition.key}:{index}")
+        row = existing_by_id.get(row_id)
+        if row is None:
+            row = RecipeIngredient(id=row_id)
+            session.add(row)
+        ingredient = ingredients[ingredient_definition.ingredient_key]
+        row.recipe_id = recipe.id
+        row.food_item_id = ingredient.id
+        row.quantity = ingredient_definition.quantity
+        row.unit = ingredient_definition.unit
+        row.preparation = None
+        row.sort_order = index
+        row.notes = "Porção de desenvolvimento para uma pessoa."
+    session.flush()
 
 
 def _ensure_recipe(
@@ -240,21 +304,7 @@ def _ensure_recipe(
     recipe.is_active = True
     session.flush()
 
-    session.execute(delete(RecipeIngredient).where(RecipeIngredient.recipe_id == recipe.id))
-    session.flush()
-    for index, ingredient_definition in enumerate(definition.ingredients):
-        ingredient = ingredients[ingredient_definition.ingredient_key]
-        session.add(
-            RecipeIngredient(
-                id=_stable_id("recipe-ingredient", f"{definition.key}:{index}"),
-                recipe_id=recipe.id,
-                food_item_id=ingredient.id,
-                quantity=ingredient_definition.quantity,
-                unit=ingredient_definition.unit,
-                sort_order=index,
-                notes="Porção de desenvolvimento para uma pessoa.",
-            )
-        )
+    _ensure_recipe_ingredients(session, recipe, definition, ingredients)
 
     composition_id = _stable_id("composition", definition.key)
     composition = session.get(RecipeCompositionSnapshot, composition_id)
@@ -271,7 +321,9 @@ def _ensure_recipe(
         "evidence_level": "estimated",
         "confidence": "medium",
         "purpose": "development breakfast catalogue",
-        "warning": "Portions and nutrition are estimates, not manufacturer-specific values.",
+        "warning": (
+            "Portions and nutrition are estimates, not manufacturer-specific values."
+        ),
     }
     composition.computed_at = BREAKFAST_EFFECTIVE_AT
     session.flush()
@@ -296,6 +348,7 @@ def _ensure_recipe(
         else:
             component.value = value
             component.unit = unit
+    session.flush()
     return recipe
 
 
