@@ -12,6 +12,7 @@ from app.schemas.practical_recommendation import (
 from app.services.commercial_availability import (
     CommercialAvailabilityError,
     CommercialOfferSnapshot,
+    CommercialPlanningResult,
     build_commercial_planning_context,
 )
 from app.services.meal_energy_allocation import (
@@ -193,6 +194,32 @@ def _commercial_offer_read(offer: CommercialOfferSnapshot) -> CommercialOfferRea
     )
 
 
+def _filter_delivery_providers(
+    commercial: CommercialPlanningResult,
+    *,
+    provider_keys: frozenset[str],
+) -> CommercialPlanningResult:
+    if not provider_keys:
+        return commercial
+    filtered_offers = tuple(
+        offer for offer in commercial.offers if offer.provider_key in provider_keys
+    )
+    available_candidate_keys = {offer.candidate_key for offer in filtered_offers}
+    filtered_profiles = tuple(
+        profile
+        if profile.candidate_key in available_candidate_keys
+        else CandidatePracticalProfile(
+            candidate_key=profile.candidate_key,
+            is_available=False,
+        )
+        for profile in commercial.practical_profiles
+    )
+    return CommercialPlanningResult(
+        practical_profiles=filtered_profiles,
+        offers=filtered_offers,
+    )
+
+
 def _build_practical_channels(
     session: Session,
     *,
@@ -231,6 +258,7 @@ def _build_practical_channels(
             _pantry_channel_profiles(candidates, stock_profiles, pantry_source_profiles)
         )
 
+    requested_delivery_providers = frozenset(data.delivery_provider_keys)
     for source_kind in sorted(requested_kinds & _COMMERCIAL_SOURCE_KINDS):
         commercial = build_commercial_planning_context(
             session,
@@ -239,6 +267,11 @@ def _build_practical_channels(
             scheduled_at=data.scheduled_at,
             source_kinds=frozenset({source_kind}),
         )
+        if source_kind == "delivery":
+            commercial = _filter_delivery_providers(
+                commercial,
+                provider_keys=requested_delivery_providers,
+            )
         channels.append(commercial.practical_profiles)
         offers.extend(commercial.offers)
 
@@ -407,6 +440,7 @@ def create_practical_meal_recommendation(
             "available_minutes": data.available_minutes,
             "has_kitchen": data.has_kitchen,
             "source_kinds": source_kinds,
+            "delivery_provider_keys": sorted(set(data.delivery_provider_keys)),
             "commercial_offer_keys": [offer.offer_key for offer in offers],
             "family_recipe_ratings": {
                 key: str(value) for key, value in sorted(family_recipe_ratings.items())
