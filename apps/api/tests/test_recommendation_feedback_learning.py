@@ -10,7 +10,11 @@ from app.models.recommendation_feedback import (
     MealRecommendationOption,
     MealRecommendationRun,
 )
-from app.services.meal_recommendation import CandidateEvaluation, MealCandidate, RecommendationResult
+from app.services.meal_recommendation import (
+    CandidateEvaluation,
+    MealCandidate,
+    RecommendationResult,
+)
 from app.services.recommendation_feedback_learning import (
     apply_feedback_to_recommendation,
     load_person_feedback_signals,
@@ -61,6 +65,32 @@ def test_feedback_signal_reranks_equal_candidates() -> None:
     assert result.eligible[0].candidate.key == accepted.key
     assert result.eligible[0].score_breakdown["feedback_history"] == Decimal("0.3500")
     assert "feedback_history: previous choices support this option" in result.eligible[0].explanation
+
+
+def test_feedback_never_restores_an_ineligible_candidate() -> None:
+    candidate = _candidate("recipe:excluded")
+    excluded = CandidateEvaluation(
+        candidate=candidate,
+        eligible=False,
+        rank=None,
+        score=None,
+        score_breakdown={},
+        exclusion_reasons=("mandatory_rule",),
+        explanation=(),
+    )
+    recommendation = RecommendationResult(
+        engine_version="test-v1",
+        evaluations=(excluded,),
+    )
+
+    result = apply_feedback_to_recommendation(
+        recommendation,
+        feedback_signals={candidate.key: Decimal(1)},
+    )
+
+    assert result is recommendation
+    assert result.evaluations[0].eligible is False
+    assert result.evaluations[0].score is None
 
 
 def test_loader_uses_latest_feedback_event_per_option(db_session: Session) -> None:
