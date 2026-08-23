@@ -35,6 +35,10 @@ class SharedMealPortion:
     person_id: uuid.UUID
     quantity: Decimal
     quantity_unit: str
+    portion_factor: Decimal | None = None
+    meal_energy_target_min_kcal: Decimal | None = None
+    meal_energy_target_max_kcal: Decimal | None = None
+    energy_allocation_policy: str | None = None
 
 
 @dataclass(frozen=True)
@@ -160,18 +164,27 @@ def _build_candidate(
     portion: SharedMealPortion,
 ) -> MealCandidate:
     if proposal.food_composition is not None:
-        return build_food_candidate(
+        candidate = build_food_candidate(
             proposal.food_composition,
             quantity=portion.quantity,
             quantity_unit=portion.quantity_unit,
         )
-    if proposal.recipe_composition is not None:
-        return build_recipe_candidate(
+    elif proposal.recipe_composition is not None:
+        candidate = build_recipe_candidate(
             proposal.recipe_composition,
             quantity=portion.quantity,
             quantity_unit=portion.quantity_unit,
         )
-    raise SharedFamilyMealError("Shared-meal proposal composition is unavailable.")
+    else:
+        raise SharedFamilyMealError("Shared-meal proposal composition is unavailable.")
+
+    return replace(
+        candidate,
+        portion_factor=portion.portion_factor,
+        meal_energy_target_min_kcal=portion.meal_energy_target_min_kcal,
+        meal_energy_target_max_kcal=portion.meal_energy_target_max_kcal,
+        energy_allocation_policy=portion.energy_allocation_policy,
+    )
 
 
 def _evaluate_participant(
