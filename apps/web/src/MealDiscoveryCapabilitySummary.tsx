@@ -44,10 +44,19 @@ function detail(capability: MealDiscoveryCapability, locale: "pt-PT" | "en"): st
     }
     return "Pesquisa live de restaurantes desativada nesta instalação.";
   }
-  if (capability.status === "ready") {
-    return `${SOURCE_LABELS[capability.source][locale]} está configurado para pesquisa live.`;
+
+  const provider = SOURCE_LABELS[capability.source][locale];
+  if (capability.live) return `${provider} está operacional para pesquisa live.`;
+  if (capability.credentials_configured === false) {
+    return `Faltam as credenciais de ${provider} no secret store desta instalação.`;
   }
-  return `É necessário configurar e autorizar uma integração de consumidor com ${SOURCE_LABELS[capability.source][locale]}.`;
+  if (capability.access_enabled === false) {
+    return `As credenciais de ${provider} existem, mas o acesso consumer ainda não está aprovado/ativado.`;
+  }
+  if (capability.adapter_available === false) {
+    return `Credenciais e acesso de ${provider} estão configurados; falta registar o adapter executável.`;
+  }
+  return `A integração consumer de ${provider} ainda não está operacional.`;
 }
 
 export default function MealDiscoveryCapabilitySummary({ familyId }: { familyId: string }) {
