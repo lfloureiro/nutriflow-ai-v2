@@ -21,8 +21,8 @@ class PersonProfile(TimestampMixin, Base):
             name="ck_person_profiles_activity_level_valid",
         ),
         CheckConstraint(
-            "standard_breakfast_kcal IS NULL OR standard_breakfast_kcal > 0",
-            name="ck_person_profiles_standard_breakfast_positive",
+            "standard_breakfast_kcal IS NULL OR standard_breakfast_kcal >= 0",
+            name="ck_person_profiles_standard_breakfast_nonnegative",
         ),
     )
 
