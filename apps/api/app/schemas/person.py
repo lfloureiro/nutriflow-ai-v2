@@ -3,7 +3,9 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from app.schemas.family import MealDiscoverySource
 
 ActivityLevel = Literal["sedentary", "light", "moderate", "active", "very_active"]
 EnergyCalculationSex = Literal["male", "female"]
@@ -26,6 +28,26 @@ class PersonEnergyProfileCreate(BaseModel):
         return self
 
 
+class PersonMealDiscoveryCreate(BaseModel):
+    meal_discovery_sources: list[MealDiscoverySource] | None = Field(
+        default=None,
+        min_length=1,
+        max_length=4,
+    )
+    delivery_address: str | None = Field(default=None, max_length=500)
+    restaurant_area: str | None = Field(default=None, max_length=255)
+
+    @field_validator("meal_discovery_sources")
+    @classmethod
+    def validate_sources(
+        cls,
+        values: list[MealDiscoverySource] | None,
+    ) -> list[MealDiscoverySource] | None:
+        if values is not None and len(values) != len(set(values)):
+            raise ValueError("meal_discovery_sources cannot contain duplicates.")
+        return values
+
+
 class PersonCreate(BaseModel):
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str | None = Field(default=None, max_length=100)
@@ -33,6 +55,7 @@ class PersonCreate(BaseModel):
     preferred_locale: str = Field(default="pt-PT", max_length=16)
     timezone: str = Field(default="Europe/Lisbon", max_length=64)
     energy_profile: PersonEnergyProfileCreate | None = None
+    meal_discovery: PersonMealDiscoveryCreate | None = None
 
     @model_validator(mode="after")
     def validate_energy_birth_date(self) -> "PersonCreate":
@@ -53,6 +76,14 @@ class PersonRead(BaseModel):
     timezone: str
     created_at: datetime
     updated_at: datetime
+
+
+class PersonMealDiscoveryRead(BaseModel):
+    person_id: uuid.UUID
+    inherits_family_defaults: bool
+    meal_discovery_sources: list[MealDiscoverySource]
+    delivery_address: str | None
+    restaurant_area: str | None
 
 
 class PersonEnergyProfileRead(BaseModel):
