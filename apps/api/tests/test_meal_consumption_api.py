@@ -10,6 +10,7 @@ from app.db.session import get_db
 from app.main import app
 from app.models.family import Family
 from app.models.food_catalog import FoodCompositionSnapshot, FoodItem
+from app.models.meal import MealEvent
 from app.models.nutrition_target import NutritionTarget
 from app.models.person import Person
 from app.services.planning_bootstrap_api import get_planning_bootstrap
@@ -176,6 +177,10 @@ def test_skipped_breakfast_is_declared_zero_and_removes_later_assumption(
     )
     assert skipped.status_code == 200
     assert Decimal(skipped.json()["daily_nutrition_state"]["energy_assumed_kcal"]) == Decimal(0)
+    event = db_session.get(MealEvent, uuid.UUID(entry["id"]))
+    assert event is not None
+    assert event.status == "completed"
+    assert event.served_at is None
 
     lunch = get_planning_bootstrap(
         db_session,
