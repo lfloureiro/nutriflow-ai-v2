@@ -1,6 +1,11 @@
 import type { Person } from "./types";
 
-export type MealDiscoverySource = "shared_recipes" | "uber_eats" | "glovo" | "restaurants";
+export type MealDiscoverySource =
+  | "shared_recipes"
+  | "uber_eats"
+  | "glovo"
+  | "bolt_food"
+  | "restaurants";
 
 export type MealDiscoveryCapabilityStatus =
   | "ready"
