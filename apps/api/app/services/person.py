@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.family import Family
 from app.models.person import Person
 from app.schemas.person import PersonCreate
+from app.services.person_energy import create_energy_profile
 
 
 def create_person(
@@ -15,10 +16,17 @@ def create_person(
 ) -> Person:
     person = Person(
         family_id=family.id,
-        **data.model_dump(),
+        first_name=data.first_name,
+        last_name=data.last_name,
+        birth_date=data.birth_date,
+        preferred_locale=data.preferred_locale,
+        timezone=data.timezone,
     )
 
     db.add(person)
+    db.flush()
+    if data.energy_profile is not None:
+        create_energy_profile(db, person=person, data=data.energy_profile)
     db.commit()
     db.refresh(person)
     return person
@@ -39,4 +47,3 @@ def list_family_persons(
     )
 
     return list(db.scalars(statement).all())
-
