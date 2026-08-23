@@ -1,7 +1,7 @@
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.family import Family
@@ -102,12 +102,13 @@ def _composition_read(
 
 
 def _recipe_read(recipe: Recipe) -> RecipeRead:
-    if recipe.family_id is None:
-        raise RecipeCatalogueError("Family Recipe is missing its Family identity.")
     composition = _latest_composition(recipe)
+    is_shared = recipe.family_id is None
     return RecipeRead(
         id=recipe.id,
         family_id=recipe.family_id,
+        scope="shared" if is_shared else "family",
+        editable=not is_shared,
         recipe_key=recipe.recipe_key,
         name=recipe.name,
         description=recipe.description,
@@ -191,14 +192,22 @@ def list_family_recipes(
     query: str | None = None,
     include_inactive: bool = False,
 ) -> list[RecipeRead]:
+    if include_inactive:
+        visibility = or_(
+            Recipe.family_id == family_id,
+            and_(Recipe.family_id.is_(None), Recipe.is_active.is_(True)),
+        )
+    else:
+        visibility = and_(
+            or_(Recipe.family_id == family_id, Recipe.family_id.is_(None)),
+            Recipe.is_active.is_(True),
+        )
     statement = (
         select(Recipe)
         .options(*_recipe_options())
-        .where(Recipe.family_id == family_id)
+        .where(visibility)
         .order_by(Recipe.name, Recipe.id)
     )
-    if not include_inactive:
-        statement = statement.where(Recipe.is_active.is_(True))
     if query and query.strip():
         statement = statement.where(Recipe.name.ilike(f"%{query.strip()}%"))
     return [_recipe_read(recipe) for recipe in db.scalars(statement).all()]
@@ -212,7 +221,13 @@ def get_family_recipe(
     recipe = db.scalar(
         select(Recipe)
         .options(*_recipe_options())
-        .where(Recipe.id == recipe_id, Recipe.family_id == family_id)
+        .where(
+            Recipe.id == recipe_id,
+            or_(
+                Recipe.family_id == family_id,
+                and_(Recipe.family_id.is_(None), Recipe.is_active.is_(True)),
+            ),
+        )
     )
     return None if recipe is None else _recipe_read(recipe)
 
@@ -228,7 +243,7 @@ def get_family_recipe_model(
         .where(Recipe.id == recipe_id, Recipe.family_id == family_id)
     )
     if recipe is None:
-        raise RecipeNotFoundError("Recipe not found")
+        raise RecipeNotFoundError("Recipe not found or is a read-only shared Recipe")
     return recipe
 
 
