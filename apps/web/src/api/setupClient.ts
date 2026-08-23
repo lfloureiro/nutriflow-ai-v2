@@ -6,6 +6,7 @@ import type {
   PersonCreate,
   PersonEnergyProfile,
 } from "./setupTypes";
+import type { Person, PlanningBootstrap } from "./types";
 
 async function setupRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
@@ -39,8 +40,22 @@ export function createFamilyPerson(familyId: string, payload: PersonCreate): Pro
   });
 }
 
+export function getPerson(personId: string): Promise<Person> {
+  return setupRequest<Person>(`/api/persons/${encodeURIComponent(personId)}`);
+}
+
 export function getPersonEnergyProfile(personId: string): Promise<PersonEnergyProfile> {
   return setupRequest<PersonEnergyProfile>(
     `/api/persons/${encodeURIComponent(personId)}/energy-profile`,
+  );
+}
+
+export function getPersonPlanningContext(
+  personId: string,
+  scheduledAt: string,
+): Promise<PlanningBootstrap> {
+  const query = new URLSearchParams({ scheduled_at: scheduledAt, ensure_state: "true" });
+  return setupRequest<PlanningBootstrap>(
+    `/api/persons/${encodeURIComponent(personId)}/planning-bootstrap?${query.toString()}`,
   );
 }
