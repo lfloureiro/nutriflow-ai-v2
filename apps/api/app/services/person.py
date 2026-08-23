@@ -6,8 +6,16 @@ from sqlalchemy.orm import Session
 from app.models.family import Family
 from app.models.person import Person
 from app.models.person_profile import PersonProfile
-from app.schemas.person import PersonCreate, PersonMealDiscoveryRead
+from app.schemas.person import (
+    PersonCreate,
+    PersonMealDiscoveryRead,
+    PersonMealDiscoveryUpdate,
+)
 from app.services.person_energy import create_energy_profile
+
+
+class PersonDiscoveryConfigurationError(ValueError):
+    pass
 
 
 def _ensure_profile(person: Person) -> PersonProfile:
@@ -17,6 +25,27 @@ def _ensure_profile(person: Person) -> PersonProfile:
             energy_unit="kcal",
         )
     return person.profile
+
+
+def _validate_discovery_configuration(
+    family: Family,
+    *,
+    source_override: list[str] | None,
+    address_override: str | None,
+    area_override: str | None,
+) -> None:
+    sources = source_override if source_override is not None else family.meal_discovery_sources
+    address = address_override if address_override is not None else family.delivery_address
+    area = area_override if area_override is not None else family.restaurant_area
+    wants_delivery = "uber_eats" in sources or "glovo" in sources
+    if wants_delivery and not (address or "").strip():
+        raise PersonDiscoveryConfigurationError(
+            "A delivery address is required for the selected delivery providers."
+        )
+    if "restaurants" in sources and not (area or "").strip():
+        raise PersonDiscoveryConfigurationError(
+            "A restaurant area is required when restaurant discovery is enabled."
+        )
 
 
 def create_person(
@@ -38,6 +67,12 @@ def create_person(
     if data.energy_profile is not None:
         create_energy_profile(db, person=person, data=data.energy_profile)
     if data.meal_discovery is not None:
+        _validate_discovery_configuration(
+            family,
+            source_override=data.meal_discovery.meal_discovery_sources,
+            address_override=data.meal_discovery.delivery_address,
+            area_override=data.meal_discovery.restaurant_area,
+        )
         profile = _ensure_profile(person)
         profile.meal_discovery_sources_override = data.meal_discovery.meal_discovery_sources
         profile.delivery_address_override = data.meal_discovery.delivery_address
@@ -74,6 +109,32 @@ def get_person_meal_discovery(person: Person) -> PersonMealDiscoveryRead:
             area_override if area_override is not None else person.family.restaurant_area
         ),
     )
+
+
+def update_person_meal_discovery(
+    db: Session,
+    *,
+    person: Person,
+    data: PersonMealDiscoveryUpdate,
+) -> PersonMealDiscoveryRead:
+    profile = _ensure_profile(person)
+    if data.inherit_family_defaults:
+        profile.meal_discovery_sources_override = None
+        profile.delivery_address_override = None
+        profile.restaurant_area_override = None
+    else:
+        _validate_discovery_configuration(
+            person.family,
+            source_override=data.meal_discovery_sources,
+            address_override=data.delivery_address,
+            area_override=data.restaurant_area,
+        )
+        profile.meal_discovery_sources_override = data.meal_discovery_sources
+        profile.delivery_address_override = data.delivery_address
+        profile.restaurant_area_override = data.restaurant_area
+    db.commit()
+    db.refresh(person)
+    return get_person_meal_discovery(person)
 
 
 def list_family_persons(
