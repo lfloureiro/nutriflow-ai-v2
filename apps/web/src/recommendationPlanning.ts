@@ -13,10 +13,11 @@ export type RecommendationSource =
   | "restaurant";
 export type RecommendationMealType = "breakfast" | "lunch" | "snack" | "dinner";
 
+// Only sources that are executable in the current browser flow belong here.
+// Delivery providers remain configurable under Casa -> Fontes and are added to
+// this selector when an authorized executable consumer adapter is available.
 export const RECOMMENDATION_SOURCES = [
   "cooked",
-  "uber_eats",
-  "glovo",
   "restaurant",
 ] as const satisfies readonly RecommendationSource[];
 
