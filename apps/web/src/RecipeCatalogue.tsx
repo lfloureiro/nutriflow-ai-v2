@@ -16,7 +16,7 @@ const COPY = {
   "pt-PT": {
     eyebrow: "Casa · Receitas",
     title: "Receitas",
-    help: "Receitas reutilizáveis da família. Os valores nutricionais são calculados a partir dos ingredientes.",
+    help: "Receitas partilhadas do catálogo NutriFlow e receitas próprias da família.",
     search: "Procurar receitas",
     placeholder: "Ex.: bolonhesa, salmão…",
     showInactive: "Mostrar inativas",
@@ -25,6 +25,11 @@ const COPY = {
     empty: "Ainda não existem receitas.",
     emptySearch: "Nenhuma receita corresponde à pesquisa.",
     edit: "Editar",
+    view: "Ver",
+    shared: "Partilhada",
+    sharedTitle: "Receita partilhada",
+    sharedHelp: "Esta receita pertence ao catálogo comum NutriFlow. Pode ser usada, avaliada e recomendada por qualquer família, mas não é alterada a partir desta família.",
+    source: "Origem",
     inactive: "Inativa",
     back: "Voltar às receitas",
     createTitle: "Nova receita",
@@ -65,7 +70,7 @@ const COPY = {
   en: {
     eyebrow: "Home base · Recipes",
     title: "Recipes",
-    help: "Reusable family recipes. Nutrition is calculated from ingredient composition evidence.",
+    help: "Shared NutriFlow catalogue recipes and the Family's own recipes.",
     search: "Search recipes",
     placeholder: "E.g. bolognese, salmon…",
     showInactive: "Show inactive",
@@ -74,6 +79,11 @@ const COPY = {
     empty: "There are no recipes yet.",
     emptySearch: "No recipes match the search.",
     edit: "Edit",
+    view: "View",
+    shared: "Shared",
+    sharedTitle: "Shared recipe",
+    sharedHelp: "This recipe belongs to the shared NutriFlow catalogue. Any Family can use, rate and receive it as a recommendation, but this Family cannot modify it.",
+    source: "Source",
     inactive: "Inactive",
     back: "Back to recipes",
     createTitle: "New recipe",
@@ -193,6 +203,66 @@ function RecipeNutrition({ recipe }: { recipe: Recipe }) {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function SharedRecipeViewer({ recipe, onDone }: { recipe: Recipe; onDone: () => void }) {
+  const { locale } = useI18n();
+  const copy = COPY[locale];
+  return (
+    <div className="recipe-editor">
+      <button className="button ghost" onClick={onDone} type="button">
+        ← {copy.back}
+      </button>
+      <header className="screen-header compact-screen-header">
+        <div>
+          <span className="eyebrow">{copy.sharedTitle}</span>
+          <h1>{recipe.name}</h1>
+          <p>{copy.sharedHelp}</p>
+        </div>
+      </header>
+
+      <div className="recipe-form">
+        <section className="recipe-form-card">
+          <div className="recipe-section-heading">
+            <div>
+              <h2>{copy.identity}</h2>
+              {recipe.description ? <p>{recipe.description}</p> : null}
+            </div>
+            <span className="ingredient-inactive">{copy.shared}</span>
+          </div>
+          <div className="person-detail-grid">
+            <div className="person-detail-item">
+              <span>{copy.servings}</span>
+              <strong>{recipe.serving_count ?? "—"}</strong>
+            </div>
+            <div className="person-detail-item">
+              <span>{copy.source}</span>
+              <strong>{recipe.source}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section className="recipe-form-card">
+          <h2>{copy.ingredients}</h2>
+          <div className="ingredient-list">
+            {recipe.ingredients.map((ingredient) => (
+              <div className="ingredient-row" key={ingredient.id}>
+                <span className="ingredient-row__main">
+                  <strong>{ingredient.food_item_name}</strong>
+                  <small>
+                    {ingredient.quantity} {ingredient.unit}
+                    {ingredient.preparation ? ` · ${ingredient.preparation}` : ""}
+                  </small>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <RecipeNutrition recipe={recipe} />
+      </div>
+    </div>
   );
 }
 
@@ -541,6 +611,14 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
   const hasSearch = useMemo(() => query.trim().length > 0, [query]);
 
   if (selected !== undefined) {
+    if (selected !== null && !selected.editable) {
+      return (
+        <SharedRecipeViewer
+          recipe={selected}
+          onDone={() => setSelected(undefined)}
+        />
+      );
+    }
     return (
       <RecipeEditor
         familyId={familyId}
@@ -598,7 +676,12 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
       ) : (
         <div className="ingredient-list">
           {recipes.map((recipe) => (
-            <button className="ingredient-row" key={recipe.id} onClick={() => setSelected(recipe)} type="button">
+            <button
+              className="ingredient-row"
+              key={recipe.id}
+              onClick={() => setSelected(recipe)}
+              type="button"
+            >
               <span className="ingredient-row__main">
                 <strong>{recipe.name}</strong>
                 <small>
@@ -606,8 +689,11 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
                 </small>
               </span>
               <span className="ingredient-row__end">
+                {recipe.scope === "shared" ? (
+                  <span className="ingredient-inactive">{copy.shared}</span>
+                ) : null}
                 {!recipe.is_active ? <span className="ingredient-inactive">{copy.inactive}</span> : null}
-                <span>{copy.edit} ›</span>
+                <span>{recipe.editable ? copy.edit : copy.view} ›</span>
               </span>
             </button>
           ))}
