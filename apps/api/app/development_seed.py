@@ -1,5 +1,6 @@
 from app.commercial_demo_seed import seed_commercial_demo_catalog
 from app.db.session import SessionLocal
+from app.demo_nutrition_target_seed import seed_demo_nutrition_targets
 from app.demo_seed import seed_demo_dataset
 from app.development_planning_profile_seed import seed_development_planning_profiles
 from app.legacy_v1_demo_seed import seed_legacy_v1_demo_catalog
@@ -13,6 +14,7 @@ def main() -> None:
         family = session.get(Family, demo.family_id)
         if family is None:
             raise RuntimeError("Development demo Family could not be loaded.")
+        nutrition = seed_demo_nutrition_targets(session)
         legacy = seed_legacy_v1_demo_catalog(session, family=family)
         commercial = seed_commercial_demo_catalog(session, family=family)
         planning = seed_development_planning_profiles(session, family=family)
@@ -23,6 +25,8 @@ def main() -> None:
     print(f"Planning date: {demo.planning_date.isoformat()}")
     print(f"Members: {demo.member_count}")
     print(f"Demo meal candidates: {demo.candidate_count}")
+    print(f"Demo nutrition targets: {nutrition.target_count}")
+    print(f"Demo calorie budget states: {nutrition.state_count}")
     print(f"Legacy v1 ingredients: {legacy.ingredient_count}")
     print(f"Legacy v1 recipes: {legacy.recipe_count}")
     print(f"Commercial demo availabilities: {commercial.availability_count}")
