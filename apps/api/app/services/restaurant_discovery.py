@@ -46,7 +46,7 @@ def _request_json(
         headers["Content-Type"] = content_type
     request = Request(url, data=data, headers=headers, method="POST" if data else "GET")
     try:
-        with urlopen(  # noqa: S310 - URLs are controlled by application settings.
+        with urlopen(
             request,
             timeout=settings.restaurant_discovery_timeout_seconds,
         ) as response:
