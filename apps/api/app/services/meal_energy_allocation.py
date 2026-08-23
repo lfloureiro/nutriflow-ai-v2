@@ -8,7 +8,7 @@ from app.services.meal_recommendation import (
     build_recipe_candidate,
 )
 
-POLICY_VERSION = "meal-energy-allocation-v1"
+POLICY_VERSION = "meal-energy-allocation-v2"
 PORTION_VERSION = "portion-sizing-v1"
 ZERO = Decimal(0)
 ONE = Decimal(1)
@@ -24,6 +24,7 @@ MEAL_ENERGY_WEIGHTS: dict[str, Decimal] = {
     "snack": Decimal("0.10"),
     "dinner": Decimal("0.30"),
 }
+MEAL_SEQUENCE = tuple(MEAL_ENERGY_WEIGHTS)
 
 
 class MealEnergyAllocationError(ValueError):
@@ -34,6 +35,7 @@ class MealEnergyAllocationError(ValueError):
 class MealEnergyAllocation:
     meal_type: str
     weight: Decimal
+    remaining_weight: Decimal
     daily_target_min_kcal: Decimal | None
     daily_target_max_kcal: Decimal | None
     meal_target_min_kcal: Decimal | None
@@ -75,19 +77,31 @@ def _positive_remaining(value: Decimal | None) -> Decimal | None:
     return max(value, ZERO)
 
 
-def _bounded_meal_target(
-    daily_target: Decimal | None,
+def _remaining_weight(meal_type: str) -> Decimal:
+    try:
+        start = MEAL_SEQUENCE.index(meal_type)
+    except ValueError as exc:
+        raise MealEnergyAllocationError(
+            f"Unsupported meal type for energy allocation: {meal_type!r}."
+        ) from exc
+    return sum(
+        (MEAL_ENERGY_WEIGHTS[item] for item in MEAL_SEQUENCE[start:]),
+        start=ZERO,
+    )
+
+
+def _meal_target_from_remaining(
+    remaining: Decimal | None,
     *,
     weight: Decimal,
-    remaining_max: Decimal | None,
+    remaining_weight: Decimal,
 ) -> Decimal | None:
-    if daily_target is None:
+    positive = _positive_remaining(remaining)
+    if positive is None:
         return None
-    target = _q_energy(daily_target * weight)
-    if remaining_max is not None:
-        positive_remaining = _positive_remaining(remaining_max)
-        target = min(target, positive_remaining if positive_remaining is not None else ZERO)
-    return _q_energy(max(target, ZERO))
+    if remaining_weight <= ZERO:
+        raise MealEnergyAllocationError("Remaining meal weight must be positive.")
+    return _q_energy(positive * weight / remaining_weight)
 
 
 def allocate_meal_energy(
@@ -102,19 +116,18 @@ def allocate_meal_energy(
             f"Unsupported meal type for energy allocation: {meal_type!r}."
         ) from exc
 
+    remaining_weight = _remaining_weight(meal_type)
     daily_min = _daily_target(state, state.energy_remaining_min_kcal)
     daily_max = _daily_target(state, state.energy_remaining_max_kcal)
-    remaining_max = state.energy_remaining_max_kcal
-
-    meal_min = _bounded_meal_target(
-        daily_min,
+    meal_min = _meal_target_from_remaining(
+        state.energy_remaining_min_kcal,
         weight=weight,
-        remaining_max=remaining_max,
+        remaining_weight=remaining_weight,
     )
-    meal_max = _bounded_meal_target(
-        daily_max,
+    meal_max = _meal_target_from_remaining(
+        state.energy_remaining_max_kcal,
         weight=weight,
-        remaining_max=remaining_max,
+        remaining_weight=remaining_weight,
     )
     if meal_min is not None and meal_max is not None and meal_min > meal_max:
         meal_min = meal_max
@@ -122,6 +135,7 @@ def allocate_meal_energy(
     return MealEnergyAllocation(
         meal_type=meal_type,
         weight=weight,
+        remaining_weight=remaining_weight,
         daily_target_min_kcal=daily_min,
         daily_target_max_kcal=daily_max,
         meal_target_min_kcal=meal_min,
