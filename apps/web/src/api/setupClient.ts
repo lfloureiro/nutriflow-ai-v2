@@ -35,6 +35,10 @@ export function createFamily(payload: FamilyCreate): Promise<Family> {
   });
 }
 
+export function getFamily(familyId: string): Promise<Family> {
+  return setupRequest<Family>(`/api/families/${encodeURIComponent(familyId)}`);
+}
+
 export function updateFamily(familyId: string, payload: FamilyUpdate): Promise<Family> {
   return setupRequest<Family>(`/api/families/${encodeURIComponent(familyId)}`, {
     method: "PATCH",
