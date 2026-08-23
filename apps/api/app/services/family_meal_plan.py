@@ -117,9 +117,17 @@ def _entry_read(event: MealEvent, family_timezone: ZoneInfo) -> MealPlanEntryRea
                 person_id=participant.person_id,
                 first_name=participant.person.first_name,
                 last_name=participant.person.last_name,
+                serving_id=serving.id if serving is not None else None,
+                status=serving.status if serving is not None else participant.status,
                 quantity=serving.quantity_planned if serving is not None else None,
+                quantity_consumed=(
+                    serving.quantity_consumed if serving is not None else None
+                ),
                 unit=serving.quantity_unit if serving is not None else None,
                 energy_kcal=serving.energy_planned_kcal if serving is not None else None,
+                energy_consumed_kcal=(
+                    serving.energy_consumed_kcal if serving is not None else None
+                ),
             )
             for participant in event.participants
             for serving in [_participant_serving(participant, recipe_id)]
