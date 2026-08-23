@@ -633,7 +633,11 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
 
       const firstState = firstBootstrap.daily_nutrition_state;
       if (!firstState) throw new Error(`${copy.stateUnavailable} ${displayName(firstPerson)}.`);
-      const candidates = recommendationCandidates(firstBootstrap.candidates, sources);
+      const candidates = recommendationCandidates(
+        firstBootstrap.candidates,
+        sources,
+        mealType,
+      );
       if (candidates.length === 0) {
         const base = {
           date,
