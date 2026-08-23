@@ -5,6 +5,7 @@ export type RecommendationNutritionBudget = {
   personName: string;
   consumedKcal: number;
   plannedKcal: number;
+  assumedKcal: number;
   targetMinKcal: number | null;
   targetMaxKcal: number | null;
   remainingMinKcal: number | null;
@@ -28,7 +29,8 @@ export function recommendationNutritionBudget(
 ): RecommendationNutritionBudget {
   const consumedKcal = numberOrZero(state.energy_consumed_kcal);
   const plannedKcal = numberOrZero(state.energy_planned_kcal);
-  const spentKcal = consumedKcal + plannedKcal;
+  const assumedKcal = numberOrZero(state.energy_assumed_kcal);
+  const spentKcal = consumedKcal + plannedKcal + assumedKcal;
   const remainingMinKcal = optionalNumber(state.energy_remaining_min_kcal);
   const remainingMaxKcal = optionalNumber(state.energy_remaining_max_kcal);
 
@@ -37,6 +39,7 @@ export function recommendationNutritionBudget(
     personName: [person.first_name, person.last_name].filter(Boolean).join(" "),
     consumedKcal,
     plannedKcal,
+    assumedKcal,
     targetMinKcal: remainingMinKcal === null ? null : spentKcal + remainingMinKcal,
     targetMaxKcal: remainingMaxKcal === null ? null : spentKcal + remainingMaxKcal,
     remainingMinKcal,
@@ -50,5 +53,6 @@ export function budgetProgress(budget: RecommendationNutritionBudget): number | 
       ? (budget.targetMinKcal + budget.targetMaxKcal) / 2
       : budget.targetMaxKcal ?? budget.targetMinKcal;
   if (target === null || target <= 0) return null;
-  return Math.max(0, Math.min(1, (budget.consumedKcal + budget.plannedKcal) / target));
+  const used = budget.consumedKcal + budget.plannedKcal + budget.assumedKcal;
+  return Math.max(0, Math.min(1, used / target));
 }
