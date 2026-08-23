@@ -25,7 +25,7 @@ Recognized secret names are deliberately references only; this document contains
 - `NUTRIFLOW_UBER_CLIENT_SECRET`
 - activation flag: `UBER_CONSUMER_DELIVERY_ENABLED=true`
 
-Having credentials is not sufficient to activate the adapter. Consumer Delivery access must also be approved for the application and the explicit activation flag must be enabled.
+Having credentials is not sufficient to activate the adapter. Consumer Delivery access must also be approved for the application, the explicit activation flag must be enabled, and an executable Uber consumer adapter must be registered.
 
 ### Glovo
 
@@ -66,16 +66,21 @@ Recommended production controls:
 
 ## Capability states
 
-A provider is not considered live merely because secrets are present.
+A provider is live only when all of these are true:
+
+1. credentials are present in the active `ProviderSecretStore`;
+2. consumer access is explicitly approved/enabled for the deployment;
+3. an executable `MealDeliveryDiscoveryAdapter` is registered.
 
 The capability state distinguishes:
 
 - credentials absent;
 - credentials present but consumer access not approved/enabled;
+- credentials/access present but executable adapter absent;
 - live adapter configured;
 - public restaurant discovery independent from delivery-provider credentials.
 
-This state is safe to expose to the Web UI because it never exposes the secret values.
+The Web receives only safe readiness booleans (`credentials_configured`, `access_enabled`, `adapter_available`) and never receives names, values, tokens, or secret-store paths.
 
 ## External menu evidence
 
