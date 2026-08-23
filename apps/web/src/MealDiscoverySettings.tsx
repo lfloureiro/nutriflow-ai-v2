@@ -4,6 +4,7 @@ import { ApiError } from "./api/client";
 import { getFamily, updateFamily } from "./api/setupClient";
 import type { MealDiscoverySource } from "./api/setupTypes";
 import { useI18n } from "./i18n";
+import MealDiscoveryCapabilitySummary from "./MealDiscoveryCapabilitySummary";
 import PersonMealDiscoveryOverrides from "./PersonMealDiscoveryOverrides";
 import "./meal-discovery-settings.css";
 
@@ -160,6 +161,8 @@ export default function MealDiscoverySettings({ familyId }: { familyId: string }
           <p>{copy.help}</p>
         </div>
       </header>
+
+      <MealDiscoveryCapabilitySummary familyId={familyId} />
 
       {error ? <div className="error-banner" role="alert"><strong>{copy.error}</strong><span>{error}</span></div> : null}
       {saved ? <div className="decision-result" role="status"><strong>{copy.saved}</strong></div> : null}
