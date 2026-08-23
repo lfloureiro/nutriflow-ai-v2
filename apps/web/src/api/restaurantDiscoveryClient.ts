@@ -3,10 +3,11 @@ import type { RestaurantDiscovery } from "./restaurantDiscoveryTypes";
 
 export async function discoverRestaurants(
   familyId: string,
-  area: string,
+  area?: string,
   limit = 12,
 ): Promise<RestaurantDiscovery> {
-  const query = new URLSearchParams({ area, limit: String(limit) });
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (area?.trim()) query.set("area", area.trim());
   const response = await fetch(
     buildApiUrl(
       `/api/families/${encodeURIComponent(familyId)}/restaurant-discovery?${query.toString()}`,
