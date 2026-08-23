@@ -25,9 +25,9 @@ from app.schemas.planning_bootstrap import (
 )
 from app.services.daily_nutrition_state import recalculate_daily_nutrition_state
 from app.services.meal_suitability import (
-    MAIN_MEAL_TYPES,
     MealSuitabilityError,
     food_default_meal_types,
+    recipe_default_meal_types,
     resolve_meal_types,
 )
 
@@ -406,7 +406,7 @@ def _recipe_candidates(
                 suitable_meal_types=_resolved_meal_types(
                     profiles.get(recipe.id),
                     catalogue_meal_types=recipe.suitable_meal_types,
-                    defaults=MAIN_MEAL_TYPES,
+                    defaults=recipe_default_meal_types(recipe.source),
                 ),
             )
         )
