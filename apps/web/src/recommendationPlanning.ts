@@ -5,13 +5,19 @@ import type {
 } from "./api/types";
 
 export type RecommendationPeriodMode = "single" | "range";
-export type RecommendationSource = "cooked" | "uber_eats" | "glovo" | "restaurant";
+export type RecommendationSource =
+  | "cooked"
+  | "uber_eats"
+  | "glovo"
+  | "bolt_food"
+  | "restaurant";
 export type RecommendationMealType = "breakfast" | "lunch" | "snack" | "dinner";
 
 export const RECOMMENDATION_SOURCES: RecommendationSource[] = [
   "cooked",
   "uber_eats",
   "glovo",
+  "bolt_food",
   "restaurant",
 ];
 
@@ -67,7 +73,13 @@ export function recommendationSourceKinds(
 ): PracticalSourceKind[] {
   const result: PracticalSourceKind[] = [];
   if (sources.includes("cooked")) result.push("home");
-  if (sources.includes("uber_eats") || sources.includes("glovo")) result.push("delivery");
+  if (
+    sources.includes("uber_eats") ||
+    sources.includes("glovo") ||
+    sources.includes("bolt_food")
+  ) {
+    result.push("delivery");
+  }
   if (sources.includes("restaurant")) result.push("restaurant");
   return result;
 }
@@ -78,6 +90,7 @@ export function recommendationDeliveryProviderKeys(
   const providers: string[] = [];
   if (sources.includes("uber_eats")) providers.push("uber_eats");
   if (sources.includes("glovo")) providers.push("glovo");
+  if (sources.includes("bolt_food")) providers.push("bolt_food");
   return providers;
 }
 
@@ -89,6 +102,7 @@ export function recommendationCandidates(
   const allowCommercial =
     sources.includes("uber_eats") ||
     sources.includes("glovo") ||
+    sources.includes("bolt_food") ||
     sources.includes("restaurant");
   return candidates
     .filter((candidate) => {
