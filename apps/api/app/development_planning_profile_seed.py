@@ -27,11 +27,11 @@ class DevelopmentPlanningProfileSeedResult:
 
 
 PROFILE_DEFINITIONS = (
-    PlanningProfileDefinition("recipe", "legacy-v1:recipe:1", "meat", "beef"),
-    PlanningProfileDefinition("recipe", "legacy-v1:recipe:2", "meat", "beef"),
-    PlanningProfileDefinition("recipe", "legacy-v1:recipe:3", "meat", "chicken"),
-    PlanningProfileDefinition("recipe", "legacy-v1:recipe:5", "fish", "salmon"),
-    PlanningProfileDefinition("recipe", "legacy-v1:recipe:6", "meat", "chicken"),
+    PlanningProfileDefinition("recipe", "legacy-v1:recipe:1", "meat", "chicken"),
+    PlanningProfileDefinition("recipe", "legacy-v1:recipe:2", "meat", "chicken"),
+    PlanningProfileDefinition("recipe", "legacy-v1:recipe:3", "fish", "white_fish"),
+    PlanningProfileDefinition("recipe", "legacy-v1:recipe:5", "meat", "beef"),
+    PlanningProfileDefinition("recipe", "legacy-v1:recipe:6", "meat", "turkey"),
     PlanningProfileDefinition("food_item", "demo:massa-bolonhesa", "meat", "beef"),
     PlanningProfileDefinition("food_item", "demo:frango-arroz-legumes", "meat", "chicken"),
     PlanningProfileDefinition("food_item", "demo:salmao-batata-salada", "fish", "salmon"),
