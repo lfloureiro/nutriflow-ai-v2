@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     restaurant_discovery_cache_seconds: int = 21600
     restaurant_discovery_max_results: int = 40
 
+    provider_secret_backend: str = "environment"
+    uber_consumer_delivery_enabled: bool = False
+    glovo_consumer_discovery_enabled: bool = False
+    bolt_food_consumer_discovery_enabled: bool = False
+
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",
