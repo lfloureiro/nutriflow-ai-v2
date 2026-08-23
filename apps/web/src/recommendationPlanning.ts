@@ -8,9 +8,8 @@ export type RecommendationPeriodMode = "single" | "range";
 export type RecommendationSource = "cooked" | "uber_eats" | "glovo" | "restaurant";
 export type RecommendationMealType = "breakfast" | "lunch" | "snack" | "dinner";
 
-// Only sources that are executable in the current browser flow belong here.
-// Delivery providers remain configurable under Casa -> Fontes and are added to
-// this selector when an authorized executable consumer adapter is available.
+// Sources shown in the browser today. Restaurant means live place discovery;
+// dishes only enter nutritional ranking when an actual menu is ingested.
 export const RECOMMENDATION_SOURCES = [
   "cooked",
   "restaurant",
@@ -71,7 +70,6 @@ export function recommendationSourceKinds(
   if (sources.includes("uber_eats") || sources.includes("glovo")) {
     result.push("delivery");
   }
-  if (sources.includes("restaurant")) result.push("restaurant");
   return result;
 }
 
@@ -90,15 +88,12 @@ export function recommendationCandidates(
   mealType: RecommendationMealType,
 ): RecommendationCandidateInput[] {
   const allowCooked = sources.includes("cooked");
-  const allowCommercial =
-    sources.includes("uber_eats") ||
-    sources.includes("glovo") ||
-    sources.includes("restaurant");
+  const allowDelivery = sources.includes("uber_eats") || sources.includes("glovo");
   return candidates
     .filter((candidate) => {
       if (!candidate.suitable_meal_types.includes(mealType)) return false;
       if (candidate.candidate_kind === "recipe") return allowCooked;
-      return allowCommercial && candidate.category === "dish";
+      return allowDelivery && candidate.category === "dish";
     })
     .slice(0, 100)
     .map((candidate) => ({
