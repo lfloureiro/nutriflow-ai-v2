@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
@@ -50,9 +51,11 @@ def test_family_and_person_setup_generates_calorie_target(db_session: Session) -
                 },
             )
             assert person_response.status_code == 201
-            person_id = person_response.json()["id"]
+            person_id_text = person_response.json()["id"]
 
-            profile_response = client.get(f"/api/persons/{person_id}/energy-profile")
+            profile_response = client.get(
+                f"/api/persons/{person_id_text}/energy-profile"
+            )
     finally:
         app.dependency_overrides.clear()
 
@@ -68,6 +71,7 @@ def test_family_and_person_setup_generates_calorie_target(db_session: Session) -
     assert Decimal(profile["estimated_tdee_kcal"]) > Decimal(profile["estimated_bmr_kcal"])
     assert Decimal(profile["energy_max_kcal"]) - Decimal(profile["energy_min_kcal"]) == Decimal(200)
 
+    person_id = uuid.UUID(person_id_text)
     stored_profile = db_session.get(PersonProfile, person_id)
     assert stored_profile is not None
     assert stored_profile.standard_breakfast_kcal == Decimal("320.00")
