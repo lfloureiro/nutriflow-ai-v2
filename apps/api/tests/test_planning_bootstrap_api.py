@@ -14,6 +14,7 @@ from app.models.food_catalog import (
     Recipe,
     RecipeCompositionSnapshot,
 )
+from app.models.meal_candidate_planning_profile import MealCandidatePlanningProfile
 from app.models.person import Person
 
 SCHEDULED_AT = datetime(2026, 8, 22, 12, 0, tzinfo=UTC)
@@ -238,6 +239,7 @@ def test_bootstrap_selects_latest_food_snapshot_not_future_data(db_session: Sess
     assert candidate["composition_id"] == str(current.id)
     assert candidate["composition_version"] == "v2"
     assert Decimal(candidate["energy_kcal"]) == Decimal("300.0000")
+    assert candidate["suitable_meal_types"] == ["lunch", "dinner"]
 
 
 def test_bootstrap_selects_latest_recipe_snapshot_as_of_schedule(db_session: Session) -> None:
@@ -288,6 +290,98 @@ def test_bootstrap_selects_latest_recipe_snapshot_as_of_schedule(db_session: Ses
     assert candidate["candidate_kind"] == "recipe"
     assert candidate["composition_id"] == str(current.id)
     assert candidate["composition_version"] == "v2"
+    assert candidate["suitable_meal_types"] == ["lunch", "dinner"]
+
+
+def test_bootstrap_exposes_planning_profile_meal_types(db_session: Session) -> None:
+    family, person = _family_person(db_session, key="meal-types")
+    breakfast = Recipe(
+        family=family,
+        recipe_key="recipe:breakfast",
+        name="Breakfast",
+        serving_count=Decimal(1),
+        source="test",
+    )
+    snack = Recipe(
+        family=family,
+        recipe_key="recipe:snack",
+        name="Snack",
+        serving_count=Decimal(1),
+        source="test",
+    )
+    main = Recipe(
+        family=family,
+        recipe_key="recipe:main",
+        name="Main meal",
+        serving_count=Decimal(1),
+        source="test",
+    )
+    db_session.add_all(
+        [
+            RecipeCompositionSnapshot(
+                recipe=breakfast,
+                reference_quantity=Decimal(1),
+                reference_unit="serving",
+                energy_kcal=Decimal(300),
+                composition_version="v1",
+                calculation_version="test",
+                computed_at=SCHEDULED_AT - timedelta(hours=1),
+            ),
+            RecipeCompositionSnapshot(
+                recipe=snack,
+                reference_quantity=Decimal(1),
+                reference_unit="serving",
+                energy_kcal=Decimal(220),
+                composition_version="v1",
+                calculation_version="test",
+                computed_at=SCHEDULED_AT - timedelta(hours=1),
+            ),
+            RecipeCompositionSnapshot(
+                recipe=main,
+                reference_quantity=Decimal(1),
+                reference_unit="serving",
+                energy_kcal=Decimal(650),
+                composition_version="v1",
+                calculation_version="test",
+                computed_at=SCHEDULED_AT - timedelta(hours=1),
+            ),
+        ]
+    )
+    db_session.flush()
+    db_session.add_all(
+        [
+            MealCandidatePlanningProfile(
+                family_id=family.id,
+                candidate_kind="recipe",
+                recipe_id=breakfast.id,
+                planning_category="breakfast",
+                suitable_meal_types=["breakfast"],
+                auto_plan_enabled=True,
+                source="test",
+            ),
+            MealCandidatePlanningProfile(
+                family_id=family.id,
+                candidate_kind="recipe",
+                recipe_id=snack.id,
+                planning_category="snack",
+                suitable_meal_types=["snack"],
+                auto_plan_enabled=True,
+                source="test",
+            ),
+        ]
+    )
+    db_session.flush()
+
+    response = _get(db_session, person)
+
+    assert response.status_code == 200
+    by_key = {
+        candidate["catalog_key"]: candidate
+        for candidate in response.json()["candidates"]
+    }
+    assert by_key["recipe:breakfast"]["suitable_meal_types"] == ["breakfast"]
+    assert by_key["recipe:snack"]["suitable_meal_types"] == ["snack"]
+    assert by_key["recipe:main"]["suitable_meal_types"] == ["lunch", "dinner"]
 
 
 def test_bootstrap_returns_null_daily_state_when_not_yet_computed(db_session: Session) -> None:
