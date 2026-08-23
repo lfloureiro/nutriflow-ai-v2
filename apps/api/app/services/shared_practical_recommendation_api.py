@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,11 @@ from app.schemas.shared_practical_recommendation import (
     SharedRecommendationOptionRead,
 )
 from app.services.commercial_availability import CommercialOfferSnapshot
+from app.services.meal_energy_allocation import (
+    PORTION_VERSION,
+    MealEnergyAllocationError,
+    size_candidate_for_meal,
+)
 from app.services.meal_recommendation import MealCandidate
 from app.services.meal_recommendation_api import load_recommendation_inputs
 from app.services.planning_bootstrap_api import get_planning_bootstrap
@@ -50,20 +56,40 @@ class SharedPracticalRecommendationApiError(ValueError):
 
 def _candidate_proposals(
     candidates: list[MealCandidate],
-    person_ids: list[uuid.UUID],
+    loaded: list[tuple[Person, DailyNutritionState]],
+    *,
+    meal_type: str,
+    auto_size_portions: bool,
 ) -> tuple[SharedMealCandidateProposal, ...]:
     proposals: list[SharedMealCandidateProposal] = []
     for candidate in candidates:
+        portions: list[SharedMealPortion] = []
+        for person, state in loaded:
+            if person.id is None:
+                raise SharedPracticalRecommendationApiError(
+                    "Shared recommendation Person must be persisted."
+                )
+            if auto_size_portions:
+                sizing = size_candidate_for_meal(
+                    candidate,
+                    state,
+                    meal_type=meal_type,
+                )
+                quantity = sizing.candidate.quantity
+                quantity_unit = sizing.candidate.quantity_unit
+            else:
+                quantity = candidate.quantity
+                quantity_unit = candidate.quantity_unit
+            portions.append(
+                SharedMealPortion(
+                    person_id=person.id,
+                    quantity=quantity,
+                    quantity_unit=quantity_unit,
+                )
+            )
         proposals.append(
             SharedMealCandidateProposal(
-                portions=tuple(
-                    SharedMealPortion(
-                        person_id=person_id,
-                        quantity=candidate.quantity,
-                        quantity_unit=candidate.quantity_unit,
-                    )
-                    for person_id in person_ids
-                ),
+                portions=tuple(portions),
                 food_composition=candidate.food_composition,
                 recipe_composition=candidate.recipe_composition,
             )
@@ -141,6 +167,42 @@ def _result_read(
     )
 
 
+def _portion_context(
+    loaded: list[tuple[Person, DailyNutritionState]],
+    candidates: list[MealCandidate],
+    *,
+    meal_type: str,
+) -> dict[str, object]:
+    participants: dict[str, object] = {}
+    for person, state in loaded:
+        if person.id is None:
+            continue
+        factors: dict[str, str] = {}
+        allocation = None
+        for candidate in candidates:
+            sizing = size_candidate_for_meal(candidate, state, meal_type=meal_type)
+            allocation = sizing.allocation
+            factors[candidate.key] = str(sizing.portion_factor)
+        participants[str(person.id)] = {
+            "meal_target_min_kcal": (
+                str(allocation.meal_target_min_kcal)
+                if allocation is not None and allocation.meal_target_min_kcal is not None
+                else None
+            ),
+            "meal_target_max_kcal": (
+                str(allocation.meal_target_max_kcal)
+                if allocation is not None and allocation.meal_target_max_kcal is not None
+                else None
+            ),
+            "portion_factors": factors,
+        }
+    return {
+        "portion_version": PORTION_VERSION,
+        "meal_type": meal_type,
+        "participants": participants,
+    }
+
+
 def _compute_shared_recommendation(
     session: Session,
     *,
@@ -203,6 +265,7 @@ def _compute_shared_recommendation(
                 has_kitchen=data.has_kitchen,
                 source_kinds=data.source_kinds,
                 provisional_history=data.provisional_history,
+                auto_size_portions=False,
                 max_results=data.max_results,
             )
             channels, offers = _build_practical_channels(
@@ -238,11 +301,24 @@ def _compute_shared_recommendation(
         )
         for person, state in loaded
     )
+    engine_version = "shared-family-practical-v1"
+    if data.auto_size_portions:
+        engine_version = f"{engine_version}+{PORTION_VERSION}"
+    try:
+        proposals = _candidate_proposals(
+            first_candidates,
+            loaded,
+            meal_type=data.meal_type,
+            auto_size_portions=data.auto_size_portions,
+        )
+    except MealEnergyAllocationError as exc:
+        raise SharedPracticalRecommendationApiError(str(exc)) from exc
+
     result = recommend_shared_family_meals(
         participants=contexts,
-        proposals=_candidate_proposals(first_candidates, data.person_ids),
+        proposals=proposals,
         planning_date=data.planning_date,
-        engine_version="shared-family-practical-v1",
+        engine_version=engine_version,
     )
     result = apply_diversity_to_shared_recommendation(
         session,
@@ -294,6 +370,7 @@ def plan_shared_practical_recommendation(
         has_kitchen=data.has_kitchen,
         source_kinds=data.source_kinds,
         provisional_history=data.provisional_history,
+        auto_size_portions=data.auto_size_portions,
         max_results=data.max_results,
     )
     result, _ = _compute_shared_recommendation(session, family=family, data=request)
