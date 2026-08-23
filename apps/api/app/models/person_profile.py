@@ -2,7 +2,7 @@ import uuid
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, ForeignKey, Numeric, String, Uuid
+from sqlalchemy import JSON, CheckConstraint, ForeignKey, Numeric, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -46,6 +46,13 @@ class PersonProfile(TimestampMixin, Base):
         Numeric(10, 2),
         nullable=True,
     )
+
+    meal_discovery_sources_override: Mapped[list[str] | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
+    delivery_address_override: Mapped[str | None] = mapped_column(Text, nullable=True)
+    restaurant_area_override: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     measurement_system: Mapped[str] = mapped_column(
         String(16),
