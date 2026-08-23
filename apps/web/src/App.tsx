@@ -116,6 +116,8 @@ export default function App() {
 
   function handleFamilyCreated(family: Family) {
     openFamily(family.id);
+    setView("people");
+    setShowPersonSetup(true);
   }
 
   function openPerson(personId: string) {
