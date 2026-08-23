@@ -1,12 +1,19 @@
+import type { PlanningDailyNutritionState } from "./types";
+
 export type MealType = "breakfast" | "lunch" | "snack" | "dinner";
+export type MealConsumptionStatus = "consumed" | "partial" | "skipped";
 
 export type MealPlanParticipant = {
   person_id: string;
   first_name: string;
   last_name: string | null;
+  serving_id: string | null;
+  status: string;
   quantity: string | null;
+  quantity_consumed: string | null;
   unit: string | null;
   energy_kcal: string | null;
+  energy_consumed_kcal: string | null;
 };
 
 export type MealPlanEntry = {
@@ -59,3 +66,22 @@ export type MealPlanEntryCreate = {
 };
 
 export type MealPlanEntryUpdate = Partial<MealPlanEntryCreate>;
+
+export type MealConsumptionUpdate = {
+  status: MealConsumptionStatus;
+  quantity_consumed?: string | null;
+};
+
+export type MealConsumptionResult = {
+  meal_event_id: string;
+  person_id: string;
+  serving_id: string;
+  status: MealConsumptionStatus;
+  quantity_planned: string | null;
+  quantity_consumed: string | null;
+  quantity_unit: string | null;
+  energy_planned_kcal: string | null;
+  energy_consumed_kcal: string | null;
+  consumed_at: string | null;
+  daily_nutrition_state: PlanningDailyNutritionState;
+};
