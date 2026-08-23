@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.family import Family
 from app.models.food_catalog import FoodCompositionSnapshot, RecipeCompositionSnapshot
-from app.models.meal import MealEvent, MealParticipant, Serving, ServingNutritionComponent
+from app.models.meal import MealEvent, MealParticipant, Serving
 from app.schemas.meal_consumption import MealConsumptionRead, MealConsumptionUpdate
 from app.services.planning_bootstrap_api import get_planning_bootstrap
 from app.services.serving_nutrition import calculate_serving_nutrition
@@ -165,12 +165,14 @@ def _apply_consumption(
 
 def _refresh_event_status(event: MealEvent, *, now: datetime) -> None:
     statuses = [participant.status for participant in event.participants]
+    any_eaten = any(status in _EATEN_STATUSES for status in statuses)
     if statuses and all(status in _REALIZED_STATUSES for status in statuses):
         event.status = "completed"
-        event.served_at = event.served_at or now
+        if any_eaten:
+            event.served_at = event.served_at or now
         event.completed_at = now
         return
-    if any(status in _EATEN_STATUSES for status in statuses):
+    if any_eaten:
         event.status = "served"
         event.served_at = event.served_at or now
         event.completed_at = None
@@ -217,6 +219,7 @@ def record_meal_consumption(
         person_id=person_id,
         scheduled_at=event.scheduled_at,
         ensure_state=True,
+        force_state_refresh=True,
     )
     state = bootstrap.daily_nutrition_state
     if state is None:
