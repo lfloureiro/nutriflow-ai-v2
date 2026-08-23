@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ApiError, getFamilyDashboard } from "./api/client";
+import type { Family } from "./api/setupTypes";
 import type { FamilyDashboard } from "./api/types";
+import FamilyEntryScreen from "./FamilyEntryScreen";
 import FamilyHome, { memberDisplayName } from "./FamilyHome";
 import FamilyMealsScreen, { type FamilyMealsMode } from "./FamilyMeals";
 import HomeBase from "./HomeBase";
 import { useI18n, type Locale } from "./i18n";
 import PersonOverview from "./PersonOverview";
+import PersonSetupForm from "./PersonSetupForm";
 import { useTheme, type Appearance } from "./theme";
 
 const DEMO_FAMILY_ID = "11111111-1111-4111-8111-111111111111";
@@ -51,7 +54,6 @@ export default function App() {
   const { appearance, setAppearance } = useTheme();
   const initialId = useMemo(initialFamilyId, []);
 
-  const [familyInput, setFamilyInput] = useState(initialId);
   const [activeFamilyId, setActiveFamilyId] = useState(initialId);
   const [dashboard, setDashboard] = useState<FamilyDashboard | null>(null);
   const [dashboardBusy, setDashboardBusy] = useState(initialId.length > 0);
@@ -59,6 +61,7 @@ export default function App() {
   const [dashboardRevision, setDashboardRevision] = useState(0);
   const [view, setView] = useState<View>("home");
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+  const [showPersonSetup, setShowPersonSetup] = useState(false);
   const [mealsMode, setMealsMode] = useState<FamilyMealsMode>("today");
 
   useEffect(() => {
@@ -95,23 +98,28 @@ export default function App() {
     };
   }, [activeFamilyId, dashboardRevision]);
 
-  function handleConnect(event: FormEvent) {
-    event.preventDefault();
-    const nextFamilyId = familyInput.trim();
-    if (!nextFamilyId) {
+  function openFamily(nextFamilyId: string) {
+    const normalized = nextFamilyId.trim();
+    if (!normalized) {
       setDashboardError(t("validation.familyRequired"));
       return;
     }
     setDashboard(null);
     setDashboardError(null);
     setSelectedPersonId(null);
+    setShowPersonSetup(false);
     setMealsMode("today");
     setView("home");
-    setActiveFamilyId(nextFamilyId);
+    setActiveFamilyId(normalized);
     setDashboardRevision((current) => current + 1);
   }
 
+  function handleFamilyCreated(family: Family) {
+    openFamily(family.id);
+  }
+
   function openPerson(personId: string) {
+    setShowPersonSetup(false);
     setSelectedPersonId(personId);
     setView("people");
   }
@@ -119,6 +127,7 @@ export default function App() {
   function openPrimaryView(nextView: View) {
     if (nextView === "people") {
       setSelectedPersonId(null);
+      setShowPersonSetup(false);
     }
     if (nextView === "meals") {
       setMealsMode("today");
@@ -136,69 +145,20 @@ export default function App() {
     setDashboard(null);
     setDashboardError(null);
     setActiveFamilyId("");
-    setFamilyInput("");
     setSelectedPersonId(null);
+    setShowPersonSetup(false);
     setMealsMode("today");
     setView("home");
   }
 
   if (!activeFamilyId || (view === "home" && !dashboard && !dashboardBusy)) {
     return (
-      <main className="entry-screen">
-        <div className="entry-card">
-          <div className="entry-brand">
-            <span className="brand-mark" aria-hidden="true">
-              N
-            </span>
-            <strong>{t("app.brand")}</strong>
-          </div>
-          <div>
-            <span className="eyebrow">{t("entry.eyebrow")}</span>
-            <h1>{t("entry.title")}</h1>
-            <p>{t("entry.help")}</p>
-          </div>
-          {dashboardError ? (
-            <div className="error-banner" role="alert">
-              <strong>{t("error.title")}</strong>
-              <span>{dashboardError}</span>
-            </div>
-          ) : null}
-          <form className="stack" onSubmit={handleConnect}>
-            <label className="field">
-              <span>{t("setup.familyId")}</span>
-              <input
-                autoComplete="off"
-                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                value={familyInput}
-                onChange={(event) => setFamilyInput(event.target.value)}
-              />
-            </label>
-            <button className="button primary large" type="submit">
-              {t("entry.open")}
-            </button>
-          </form>
-          <div className="entry-preferences">
-            <label className="compact-control">
-              <span>{t("nav.language")}</span>
-              <select value={locale} onChange={(event) => setLocale(event.target.value as Locale)}>
-                <option value="pt-PT">PT</option>
-                <option value="en">EN</option>
-              </select>
-            </label>
-            <label className="compact-control">
-              <span>{t("nav.appearance")}</span>
-              <select
-                value={appearance}
-                onChange={(event) => setAppearance(event.target.value as Appearance)}
-              >
-                <option value="system">{t("theme.system")}</option>
-                <option value="light">{t("theme.light")}</option>
-                <option value="dark">{t("theme.dark")}</option>
-              </select>
-            </label>
-          </div>
-        </div>
-      </main>
+      <FamilyEntryScreen
+        externalError={dashboardError}
+        initialFamilyId={initialId}
+        onCreated={handleFamilyCreated}
+        onOpenExisting={openFamily}
+      />
     );
   }
 
@@ -298,19 +258,40 @@ export default function App() {
               />
             ) : (
               <div className="people-screen">
-                <header className="screen-header compact-screen-header">
+                <header className="screen-header compact-screen-header people-screen-header">
                   <div>
                     <span className="eyebrow">{t("nav.people")}</span>
                     <h1>{t("people.title")}</h1>
                     <p>{t("people.help")}</p>
                   </div>
+                  <button
+                    className="button primary"
+                    onClick={() => setShowPersonSetup((current) => !current)}
+                    type="button"
+                  >
+                    {showPersonSetup
+                      ? locale === "pt-PT"
+                        ? "Fechar"
+                        : "Close"
+                      : locale === "pt-PT"
+                        ? "+ Adicionar pessoa"
+                        : "+ Add person"}
+                  </button>
                 </header>
+                {showPersonSetup && dashboard ? (
+                  <PersonSetupForm
+                    familyId={activeFamilyId}
+                    familyTimezone={dashboard.timezone}
+                    onCancel={() => setShowPersonSetup(false)}
+                    onCreated={() => setDashboardRevision((current) => current + 1)}
+                  />
+                ) : null}
                 <div className="people-list">
                   {dashboard?.members.map((member) => (
                     <button
                       className="person-row"
                       key={member.person_id}
-                      onClick={() => setSelectedPersonId(member.person_id)}
+                      onClick={() => openPerson(member.person_id)}
                       type="button"
                     >
                       <span className="member-avatar" aria-hidden="true">
@@ -364,7 +345,7 @@ export default function App() {
                     <strong>{familyName}</strong>
                   </div>
                   <button className="button ghost" onClick={changeFamily} type="button">
-                    {t("more.changeFamily")}
+                    {locale === "pt-PT" ? "Mudar / criar família" : "Change / create family"}
                   </button>
                 </div>
               </section>
