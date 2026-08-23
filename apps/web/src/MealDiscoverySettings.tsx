@@ -12,6 +12,7 @@ const SOURCES: MealDiscoverySource[] = [
   "shared_recipes",
   "uber_eats",
   "glovo",
+  "bolt_food",
   "restaurants",
 ];
 
@@ -26,6 +27,8 @@ const COPY = {
     uber_eatsHelp: "Só produz resultados live quando a integração oficial estiver configurada.",
     glovo: "Glovo",
     glovoHelp: "Só produz resultados live quando a integração oficial estiver configurada.",
+    bolt_food: "Bolt Food",
+    bolt_foodHelp: "Só produz resultados live quando existir uma integração de consumidor autorizada.",
     restaurants: "Restaurantes na área",
     restaurantsHelp: "Descoberta live de restaurantes; pratos só entram no score com dados de menu suficientes.",
     deliveryAddress: "Morada de entrega",
@@ -38,7 +41,7 @@ const COPY = {
     loading: "A carregar configuração…",
     error: "Não foi possível guardar a configuração",
     sourceRequired: "Seleciona pelo menos uma fonte.",
-    deliveryRequired: "Indica a morada de entrega para Uber Eats/Glovo.",
+    deliveryRequired: "Indica a morada de entrega para os providers selecionados.",
     areaRequired: "Indica a área onde procurar restaurantes.",
   },
   en: {
@@ -51,6 +54,8 @@ const COPY = {
     uber_eatsHelp: "Returns live results only when the official integration is configured.",
     glovo: "Glovo",
     glovoHelp: "Returns live results only when the official integration is configured.",
+    bolt_food: "Bolt Food",
+    bolt_foodHelp: "Returns live results only when an authorized consumer integration is available.",
     restaurants: "Restaurants in the area",
     restaurantsHelp: "Live restaurant discovery; dishes only enter scoring with sufficient menu evidence.",
     deliveryAddress: "Delivery address",
@@ -63,7 +68,7 @@ const COPY = {
     loading: "Loading settings…",
     error: "Could not save settings",
     sourceRequired: "Select at least one source.",
-    deliveryRequired: "Enter a delivery address for Uber Eats/Glovo.",
+    deliveryRequired: "Enter a delivery address for the selected providers.",
     areaRequired: "Enter the area where restaurants should be found.",
   },
 } as const;
@@ -71,6 +76,10 @@ const COPY = {
 function errorText(error: unknown): string {
   if (error instanceof ApiError) return `${error.message} (HTTP ${error.status})`;
   return error instanceof Error ? error.message : String(error);
+}
+
+function isDeliverySource(source: MealDiscoverySource): boolean {
+  return source === "uber_eats" || source === "glovo" || source === "bolt_food";
 }
 
 export default function MealDiscoverySettings({ familyId }: { familyId: string }) {
@@ -122,7 +131,7 @@ export default function MealDiscoverySettings({ familyId }: { familyId: string }
       setError(copy.sourceRequired);
       return;
     }
-    const wantsDelivery = sources.includes("uber_eats") || sources.includes("glovo");
+    const wantsDelivery = sources.some(isDeliverySource);
     if (wantsDelivery && !deliveryAddress.trim()) {
       setError(copy.deliveryRequired);
       return;
@@ -184,7 +193,7 @@ export default function MealDiscoverySettings({ familyId }: { familyId: string }
           ))}
         </div>
 
-        {(sources.includes("uber_eats") || sources.includes("glovo")) ? (
+        {sources.some(isDeliverySource) ? (
           <label className="field">
             <span>{copy.deliveryAddress}</span>
             <input
