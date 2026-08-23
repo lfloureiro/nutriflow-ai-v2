@@ -74,18 +74,23 @@ def _candidate_proposals(
                     state,
                     meal_type=meal_type,
                 )
-                quantity = sizing.candidate.quantity
-                quantity_unit = sizing.candidate.quantity_unit
-            else:
-                quantity = candidate.quantity
-                quantity_unit = candidate.quantity_unit
-            portions.append(
-                SharedMealPortion(
+                sized = sizing.candidate
+                portion = SharedMealPortion(
                     person_id=person.id,
-                    quantity=quantity,
-                    quantity_unit=quantity_unit,
+                    quantity=sized.quantity,
+                    quantity_unit=sized.quantity_unit,
+                    portion_factor=sizing.portion_factor,
+                    meal_energy_target_min_kcal=sizing.allocation.meal_target_min_kcal,
+                    meal_energy_target_max_kcal=sizing.allocation.meal_target_max_kcal,
+                    energy_allocation_policy=sizing.allocation.policy_version,
                 )
-            )
+            else:
+                portion = SharedMealPortion(
+                    person_id=person.id,
+                    quantity=candidate.quantity,
+                    quantity_unit=candidate.quantity_unit,
+                )
+            portions.append(portion)
         proposals.append(
             SharedMealCandidateProposal(
                 portions=tuple(portions),
