@@ -7,6 +7,8 @@ function recipe(energy: string | null, perServing: string | null): Recipe {
   return {
     id: "recipe-1",
     family_id: "family-1",
+    scope: "family",
+    editable: true,
     recipe_key: "family:test:recipe:1",
     name: "Bolonhesa",
     description: null,
