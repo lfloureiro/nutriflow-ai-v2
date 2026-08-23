@@ -5,8 +5,18 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.person import PersonEnergyProfileRead, PersonMealDiscoveryRead, PersonRead
-from app.services.person import get_person, get_person_meal_discovery
+from app.schemas.person import (
+    PersonEnergyProfileRead,
+    PersonMealDiscoveryRead,
+    PersonMealDiscoveryUpdate,
+    PersonRead,
+)
+from app.services.person import (
+    PersonDiscoveryConfigurationError,
+    get_person,
+    get_person_meal_discovery,
+    update_person_meal_discovery,
+)
 from app.services.person_energy import PersonEnergyProfileError, get_energy_profile
 
 router = APIRouter(prefix="/persons", tags=["persons"])
@@ -48,3 +58,18 @@ def get_person_meal_discovery_endpoint(
     if person is None:
         raise HTTPException(status_code=404, detail="Person not found")
     return get_person_meal_discovery(person)
+
+
+@router.put("/{person_id}/meal-discovery", response_model=PersonMealDiscoveryRead)
+def update_person_meal_discovery_endpoint(
+    person_id: uuid.UUID,
+    data: PersonMealDiscoveryUpdate,
+    db: Annotated[Session, Depends(get_db)],
+) -> PersonMealDiscoveryRead:
+    person = get_person(db, person_id)
+    if person is None:
+        raise HTTPException(status_code=404, detail="Person not found")
+    try:
+        return update_person_meal_discovery(db, person=person, data=data)
+    except PersonDiscoveryConfigurationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
