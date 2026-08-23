@@ -48,6 +48,10 @@ class PersonMealDiscoveryCreate(BaseModel):
         return values
 
 
+class PersonMealDiscoveryUpdate(PersonMealDiscoveryCreate):
+    inherit_family_defaults: bool = False
+
+
 class PersonCreate(BaseModel):
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str | None = Field(default=None, max_length=100)
