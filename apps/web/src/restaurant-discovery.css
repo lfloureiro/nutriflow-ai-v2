@@ -1,0 +1,117 @@
+.restaurant-discovery-screen {
+  display: grid;
+  gap: 1rem;
+}
+
+.restaurant-search-card {
+  align-items: end;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 1rem;
+}
+
+.restaurant-search-card .field small {
+  color: var(--muted);
+}
+
+.restaurant-results {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.restaurant-results__heading {
+  align-items: end;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.restaurant-results__heading h2,
+.restaurant-results__heading p {
+  margin: 0;
+}
+
+.restaurant-results__heading p,
+.restaurant-results__heading small {
+  color: var(--muted);
+}
+
+.restaurant-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.restaurant-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  display: grid;
+  gap: 0.55rem;
+  padding: 1rem;
+}
+
+.restaurant-card h3,
+.restaurant-card p {
+  margin: 0;
+}
+
+.restaurant-card p {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.restaurant-card__heading {
+  align-items: start;
+  display: flex;
+  gap: 0.8rem;
+  justify-content: space-between;
+}
+
+.restaurant-card__heading > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.restaurant-card__heading > div > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.restaurant-kind {
+  background: var(--surface-soft);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  padding: 0.3rem 0.55rem;
+  white-space: nowrap;
+}
+
+.restaurant-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  padding-top: 0.2rem;
+}
+
+.restaurant-links a {
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+@media (max-width: 720px) {
+  .restaurant-search-card {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .restaurant-results__heading {
+    align-items: start;
+    flex-direction: column;
+  }
+}
