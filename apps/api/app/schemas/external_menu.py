@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 NutritionEvidenceLevel = Literal["official", "provider", "estimated"]
 ExternalMenuSourceKind = Literal["restaurant", "delivery"]
@@ -22,6 +22,23 @@ class ExternalMenuNutritionWrite(BaseModel):
     reference_unit: str = Field(default="serving", min_length=1, max_length=24)
     energy_kcal: Decimal = Field(ge=0)
     nutrients: list[ExternalMenuNutrientWrite] = Field(default_factory=list, max_length=50)
+
+    @field_validator("nutrients")
+    @classmethod
+    def validate_unique_nutrients(
+        cls,
+        nutrients: list[ExternalMenuNutrientWrite],
+    ) -> list[ExternalMenuNutrientWrite]:
+        keys = [nutrient.key for nutrient in nutrients]
+        if len(keys) != len(set(keys)):
+            raise ValueError("nutrition nutrients cannot contain duplicate keys.")
+        return nutrients
+
+    @model_validator(mode="after")
+    def validate_estimated_confidence(self) -> "ExternalMenuNutritionWrite":
+        if self.evidence_level == "estimated" and self.confidence is None:
+            raise ValueError("confidence is required for estimated nutrition evidence.")
+        return self
 
 
 class ExternalMenuItemObservationWrite(BaseModel):
@@ -42,6 +59,12 @@ class ExternalMenuItemObservationWrite(BaseModel):
     valid_until: datetime | None = None
     source_reference: str = Field(min_length=1, max_length=255)
     nutrition: ExternalMenuNutritionWrite | None = None
+
+    @model_validator(mode="after")
+    def validate_validity_window(self) -> "ExternalMenuItemObservationWrite":
+        if self.valid_until is not None and self.valid_until <= self.observed_at:
+            raise ValueError("valid_until must be after observed_at.")
+        return self
 
 
 class ExternalMenuItemIngestedRead(BaseModel):
