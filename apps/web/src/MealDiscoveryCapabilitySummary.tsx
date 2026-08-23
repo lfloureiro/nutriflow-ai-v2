@@ -11,6 +11,7 @@ const SOURCE_LABELS: Record<MealDiscoverySource, Record<"pt-PT" | "en", string>>
   shared_recipes: { "pt-PT": "Receitas", en: "Recipes" },
   uber_eats: { "pt-PT": "Uber Eats", en: "Uber Eats" },
   glovo: { "pt-PT": "Glovo", en: "Glovo" },
+  bolt_food: { "pt-PT": "Bolt Food", en: "Bolt Food" },
   restaurants: { "pt-PT": "Restaurantes", en: "Restaurants" },
 };
 
@@ -43,7 +44,10 @@ function detail(capability: MealDiscoveryCapability, locale: "pt-PT" | "en"): st
     }
     return "Pesquisa live de restaurantes desativada nesta instalação.";
   }
-  return `É necessário configurar uma integração autorizada com ${SOURCE_LABELS[capability.source][locale]}.`;
+  if (capability.status === "ready") {
+    return `${SOURCE_LABELS[capability.source][locale]} está configurado para pesquisa live.`;
+  }
+  return `É necessário configurar e autorizar uma integração de consumidor com ${SOURCE_LABELS[capability.source][locale]}.`;
 }
 
 export default function MealDiscoveryCapabilitySummary({ familyId }: { familyId: string }) {
