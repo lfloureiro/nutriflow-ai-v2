@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.person import PersonRead
+from app.schemas.person import PersonEnergyProfileRead, PersonRead
 from app.services.person import get_person
+from app.services.person_energy import PersonEnergyProfileError, get_energy_profile
 
 router = APIRouter(prefix="/persons", tags=["persons"])
 
@@ -22,3 +23,17 @@ def get_person_endpoint(
         raise HTTPException(status_code=404, detail="Person not found")
 
     return person
+
+
+@router.get("/{person_id}/energy-profile", response_model=PersonEnergyProfileRead)
+def get_person_energy_profile_endpoint(
+    person_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+) -> PersonEnergyProfileRead:
+    person = get_person(db, person_id)
+    if person is None:
+        raise HTTPException(status_code=404, detail="Person not found")
+    try:
+        return get_energy_profile(db, person=person)
+    except PersonEnergyProfileError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
