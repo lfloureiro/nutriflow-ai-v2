@@ -20,6 +20,9 @@ export type MealDiscoveryCapability = {
   live: boolean;
   status: MealDiscoveryCapabilityStatus;
   detail: string;
+  credentials_configured: boolean | null;
+  access_enabled: boolean | null;
+  adapter_available: boolean | null;
 };
 
 export type MealDiscoveryCapabilities = {
