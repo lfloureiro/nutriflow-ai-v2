@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import IngredientCatalogue from "./IngredientCatalogue";
+import MealDiscoverySettings from "./MealDiscoverySettings";
 import PantryScreen from "./PantryScreen";
 import RecipeCatalogue from "./RecipeCatalogue";
 import RecipePreferences from "./RecipePreferences";
@@ -14,6 +15,7 @@ type HomeBaseView =
   | "pantry"
   | "shopping"
   | "preferences"
+  | "sources"
   | "restaurants";
 
 export default function HomeBase({ familyId }: { familyId: string }) {
@@ -28,6 +30,7 @@ export default function HomeBase({ familyId }: { familyId: string }) {
           pantry: "Despensa",
           shopping: "Compras",
           preferences: "Preferências",
+          sources: "Fontes",
           restaurants: "Restaurantes",
         }
       : {
@@ -37,6 +40,7 @@ export default function HomeBase({ familyId }: { familyId: string }) {
           pantry: "Pantry",
           shopping: "Shopping",
           preferences: "Preferences",
+          sources: "Sources",
           restaurants: "Restaurants",
         };
 
@@ -84,6 +88,14 @@ export default function HomeBase({ familyId }: { familyId: string }) {
           {copy.preferences}
         </button>
         <button
+          aria-current={view === "sources" ? "page" : undefined}
+          className={view === "sources" ? "active" : ""}
+          onClick={() => setView("sources")}
+          type="button"
+        >
+          {copy.sources}
+        </button>
+        <button
           aria-current={view === "restaurants" ? "page" : undefined}
           className={view === "restaurants" ? "active" : ""}
           onClick={() => setView("restaurants")}
@@ -97,6 +109,7 @@ export default function HomeBase({ familyId }: { familyId: string }) {
       {view === "pantry" ? <PantryScreen familyId={familyId} /> : null}
       {view === "shopping" ? <ShoppingListScreen familyId={familyId} /> : null}
       {view === "preferences" ? <RecipePreferences familyId={familyId} /> : null}
+      {view === "sources" ? <MealDiscoverySettings familyId={familyId} /> : null}
       {view === "restaurants" ? <RestaurantDiscoveryScreen familyId={familyId} /> : null}
     </div>
   );
