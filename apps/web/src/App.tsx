@@ -98,6 +98,10 @@ export default function App() {
     };
   }, [activeFamilyId, dashboardRevision]);
 
+  function refreshDashboard() {
+    setDashboardRevision((current) => current + 1);
+  }
+
   function openFamily(nextFamilyId: string) {
     const normalized = nextFamilyId.trim();
     if (!normalized) {
@@ -111,7 +115,7 @@ export default function App() {
     setMealsMode("today");
     setView("home");
     setActiveFamilyId(normalized);
-    setDashboardRevision((current) => current + 1);
+    refreshDashboard();
   }
 
   function handleFamilyCreated(family: Family) {
@@ -212,7 +216,7 @@ export default function App() {
             disabled={dashboardBusy}
             onClick={() => {
               setView("home");
-              setDashboardRevision((current) => current + 1);
+              refreshDashboard();
             }}
             type="button"
           >
@@ -246,6 +250,7 @@ export default function App() {
             <FamilyMealsScreen
               familyId={activeFamilyId}
               mode={mealsMode}
+              onDataChanged={refreshDashboard}
               onModeChange={setMealsMode}
               referenceDate={dashboard?.dashboard_date}
             />
@@ -285,7 +290,7 @@ export default function App() {
                     familyId={activeFamilyId}
                     familyTimezone={dashboard.timezone}
                     onCancel={() => setShowPersonSetup(false)}
-                    onCreated={() => setDashboardRevision((current) => current + 1)}
+                    onCreated={refreshDashboard}
                   />
                 ) : null}
                 <div className="people-list">
