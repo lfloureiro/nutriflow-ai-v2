@@ -22,6 +22,7 @@ class PlanningDailyNutritionStateRead(BaseModel):
     timezone: str
     energy_consumed_kcal: Decimal
     energy_planned_kcal: Decimal
+    energy_assumed_kcal: Decimal
     energy_remaining_min_kcal: Decimal | None
     energy_remaining_max_kcal: Decimal | None
     calculation_version: str
