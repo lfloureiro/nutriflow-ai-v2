@@ -235,6 +235,19 @@ def _latest_state(
     )
 
 
+def _apply_target_budget(
+    state: DailyNutritionState,
+    *,
+    target: NutritionTarget,
+    energy_min_kcal: Decimal,
+    energy_max_kcal: Decimal,
+) -> None:
+    spent = state.energy_consumed_kcal + state.energy_planned_kcal
+    state.nutrition_target = target
+    state.energy_remaining_min_kcal = energy_min_kcal - spent
+    state.energy_remaining_max_kcal = energy_max_kcal - spent
+
+
 def _ensure_current_budget_state(
     session: Session,
     *,
@@ -255,15 +268,17 @@ def _ensure_current_budget_state(
         )
         session.add(state)
 
-    spent = definition.current_consumed_kcal + definition.current_planned_kcal
     state.person_id = person.id
-    state.nutrition_target = target
     state.state_date = state_date
     state.timezone = DEMO_TIMEZONE
     state.energy_consumed_kcal = definition.current_consumed_kcal
     state.energy_planned_kcal = definition.current_planned_kcal
-    state.energy_remaining_min_kcal = definition.energy_min_kcal - spent
-    state.energy_remaining_max_kcal = definition.energy_max_kcal - spent
+    _apply_target_budget(
+        state,
+        target=target,
+        energy_min_kcal=definition.energy_min_kcal,
+        energy_max_kcal=definition.energy_max_kcal,
+    )
     state.adherence_score = None
     state.confidence_score = Decimal(1)
     state.calculation_version = DEMO_BUDGET_CALCULATION_VERSION
@@ -274,6 +289,36 @@ def _ensure_current_budget_state(
     }
     state.computed_at = now
     return state
+
+
+def _repair_existing_future_states(
+    session: Session,
+    *,
+    person: Person,
+    target: NutritionTarget,
+    definition: DemoNutritionTargetDefinition,
+    from_date: date,
+) -> int:
+    states = list(
+        session.scalars(
+            select(DailyNutritionState).where(
+                DailyNutritionState.person_id == person.id,
+                DailyNutritionState.state_date > from_date,
+            )
+        ).all()
+    )
+    for state in states:
+        _apply_target_budget(
+            state,
+            target=target,
+            energy_min_kcal=definition.energy_min_kcal,
+            energy_max_kcal=definition.energy_max_kcal,
+        )
+        existing_inputs = dict(state.calculation_inputs or {})
+        existing_inputs["nutrition_target_id"] = str(target.id)
+        existing_inputs["demo_target_repaired"] = True
+        state.calculation_inputs = existing_inputs
+    return len(states)
 
 
 def seed_demo_nutrition_targets(
@@ -311,6 +356,13 @@ def seed_demo_nutrition_targets(
             now=instant,
         )
         state_count += 1
+        state_count += _repair_existing_future_states(
+            session,
+            person=person,
+            target=target,
+            definition=definition,
+            from_date=local_date,
+        )
 
     session.flush()
     return DemoNutritionTargetSeedResult(
