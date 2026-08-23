@@ -41,3 +41,12 @@ def resolve_meal_types(
 
 def food_default_meal_types(food_kind: str) -> tuple[str, ...]:
     return MAIN_MEAL_TYPES if food_kind == "dish" else ()
+
+
+def recipe_default_meal_types(source: str) -> tuple[str, ...]:
+    """Compatibility fallback for catalogues created before meal suitability was persisted."""
+    if source == "development-breakfast":
+        return ("breakfast",)
+    if source == "development-snack":
+        return ("snack",)
+    return MAIN_MEAL_TYPES
