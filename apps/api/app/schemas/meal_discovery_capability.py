@@ -19,6 +19,9 @@ class MealDiscoveryCapabilityRead(BaseModel):
     live: bool
     status: MealDiscoveryCapabilityStatus
     detail: str
+    credentials_configured: bool | None = None
+    access_enabled: bool | None = None
+    adapter_available: bool | None = None
 
 
 class MealDiscoveryCapabilitiesRead(BaseModel):
