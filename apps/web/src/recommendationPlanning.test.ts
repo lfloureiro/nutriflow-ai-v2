@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { PlanningCandidate } from "./api/types";
+import type { PlanningCandidate, PlanningMealType } from "./api/types";
 import {
   RECOMMENDATION_SOURCES,
   recommendationCandidates,
@@ -13,6 +13,7 @@ function candidate(
   kind: "food_item" | "recipe",
   category: string,
   id: string,
+  suitableMealTypes: PlanningMealType[] = ["lunch", "dinner"],
 ): PlanningCandidate {
   return {
     candidate_kind: kind,
@@ -27,6 +28,7 @@ function candidate(
     energy_kcal: "200",
     composition_version: "v1",
     composition_at: "2026-08-22T12:00:00Z",
+    suitable_meal_types: suitableMealTypes,
   };
 }
 
@@ -67,9 +69,40 @@ describe("recommendation planning helpers", () => {
     ];
 
     expect(
-      recommendationCandidates(candidates, ["cooked", "restaurant"]).map(
+      recommendationCandidates(candidates, ["cooked", "restaurant"], "lunch").map(
         (item) => item.composition_id,
       ),
     ).toEqual(["recipe-1", "dish-1"]);
+  });
+
+  it("keeps breakfast, snack and main-meal candidates in their own slots", () => {
+    const candidates = [
+      candidate("recipe", "recipe", "breakfast", ["breakfast"]),
+      candidate("recipe", "recipe", "snack", ["snack"]),
+      candidate("recipe", "recipe", "main", ["lunch", "dinner"]),
+      candidate("food_item", "dish", "restaurant-main", ["lunch", "dinner"]),
+    ];
+    const sources = ["cooked", "restaurant"] as const;
+
+    expect(
+      recommendationCandidates(candidates, [...sources], "breakfast").map(
+        (item) => item.composition_id,
+      ),
+    ).toEqual(["breakfast"]);
+    expect(
+      recommendationCandidates(candidates, [...sources], "snack").map(
+        (item) => item.composition_id,
+      ),
+    ).toEqual(["snack"]);
+    expect(
+      recommendationCandidates(candidates, [...sources], "lunch").map(
+        (item) => item.composition_id,
+      ),
+    ).toEqual(["main", "restaurant-main"]);
+    expect(
+      recommendationCandidates(candidates, [...sources], "dinner").map(
+        (item) => item.composition_id,
+      ),
+    ).toEqual(["main", "restaurant-main"]);
   });
 });
