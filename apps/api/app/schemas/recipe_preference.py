@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class RecipeRatingWrite(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    rating: int = Field(ge=1, le=5)
+    rating: int = Field(ge=0, le=5)
     notes: str | None = Field(default=None, max_length=2000)
 
 
