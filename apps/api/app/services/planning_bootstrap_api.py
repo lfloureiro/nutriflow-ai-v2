@@ -24,7 +24,7 @@ from app.schemas.planning_bootstrap import (
 )
 from app.services.daily_nutrition_state import recalculate_daily_nutrition_state
 
-DEFAULT_STANDARD_BREAKFAST_KCAL = Decimal("350")
+DEFAULT_STANDARD_BREAKFAST_KCAL = Decimal(350)
 BREAKFAST_ASSUMPTION_CUTOFF = time(10, 0)
 
 
