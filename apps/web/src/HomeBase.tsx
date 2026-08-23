@@ -4,10 +4,17 @@ import IngredientCatalogue from "./IngredientCatalogue";
 import PantryScreen from "./PantryScreen";
 import RecipeCatalogue from "./RecipeCatalogue";
 import RecipePreferences from "./RecipePreferences";
+import RestaurantDiscoveryScreen from "./RestaurantDiscoveryScreen";
 import ShoppingListScreen from "./ShoppingListScreen";
 import { useI18n } from "./i18n";
 
-type HomeBaseView = "recipes" | "ingredients" | "pantry" | "shopping" | "preferences";
+type HomeBaseView =
+  | "recipes"
+  | "ingredients"
+  | "pantry"
+  | "shopping"
+  | "preferences"
+  | "restaurants";
 
 export default function HomeBase({ familyId }: { familyId: string }) {
   const { locale } = useI18n();
@@ -21,6 +28,7 @@ export default function HomeBase({ familyId }: { familyId: string }) {
           pantry: "Despensa",
           shopping: "Compras",
           preferences: "Preferências",
+          restaurants: "Restaurantes",
         }
       : {
           label: "Home management",
@@ -29,6 +37,7 @@ export default function HomeBase({ familyId }: { familyId: string }) {
           pantry: "Pantry",
           shopping: "Shopping",
           preferences: "Preferences",
+          restaurants: "Restaurants",
         };
 
   return (
@@ -74,12 +83,21 @@ export default function HomeBase({ familyId }: { familyId: string }) {
         >
           {copy.preferences}
         </button>
+        <button
+          aria-current={view === "restaurants" ? "page" : undefined}
+          className={view === "restaurants" ? "active" : ""}
+          onClick={() => setView("restaurants")}
+          type="button"
+        >
+          {copy.restaurants}
+        </button>
       </nav>
       {view === "recipes" ? <RecipeCatalogue familyId={familyId} /> : null}
       {view === "ingredients" ? <IngredientCatalogue familyId={familyId} /> : null}
       {view === "pantry" ? <PantryScreen familyId={familyId} /> : null}
       {view === "shopping" ? <ShoppingListScreen familyId={familyId} /> : null}
       {view === "preferences" ? <RecipePreferences familyId={familyId} /> : null}
+      {view === "restaurants" ? <RestaurantDiscoveryScreen familyId={familyId} /> : null}
     </div>
   );
 }
