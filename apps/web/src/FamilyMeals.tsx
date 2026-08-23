@@ -20,10 +20,10 @@ import type { Person } from "./api/types";
 import { useI18n, type Locale } from "./i18n";
 import MealConsumptionControls from "./MealConsumptionControls";
 import MealPlanner from "./MealPlanner";
+import { localDateValue } from "./planning";
 
 export type FamilyMealsMode = "today" | "week" | "recommend";
 
-const MEAL_TYPES: MealType[] = ["breakfast", "lunch", "snack", "dinner"];
 const DEFAULT_TIMES: Record<MealType, string> = {
   breakfast: "08:30",
   lunch: "13:00",
@@ -300,7 +300,11 @@ function MealEditForm({
           </label>
           <label className="field">
             <span>{copy.time}</span>
-            <input type="time" value={localTime} onChange={(event) => setLocalTime(event.target.value)} />
+            <input
+              type="time"
+              value={localTime}
+              onChange={(event) => setLocalTime(event.target.value)}
+            />
           </label>
           <label className="field">
             <span>{copy.location}</span>
@@ -358,7 +362,11 @@ function MealEditForm({
           })}
         </div>
         <div className="meal-plan-editor__actions">
-          <button className="button primary" disabled={busy || recipes.length === 0} type="submit">
+          <button
+            className="button primary"
+            disabled={busy || recipes.length === 0}
+            type="submit"
+          >
             {busy ? copy.saving : copy.save}
           </button>
           {entry ? (
@@ -377,11 +385,13 @@ export default function FamilyMealsScreen({
   referenceDate,
   mode,
   onModeChange,
+  onDataChanged,
 }: {
   familyId: string;
   referenceDate?: string;
   mode: FamilyMealsMode;
   onModeChange: (mode: FamilyMealsMode) => void;
+  onDataChanged?: () => void;
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
@@ -435,6 +445,7 @@ export default function FamilyMealsScreen({
 
   function refreshPlan() {
     setRevision((current) => current + 1);
+    onDataChanged?.();
   }
 
   function closeEditor() {
@@ -442,7 +453,7 @@ export default function FamilyMealsScreen({
     refreshPlan();
   }
 
-  const consumptionDate = referenceDate ?? new Date().toISOString().slice(0, 10);
+  const consumptionDate = referenceDate ?? localDateValue();
 
   return (
     <div className="family-meals-screen">
@@ -456,21 +467,30 @@ export default function FamilyMealsScreen({
       <nav className="secondary-tabs family-meals-tabs" aria-label={copy.navigation}>
         <button
           className={mode === "today" ? "active" : ""}
-          onClick={() => { setEditing(null); onModeChange("today"); }}
+          onClick={() => {
+            setEditing(null);
+            onModeChange("today");
+          }}
           type="button"
         >
           {copy.today}
         </button>
         <button
           className={mode === "week" ? "active" : ""}
-          onClick={() => { setEditing(null); onModeChange("week"); }}
+          onClick={() => {
+            setEditing(null);
+            onModeChange("week");
+          }}
           type="button"
         >
           {copy.week}
         </button>
         <button
           className={mode === "recommend" ? "active" : ""}
-          onClick={() => { setEditing(null); onModeChange("recommend"); }}
+          onClick={() => {
+            setEditing(null);
+            onModeChange("recommend");
+          }}
           type="button"
         >
           {copy.recommend}
