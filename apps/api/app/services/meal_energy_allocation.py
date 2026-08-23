@@ -56,7 +56,7 @@ def _spent_energy(state: DailyNutritionState) -> Decimal:
     return (
         state.energy_consumed_kcal
         + state.energy_planned_kcal
-        + state.energy_assumed_kcal
+        + (state.energy_assumed_kcal or ZERO)
     )
 
 
