@@ -132,6 +132,7 @@ export type PlanningDailyNutritionState = {
   timezone: string;
   energy_consumed_kcal: string;
   energy_planned_kcal: string;
+  energy_assumed_kcal: string;
   energy_remaining_min_kcal: string | null;
   energy_remaining_max_kcal: string | null;
   calculation_version: string;
