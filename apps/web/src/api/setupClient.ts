@@ -3,8 +3,10 @@ import type {
   CreatedPerson,
   Family,
   FamilyCreate,
+  FamilyUpdate,
   PersonCreate,
   PersonEnergyProfile,
+  PersonMealDiscovery,
 } from "./setupTypes";
 import type { Person, PlanningBootstrap } from "./types";
 
@@ -33,6 +35,13 @@ export function createFamily(payload: FamilyCreate): Promise<Family> {
   });
 }
 
+export function updateFamily(familyId: string, payload: FamilyUpdate): Promise<Family> {
+  return setupRequest<Family>(`/api/families/${encodeURIComponent(familyId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function createFamilyPerson(familyId: string, payload: PersonCreate): Promise<CreatedPerson> {
   return setupRequest<CreatedPerson>(`/api/families/${encodeURIComponent(familyId)}/persons`, {
     method: "POST",
@@ -47,6 +56,12 @@ export function getPerson(personId: string): Promise<Person> {
 export function getPersonEnergyProfile(personId: string): Promise<PersonEnergyProfile> {
   return setupRequest<PersonEnergyProfile>(
     `/api/persons/${encodeURIComponent(personId)}/energy-profile`,
+  );
+}
+
+export function getPersonMealDiscovery(personId: string): Promise<PersonMealDiscovery> {
+  return setupRequest<PersonMealDiscovery>(
+    `/api/persons/${encodeURIComponent(personId)}/meal-discovery`,
   );
 }
 
