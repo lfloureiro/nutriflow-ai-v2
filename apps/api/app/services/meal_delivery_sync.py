@@ -33,7 +33,10 @@ def sync_meal_delivery_provider(
     query: str | None = None,
     limit: int = 30,
 ) -> MealDeliverySyncResult:
-    integration = get_meal_delivery_provider_integration(provider_key)
+    integration = get_meal_delivery_provider_integration(
+        provider_key,
+        adapter_available=True,
+    )
     if not integration.live:
         raise MealDeliveryProviderUnavailable(
             f"{integration.display_name} consumer discovery is not enabled for this installation."
