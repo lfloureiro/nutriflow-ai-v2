@@ -140,6 +140,8 @@ export type PlanningDailyNutritionState = {
   components: PlanningNutritionComponent[];
 };
 
+export type PlanningMealType = "breakfast" | "lunch" | "snack" | "dinner";
+
 export type PlanningCandidate = {
   candidate_kind: "food_item" | "recipe";
   composition_id: string;
@@ -153,6 +155,7 @@ export type PlanningCandidate = {
   energy_kcal: string | null;
   composition_version: string;
   composition_at: string;
+  suitable_meal_types: PlanningMealType[];
 };
 
 export type PlanningBootstrap = {
@@ -258,5 +261,3 @@ export type RecommendationDecision = {
   scheduled_at: string | null;
   quantity_planned: string | null;
   quantity_unit: string | null;
-  energy_planned_kcal: string | null;
-};
