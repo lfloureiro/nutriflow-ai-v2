@@ -17,7 +17,7 @@ class PersonEnergyProfileCreate(BaseModel):
     activity_level: ActivityLevel
     goal_type: NutritionGoalType = "maintain"
     target_rate_kg_per_week: Decimal | None = Field(default=None, gt=0, le=1)
-    standard_breakfast_kcal: Decimal = Field(default=Decimal("350"), ge=0, le=1000)
+    standard_breakfast_kcal: Decimal = Field(default=Decimal(350), ge=0, le=1000)
 
     @model_validator(mode="after")
     def validate_goal_rate(self) -> "PersonEnergyProfileCreate":
