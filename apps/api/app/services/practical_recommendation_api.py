@@ -26,6 +26,10 @@ from app.services.persisted_practical_availability import (
 )
 from app.services.recipe_preference import load_family_recipe_ratings
 from app.services.recommendation_diversity import apply_diversity_to_recommendation
+from app.services.recommendation_feedback_learning import (
+    apply_feedback_to_recommendation,
+    load_person_feedback_signals,
+)
 from app.services.recommendation_practical_context import (
     CandidatePracticalProfile,
     PracticalMealContext,
@@ -258,6 +262,7 @@ def create_practical_meal_recommendation(
         candidates=data.candidates,
     )
     _validate_planning_instant(data, state_timezone=state.timezone)
+    feedback_signals = {}
 
     try:
         channels, offers = _build_practical_channels(
@@ -308,6 +313,15 @@ def create_practical_meal_recommendation(
                 recommendation=recommendation,
                 provisional_history=data.provisional_history,
             )
+        feedback_signals = load_person_feedback_signals(
+            session,
+            person_id=person.id,
+            planning_date=data.planning_date,
+        )
+        recommendation = apply_feedback_to_recommendation(
+            recommendation,
+            feedback_signals=feedback_signals,
+        )
     except (
         CommercialAvailabilityError,
         PantryPlanningError,
@@ -337,6 +351,9 @@ def create_practical_meal_recommendation(
             "commercial_offer_keys": [offer.offer_key for offer in offers],
             "family_recipe_ratings": {
                 key: str(value) for key, value in sorted(family_recipe_ratings.items())
+            },
+            "feedback_history": {
+                key: str(value) for key, value in sorted(feedback_signals.items())
             },
             "provisional_history": [
                 {"plan_date": item.plan_date.isoformat(), "candidate_key": item.candidate_key}
