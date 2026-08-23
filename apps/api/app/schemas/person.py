@@ -32,7 +32,7 @@ class PersonMealDiscoveryCreate(BaseModel):
     meal_discovery_sources: list[MealDiscoverySource] | None = Field(
         default=None,
         min_length=1,
-        max_length=4,
+        max_length=5,
     )
     delivery_address: str | None = Field(default=None, max_length=500)
     restaurant_area: str | None = Field(default=None, max_length=255)
