@@ -4,7 +4,13 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-MealDiscoverySource = Literal["shared_recipes", "uber_eats", "glovo", "restaurants"]
+MealDiscoverySource = Literal[
+    "shared_recipes",
+    "uber_eats",
+    "glovo",
+    "bolt_food",
+    "restaurants",
+]
 
 
 def _unique_sources(values: list[MealDiscoverySource]) -> list[MealDiscoverySource]:
@@ -19,7 +25,7 @@ class FamilyCreate(BaseModel):
     meal_discovery_sources: list[MealDiscoverySource] = Field(
         default_factory=lambda: ["shared_recipes"],
         min_length=1,
-        max_length=4,
+        max_length=5,
     )
     delivery_address: str | None = Field(default=None, max_length=500)
     restaurant_area: str | None = Field(default=None, max_length=255)
@@ -36,7 +42,7 @@ class FamilyUpdate(BaseModel):
     meal_discovery_sources: list[MealDiscoverySource] | None = Field(
         default=None,
         min_length=1,
-        max_length=4,
+        max_length=5,
     )
     delivery_address: str | None = Field(default=None, max_length=500)
     restaurant_area: str | None = Field(default=None, max_length=255)
