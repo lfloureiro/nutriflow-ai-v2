@@ -554,14 +554,17 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
 
     let nutritionBudgets: RecommendationNutritionBudget[] = [];
     try {
-      const bootstraps = await Promise.all(
-        selectedPeople.map((person) => getRecommendationBootstrap(person.id, scheduledAt)),
+      const personBootstraps = await Promise.all(
+        selectedPeople.map(async (person) => ({
+          person,
+          bootstrap: await getRecommendationBootstrap(person.id, scheduledAt),
+        })),
       );
-      const firstBootstrap = bootstraps.at(0);
-      if (!firstBootstrap) throw new Error(copy.peopleRequired);
+      const firstPair = personBootstraps.at(0);
+      if (!firstPair) throw new Error(copy.peopleRequired);
+      const firstBootstrap = firstPair.bootstrap;
 
-      nutritionBudgets = bootstraps.map((bootstrap, index) => {
-        const person = selectedPeople[index];
+      nutritionBudgets = personBootstraps.map(({ person, bootstrap }) => {
         if (!bootstrap.daily_nutrition_state) {
           throw new Error(`${copy.stateUnavailable} ${displayName(person)}.`);
         }
