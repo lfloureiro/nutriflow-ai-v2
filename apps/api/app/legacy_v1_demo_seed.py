@@ -157,7 +157,6 @@ def _ensure_recipe_key_available(
 
 def _ensure_ingredient(
     session: Session,
-    family: Family,
     definition: _IngredientJson,
 ) -> FoodItem:
     legacy_id = definition["id"]
@@ -173,7 +172,7 @@ def _ensure_ingredient(
     if item is None:
         item = FoodItem(
             id=item_id,
-            family=family,
+            family=None,
             catalog_key=catalog_key,
             name=definition["name"],
             food_kind="ingredient",
@@ -183,7 +182,7 @@ def _ensure_ingredient(
         )
         session.add(item)
     else:
-        item.family_id = family.id
+        item.family_id = None
         item.catalog_key = catalog_key
         item.name = definition["name"]
         item.food_kind = "ingredient"
@@ -256,7 +255,6 @@ def _ensure_demo_composition(
 
 def _ensure_recipe(
     session: Session,
-    family: Family,
     definition: _RecipeJson,
     ingredients_by_legacy_id: dict[int, FoodItem],
 ) -> Recipe:
@@ -274,7 +272,7 @@ def _ensure_recipe(
     if recipe is None:
         recipe = Recipe(
             id=recipe_id,
-            family=family,
+            family=None,
             recipe_key=recipe_key,
             name=definition["name"],
             description=definition["description"],
@@ -286,7 +284,7 @@ def _ensure_recipe(
         session.add(recipe)
         session.flush()
     else:
-        recipe.family_id = family.id
+        recipe.family_id = None
         recipe.recipe_key = recipe_key
         recipe.name = definition["name"]
         recipe.description = definition["description"]
@@ -327,16 +325,17 @@ def seed_legacy_v1_demo_catalog(
     instant = now or datetime.now(UTC)
     if instant.tzinfo is None or instant.utcoffset() is None:
         raise ValueError("Legacy v1 demo seed instant must be timezone-aware.")
+    _ = family
 
     fixture = _fixture()
     ingredients = {
-        definition["id"]: _ensure_ingredient(session, family, definition)
+        definition["id"]: _ensure_ingredient(session, definition)
         for definition in fixture["ingredients"]
     }
     session.flush()
 
     for definition in fixture["recipes"]:
-        _ensure_recipe(session, family, definition, ingredients)
+        _ensure_recipe(session, definition, ingredients)
     session.flush()
 
     return LegacyV1DemoSeedResult(
