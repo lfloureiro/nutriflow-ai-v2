@@ -21,15 +21,16 @@ const state: PlanningDailyNutritionState = {
   timezone: "Europe/Lisbon",
   energy_consumed_kcal: "1000.00",
   energy_planned_kcal: "200.00",
-  energy_remaining_min_kcal: "600.00",
-  energy_remaining_max_kcal: "800.00",
+  energy_assumed_kcal: "300.00",
+  energy_remaining_min_kcal: "300.00",
+  energy_remaining_max_kcal: "500.00",
   calculation_version: "test",
   computed_at: "2026-08-23T09:00:00Z",
   components: [],
 };
 
 describe("recommendationNutritionBudget", () => {
-  it("derives the daily target from spent and remaining energy", () => {
+  it("derives the daily target from consumed, planned, assumed and remaining energy", () => {
     const budget = recommendationNutritionBudget(person, state);
 
     expect(budget.personName).toBe("Pessoa Demo");
@@ -37,12 +38,13 @@ describe("recommendationNutritionBudget", () => {
     expect(budget.targetMaxKcal).toBe(2000);
     expect(budget.consumedKcal).toBe(1000);
     expect(budget.plannedKcal).toBe(200);
-    expect(budget.remainingMinKcal).toBe(600);
-    expect(budget.remainingMaxKcal).toBe(800);
+    expect(budget.assumedKcal).toBe(300);
+    expect(budget.remainingMinKcal).toBe(300);
+    expect(budget.remainingMaxKcal).toBe(500);
   });
 
-  it("calculates bounded progress against the target midpoint", () => {
+  it("includes assumed calories in bounded progress", () => {
     const budget = recommendationNutritionBudget(person, state);
-    expect(budgetProgress(budget)).toBeCloseTo(1200 / 1900);
+    expect(budgetProgress(budget)).toBeCloseTo(1500 / 1900);
   });
 });
