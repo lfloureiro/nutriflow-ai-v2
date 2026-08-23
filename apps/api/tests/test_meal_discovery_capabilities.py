@@ -61,11 +61,16 @@ def test_capabilities_report_recipes_restaurants_and_delivery_integrations(monke
         "restaurants",
     }
     assert by_source["shared_recipes"].status == "ready"
+    assert by_source["shared_recipes"].credentials_configured is None
     assert by_source["restaurants"].status == "ready"
     assert by_source["restaurants"].live
     for source in ("uber_eats", "glovo", "bolt_food"):
-        assert by_source[source].status == "integration_required"
-        assert not by_source[source].live
+        capability = by_source[source]
+        assert capability.status == "integration_required"
+        assert not capability.live
+        assert capability.credentials_configured is False
+        assert capability.access_enabled is False
+        assert capability.adapter_available is False
 
 
 def test_uber_capability_requires_credentials_enable_and_registered_adapter(monkeypatch) -> None:
@@ -88,6 +93,9 @@ def test_uber_capability_requires_credentials_enable_and_registered_adapter(monk
     assert uber.status == "integration_required"
     assert not uber.supported
     assert not uber.live
+    assert uber.credentials_configured is True
+    assert uber.access_enabled is True
+    assert uber.adapter_available is False
     assert "no executable provider adapter" in uber.detail
 
     try:
@@ -99,5 +107,8 @@ def test_uber_capability_requires_credentials_enable_and_registered_adapter(monk
         assert uber.status == "ready"
         assert uber.supported
         assert uber.live
+        assert uber.credentials_configured is True
+        assert uber.access_enabled is True
+        assert uber.adapter_available is True
     finally:
         clear_meal_delivery_adapters()
