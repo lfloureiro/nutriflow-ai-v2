@@ -18,7 +18,11 @@ from app.services.family import (
 )
 from app.services.family_dashboard import build_family_dashboard
 from app.services.family_meals import build_family_meals
-from app.services.person import create_person, list_family_persons
+from app.services.person import (
+    PersonDiscoveryConfigurationError,
+    create_person,
+    list_family_persons,
+)
 from app.services.person_energy import PersonEnergyProfileError
 
 router = APIRouter(prefix="/families", tags=["families"])
@@ -109,7 +113,7 @@ def create_person_endpoint(
 
     try:
         return create_person(db, family, data)
-    except PersonEnergyProfileError as exc:
+    except (PersonDiscoveryConfigurationError, PersonEnergyProfileError) as exc:
         db.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
