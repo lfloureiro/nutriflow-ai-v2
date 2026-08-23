@@ -15,6 +15,7 @@ const SOURCE_OPTIONS: MealDiscoverySource[] = [
   "shared_recipes",
   "uber_eats",
   "glovo",
+  "bolt_food",
   "restaurants",
 ];
 
@@ -49,10 +50,11 @@ const COPY = {
     shared_recipes: "Receitas partilhadas",
     uber_eats: "Uber Eats",
     glovo: "Glovo",
+    bolt_food: "Bolt Food",
     restaurants: "Restaurantes na área",
     deliveryAddress: "Morada de entrega desta pessoa",
     restaurantArea: "Área de restaurantes desta pessoa",
-    providerNote: "Uber Eats e Glovo só ficam live quando a integração oficial estiver configurada.",
+    providerNote: "Uber Eats, Glovo e Bolt Food só ficam live quando uma integração oficial autorizada estiver configurada.",
     sourceRequired: "Escolhe pelo menos uma origem de refeições.",
     deliveryAddressRequired: "Indica a morada de entrega desta pessoa.",
     restaurantAreaRequired: "Indica a área onde procurar restaurantes.",
@@ -94,10 +96,11 @@ const COPY = {
     shared_recipes: "Shared recipes",
     uber_eats: "Uber Eats",
     glovo: "Glovo",
+    bolt_food: "Bolt Food",
     restaurants: "Restaurants in the area",
     deliveryAddress: "This person's delivery address",
     restaurantArea: "This person's restaurant area",
-    providerNote: "Uber Eats and Glovo become live only when the official integration is configured.",
+    providerNote: "Uber Eats, Glovo and Bolt Food become live only when an authorized official integration is configured.",
     sourceRequired: "Choose at least one meal source.",
     deliveryAddressRequired: "Enter this person's delivery address.",
     restaurantAreaRequired: "Enter the area where restaurants should be discovered.",
@@ -118,6 +121,12 @@ function errorText(error: unknown): string {
 
 function kcal(value: string, locale: string): string {
   return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(Number(value))} kcal`;
+}
+
+function usesDelivery(sources: MealDiscoverySource[]): boolean {
+  return sources.some(
+    (source) => source === "uber_eats" || source === "glovo" || source === "bolt_food",
+  );
 }
 
 export default function PersonSetupForm({
@@ -151,7 +160,7 @@ export default function PersonSetupForm({
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<PersonEnergyProfile | null>(null);
 
-  const wantsDelivery = sources.includes("uber_eats") || sources.includes("glovo");
+  const wantsDelivery = usesDelivery(sources);
   const wantsRestaurants = sources.includes("restaurants");
 
   function toggleSource(source: MealDiscoverySource) {
@@ -263,7 +272,7 @@ export default function PersonSetupForm({
               </div>
               {wantsDelivery ? <label className="field"><span>{copy.deliveryAddress}</span><input required value={deliveryAddress} onChange={(event) => setDeliveryAddress(event.target.value)} /></label> : null}
               {wantsRestaurants ? <label className="field"><span>{copy.restaurantArea}</span><input required value={restaurantArea} onChange={(event) => setRestaurantArea(event.target.value)} /></label> : null}
-              {(sources.includes("uber_eats") || sources.includes("glovo")) ? <small className="muted">{copy.providerNote}</small> : null}
+              {wantsDelivery ? <small className="muted">{copy.providerNote}</small> : null}
             </>
           ) : null}
         </section>
