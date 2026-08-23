@@ -295,7 +295,7 @@ export function requestPracticalRecommendation(
     `/api/persons/${encodeURIComponent(personId)}/meal-recommendations/practical`,
     {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, auto_size_portions: true }),
     },
   );
 }
