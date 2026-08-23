@@ -13,6 +13,8 @@ from app.schemas.person import (
 )
 from app.services.person_energy import create_energy_profile
 
+DELIVERY_DISCOVERY_SOURCES = frozenset({"uber_eats", "glovo", "bolt_food"})
+
 
 class PersonDiscoveryConfigurationError(ValueError):
     pass
@@ -37,7 +39,7 @@ def _validate_discovery_configuration(
     sources = source_override if source_override is not None else family.meal_discovery_sources
     address = address_override if address_override is not None else family.delivery_address
     area = area_override if area_override is not None else family.restaurant_area
-    wants_delivery = "uber_eats" in sources or "glovo" in sources
+    wants_delivery = bool(DELIVERY_DISCOVERY_SOURCES.intersection(sources))
     if wants_delivery and not (address or "").strip():
         raise PersonDiscoveryConfigurationError(
             "A delivery address is required for the selected delivery providers."
