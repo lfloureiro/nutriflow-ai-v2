@@ -1,9 +1,29 @@
+from sqlalchemy import delete
+
+from app.commercial_demo_seed import COMMERCIAL_DEMO_REFERENCE
 from app.db.session import SessionLocal
 from app.demo_nutrition_target_seed import seed_demo_nutrition_targets
 from app.demo_seed import seed_demo_dataset
 from app.development_planning_profile_seed import seed_development_planning_profiles
 from app.legacy_v1_demo_seed import seed_legacy_v1_demo_catalog
 from app.models.family import Family
+from app.models.meal_candidate_availability import (
+    MealCandidateAvailability,
+    MealCommercialOffer,
+)
+
+
+def _remove_fake_commercial_browser_data(session) -> None:
+    session.execute(
+        delete(MealCommercialOffer).where(
+            MealCommercialOffer.source_reference == COMMERCIAL_DEMO_REFERENCE
+        )
+    )
+    session.execute(
+        delete(MealCandidateAvailability).where(
+            MealCandidateAvailability.source_reference == COMMERCIAL_DEMO_REFERENCE
+        )
+    )
 
 
 def main() -> None:
@@ -15,6 +35,7 @@ def main() -> None:
             raise RuntimeError("Development demo Family could not be loaded.")
         nutrition = seed_demo_nutrition_targets(session)
         legacy = seed_legacy_v1_demo_catalog(session, family=family)
+        _remove_fake_commercial_browser_data(session)
         planning = seed_development_planning_profiles(session, family=family)
         session.commit()
 
@@ -27,7 +48,7 @@ def main() -> None:
     print(f"Demo calorie budget states: {nutrition.state_count}")
     print(f"Shared v1 ingredients: {legacy.ingredient_count}")
     print(f"Shared v1 recipes: {legacy.recipe_count}")
-    print("Commercial demo providers: disabled")
+    print("Commercial demo providers: removed/disabled")
     print(f"Planning profiles: {planning.profile_count}")
 
 
