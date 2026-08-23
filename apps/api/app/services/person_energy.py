@@ -105,14 +105,14 @@ def create_energy_profile(
     energy_min = _q(max(Decimal(1), center - TARGET_HALF_WIDTH_KCAL))
     energy_max = _q(center + TARGET_HALF_WIDTH_KCAL)
 
-    person.profile = PersonProfile(
-        person=person,
+    profile = PersonProfile(
         sex_for_energy_calculation=data.sex_for_energy_calculation,
         activity_level=data.activity_level,
         standard_breakfast_kcal=data.standard_breakfast_kcal,
         measurement_system="metric",
         energy_unit="kcal",
     )
+    person.profile = profile
     session.add_all(
         [
             AnthropometricMeasurement(
