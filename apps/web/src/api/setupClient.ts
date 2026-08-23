@@ -4,6 +4,7 @@ import type {
   Family,
   FamilyCreate,
   FamilyUpdate,
+  MealDiscoveryCapabilities,
   PersonCreate,
   PersonEnergyProfile,
   PersonMealDiscovery,
@@ -45,6 +46,14 @@ export function updateFamily(familyId: string, payload: FamilyUpdate): Promise<F
     method: "PATCH",
     body: JSON.stringify(payload),
   });
+}
+
+export function getMealDiscoveryCapabilities(
+  familyId: string,
+): Promise<MealDiscoveryCapabilities> {
+  return setupRequest<MealDiscoveryCapabilities>(
+    `/api/families/${encodeURIComponent(familyId)}/meal-discovery-capabilities`,
+  );
 }
 
 export function createFamilyPerson(familyId: string, payload: PersonCreate): Promise<CreatedPerson> {
