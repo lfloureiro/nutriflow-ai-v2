@@ -14,6 +14,7 @@ from app.services.family import create_family, get_family
 from app.services.family_dashboard import build_family_dashboard
 from app.services.family_meals import build_family_meals
 from app.services.person import create_person, list_family_persons
+from app.services.person_energy import PersonEnergyProfileError
 
 router = APIRouter(prefix="/families", tags=["families"])
 
@@ -83,7 +84,11 @@ def create_person_endpoint(
     if family is None:
         raise HTTPException(status_code=404, detail="Family not found")
 
-    return create_person(db, family, data)
+    try:
+        return create_person(db, family, data)
+    except PersonEnergyProfileError as exc:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/{family_id}/persons", response_model=list[PersonRead])
