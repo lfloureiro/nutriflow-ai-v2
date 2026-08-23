@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.schemas.meal_type import MealType
+
 
 class RecipeIngredientWrite(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -21,6 +23,11 @@ class RecipeCreate(BaseModel):
 
     name: str = Field(min_length=1, max_length=160)
     description: str | None = Field(default=None, max_length=4000)
+    suitable_meal_types: list[MealType] = Field(
+        default_factory=lambda: ["lunch", "dinner"],
+        min_length=1,
+        max_length=4,
+    )
     yield_quantity: Decimal | None = Field(default=None, gt=0)
     yield_unit: str | None = Field(default=None, min_length=1, max_length=24)
     serving_count: Decimal | None = Field(default=None, gt=0)
@@ -30,6 +37,8 @@ class RecipeCreate(BaseModel):
     def validate_yield_shape(self) -> "RecipeCreate":
         if (self.yield_quantity is None) != (self.yield_unit is None):
             raise ValueError("yield_quantity and yield_unit must be provided together.")
+        if len(self.suitable_meal_types) != len(set(self.suitable_meal_types)):
+            raise ValueError("suitable_meal_types must not contain duplicates.")
         return self
 
 
@@ -38,11 +47,20 @@ class RecipeUpdate(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=160)
     description: str | None = Field(default=None, max_length=4000)
+    suitable_meal_types: list[MealType] | None = Field(default=None, min_length=1, max_length=4)
     yield_quantity: Decimal | None = Field(default=None, gt=0)
     yield_unit: str | None = Field(default=None, min_length=1, max_length=24)
     serving_count: Decimal | None = Field(default=None, gt=0)
     ingredients: list[RecipeIngredientWrite] | None = None
     is_active: bool | None = None
+
+    @model_validator(mode="after")
+    def validate_meal_types(self) -> "RecipeUpdate":
+        if self.suitable_meal_types is not None and len(self.suitable_meal_types) != len(
+            set(self.suitable_meal_types)
+        ):
+            raise ValueError("suitable_meal_types must not contain duplicates.")
+        return self
 
 
 class RecipeIngredientRead(BaseModel):
@@ -84,6 +102,7 @@ class RecipeRead(BaseModel):
     recipe_key: str
     name: str
     description: str | None
+    suitable_meal_types: list[MealType]
     yield_quantity: Decimal | None
     yield_unit: str | None
     serving_count: Decimal | None
