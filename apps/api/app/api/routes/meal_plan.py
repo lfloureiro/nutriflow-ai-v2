@@ -12,6 +12,7 @@ from app.schemas.family_meal_plan import (
     MealPlanEntryRead,
     MealPlanEntryUpdate,
 )
+from app.schemas.meal_consumption import MealConsumptionRead, MealConsumptionUpdate
 from app.services.family import get_family
 from app.services.family_meal_plan import (
     MealPlanEntryLockedError,
@@ -21,6 +22,11 @@ from app.services.family_meal_plan import (
     cancel_meal_plan_entry,
     create_meal_plan_entry,
     update_meal_plan_entry,
+)
+from app.services.meal_consumption import (
+    MealConsumptionError,
+    MealConsumptionNotFoundError,
+    record_meal_consumption,
 )
 
 router = APIRouter(prefix="/families/{family_id}/meal-plan", tags=["meal-plan"])
@@ -72,6 +78,34 @@ def update_meal_plan_entry_endpoint(
     except MealPlanEntryLockedError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except MealPlanError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.patch(
+    "/{meal_event_id}/participants/{person_id}/servings/{serving_id}/consumption",
+    response_model=MealConsumptionRead,
+)
+def record_meal_consumption_endpoint(
+    family_id: uuid.UUID,
+    meal_event_id: uuid.UUID,
+    person_id: uuid.UUID,
+    serving_id: uuid.UUID,
+    data: MealConsumptionUpdate,
+    db: Annotated[Session, Depends(get_db)],
+) -> MealConsumptionRead:
+    family = _require_family(db, family_id)
+    try:
+        return record_meal_consumption(
+            db,
+            family=family,
+            meal_event_id=meal_event_id,
+            person_id=person_id,
+            serving_id=serving_id,
+            data=data,
+        )
+    except MealConsumptionNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except MealConsumptionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
