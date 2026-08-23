@@ -1,5 +1,7 @@
-from datetime import date
+import uuid
+from datetime import UTC, date, datetime
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -7,10 +9,12 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.main import app
 from app.models.family import Family
+from app.models.food_catalog import FoodCompositionSnapshot, FoodItem
 from app.models.nutrition_target import NutritionTarget
 from app.models.person import Person
 from app.services.planning_bootstrap_api import get_planning_bootstrap
-from tests.test_family_meal_plan_api import PLAN_DATE, _recipe
+
+PLAN_DATE = "2026-08-23"
 
 
 def _override_db(db_session: Session):
@@ -27,6 +31,45 @@ def _request(db_session: Session, method: str, path: str, **kwargs):
             return client.request(method, path, **kwargs)
     finally:
         app.dependency_overrides.clear()
+
+
+def _recipe(db_session: Session, family: Family) -> str:
+    ingredient = FoodItem(
+        family=family,
+        catalog_key=f"test:consumption:{uuid.uuid4()}",
+        name="Base da receita",
+        food_kind="ingredient",
+        source="test",
+        is_active=True,
+    )
+    ingredient.compositions.append(
+        FoodCompositionSnapshot(
+            reference_quantity=Decimal(100),
+            reference_unit="g",
+            energy_kcal=Decimal(100),
+            data_version="test-v1",
+            source="test",
+            effective_at=datetime(2026, 8, 23, tzinfo=UTC),
+        )
+    )
+    db_session.add(ingredient)
+    db_session.flush()
+    response = _request(
+        db_session,
+        "POST",
+        f"/api/families/{family.id}/recipes",
+        json={
+            "name": "Receita consumo",
+            "serving_count": "4",
+            "yield_quantity": "1000",
+            "yield_unit": "g",
+            "ingredients": [
+                {"food_item_id": str(ingredient.id), "quantity": "1000", "unit": "g"}
+            ],
+        },
+    )
+    assert response.status_code == 201
+    return response.json()["id"]
 
 
 def _setup(db_session: Session, meal_type: str, local_time: str):
@@ -46,7 +89,7 @@ def _setup(db_session: Session, meal_type: str, local_time: str):
         status="active",
         source="test",
     )
-    db_session.add(family)
+    db_session.add_all([family, target])
     db_session.flush()
     recipe_id = _recipe(db_session, family)
     created = _request(
@@ -137,12 +180,9 @@ def test_skipped_breakfast_is_declared_zero_and_removes_later_assumption(
     lunch = get_planning_bootstrap(
         db_session,
         person_id=person.id,
-        scheduled_at=entry_datetime := __import__("datetime").datetime.fromisoformat(
-            f"{PLAN_DATE}T13:00:00+01:00"
-        ),
+        scheduled_at=datetime(2026, 8, 23, 13, 0, tzinfo=ZoneInfo("Europe/Lisbon")),
         ensure_state=True,
     )
-    assert entry_datetime.hour == 13
     assert lunch.daily_nutrition_state is not None
     assert lunch.daily_nutrition_state.energy_assumed_kcal == Decimal(0)
     assert lunch.daily_nutrition_state.energy_remaining_min_kcal == Decimal("1800.00")
