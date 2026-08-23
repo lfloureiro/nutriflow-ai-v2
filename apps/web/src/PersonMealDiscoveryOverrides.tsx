@@ -16,6 +16,7 @@ const SOURCES: MealDiscoverySource[] = [
   "shared_recipes",
   "uber_eats",
   "glovo",
+  "bolt_food",
   "restaurants",
 ];
 
@@ -28,6 +29,7 @@ const COPY = {
     shared_recipes: "Receitas",
     uber_eats: "Uber Eats",
     glovo: "Glovo",
+    bolt_food: "Bolt Food",
     restaurants: "Restaurantes",
     deliveryAddress: "Morada de entrega",
     restaurantArea: "Área de restaurantes",
@@ -47,6 +49,7 @@ const COPY = {
     shared_recipes: "Recipes",
     uber_eats: "Uber Eats",
     glovo: "Glovo",
+    bolt_food: "Bolt Food",
     restaurants: "Restaurants",
     deliveryAddress: "Delivery address",
     restaurantArea: "Restaurant area",
@@ -83,6 +86,12 @@ function toDraft(discovery: PersonMealDiscovery): Draft {
     deliveryAddress: discovery.delivery_address ?? "",
     restaurantArea: discovery.restaurant_area ?? "",
   };
+}
+
+function usesDelivery(sources: MealDiscoverySource[]): boolean {
+  return sources.some(
+    (source) => source === "uber_eats" || source === "glovo" || source === "bolt_food",
+  );
 }
 
 export default function PersonMealDiscoveryOverrides({ familyId }: { familyId: string }) {
@@ -141,12 +150,11 @@ export default function PersonMealDiscoveryOverrides({ familyId }: { familyId: s
   async function save(person: Person) {
     const draft = drafts[person.id];
     if (!draft) return;
-    const wantsDelivery = draft.sources.includes("uber_eats") || draft.sources.includes("glovo");
     if (!draft.inherit && draft.sources.length === 0) {
       setErrorById((current) => ({ ...current, [person.id]: copy.sourceRequired }));
       return;
     }
-    if (!draft.inherit && wantsDelivery && !draft.deliveryAddress.trim()) {
+    if (!draft.inherit && usesDelivery(draft.sources) && !draft.deliveryAddress.trim()) {
       setErrorById((current) => ({ ...current, [person.id]: copy.deliveryRequired }));
       return;
     }
@@ -214,7 +222,7 @@ export default function PersonMealDiscoveryOverrides({ familyId }: { familyId: s
                       </label>
                     ))}
                   </div>
-                  {(draft.sources.includes("uber_eats") || draft.sources.includes("glovo")) ? (
+                  {usesDelivery(draft.sources) ? (
                     <label className="field">
                       <span>{copy.deliveryAddress}</span>
                       <input
