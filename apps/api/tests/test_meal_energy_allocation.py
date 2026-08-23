@@ -7,7 +7,7 @@ from app.services.meal_energy_allocation import (
     allocate_meal_energy,
     size_candidate_for_meal,
 )
-from app.services.meal_recommendation import build_food_candidate
+from app.services.meal_recommendation import build_food_candidate, recommend_meals
 
 
 def _state(
@@ -121,6 +121,31 @@ def test_candidate_is_rounded_to_practical_quarter_serving() -> None:
     assert result.portion_factor == Decimal("1.50")
     assert result.candidate.quantity == Decimal("1.5000")
     assert result.candidate.nutrition.energy_kcal == Decimal("750.00")
+    assert result.candidate.meal_energy_target_min_kcal == Decimal("676.67")
+    assert result.candidate.meal_energy_target_max_kcal == Decimal("770.00")
+    assert result.candidate.energy_allocation_policy == "meal-energy-allocation-v2"
+
+
+def test_sized_candidate_energy_score_uses_meal_target_not_whole_day() -> None:
+    state = _state()
+    sized = size_candidate_for_meal(
+        _candidate("500.00"),
+        state,
+        meal_type="lunch",
+    ).candidate
+
+    recommendation = recommend_meals(
+        daily_state=state,
+        candidates=[sized],
+        preferences=[],
+        adverse_reactions=[],
+        constraints=[],
+        planning_date=date(2026, 8, 23),
+    )
+
+    evaluation = recommendation.eligible[0]
+    assert evaluation.score_breakdown["energy"] > Decimal("0.95")
+    assert "candidate_fits_meal_energy" in evaluation.explanation
 
 
 def test_portion_factor_is_bounded_for_extreme_candidates() -> None:
