@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ApiError } from "./api/client";
 import { recordMealConsumption } from "./api/mealConsumptionClient";
@@ -68,6 +68,10 @@ export default function MealConsumptionControls({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    setQuantity(participant.quantity_consumed ?? participant.quantity ?? "");
+  }, [participant.quantity, participant.quantity_consumed]);
+
   async function record(status: "consumed" | "partial" | "skipped") {
     if (!participant.serving_id) return;
     const normalized = quantity.trim().replace(",", ".");
@@ -114,13 +118,28 @@ export default function MealConsumptionControls({
         </span>
       </div>
       <div className="meal-consumption-actions">
-        <button className="button ghost compact" disabled={busy} onClick={() => void record("consumed")} type="button">
+        <button
+          className="button ghost compact"
+          disabled={busy}
+          onClick={() => void record("consumed")}
+          type="button"
+        >
           {copy.all}
         </button>
-        <button className="button ghost compact" disabled={busy} onClick={() => setPartialOpen((current) => !current)} type="button">
+        <button
+          className="button ghost compact"
+          disabled={busy}
+          onClick={() => setPartialOpen((current) => !current)}
+          type="button"
+        >
           {copy.part}
         </button>
-        <button className="button ghost compact" disabled={busy} onClick={() => void record("skipped")} type="button">
+        <button
+          className="button ghost compact"
+          disabled={busy}
+          onClick={() => void record("skipped")}
+          type="button"
+        >
           {copy.none}
         </button>
       </div>
@@ -138,13 +157,22 @@ export default function MealConsumptionControls({
               onChange={(event) => setQuantity(event.target.value)}
             />
           </label>
-          <button className="button primary compact" disabled={busy || !quantity.trim()} onClick={() => void record("partial")} type="button">
+          <button
+            className="button primary compact"
+            disabled={busy || !quantity.trim()}
+            onClick={() => void record("partial")}
+            type="button"
+          >
             {copy.savePart}
           </button>
         </div>
       ) : null}
-      {realized ? <span className="meal-consumption-state">{statusText(participant.status, copy)}</span> : null}
-      {error ? <span className="meal-consumption-error">{copy.error}: {error}</span> : null}
+      {realized ? (
+        <span className="meal-consumption-state">{statusText(participant.status, copy)}</span>
+      ) : null}
+      {error ? (
+        <span className="meal-consumption-error">{copy.error}: {error}</span>
+      ) : null}
     </div>
   );
 }
