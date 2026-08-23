@@ -278,6 +278,8 @@ def recalculate_daily_nutrition_state(
     state_date: date,
     timezone: str,
     nutrition_target: NutritionTarget | None = None,
+    assumed_energy_kcal: Decimal = ZERO,
+    assumption_inputs: dict[str, object] | None = None,
     calculation_version: str = "daily-nutrition-from-servings-v1",
 ) -> DailyNutritionState:
     if not calculation_version:
@@ -286,6 +288,8 @@ def recalculate_daily_nutrition_state(
         raise DailyNutritionStateRecalculationError(
             "Person must be persisted before DailyNutritionState recalculation."
         )
+    if assumed_energy_kcal < ZERO:
+        raise DailyNutritionStateRecalculationError("assumed_energy_kcal cannot be negative.")
 
     _validate_target(person, state_date, nutrition_target)
     window_start, window_end = _day_window(state_date, timezone)
@@ -304,7 +308,8 @@ def recalculate_daily_nutrition_state(
         sum((_planned_energy(serving) for serving in servings), start=ZERO),
         ENERGY_QUANTUM,
     )
-    total_energy = consumed_energy + planned_energy
+    assumed_energy = _quantize(assumed_energy_kcal, ENERGY_QUANTUM)
+    total_energy = consumed_energy + planned_energy + assumed_energy
 
     remaining_energy_min = (
         _quantize(nutrition_target.energy_min_kcal - total_energy, ENERGY_QUANTUM)
@@ -336,6 +341,7 @@ def recalculate_daily_nutrition_state(
     state.timezone = timezone
     state.energy_consumed_kcal = consumed_energy
     state.energy_planned_kcal = planned_energy
+    state.energy_assumed_kcal = assumed_energy
     state.energy_remaining_min_kcal = remaining_energy_min
     state.energy_remaining_max_kcal = remaining_energy_max
     state.adherence_score = None
@@ -349,7 +355,8 @@ def recalculate_daily_nutrition_state(
         "nutrition_target_id": (
             str(nutrition_target.id) if nutrition_target is not None else None
         ),
-        "aggregation_policy": "consumed_else_served_else_planned",
+        "aggregation_policy": "consumed_else_served_else_planned_plus_explicit_assumptions",
+        "assumptions": assumption_inputs or {},
     }
     state.computed_at = datetime.now(UTC)
     _apply_components(state, _build_components(servings, nutrition_target))
