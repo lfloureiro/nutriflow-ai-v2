@@ -13,13 +13,12 @@ export type RecommendationSource =
   | "restaurant";
 export type RecommendationMealType = "breakfast" | "lunch" | "snack" | "dinner";
 
-export const RECOMMENDATION_SOURCES: RecommendationSource[] = [
+export const RECOMMENDATION_SOURCES = [
   "cooked",
   "uber_eats",
   "glovo",
-  "bolt_food",
   "restaurant",
-];
+] as const satisfies readonly RecommendationSource[];
 
 export const RECOMMENDATION_MEAL_TYPES: RecommendationMealType[] = [
   "breakfast",
