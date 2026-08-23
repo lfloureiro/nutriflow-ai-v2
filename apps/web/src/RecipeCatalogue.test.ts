@@ -12,6 +12,7 @@ function recipe(energy: string | null, perServing: string | null): Recipe {
     recipe_key: "family:test:recipe:1",
     name: "Bolonhesa",
     description: null,
+    suitable_meal_types: ["lunch", "dinner"],
     yield_quantity: "1000",
     yield_unit: "g",
     serving_count: "4",
