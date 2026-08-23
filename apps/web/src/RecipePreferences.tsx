@@ -23,6 +23,7 @@ const COPY = {
     ratings: "avaliações",
     loading: "A carregar preferências…",
     noRecipes: "Ainda não existem receitas ativas para avaliar.",
+    dislike: "0 · Não gosto",
     clear: "Limpar",
     error: "Não foi possível atualizar as preferências",
     star: "estrela",
@@ -39,6 +40,7 @@ const COPY = {
     ratings: "ratings",
     loading: "Loading preferences…",
     noRecipes: "There are no active recipes to rate yet.",
+    dislike: "0 · Dislike",
     clear: "Clear",
     error: "Preferences could not be updated",
     star: "star",
@@ -210,6 +212,14 @@ export default function RecipePreferences({ familyId }: { familyId: string }) {
                 return (
                   <div className="recipe-preference-person" key={person.id}>
                     <strong>{displayName(person)}</strong>
+                    <button
+                      className={`button ghost ${current === 0 ? "active" : ""}`}
+                      disabled={saving}
+                      onClick={() => void rate(person.id, 0)}
+                      type="button"
+                    >
+                      {copy.dislike}
+                    </button>
                     <div className="recipe-stars" aria-label={displayName(person)}>
                       {[1, 2, 3, 4, 5].map((rating) => (
                         <button
