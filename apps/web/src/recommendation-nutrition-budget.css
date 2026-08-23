@@ -1,0 +1,95 @@
+.nutrition-budget-panel {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0.85rem 0 1rem;
+}
+
+.nutrition-budget-panel__title {
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  opacity: 0.72;
+}
+
+.nutrition-budget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+  gap: 0.65rem;
+}
+
+.nutrition-budget-card {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.nutrition-budget-card__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.nutrition-budget-card__heading strong {
+  font-size: 0.92rem;
+}
+
+.nutrition-budget-card__heading span {
+  font-size: 0.75rem;
+  opacity: 0.72;
+  text-align: right;
+}
+
+.nutrition-budget-progress {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 72%, transparent);
+}
+
+.nutrition-budget-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.nutrition-budget-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.nutrition-budget-stats span {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.nutrition-budget-stats small {
+  font-size: 0.68rem;
+  opacity: 0.62;
+}
+
+.nutrition-budget-stats strong {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .nutrition-budget-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nutrition-budget-card__heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .nutrition-budget-card__heading span {
+    text-align: left;
+  }
+}
