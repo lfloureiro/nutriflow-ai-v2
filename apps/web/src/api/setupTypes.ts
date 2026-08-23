@@ -46,6 +46,10 @@ export type PersonMealDiscoveryCreate = {
   restaurant_area: string | null;
 };
 
+export type PersonMealDiscoveryUpdate = PersonMealDiscoveryCreate & {
+  inherit_family_defaults: boolean;
+};
+
 export type PersonCreate = {
   first_name: string;
   last_name: string | null;
