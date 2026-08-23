@@ -4,6 +4,41 @@ from app.schemas.meal_discovery_capability import (
     MealDiscoveryCapabilitiesRead,
     MealDiscoveryCapabilityRead,
 )
+from app.services.meal_delivery_provider import list_meal_delivery_provider_integrations
+
+
+def _provider_capability(
+    provider_key: str,
+    *,
+    selected: set[str],
+) -> MealDiscoveryCapabilityRead:
+    integration = next(
+        item
+        for item in list_meal_delivery_provider_integrations()
+        if item.key == provider_key
+    )
+    if integration.live:
+        status = "ready"
+        detail = f"{integration.display_name} live provider adapter is configured."
+    elif integration.credentials_present:
+        status = "integration_required"
+        detail = (
+            f"Credentials for {integration.display_name} are present, but consumer discovery "
+            f"is not enabled/approved. {integration.detail}"
+        )
+    else:
+        status = "integration_required"
+        detail = (
+            f"{integration.display_name} credentials are not configured. {integration.detail}"
+        )
+    return MealDiscoveryCapabilityRead(
+        source=provider_key,
+        selected=provider_key in selected,
+        supported=integration.live,
+        live=integration.live,
+        status=status,
+        detail=detail,
+    )
 
 
 def build_meal_discovery_capabilities(family: Family) -> MealDiscoveryCapabilitiesRead:
@@ -39,22 +74,10 @@ def build_meal_discovery_capabilities(family: Family) -> MealDiscoveryCapabiliti
         detail=restaurant_detail,
     )
 
-    uber = MealDiscoveryCapabilityRead(
-        source="uber_eats",
-        selected="uber_eats" in selected,
-        supported=False,
-        live=False,
-        status="integration_required",
-        detail="An authorized Uber Eats provider adapter is required for live menus and offers.",
-    )
-    glovo = MealDiscoveryCapabilityRead(
-        source="glovo",
-        selected="glovo" in selected,
-        supported=False,
-        live=False,
-        status="integration_required",
-        detail="An authorized Glovo provider adapter is required for live menus and offers.",
-    )
+    providers = [
+        _provider_capability(provider_key, selected=selected)
+        for provider_key in ("uber_eats", "glovo", "bolt_food")
+    ]
     return MealDiscoveryCapabilitiesRead(
-        capabilities=[shared, uber, glovo, restaurants]
+        capabilities=[shared, *providers, restaurants]
     )
