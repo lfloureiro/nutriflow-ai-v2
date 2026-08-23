@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -77,7 +78,9 @@ class RecipeCompositionRead(BaseModel):
 
 class RecipeRead(BaseModel):
     id: uuid.UUID
-    family_id: uuid.UUID
+    family_id: uuid.UUID | None
+    scope: Literal["shared", "family"]
+    editable: bool
     recipe_key: str
     name: str
     description: str | None
