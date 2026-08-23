@@ -1,5 +1,4 @@
 import uuid
-from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
@@ -165,42 +164,6 @@ def _result_read(
         options=options,
         commercial_offers=[_commercial_offer_read(offer) for offer in offers],
     )
-
-
-def _portion_context(
-    loaded: list[tuple[Person, DailyNutritionState]],
-    candidates: list[MealCandidate],
-    *,
-    meal_type: str,
-) -> dict[str, object]:
-    participants: dict[str, object] = {}
-    for person, state in loaded:
-        if person.id is None:
-            continue
-        factors: dict[str, str] = {}
-        allocation = None
-        for candidate in candidates:
-            sizing = size_candidate_for_meal(candidate, state, meal_type=meal_type)
-            allocation = sizing.allocation
-            factors[candidate.key] = str(sizing.portion_factor)
-        participants[str(person.id)] = {
-            "meal_target_min_kcal": (
-                str(allocation.meal_target_min_kcal)
-                if allocation is not None and allocation.meal_target_min_kcal is not None
-                else None
-            ),
-            "meal_target_max_kcal": (
-                str(allocation.meal_target_max_kcal)
-                if allocation is not None and allocation.meal_target_max_kcal is not None
-                else None
-            ),
-            "portion_factors": factors,
-        }
-    return {
-        "portion_version": PORTION_VERSION,
-        "meal_type": meal_type,
-        "participants": participants,
-    }
 
 
 def _compute_shared_recommendation(
