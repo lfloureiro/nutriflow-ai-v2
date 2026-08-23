@@ -1,6 +1,7 @@
 import uuid
 from datetime import date
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.daily_nutrition_state import DailyNutritionState
@@ -10,6 +11,7 @@ from app.models.food_catalog import (
     RecipeCompositionSnapshot,
     RecipeIngredient,
 )
+from app.models.meal_candidate_planning_profile import MealCandidatePlanningProfile
 from app.models.person import Person
 from app.schemas.meal_recommendation import (
     MealRecommendationCandidateInput,
@@ -25,6 +27,13 @@ from app.services.meal_recommendation import (
     build_food_candidate,
     build_recipe_candidate,
     recommend_meals,
+)
+from app.services.meal_suitability import (
+    MAIN_MEAL_TYPES,
+    VALID_MEAL_TYPES,
+    MealSuitabilityError,
+    food_default_meal_types,
+    resolve_meal_types,
 )
 from app.services.recommendation_feedback import persist_recommendation_run
 from app.services.serving_nutrition import UnsupportedUnitConversionError
@@ -209,6 +218,71 @@ def _load_candidates(
     return candidates
 
 
+def _candidate_meal_types(
+    session: Session,
+    *,
+    family_id: uuid.UUID,
+    candidate: MealCandidate,
+) -> tuple[str, ...]:
+    if candidate.recipe is not None:
+        profile = session.scalar(
+            select(MealCandidatePlanningProfile).where(
+                MealCandidatePlanningProfile.family_id == family_id,
+                MealCandidatePlanningProfile.recipe_id == candidate.recipe.id,
+            )
+        )
+        catalogue = candidate.recipe.suitable_meal_types
+        defaults = MAIN_MEAL_TYPES
+    elif candidate.food_item is not None:
+        profile = session.scalar(
+            select(MealCandidatePlanningProfile).where(
+                MealCandidatePlanningProfile.family_id == family_id,
+                MealCandidatePlanningProfile.food_item_id == candidate.food_item.id,
+            )
+        )
+        catalogue = candidate.food_item.suitable_meal_types
+        defaults = food_default_meal_types(candidate.food_item.food_kind)
+    else:
+        raise MealRecommendationApiError(
+            f"Candidate {candidate.key!r} has no catalogue entity."
+        )
+    try:
+        return resolve_meal_types(
+            profile=profile,
+            catalogue_meal_types=catalogue,
+            defaults=defaults,
+        )
+    except MealSuitabilityError as exc:
+        raise MealRecommendationApiError(str(exc)) from exc
+
+
+def _validate_candidate_meal_types(
+    session: Session,
+    *,
+    family_id: uuid.UUID,
+    meal_type: str | None,
+    candidates: list[MealCandidate],
+) -> None:
+    if meal_type is None:
+        return
+    if meal_type not in VALID_MEAL_TYPES:
+        raise MealRecommendationApiError(f"Unknown meal type: {meal_type!r}.")
+    incompatible = [
+        candidate.key
+        for candidate in candidates
+        if meal_type
+        not in _candidate_meal_types(
+            session,
+            family_id=family_id,
+            candidate=candidate,
+        )
+    ]
+    if incompatible:
+        raise MealRecommendationApiError(
+            f"Candidates are not suitable for meal type {meal_type!r}: {incompatible!r}."
+        )
+
+
 def _option_response(
     recommendation: RecommendationResult,
     option_ids: list[uuid.UUID],
@@ -257,6 +331,7 @@ def load_recommendation_inputs(
     daily_nutrition_state_id: uuid.UUID,
     planning_date: date,
     candidates: list[MealRecommendationCandidateInput],
+    meal_type: str | None = None,
 ) -> tuple[Person, DailyNutritionState, list[MealCandidate]]:
     person = _load_person(session, person_id)
     state = _load_daily_state(
@@ -272,6 +347,12 @@ def load_recommendation_inputs(
         session,
         family_id=person.family_id,
         inputs=candidates,
+    )
+    _validate_candidate_meal_types(
+        session,
+        family_id=person.family_id,
+        meal_type=meal_type,
+        candidates=loaded_candidates,
     )
     return person, state, loaded_candidates
 
@@ -330,6 +411,7 @@ def create_meal_recommendation(
         daily_nutrition_state_id=data.daily_nutrition_state_id,
         planning_date=data.planning_date,
         candidates=data.candidates,
+        meal_type=data.meal_type,
     )
     recommendation = recommend_meals(
         daily_state=state,
