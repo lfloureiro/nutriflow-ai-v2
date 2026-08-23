@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.routes.families import router as families_router
 from app.api.routes.health import router as health_router
 from app.api.routes.ingredients import router as ingredients_router
+from app.api.routes.meal_discovery import router as meal_discovery_router
 from app.api.routes.meal_plan import router as meal_plan_router
 from app.api.routes.meal_recommendations import router as meal_recommendations_router
 from app.api.routes.pantry_shopping import router as pantry_shopping_router
@@ -34,4 +35,5 @@ api_router.include_router(meal_recommendations_router)
 api_router.include_router(practical_meal_recommendations_router)
 api_router.include_router(shared_practical_recommendations_router)
 api_router.include_router(recommendation_decisions_router)
+api_router.include_router(meal_discovery_router)
 api_router.include_router(restaurant_discovery_router)
