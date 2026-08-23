@@ -127,7 +127,7 @@ def _declared_breakfast(
             MealEvent.scheduled_at >= start,
             MealEvent.scheduled_at < end,
             ~MealEvent.status.in_(("cancelled", "replaced")),
-            ~MealParticipant.status.in_(("skipped", "replaced")),
+            MealParticipant.status != "replaced",
         )
         .limit(1)
     )
