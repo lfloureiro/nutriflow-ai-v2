@@ -214,6 +214,7 @@ def _compute_shared_recommendation(
             daily_nutrition_state_id=state_read.id,
             planning_date=data.planning_date,
             candidates=data.candidates,
+            meal_type=data.meal_type,
         )
         if person.family_id != family.id:
             raise SharedPracticalRecommendationApiError(
