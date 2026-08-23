@@ -1,6 +1,5 @@
 import hashlib
 import json
-import uuid
 from datetime import UTC
 
 from sqlalchemy import select
@@ -24,15 +23,23 @@ def _digest(*parts: str, length: int = 32) -> str:
 
 
 def _catalog_key(data: ExternalMenuItemObservationWrite) -> str:
-    return f"external:{data.provider_key[:24]}:{_digest(data.provider_key, data.merchant_key, data.item_key)}"
+    digest = _digest(data.provider_key, data.merchant_key, data.item_key)
+    return f"external:{data.provider_key[:24]}:{digest}"
 
 
 def _source_key(data: ExternalMenuItemObservationWrite) -> str:
-    return f"external:{data.provider_key[:24]}:{_digest(data.provider_key, data.merchant_key, length=24)}"
+    digest = _digest(data.provider_key, data.merchant_key, length=24)
+    return f"external:{data.provider_key[:24]}:{digest}"
 
 
 def _offer_key(data: ExternalMenuItemObservationWrite) -> str:
-    return f"external:{data.provider_key[:24]}:{_digest(data.provider_key, data.merchant_key, data.item_key, length=48)}"
+    digest = _digest(
+        data.provider_key,
+        data.merchant_key,
+        data.item_key,
+        length=48,
+    )
+    return f"external:{data.provider_key[:24]}:{digest}"
 
 
 def _nutrition_version(data: ExternalMenuItemObservationWrite) -> str:
@@ -86,6 +93,8 @@ def ingest_external_menu_item(
         food_item.is_active = True
 
     composition: FoodCompositionSnapshot | None = None
+    observed_at = data.observed_at.astimezone(UTC)
+    valid_until = None if data.valid_until is None else data.valid_until.astimezone(UTC)
     if data.nutrition is not None:
         data_version = _nutrition_version(data)
         composition = db.scalar(
@@ -114,7 +123,7 @@ def ingest_external_menu_item(
                 data_version=data_version,
                 source=data.provider_key[:32],
                 source_reference=data.source_reference,
-                effective_at=data.observed_at,
+                effective_at=observed_at,
                 notes=json.dumps(note, sort_keys=True),
             )
             db.add(composition)
@@ -168,7 +177,6 @@ def ingest_external_menu_item(
             MealCommercialOffer.offer_key == offer_key,
         )
     )
-    observed_at = data.observed_at.astimezone(UTC)
     if offer is None:
         offer = MealCommercialOffer(
             family_id=family.id,
@@ -182,7 +190,7 @@ def ingest_external_menu_item(
             minimum_order=data.minimum_order,
             is_available=True,
             valid_from=observed_at,
-            valid_until=data.valid_until,
+            valid_until=valid_until,
             observed_at=observed_at,
             source=data.provider_key[:32],
             source_reference=data.source_reference,
@@ -199,7 +207,7 @@ def ingest_external_menu_item(
         offer.minimum_order = data.minimum_order
         offer.is_available = True
         offer.valid_from = observed_at
-        offer.valid_until = data.valid_until
+        offer.valid_until = valid_until
         offer.observed_at = observed_at
         offer.source_reference = data.source_reference
 
