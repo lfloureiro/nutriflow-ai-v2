@@ -13,9 +13,9 @@ from app.models.person_profile import PersonProfile
 from app.schemas.person import PersonEnergyProfileCreate, PersonEnergyProfileRead
 
 CALCULATION_VERSION = "mifflin-st-jeor-v1"
-KCAL_PER_KG = Decimal("7700")
-DAYS_PER_WEEK = Decimal("7")
-TARGET_HALF_WIDTH_KCAL = Decimal("100")
+KCAL_PER_KG = Decimal(7700)
+DAYS_PER_WEEK = Decimal(7)
+TARGET_HALF_WIDTH_KCAL = Decimal(100)
 MAX_GOAL_ADJUSTMENT_FRACTION = Decimal("0.20")
 ACTIVITY_FACTORS = {
     "sedentary": Decimal("1.20"),
