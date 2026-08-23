@@ -18,6 +18,7 @@ import type {
 import type { Recipe } from "./api/recipeTypes";
 import type { Person } from "./api/types";
 import { useI18n, type Locale } from "./i18n";
+import MealConsumptionControls from "./MealConsumptionControls";
 import MealPlanner from "./MealPlanner";
 
 export type FamilyMealsMode = "today" | "week" | "recommend";
@@ -188,11 +189,15 @@ function MealEditForm({
   const copy = COPY[locale];
   const entry = target.entry;
   const [recipeId, setRecipeId] = useState(entry?.recipe_id ?? recipes[0]?.id ?? "");
-  const [localTime, setLocalTime] = useState(entry?.local_time.slice(0, 5) ?? DEFAULT_TIMES[target.mealType]);
+  const [localTime, setLocalTime] = useState(
+    entry?.local_time.slice(0, 5) ?? DEFAULT_TIMES[target.mealType],
+  );
   const [location, setLocation] = useState(entry?.location ?? "Casa");
   const [participants, setParticipants] = useState<ParticipantDraft[]>(() =>
     people.map((person) => {
-      const existing = entry?.participants.find((participant) => participant.person_id === person.id);
+      const existing = entry?.participants.find(
+        (participant) => participant.person_id === person.id,
+      );
       return {
         personId: person.id,
         selected: entry ? Boolean(existing) : true,
@@ -250,9 +255,7 @@ function MealEditForm({
   }
 
   async function removeEntry() {
-    if (!entry || !window.confirm(copy.confirmRemove)) {
-      return;
-    }
+    if (!entry || !window.confirm(copy.confirmRemove)) return;
     setBusy(true);
     setError(null);
     try {
@@ -272,19 +275,27 @@ function MealEditForm({
           <span className="eyebrow">{formatDate(target.date, locale)}</span>
           <h2>{mealLabel(target.mealType, locale)}</h2>
         </div>
-        <button className="button ghost" onClick={onDone} type="button">{copy.cancel}</button>
+        <button className="button ghost" onClick={onDone} type="button">
+          {copy.cancel}
+        </button>
       </div>
       {error ? (
-        <div className="error-banner" role="alert"><strong>{copy.error}</strong><span>{error}</span></div>
+        <div className="error-banner" role="alert">
+          <strong>{copy.error}</strong><span>{error}</span>
+        </div>
       ) : null}
-      {recipes.length === 0 ? <div className="family-meals-empty-day">{copy.noRecipes}</div> : null}
+      {recipes.length === 0 ? (
+        <div className="family-meals-empty-day">{copy.noRecipes}</div>
+      ) : null}
       <form className="meal-plan-form" onSubmit={submit}>
         <div className="meal-plan-form-grid">
           <label className="field meal-plan-wide">
             <span>{copy.recipe}</span>
             <select value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
               <option value="">{copy.chooseRecipe}</option>
-              {recipes.map((recipe) => <option key={recipe.id} value={recipe.id}>{recipe.name}</option>)}
+              {recipes.map((recipe) => (
+                <option key={recipe.id} value={recipe.id}>{recipe.name}</option>
+              ))}
             </select>
           </label>
           <label className="field">
@@ -306,7 +317,9 @@ function MealEditForm({
                 <label className="meal-plan-person__check">
                   <input
                     checked={participant.selected}
-                    onChange={(event) => patchParticipant(participant.personId, { selected: event.target.checked })}
+                    onChange={(event) =>
+                      patchParticipant(participant.personId, { selected: event.target.checked })
+                    }
                     type="checkbox"
                   />
                   <strong>{displayName(person)}</strong>
@@ -318,7 +331,9 @@ function MealEditForm({
                     inputMode="decimal"
                     placeholder="—"
                     value={participant.quantity}
-                    onChange={(event) => patchParticipant(participant.personId, { quantity: event.target.value })}
+                    onChange={(event) =>
+                      patchParticipant(participant.personId, { quantity: event.target.value })
+                    }
                   />
                 </label>
                 <label className="field">
@@ -326,11 +341,16 @@ function MealEditForm({
                   <select
                     disabled={!participant.selected || !participant.quantity.trim()}
                     value={participant.unit}
-                    onChange={(event) => patchParticipant(participant.personId, { unit: event.target.value })}
+                    onChange={(event) =>
+                      patchParticipant(participant.personId, { unit: event.target.value })
+                    }
                   >
-                    <option value="g">g</option><option value="kg">kg</option>
-                    <option value="ml">ml</option><option value="l">l</option>
-                    <option value="serving">dose</option><option value="recipe">receita</option>
+                    <option value="g">g</option>
+                    <option value="kg">kg</option>
+                    <option value="ml">ml</option>
+                    <option value="l">l</option>
+                    <option value="serving">dose</option>
+                    <option value="recipe">receita</option>
                   </select>
                 </label>
               </div>
@@ -341,7 +361,11 @@ function MealEditForm({
           <button className="button primary" disabled={busy || recipes.length === 0} type="submit">
             {busy ? copy.saving : copy.save}
           </button>
-          {entry ? <button className="button ghost" disabled={busy} onClick={removeEntry} type="button">{copy.remove}</button> : null}
+          {entry ? (
+            <button className="button ghost" disabled={busy} onClick={removeEntry} type="button">
+              {copy.remove}
+            </button>
+          ) : null}
         </div>
       </form>
     </section>
@@ -372,7 +396,10 @@ export default function FamilyMealsScreen({
   const request = useMemo(() => {
     if (mode === "recommend") return null;
     if (mode === "today") return { startDate: referenceDate, days: 1 };
-    return { startDate: referenceDate ? startOfWeekDate(referenceDate) : undefined, days: 7 };
+    return {
+      startDate: referenceDate ? startOfWeekDate(referenceDate) : undefined,
+      days: 7,
+    };
   }, [mode, referenceDate]);
 
   useEffect(() => {
@@ -401,61 +428,149 @@ export default function FamilyMealsScreen({
       .finally(() => {
         if (!cancelled) setBusy(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [familyId, request, revision]);
+
+  function refreshPlan() {
+    setRevision((current) => current + 1);
+  }
 
   function closeEditor() {
     setEditing(null);
-    setRevision((current) => current + 1);
+    refreshPlan();
   }
+
+  const consumptionDate = referenceDate ?? new Date().toISOString().slice(0, 10);
 
   return (
     <div className="family-meals-screen">
       <header className="screen-header compact-screen-header family-meals-header">
-        <div><span className="eyebrow">Plano</span><h1>{copy.title}</h1><p>{copy.help}</p></div>
+        <div>
+          <span className="eyebrow">Plano</span>
+          <h1>{copy.title}</h1>
+          <p>{copy.help}</p>
+        </div>
       </header>
       <nav className="secondary-tabs family-meals-tabs" aria-label={copy.navigation}>
-        <button className={mode === "today" ? "active" : ""} onClick={() => { setEditing(null); onModeChange("today"); }} type="button">{copy.today}</button>
-        <button className={mode === "week" ? "active" : ""} onClick={() => { setEditing(null); onModeChange("week"); }} type="button">{copy.week}</button>
-        <button className={mode === "recommend" ? "active" : ""} onClick={() => { setEditing(null); onModeChange("recommend"); }} type="button">{copy.recommend}</button>
+        <button
+          className={mode === "today" ? "active" : ""}
+          onClick={() => { setEditing(null); onModeChange("today"); }}
+          type="button"
+        >
+          {copy.today}
+        </button>
+        <button
+          className={mode === "week" ? "active" : ""}
+          onClick={() => { setEditing(null); onModeChange("week"); }}
+          type="button"
+        >
+          {copy.week}
+        </button>
+        <button
+          className={mode === "recommend" ? "active" : ""}
+          onClick={() => { setEditing(null); onModeChange("recommend"); }}
+          type="button"
+        >
+          {copy.recommend}
+        </button>
       </nav>
 
       {mode === "recommend" ? <MealPlanner familyId={familyId} /> : null}
-      {mode !== "recommend" && error ? <div className="error-banner" role="alert"><strong>{copy.error}</strong><span>{error}</span></div> : null}
-      {mode !== "recommend" && busy ? <div className="shell-loading" role="status">{copy.loading}</div> : null}
+      {mode !== "recommend" && error ? (
+        <div className="error-banner" role="alert">
+          <strong>{copy.error}</strong><span>{error}</span>
+        </div>
+      ) : null}
+      {mode !== "recommend" && busy ? (
+        <div className="shell-loading" role="status">{copy.loading}</div>
+      ) : null}
 
       {mode !== "recommend" && !busy && plan ? (
         editing ? (
-          <MealEditForm familyId={familyId} onDone={closeEditor} people={people} recipes={recipes} target={editing} />
+          <MealEditForm
+            familyId={familyId}
+            onDone={closeEditor}
+            people={people}
+            recipes={recipes}
+            target={editing}
+          />
         ) : (
           <div className={`meal-plan-days ${mode === "week" ? "week" : "today"}`}>
             {plan.days.map((day) => (
               <section className="meal-plan-day" key={day.date}>
-                <div className="family-meals-day__heading"><h2>{formatDate(day.date, locale)}</h2></div>
+                <div className="family-meals-day__heading">
+                  <h2>{formatDate(day.date, locale)}</h2>
+                </div>
                 <div className="meal-plan-slots">
                   {day.slots.map((slot) => (
                     <div className="meal-plan-slot" key={slot.meal_type}>
                       <div className="meal-plan-slot__heading">
                         <strong>{mealLabel(slot.meal_type, locale)}</strong>
-                        <button className="button ghost" onClick={() => setEditing({ date: day.date, mealType: slot.meal_type, entry: null })} type="button">+ {copy.add}</button>
+                        <button
+                          className="button ghost"
+                          onClick={() =>
+                            setEditing({ date: day.date, mealType: slot.meal_type, entry: null })
+                          }
+                          type="button"
+                        >
+                          + {copy.add}
+                        </button>
                       </div>
-                      {slot.meals.length === 0 ? <div className="meal-plan-empty">{copy.empty}</div> : (
+                      {slot.meals.length === 0 ? (
+                        <div className="meal-plan-empty">{copy.empty}</div>
+                      ) : (
                         <div className="meal-plan-entry-list">
                           {slot.meals.map((entry) => (
-                            <button
-                              className="meal-plan-entry"
-                              disabled={entry.status !== "planned"}
-                              key={entry.id}
-                              onClick={() => setEditing({ date: day.date, mealType: slot.meal_type, entry })}
-                              type="button"
-                            >
-                              <span className="meal-plan-entry__time">{entry.local_time.slice(0, 5)}</span>
-                              <span className="meal-plan-entry__body">
-                                <strong>{entry.recipe_name ?? entry.title ?? mealLabel(slot.meal_type, locale)}</strong>
-                                <small>{entryParticipants(entry) || copy.noPeople}{entry.location ? ` · ${entry.location}` : ""}</small>
-                              </span>
-                              <span className="meal-plan-entry__status">{statusLabel(entry.status, locale)}{entry.status === "planned" ? ` · ${copy.edit}` : ` · ${copy.locked}`}</span>
-                            </button>
+                            <div className="meal-plan-entry-group" key={entry.id}>
+                              <button
+                                className="meal-plan-entry"
+                                disabled={entry.status !== "planned"}
+                                onClick={() =>
+                                  setEditing({
+                                    date: day.date,
+                                    mealType: slot.meal_type,
+                                    entry,
+                                  })
+                                }
+                                type="button"
+                              >
+                                <span className="meal-plan-entry__time">
+                                  {entry.local_time.slice(0, 5)}
+                                </span>
+                                <span className="meal-plan-entry__body">
+                                  <strong>
+                                    {entry.recipe_name ??
+                                      entry.title ??
+                                      mealLabel(slot.meal_type, locale)}
+                                  </strong>
+                                  <small>
+                                    {entryParticipants(entry) || copy.noPeople}
+                                    {entry.location ? ` · ${entry.location}` : ""}
+                                  </small>
+                                </span>
+                                <span className="meal-plan-entry__status">
+                                  {statusLabel(entry.status, locale)}
+                                  {entry.status === "planned"
+                                    ? ` · ${copy.edit}`
+                                    : ` · ${copy.locked}`}
+                                </span>
+                              </button>
+                              {day.date <= consumptionDate ? (
+                                <div className="meal-consumption-list">
+                                  {entry.participants.map((participant) => (
+                                    <MealConsumptionControls
+                                      entry={entry}
+                                      familyId={familyId}
+                                      key={participant.person_id}
+                                      onUpdated={refreshPlan}
+                                      participant={participant}
+                                    />
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
                           ))}
                         </div>
                       )}
