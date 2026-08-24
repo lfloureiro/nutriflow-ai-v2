@@ -1,5 +1,11 @@
 export type RecipeMealType = "breakfast" | "lunch" | "snack" | "dinner";
 
+export type RecipeNutritionEvidence =
+  | "ingredient_calculated"
+  | "synthetic_development"
+  | "imported"
+  | "unknown";
+
 export type RecipeIngredient = {
   id: string;
   food_item_id: string;
@@ -28,6 +34,7 @@ export type RecipeComposition = {
   energy_per_serving_kcal: string | null;
   composition_version: string;
   calculation_version: string;
+  evidence: RecipeNutritionEvidence;
   computed_at: string;
   nutrients: RecipeNutrient[];
 };
