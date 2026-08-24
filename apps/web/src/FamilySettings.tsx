@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { ApiError } from "./api/client";
 import { getFamily, updateFamily } from "./api/setupClient";
 import type { Family, MealDiscoverySource } from "./api/setupTypes";
 import { useI18n } from "./i18n";
+import { supportedTimezones } from "./timezones";
 
 const SOURCES: MealDiscoverySource[] = [
   "shared_recipes",
@@ -74,6 +75,7 @@ export default function FamilySettings({
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
+  const timezones = useMemo(supportedTimezones, []);
   const [family, setFamily] = useState<Family | null>(null);
   const [name, setName] = useState("");
   const [timezone, setTimezone] = useState("Europe/Lisbon");
@@ -127,7 +129,10 @@ export default function FamilySettings({
       setError(copy.requiredSource);
       return;
     }
-    if (sources.some((source) => ["uber_eats", "glovo", "bolt_food"].includes(source)) && !deliveryAddress.trim()) {
+    if (
+      sources.some((source) => ["uber_eats", "glovo", "bolt_food"].includes(source)) &&
+      !deliveryAddress.trim()
+    ) {
       setError(copy.deliveryRequired);
       return;
     }
@@ -140,7 +145,7 @@ export default function FamilySettings({
     try {
       const result = await updateFamily(familyId, {
         name: name.trim(),
-        timezone: timezone.trim() || "Europe/Lisbon",
+        timezone,
         meal_discovery_sources: sources,
         delivery_address: deliveryAddress.trim() || null,
         restaurant_area: restaurantArea.trim() || null,
@@ -180,7 +185,11 @@ export default function FamilySettings({
           </label>
           <label className="field">
             <span>{copy.timezone}</span>
-            <input value={timezone} onChange={(event) => setTimezone(event.target.value)} />
+            <select value={timezone} onChange={(event) => setTimezone(event.target.value)}>
+              {timezones.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
           </label>
           <label className="field">
             <span>{copy.deliveryAddress}</span>
