@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.schemas.timezone import validate_timezone_name
+
 MealDiscoverySource = Literal[
     "shared_recipes",
     "uber_eats",
@@ -30,6 +32,11 @@ class FamilyCreate(BaseModel):
     delivery_address: str | None = Field(default=None, max_length=500)
     restaurant_area: str | None = Field(default=None, max_length=255)
 
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, value: str) -> str:
+        return validate_timezone_name(value)
+
     @field_validator("meal_discovery_sources")
     @classmethod
     def validate_sources(cls, values: list[MealDiscoverySource]) -> list[MealDiscoverySource]:
@@ -46,6 +53,11 @@ class FamilyUpdate(BaseModel):
     )
     delivery_address: str | None = Field(default=None, max_length=500)
     restaurant_area: str | None = Field(default=None, max_length=255)
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, value: str | None) -> str | None:
+        return None if value is None else validate_timezone_name(value)
 
     @field_validator("meal_discovery_sources")
     @classmethod
