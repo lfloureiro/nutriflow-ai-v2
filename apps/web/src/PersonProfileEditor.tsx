@@ -20,7 +20,7 @@ const COPY = {
     birthDate: "Data de nascimento",
     timezone: "Fuso horário",
     energy: "Necessidades energéticas",
-    energyHelp: "Ao guardar um perfil energético completo, peso, altura, objetivo e meta calórica ficam versionados. O histórico anterior é preservado.",
+    energyHelp: "Peso, altura, objetivo e meta calórica só criam uma nova versão quando algum destes dados, a data de nascimento ou o fuso horário muda. O histórico anterior é preservado.",
     sex: "Sexo para cálculo energético",
     male: "Masculino",
     female: "Feminino",
@@ -54,7 +54,7 @@ const COPY = {
     birthDate: "Date of birth",
     timezone: "Timezone",
     energy: "Energy needs",
-    energyHelp: "Saving a complete energy profile versions weight, height, goal and calorie target while preserving prior history.",
+    energyHelp: "Weight, height, goal and calorie target only create a new version when one of those inputs, date of birth or timezone changes. Prior history is preserved.",
     sex: "Sex for energy calculation",
     male: "Male",
     female: "Female",
@@ -84,7 +84,7 @@ const COPY = {
   },
 } as const;
 
-type Values = {
+export type PersonProfileEditorValues = {
   firstName: string;
   lastName: string;
   birthDate: string;
@@ -98,7 +98,10 @@ type Values = {
   breakfast: string;
 };
 
-function initialValues(person: Person, profile: PersonEnergyProfile | null): Values {
+function initialValues(
+  person: Person,
+  profile: PersonEnergyProfile | null,
+): PersonProfileEditorValues {
   return {
     firstName: person.first_name,
     lastName: person.last_name ?? "",
@@ -118,6 +121,12 @@ function normalizedDecimal(value: string): string {
   return value.trim().replace(",", ".");
 }
 
+function sameDecimal(left: string, right: string): boolean {
+  const leftNumber = Number(normalizedDecimal(left));
+  const rightNumber = Number(normalizedDecimal(right));
+  return Number.isFinite(leftNumber) && Number.isFinite(rightNumber) && leftNumber === rightNumber;
+}
+
 function positive(value: string): boolean {
   const numeric = Number(normalizedDecimal(value));
   return Number.isFinite(numeric) && numeric > 0;
@@ -126,6 +135,43 @@ function positive(value: string): boolean {
 function nonNegative(value: string): boolean {
   const numeric = Number(normalizedDecimal(value));
   return Number.isFinite(numeric) && numeric >= 0;
+}
+
+export function energyProfileNeedsUpdate(
+  person: Person,
+  profile: PersonEnergyProfile | null,
+  values: PersonProfileEditorValues,
+): boolean {
+  if (profile === null) {
+    return [values.sex, values.height, values.weight, values.activity, values.breakfast].some(
+      (value) => Boolean(value.trim()),
+    );
+  }
+
+  if (values.birthDate !== (person.birth_date ?? "") || values.timezone !== person.timezone) {
+    return true;
+  }
+  if (
+    values.sex !== profile.sex_for_energy_calculation ||
+    values.activity !== profile.activity_level ||
+    values.goal !== profile.goal_type
+  ) {
+    return true;
+  }
+  if (
+    !sameDecimal(values.height, profile.height_cm) ||
+    !sameDecimal(values.weight, profile.weight_kg) ||
+    !sameDecimal(values.breakfast, profile.standard_breakfast_kcal)
+  ) {
+    return true;
+  }
+  if (values.goal === "maintain") {
+    return profile.target_rate_kg_per_week !== null;
+  }
+  return (
+    profile.target_rate_kg_per_week === null ||
+    !sameDecimal(values.rate, profile.target_rate_kg_per_week)
+  );
 }
 
 function errorText(error: unknown): string {
@@ -147,11 +193,16 @@ export default function PersonProfileEditor({
   const { locale } = useI18n();
   const copy = COPY[locale];
   const timezones = useMemo(supportedTimezones, []);
-  const [values, setValues] = useState<Values>(() => initialValues(person, profile));
+  const [values, setValues] = useState<PersonProfileEditorValues>(() =>
+    initialValues(person, profile),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function update<K extends keyof Values>(key: K, value: Values[K]) {
+  function update<K extends keyof PersonProfileEditorValues>(
+    key: K,
+    value: PersonProfileEditorValues[K],
+  ) {
     setValues((current) => ({ ...current, [key]: value }));
   }
 
@@ -163,16 +214,21 @@ export default function PersonProfileEditor({
       return;
     }
 
-    const energyValues = [values.sex, values.height, values.weight, values.activity, values.breakfast];
-    const wantsEnergyProfile = energyValues.some((value) => Boolean(value.trim()));
+    const shouldUpdateEnergy = energyProfileNeedsUpdate(person, profile, values);
     let energyProfile: PersonEnergyProfileCreate | undefined;
 
-    if (wantsEnergyProfile) {
+    if (shouldUpdateEnergy) {
       if (!values.birthDate) {
         setError(copy.requiredBirth);
         return;
       }
-      if (!values.sex || !values.height.trim() || !values.weight.trim() || !values.activity || !values.breakfast.trim()) {
+      if (
+        !values.sex ||
+        !values.height.trim() ||
+        !values.weight.trim() ||
+        !values.activity ||
+        !values.breakfast.trim()
+      ) {
         setError(copy.incompleteEnergy);
         return;
       }
@@ -253,7 +309,12 @@ export default function PersonProfileEditor({
         <div className="person-profile-form__grid">
           <label className="field">
             <span>{copy.sex}</span>
-            <select value={values.sex} onChange={(event) => update("sex", event.target.value as Values["sex"])}>
+            <select
+              value={values.sex}
+              onChange={(event) =>
+                update("sex", event.target.value as PersonProfileEditorValues["sex"])
+              }
+            >
               <option value="">—</option>
               <option value="male">{copy.male}</option>
               <option value="female">{copy.female}</option>
@@ -269,7 +330,12 @@ export default function PersonProfileEditor({
           </label>
           <label className="field">
             <span>{copy.activity}</span>
-            <select value={values.activity} onChange={(event) => update("activity", event.target.value as Values["activity"])}>
+            <select
+              value={values.activity}
+              onChange={(event) =>
+                update("activity", event.target.value as PersonProfileEditorValues["activity"])
+              }
+            >
               <option value="">—</option>
               <option value="sedentary">{copy.sedentary}</option>
               <option value="light">{copy.light}</option>
@@ -280,7 +346,10 @@ export default function PersonProfileEditor({
           </label>
           <label className="field">
             <span>{copy.goal}</span>
-            <select value={values.goal} onChange={(event) => update("goal", event.target.value as NutritionGoalType)}>
+            <select
+              value={values.goal}
+              onChange={(event) => update("goal", event.target.value as NutritionGoalType)}
+            >
               <option value="maintain">{copy.maintain}</option>
               <option value="lose">{copy.lose}</option>
               <option value="gain">{copy.gain}</option>
