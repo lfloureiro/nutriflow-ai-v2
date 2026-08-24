@@ -9,6 +9,7 @@ from app.models.family import Family
 from app.models.food_adverse_reaction import FoodAdverseReaction
 from app.models.food_catalog import FoodCompositionSnapshot, FoodItem, FoodNutrientComponent
 from app.models.person import Person
+from app.services.meal_slot import MealSlotConflictError
 from app.services.shared_family_meal import (
     SharedMealCandidateProposal,
     SharedMealParticipantContext,
@@ -170,6 +171,31 @@ def test_materialization_creates_one_event_with_person_specific_servings(
     assert second_plan.serving.energy_planned_kcal == Decimal("200.00")
     assert second_plan.serving.nutrition_components[0].planned_value == Decimal("10.0000")
     assert all(serving.food_composition_snapshot is composition for serving in result.servings)
+
+
+def test_shared_materialization_rejects_occupied_family_meal_slot(
+    db_session: Session,
+) -> None:
+    recommendation, _, _, _, _ = _persisted_shared_recommendation(db_session)
+    materialize_shared_family_recommendation(
+        db_session,
+        recommendation=recommendation,
+        candidate_key="family:shared:pasta",
+        scheduled_at=datetime(2026, 8, 22, 19, 30, tzinfo=UTC),
+        timezone="Europe/Lisbon",
+        meal_type="dinner",
+    )
+    db_session.flush()
+
+    with pytest.raises(MealSlotConflictError, match="already planned"):
+        materialize_shared_family_recommendation(
+            db_session,
+            recommendation=recommendation,
+            candidate_key="family:shared:pasta",
+            scheduled_at=datetime(2026, 8, 22, 20, 30, tzinfo=UTC),
+            timezone="Europe/Lisbon",
+            meal_type="dinner",
+        )
 
 
 def test_materialization_rejects_ineligible_shared_candidate(db_session: Session) -> None:
