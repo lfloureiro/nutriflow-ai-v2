@@ -251,16 +251,20 @@
 
 @media (min-width: 1000px) {
   .meal-plan-days.week .meal-plan-slots {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .meal-plan-days.week .meal-plan-slot {
+    min-height: 118px;
   }
 
   .meal-plan-days.week .meal-plan-entry {
-    grid-template-columns: 1fr;
-    align-items: start;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
   }
 
   .meal-plan-days.week .meal-plan-entry__status {
-    text-align: left;
+    text-align: right;
   }
 }
 
