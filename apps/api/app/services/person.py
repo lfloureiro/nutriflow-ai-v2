@@ -10,13 +10,18 @@ from app.schemas.person import (
     PersonCreate,
     PersonMealDiscoveryRead,
     PersonMealDiscoveryUpdate,
+    PersonUpdate,
 )
-from app.services.person_energy import create_energy_profile
+from app.services.person_energy import create_energy_profile, update_energy_profile
 
 DELIVERY_DISCOVERY_SOURCES = frozenset({"uber_eats", "glovo", "bolt_food"})
 
 
 class PersonDiscoveryConfigurationError(ValueError):
+    pass
+
+
+class PersonUpdateError(ValueError):
     pass
 
 
@@ -86,6 +91,36 @@ def create_person(
 
 def get_person(db: Session, person_id: uuid.UUID) -> Person | None:
     return db.get(Person, person_id)
+
+
+def update_person(
+    db: Session,
+    *,
+    person: Person,
+    data: PersonUpdate,
+) -> Person:
+    fields = data.model_fields_set
+    if "first_name" in fields and data.first_name is not None:
+        person.first_name = data.first_name
+    if "last_name" in fields:
+        person.last_name = data.last_name
+    if "birth_date" in fields:
+        person.birth_date = data.birth_date
+    if "preferred_locale" in fields and data.preferred_locale is not None:
+        person.preferred_locale = data.preferred_locale
+    if "timezone" in fields and data.timezone is not None:
+        person.timezone = data.timezone
+
+    if data.energy_profile is not None:
+        if person.birth_date is None:
+            raise PersonUpdateError(
+                "birth_date is required when an energy profile is provided."
+            )
+        update_energy_profile(db, person=person, data=data.energy_profile)
+
+    db.commit()
+    db.refresh(person)
+    return person
 
 
 def get_person_meal_discovery(person: Person) -> PersonMealDiscoveryRead:
