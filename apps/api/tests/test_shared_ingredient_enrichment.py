@@ -12,7 +12,7 @@ from app.models.food_catalog import (
     RecipeCompositionSnapshot,
     RecipeIngredient,
 )
-from app.services.fooddata_central import FdcFoodNutrition, FdcNutrient
+from app.services.fooddata_central import FdcFoodNutrition, FdcFoodPortion, FdcNutrient
 from app.services.shared_ingredient_enrichment import (
     SharedIngredientEnrichmentError,
     apply_fdc_nutrition_to_shared_ingredient,
@@ -32,6 +32,7 @@ def _nutrition(*, data_type: str = "Foundation") -> FdcFoodNutrition:
             FdcNutrient(key="protein", value=Decimal("6.36"), unit="g"),
             FdcNutrient(key="carbohydrate", value=Decimal("33.06"), unit="g"),
         ),
+        portions=(),
     )
 
 
@@ -118,6 +119,37 @@ def test_fdc_enrichment_is_idempotent_for_same_source_version(
     assert db_session.scalar(select(func.count()).select_from(FoodCompositionSnapshot)) == 1
     assert db_session.scalar(select(func.count()).select_from(RecipeCompositionSnapshot)) == 1
     assert recipe.compositions[-1].energy_kcal == Decimal("149.0000")
+
+
+def test_fdc_enrichment_persists_approved_portion_conversion(
+    db_session: Session,
+) -> None:
+    ingredient, _ = _shared_recipe(db_session)
+    portion = FdcFoodPortion(
+        portion_id=321,
+        amount=Decimal(1),
+        gram_weight=Decimal(3),
+        description="clove",
+        measure_unit="piece",
+        modifier="clove",
+    )
+
+    result = apply_fdc_nutrition_to_shared_ingredient(
+        db_session,
+        catalog_key=ingredient.catalog_key,
+        food=_nutrition(),
+        effective_at=NOW,
+        unit_portion=portion,
+        recipe_unit="un",
+    )
+    db_session.flush()
+
+    assert result.created
+    composition = ingredient.compositions[-1]
+    assert composition.notes is not None
+    assert '"portion_conversions"' in composition.notes
+    assert '"quantity_in_reference_unit": "3"' in composition.notes
+    assert '"fdc_portion_id": 321' in composition.notes
 
 
 def test_fdc_enrichment_rejects_non_generic_data_type(db_session: Session) -> None:
