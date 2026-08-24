@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { ApiError } from "./api/client";
-import { syncMealDeliveryProvider } from "./api/mealDeliveryClient";
+import {
+  listMealDeliveryProviderItems,
+  syncMealDeliveryProvider,
+} from "./api/mealDeliveryClient";
 import type {
   MealDeliveryMenuItem,
   MealDeliveryProviderKey,
@@ -33,12 +36,17 @@ const COPY = {
     searchPlaceholder: "Ex.: frango, massa, poke…",
     sync: "Atualizar pratos",
     syncing: "A atualizar…",
-    results: "pratos observados",
+    loadingSaved: "A carregar pratos já sincronizados…",
+    results: "pratos guardados",
     empty: "O provider não devolveu pratos para esta pesquisa.",
-    noResults: "Ainda não foi feita uma pesquisa neste provider.",
+    savedEmpty: "Ainda não existem pratos sincronizados deste provider.",
+    noResults: "Ativa este provider para consultar os pratos guardados.",
     error: "Não foi possível atualizar o menu",
     restaurant: "Restaurante",
     price: "Preço",
+    deliveryFee: "Entrega",
+    minimumOrder: "Pedido mínimo",
+    lastObserved: "Observado",
     nutrition: "Nutrição",
     eligible: "Elegível para ranking",
     notEligible: "Nutrição insuficiente",
@@ -68,12 +76,17 @@ const COPY = {
     searchPlaceholder: "E.g. chicken, pasta, poke…",
     sync: "Refresh dishes",
     syncing: "Refreshing…",
-    results: "observed dishes",
+    loadingSaved: "Loading previously synchronized dishes…",
+    results: "stored dishes",
     empty: "The provider returned no dishes for this search.",
-    noResults: "No search has been run for this provider yet.",
+    savedEmpty: "No dishes from this provider have been synchronized yet.",
+    noResults: "Enable this provider to browse stored dishes.",
     error: "The delivery menu could not be refreshed",
     restaurant: "Restaurant",
     price: "Price",
+    deliveryFee: "Delivery",
+    minimumOrder: "Minimum order",
+    lastObserved: "Observed",
     nutrition: "Nutrition",
     eligible: "Eligible for ranking",
     notEligible: "Insufficient nutrition",
@@ -106,11 +119,11 @@ function capabilityReason(
   return copy.unavailable;
 }
 
-function price(item: MealDeliveryMenuItem, locale: "pt-PT" | "en"): string {
+function money(value: string, currency: string, locale: "pt-PT" | "en"): string {
   return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency: item.currency,
-  }).format(Number(item.item_price));
+    currency,
+  }).format(Number(value));
 }
 
 function nutritionLabel(
@@ -131,6 +144,13 @@ function nutritionLabel(
   return `${energy} ${copy.kcal} · ${evidence}`;
 }
 
+function observedLabel(value: string, locale: "pt-PT" | "en"): string {
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
 export default function DeliveryMenuScreen({ familyId }: { familyId: string }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
@@ -139,6 +159,7 @@ export default function DeliveryMenuScreen({ familyId }: { familyId: string }) {
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<MealDeliveryMenuItem[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loadingItems, setLoadingItems] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -155,16 +176,39 @@ export default function DeliveryMenuScreen({ familyId }: { familyId: string }) {
     };
   }, [familyId]);
 
-  useEffect(() => {
-    setItems(null);
-    setError(null);
-  }, [provider]);
-
   const capability = useMemo(
     () => capabilities.find((item) => item.source === provider) ?? null,
     [capabilities, provider],
   );
   const canSync = Boolean(capability?.selected && capability.live);
+
+  useEffect(() => {
+    let cancelled = false;
+    setError(null);
+    if (!capability?.selected) {
+      setItems(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+    setLoadingItems(true);
+    void listMealDeliveryProviderItems(familyId, provider)
+      .then((result) => {
+        if (!cancelled) setItems(result);
+      })
+      .catch((caught: unknown) => {
+        if (!cancelled) {
+          setItems([]);
+          setError(errorText(caught));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingItems(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [capability?.selected, familyId, provider]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -172,10 +216,9 @@ export default function DeliveryMenuScreen({ familyId }: { familyId: string }) {
     setBusy(true);
     setError(null);
     try {
-      const result = await syncMealDeliveryProvider(familyId, provider, query);
-      setItems(result.items);
+      await syncMealDeliveryProvider(familyId, provider, query);
+      setItems(await listMealDeliveryProviderItems(familyId, provider));
     } catch (caught: unknown) {
-      setItems(null);
       setError(errorText(caught));
     } finally {
       setBusy(false);
@@ -244,10 +287,12 @@ export default function DeliveryMenuScreen({ familyId }: { familyId: string }) {
         </div>
       ) : null}
 
-      {items === null ? (
+      {loadingItems ? (
+        <div className="ingredient-empty">{copy.loadingSaved}</div>
+      ) : items === null ? (
         <div className="ingredient-empty">{copy.noResults}</div>
       ) : items.length === 0 ? (
-        <div className="ingredient-empty">{copy.empty}</div>
+        <div className="ingredient-empty">{copy.savedEmpty}</div>
       ) : (
         <section className="delivery-menu-results">
           <div className="delivery-menu-results__heading">
@@ -256,16 +301,13 @@ export default function DeliveryMenuScreen({ familyId }: { familyId: string }) {
           </div>
           <div className="delivery-dish-list">
             {items.map((item) => (
-              <article
-                className="delivery-dish-card"
-                key={`${item.merchant_name}:${item.item_name}:${item.item_price}`}
-              >
+              <article className="delivery-dish-card" key={item.catalog_key}>
                 <div className="delivery-dish-card__heading">
                   <div>
                     <h3>{item.item_name}</h3>
                     <span>{copy.restaurant}: {item.merchant_name}</span>
                   </div>
-                  <strong>{price(item, locale)}</strong>
+                  <strong>{money(item.item_price, item.currency, locale)}</strong>
                 </div>
                 {item.description ? <p>{item.description}</p> : null}
                 <div className="delivery-dish-meta">
@@ -273,6 +315,13 @@ export default function DeliveryMenuScreen({ familyId }: { familyId: string }) {
                   <span className={item.eligible_for_nutrition_ranking ? "eligible" : "pending"}>
                     {item.eligible_for_nutrition_ranking ? copy.eligible : copy.notEligible}
                   </span>
+                  {item.delivery_fee !== null ? (
+                    <span>{copy.deliveryFee}: {money(item.delivery_fee, item.currency, locale)}</span>
+                  ) : null}
+                  {item.minimum_order !== null ? (
+                    <span>{copy.minimumOrder}: {money(item.minimum_order, item.currency, locale)}</span>
+                  ) : null}
+                  <span>{copy.lastObserved}: {observedLabel(item.observed_at, locale)}</span>
                 </div>
                 <a href={item.source_reference} rel="noreferrer" target="_blank">
                   {copy.source}

@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -18,6 +19,7 @@ class MealDeliverySyncRequest(BaseModel):
 
 
 class MealDeliveryMenuItemRead(BaseModel):
+    catalog_key: str
     merchant_name: str
     item_name: str
     description: str | None
@@ -26,6 +28,7 @@ class MealDeliveryMenuItemRead(BaseModel):
     delivery_fee: Decimal | None
     minimum_order: Decimal | None
     source_reference: str
+    observed_at: datetime
     energy_kcal: Decimal | None
     nutrition_evidence_level: NutritionEvidenceLevel | None
     nutrition_confidence: Decimal | None

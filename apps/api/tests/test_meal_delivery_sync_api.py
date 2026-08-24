@@ -6,7 +6,10 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.routes.meal_discovery import sync_meal_delivery_provider_endpoint
+from app.api.routes.meal_discovery import (
+    list_meal_delivery_provider_items_endpoint,
+    sync_meal_delivery_provider_endpoint,
+)
 from app.core.config import settings
 from app.models.family import Family
 from app.models.meal_candidate_availability import MealCommercialOffer
@@ -107,11 +110,26 @@ def test_sync_endpoint_uses_registered_adapter_and_ingests_offer(
         assert len(result.ingested) == 1
         assert not result.ingested[0].eligible_for_nutrition_ranking
         assert len(result.items) == 1
+        assert result.items[0].catalog_key == result.ingested[0].catalog_key
         assert result.items[0].merchant_name == "Restaurante Live"
         assert result.items[0].item_name == "Prato Live"
         assert result.items[0].item_price == Decimal("11.90")
+        assert result.items[0].observed_at == NOW
         assert result.items[0].energy_kcal is None
         assert not result.items[0].eligible_for_nutrition_ranking
         assert db_session.scalar(select(func.count()).select_from(MealCommercialOffer)) == 1
+
+        stored = list_meal_delivery_provider_items_endpoint(
+            family_id=family.id,
+            provider_key="uber_eats",
+            db=db_session,
+            limit=100,
+        )
+        assert len(stored) == 1
+        assert stored[0].catalog_key == result.ingested[0].catalog_key
+        assert stored[0].merchant_name == "Restaurante Live"
+        assert stored[0].item_name == "Prato Live"
+        assert stored[0].item_price == Decimal("11.90")
+        assert stored[0].observed_at == NOW
     finally:
         clear_meal_delivery_adapters()

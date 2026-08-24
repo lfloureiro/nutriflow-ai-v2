@@ -1,6 +1,7 @@
 export type MealDeliveryProviderKey = "uber_eats" | "glovo" | "bolt_food";
 
 export type MealDeliveryMenuItem = {
+  catalog_key: string;
   merchant_name: string;
   item_name: string;
   description: string | null;
@@ -9,6 +10,7 @@ export type MealDeliveryMenuItem = {
   delivery_fee: string | null;
   minimum_order: string | null;
   source_reference: string;
+  observed_at: string;
   energy_kcal: string | null;
   nutrition_evidence_level: "official" | "provider" | "estimated" | null;
   nutrition_confidence: string | null;
