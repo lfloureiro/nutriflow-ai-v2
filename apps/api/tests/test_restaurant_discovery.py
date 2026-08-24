@@ -15,6 +15,7 @@ def _place(
     rating: str | None = None,
     rating_count: int | None = None,
     primary_type: str = "restaurant",
+    website: str | None = None,
 ) -> RestaurantDiscoveryPlaceRead:
     parsed_rating = Decimal(rating) if rating is not None else None
     return RestaurantDiscoveryPlaceRead(
@@ -25,7 +26,7 @@ def _place(
         address="Lisboa",
         latitude=Decimal("38.75"),
         longitude=Decimal("-9.18"),
-        website=None,
+        website=website,
         phone=None,
         opening_hours=None,
         source_reference="https://example.invalid/place",
@@ -121,6 +122,30 @@ def test_quality_score_values_review_confidence() -> None:
     assert established > single_review
 
 
+def test_restaurant_ranking_prioritizes_full_service_over_fast_food() -> None:
+    places = [
+        _place(
+            place_id="google:fast",
+            name="Fast Chain",
+            rating="4.9",
+            rating_count=5000,
+            primary_type="fast_food_restaurant",
+        ),
+        _place(
+            place_id="google:restaurant",
+            name="Boa Mesa",
+            rating="4.5",
+            rating_count=400,
+            primary_type="portuguese_restaurant",
+        ),
+    ]
+
+    ranked = restaurant_discovery._rank_and_dedupe(places)
+
+    assert ranked[0].name == "Boa Mesa"
+    assert ranked[1].name == "Fast Chain"
+
+
 def test_restaurant_ranking_deduplicates_same_chain_name() -> None:
     places = [
         _place(place_id="google:1", name="100 Montaditos", rating="4.1", rating_count=200),
@@ -133,6 +158,30 @@ def test_restaurant_ranking_deduplicates_same_chain_name() -> None:
     assert [place.name for place in ranked].count("100 Montaditos") <= 1
     assert len([place for place in ranked if "montaditos" in place.name.casefold()]) == 1
     assert ranked[0].name == "Boa Mesa"
+
+
+def test_restaurant_ranking_deduplicates_chain_website() -> None:
+    places = [
+        _place(
+            place_id="google:1",
+            name="100 Montaditos Colombo",
+            rating="4.2",
+            rating_count=600,
+            website="https://100montaditos.example/colombo",
+        ),
+        _place(
+            place_id="google:2",
+            name="100 Montaditos Benfica",
+            rating="4.4",
+            rating_count=500,
+            website="https://100montaditos.example/benfica",
+        ),
+        _place(place_id="google:3", name="Boa Mesa", rating="4.7", rating_count=500),
+    ]
+
+    ranked = restaurant_discovery._rank_and_dedupe(places)
+
+    assert len([place for place in ranked if "montaditos" in place.name.casefold()]) == 1
 
 
 def test_restaurant_discovery_caches_area_results(monkeypatch) -> None:

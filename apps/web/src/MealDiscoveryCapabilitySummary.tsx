@@ -37,7 +37,9 @@ function detail(capability: MealDiscoveryCapability, locale: "pt-PT" | "en"): st
   }
   if (capability.source === "restaurants") {
     if (capability.status === "ready") {
-      return "Descoberta live de restaurantes através de OpenStreetMap disponível.";
+      return capability.credentials_configured
+        ? "Google Places ativo para ranking por qualidade; OpenStreetMap fica disponível como fallback."
+        : "OpenStreetMap ativo apenas como fallback. Configura a chave Google Places para obter ranking por qualidade e reputação.";
     }
     if (capability.status === "needs_configuration") {
       return "Define uma área de restaurantes para ativar a pesquisa live.";

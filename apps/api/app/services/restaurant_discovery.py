@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from app.core.config import settings
@@ -40,6 +40,16 @@ _GOOGLE_FIELD_MASK = (
     "places.servesDinner,"
     "places.servesVegetarianFood,"
     "nextPageToken"
+)
+_NON_BRAND_WEBSITE_HOSTS = frozenset(
+    {
+        "facebook.com",
+        "google.com",
+        "instagram.com",
+        "linktr.ee",
+        "thefork.pt",
+        "tripadvisor.com",
+    }
 )
 _CACHE_LOCK = threading.Lock()
 _CACHE: dict[str, tuple[float, RestaurantDiscoveryRead]] = {}
@@ -220,6 +230,21 @@ def _restaurant_name_key(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", ascii_text).strip()
 
 
+def _website_identity_key(website: str | None) -> str | None:
+    if not website:
+        return None
+    try:
+        host = urlparse(website).hostname
+    except ValueError:
+        return None
+    if not host:
+        return None
+    normalized = host.casefold().removeprefix("www.")
+    if normalized in _NON_BRAND_WEBSITE_HOSTS:
+        return None
+    return normalized
+
+
 def _amenity_priority(place: RestaurantDiscoveryPlaceRead) -> int:
     if place.primary_type == "fast_food_restaurant" or place.amenity == "fast_food":
         return 0
@@ -230,12 +255,12 @@ def _amenity_priority(place: RestaurantDiscoveryPlaceRead) -> int:
 
 def _ranking_key(
     place: RestaurantDiscoveryPlaceRead,
-) -> tuple[Decimal, int, Decimal, int, str]:
+) -> tuple[int, Decimal, int, Decimal, str]:
     return (
+        _amenity_priority(place),
         place.quality_score if place.quality_score is not None else Decimal(-1),
         place.rating_count or 0,
         place.rating if place.rating is not None else Decimal(-1),
-        _amenity_priority(place),
         place.name.casefold(),
     )
 
@@ -246,12 +271,18 @@ def _rank_and_dedupe(
     ranked = sorted(places, key=_ranking_key, reverse=True)
     unique: list[RestaurantDiscoveryPlaceRead] = []
     seen_names: set[str] = set()
+    seen_websites: set[str] = set()
     for place in ranked:
-        key = _restaurant_name_key(place.name)
-        if key and key in seen_names:
+        name_key = _restaurant_name_key(place.name)
+        website_key = _website_identity_key(place.website)
+        if name_key and name_key in seen_names:
             continue
-        if key:
-            seen_names.add(key)
+        if website_key and website_key in seen_websites:
+            continue
+        if name_key:
+            seen_names.add(name_key)
+        if website_key:
+            seen_websites.add(website_key)
         unique.append(place)
     return unique
 
