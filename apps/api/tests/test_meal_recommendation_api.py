@@ -7,10 +7,17 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.development_breakfast_seed import seed_development_breakfast_catalog
 from app.main import app
 from app.models.daily_nutrition_state import DailyNutritionState, DailyNutritionStateComponent
 from app.models.family import Family
-from app.models.food_catalog import FoodCompositionSnapshot, FoodItem, FoodNutrientComponent
+from app.models.food_catalog import (
+    FoodCompositionSnapshot,
+    FoodItem,
+    FoodNutrientComponent,
+    Recipe,
+    RecipeCompositionSnapshot,
+)
 from app.models.nutrition_constraint import NutritionConstraint
 from app.models.person import Person
 from app.models.recommendation_feedback import MealRecommendationRun
@@ -326,3 +333,48 @@ def test_meal_recommendation_api_rejects_unsafe_candidate_quantity_unit(
 
     assert response.status_code == 422
     assert response.json()["detail"] == "Cannot scale food candidate using quantity unit 'ml'."
+
+
+def test_meal_recommendation_api_uses_shared_recipe_source_meal_type_fallback(
+    db_session: Session,
+) -> None:
+    _, person = _family_person(db_session, family_name="Breakfast fallback family")
+    state = _daily_state(db_session, person)
+    seed_development_breakfast_catalog(db_session)
+    db_session.flush()
+
+    composition = db_session.scalar(
+        select(RecipeCompositionSnapshot)
+        .join(Recipe)
+        .where(Recipe.source == "development-breakfast")
+        .order_by(Recipe.recipe_key)
+        .limit(1)
+    )
+    assert composition is not None
+
+    payload = {
+        "daily_nutrition_state_id": str(state.id),
+        "planning_date": PLANNING_DATE.isoformat(),
+        "meal_type": "lunch",
+        "candidates": [
+            {
+                "candidate_kind": "recipe",
+                "composition_id": str(composition.id),
+                "quantity": "1.0000",
+                "quantity_unit": "serving",
+            }
+        ],
+    }
+
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                f"/api/persons/{person.id}/meal-recommendations",
+                json=payload,
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    assert "not suitable for meal type 'lunch'" in response.json()["detail"]
