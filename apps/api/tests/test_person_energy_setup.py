@@ -134,17 +134,38 @@ def test_person_energy_profile_update_preserves_discovery_and_versions_history(
                     }
                 },
             )
-            profile = client.get(f"/api/persons/{person_id}/energy-profile")
+            profile_after_weight = client.get(f"/api/persons/{person_id}/energy-profile")
             discovery = client.get(f"/api/persons/{person_id}/meal-discovery")
+
+            activity_update = client.patch(
+                f"/api/persons/{person_id}",
+                json={
+                    "energy_profile": {
+                        "sex_for_energy_calculation": "male",
+                        "height_cm": "178",
+                        "weight_kg": "101.5",
+                        "activity_level": "moderate",
+                        "goal_type": "lose",
+                        "target_rate_kg_per_week": "0.4",
+                        "standard_breakfast_kcal": "330",
+                    }
+                },
+            )
+            profile_after_activity = client.get(f"/api/persons/{person_id}/energy-profile")
     finally:
         app.dependency_overrides.clear()
 
     assert updated.status_code == 200
-    assert profile.status_code == 200
-    assert profile.json()["weight_kg"] == "101.5000"
-    assert profile.json()["activity_level"] == "light"
-    assert profile.json()["goal_type"] == "lose"
-    assert profile.json()["standard_breakfast_kcal"] == "330.00"
+    assert profile_after_weight.status_code == 200
+    assert profile_after_weight.json()["weight_kg"] == "101.5000"
+    assert profile_after_weight.json()["activity_level"] == "light"
+    assert profile_after_weight.json()["goal_type"] == "lose"
+    assert profile_after_weight.json()["standard_breakfast_kcal"] == "330.00"
+
+    assert activity_update.status_code == 200
+    assert profile_after_activity.status_code == 200
+    assert profile_after_activity.json()["weight_kg"] == "101.5000"
+    assert profile_after_activity.json()["activity_level"] == "moderate"
 
     assert discovery.status_code == 200
     assert discovery.json()["inherits_family_defaults"] is False
@@ -156,17 +177,33 @@ def test_person_energy_profile_update_preserves_discovery_and_versions_history(
         select(func.count())
         .select_from(AnthropometricMeasurement)
         .where(AnthropometricMeasurement.person_id == person_uuid)
-    ) == 4
+    ) == 3
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(AnthropometricMeasurement)
+        .where(
+            AnthropometricMeasurement.person_id == person_uuid,
+            AnthropometricMeasurement.metric == "height",
+        )
+    ) == 1
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(AnthropometricMeasurement)
+        .where(
+            AnthropometricMeasurement.person_id == person_uuid,
+            AnthropometricMeasurement.metric == "weight",
+        )
+    ) == 2
     assert db_session.scalar(
         select(func.count())
         .select_from(NutritionGoal)
         .where(NutritionGoal.person_id == person_uuid)
-    ) == 2
+    ) == 3
     assert db_session.scalar(
         select(func.count())
         .select_from(NutritionTarget)
         .where(NutritionTarget.person_id == person_uuid)
-    ) == 2
+    ) == 3
     assert db_session.scalar(
         select(func.count())
         .select_from(NutritionTarget)
