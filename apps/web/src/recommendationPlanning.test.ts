@@ -33,8 +33,14 @@ function candidate(
 }
 
 describe("recommendation planning helpers", () => {
-  it("exposes recipes and live restaurant discovery in the browser selector", () => {
-    expect(RECOMMENDATION_SOURCES).toEqual(["cooked", "restaurant"]);
+  it("exposes recipes, delivery providers and restaurant discovery", () => {
+    expect(RECOMMENDATION_SOURCES).toEqual([
+      "cooked",
+      "uber_eats",
+      "glovo",
+      "bolt_food",
+      "restaurant",
+    ]);
   });
 
   it("returns one day in single-day mode", () => {
@@ -53,12 +59,17 @@ describe("recommendation planning helpers", () => {
 
   it("only sends menu-backed sources into nutritional ranking", () => {
     expect(
-      recommendationSourceKinds(["cooked", "uber_eats", "glovo", "restaurant"]),
+      recommendationSourceKinds([
+        "cooked",
+        "uber_eats",
+        "glovo",
+        "bolt_food",
+        "restaurant",
+      ]),
     ).toEqual(["home", "delivery"]);
-    expect(recommendationDeliveryProviderKeys(["uber_eats", "glovo"])).toEqual([
-      "uber_eats",
-      "glovo",
-    ]);
+    expect(
+      recommendationDeliveryProviderKeys(["uber_eats", "glovo", "bolt_food"]),
+    ).toEqual(["uber_eats", "glovo", "bolt_food"]);
   });
 
   it("does not pretend a discovered restaurant is a nutrition-ranked menu dish", () => {
@@ -74,7 +85,7 @@ describe("recommendation planning helpers", () => {
       ),
     ).toEqual(["recipe-1"]);
     expect(
-      recommendationCandidates(candidates, ["uber_eats"], "lunch").map(
+      recommendationCandidates(candidates, ["bolt_food"], "lunch").map(
         (item) => item.composition_id,
       ),
     ).toEqual(["dish-1"]);
@@ -104,7 +115,7 @@ describe("recommendation planning helpers", () => {
       ),
     ).toEqual(["main"]);
     expect(
-      recommendationCandidates(candidates, ["cooked", "uber_eats"], "dinner").map(
+      recommendationCandidates(candidates, ["cooked", "bolt_food"], "dinner").map(
         (item) => item.composition_id,
       ),
     ).toEqual(["main", "delivery-main"]);
