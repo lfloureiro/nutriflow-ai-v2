@@ -251,6 +251,28 @@ def get_family_recipe_model(
     return recipe
 
 
+def get_family_visible_recipe_model(
+    db: Session,
+    family_id: uuid.UUID,
+    recipe_id: uuid.UUID,
+) -> Recipe:
+    """Return a Recipe the Family may consume, including active shared Recipes."""
+    recipe = db.scalar(
+        select(Recipe)
+        .options(*_recipe_options())
+        .where(
+            Recipe.id == recipe_id,
+            or_(
+                Recipe.family_id == family_id,
+                and_(Recipe.family_id.is_(None), Recipe.is_active.is_(True)),
+            ),
+        )
+    )
+    if recipe is None:
+        raise RecipeNotFoundError("Recipe not found for this Family")
+    return recipe
+
+
 def create_family_recipe(db: Session, family: Family, data: RecipeCreate) -> RecipeRead:
     recipe = Recipe(
         family=family,
