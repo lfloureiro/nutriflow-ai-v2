@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.schemas.meal_delivery_sync import (
+    MealDeliveryMenuItemRead,
     MealDeliveryProviderKey,
     MealDeliverySyncRead,
     MealDeliverySyncRequest,
@@ -78,8 +79,42 @@ def sync_meal_delivery_provider_endpoint(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     db.commit()
+    items = [
+        MealDeliveryMenuItemRead(
+            merchant_name=observation.merchant_name,
+            item_name=observation.item_name,
+            description=observation.description,
+            item_price=observation.item_price,
+            currency=observation.currency,
+            delivery_fee=observation.delivery_fee,
+            minimum_order=observation.minimum_order,
+            source_reference=observation.source_reference,
+            energy_kcal=(
+                observation.nutrition.energy_kcal
+                if observation.nutrition is not None
+                else None
+            ),
+            nutrition_evidence_level=(
+                observation.nutrition.evidence_level
+                if observation.nutrition is not None
+                else None
+            ),
+            nutrition_confidence=(
+                observation.nutrition.confidence
+                if observation.nutrition is not None
+                else None
+            ),
+            eligible_for_nutrition_ranking=ingested.eligible_for_nutrition_ranking,
+        )
+        for observation, ingested in zip(
+            result.observations,
+            result.ingested,
+            strict=True,
+        )
+    ]
     return MealDeliverySyncRead(
         provider_key=provider_key,
         observed_count=result.observed_count,
         ingested=list(result.ingested),
+        items=items,
     )
