@@ -25,7 +25,7 @@ def test_search_parser_keeps_valid_generic_candidates() -> None:
     assert results[0].publication_date == "4/1/2026"
 
 
-def test_food_parser_maps_energy_and_core_nutrients_per_100g() -> None:
+def test_food_parser_maps_energy_core_nutrients_and_portions() -> None:
     food = fooddata_central._parse_food_response(
         {
             "fdcId": 123,
@@ -40,6 +40,15 @@ def test_food_parser_maps_energy_and_core_nutrients_per_100g() -> None:
                 {"nutrient": {"id": 1079, "unitName": "g"}, "amount": 2.1},
                 {"nutrient": {"id": 1093, "unitName": "mg"}, "amount": 17},
             ],
+            "foodPortions": [
+                {
+                    "id": 321,
+                    "amount": 1,
+                    "gramWeight": 3,
+                    "modifier": "clove",
+                    "measureUnit": {"name": "piece", "abbreviation": "piece"},
+                }
+            ],
         }
     )
 
@@ -52,6 +61,15 @@ def test_food_parser_maps_energy_and_core_nutrients_per_100g() -> None:
     assert by_key["sodium"].value == Decimal(17)
     assert by_key["sodium"].unit == "mg"
     assert food.source_reference.endswith("/123/nutrients")
+
+    assert len(food.portions) == 1
+    portion = food.portions[0]
+    assert portion.portion_id == 321
+    assert portion.amount == Decimal(1)
+    assert portion.gram_weight == Decimal(3)
+    assert portion.grams_per_measure_unit == Decimal(3)
+    assert portion.description == "clove"
+    assert portion.measure_unit == "piece"
 
 
 def test_food_parser_prefers_kcal_energy() -> None:
@@ -68,3 +86,4 @@ def test_food_parser_prefers_kcal_energy() -> None:
     )
 
     assert food.energy_kcal == Decimal(88)
+    assert food.portions == ()
