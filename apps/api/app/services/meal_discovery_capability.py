@@ -5,6 +5,7 @@ from app.schemas.meal_discovery_capability import (
     MealDiscoveryCapabilityRead,
 )
 from app.services.meal_delivery_provider import list_meal_delivery_provider_integrations
+from app.services.restaurant_discovery import google_places_configured
 
 
 def _provider_capability(
@@ -62,6 +63,9 @@ def build_meal_discovery_capabilities(family: Family) -> MealDiscoveryCapabiliti
     )
 
     restaurants_selected = "restaurants" in selected
+    google_configured = (
+        settings.restaurant_google_places_enabled and google_places_configured()
+    )
     if not settings.restaurant_discovery_enabled:
         restaurant_status = "disabled"
         restaurant_detail = "Live restaurant discovery is disabled in this installation."
@@ -70,9 +74,19 @@ def build_meal_discovery_capabilities(family: Family) -> MealDiscoveryCapabiliti
         restaurant_status = "needs_configuration"
         restaurant_detail = "Configure a restaurant area before live discovery."
         restaurant_live = False
+    elif google_configured:
+        restaurant_status = "ready"
+        restaurant_detail = (
+            "Google Places quality-ranked restaurant discovery is available, with "
+            "OpenStreetMap fallback."
+        )
+        restaurant_live = True
     else:
         restaurant_status = "ready"
-        restaurant_detail = "Live OpenStreetMap restaurant discovery is available."
+        restaurant_detail = (
+            "OpenStreetMap fallback discovery is available. Configure a Google Places API key "
+            "to enable quality-ranked restaurant results."
+        )
         restaurant_live = True
     restaurants = MealDiscoveryCapabilityRead(
         source="restaurants",
@@ -81,6 +95,9 @@ def build_meal_discovery_capabilities(family: Family) -> MealDiscoveryCapabiliti
         live=restaurant_live,
         status=restaurant_status,
         detail=restaurant_detail,
+        credentials_configured=google_configured,
+        access_enabled=settings.restaurant_google_places_enabled,
+        adapter_available=True,
     )
 
     providers = [
