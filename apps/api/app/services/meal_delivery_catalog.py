@@ -65,8 +65,9 @@ def list_meal_delivery_menu_items(
     family: Family,
     provider_key: str,
     limit: int = 100,
+    at: datetime | None = None,
 ) -> list[MealDeliveryMenuItemRead]:
-    now = datetime.now(UTC)
+    observed_at = at or datetime.now(UTC)
     offers = db.scalars(
         select(MealCommercialOffer)
         .join(MealCandidateAvailability)
@@ -76,8 +77,14 @@ def list_meal_delivery_menu_items(
             MealCommercialOffer.is_available.is_(True),
             MealCandidateAvailability.is_available.is_(True),
             MealCandidateAvailability.food_item_id.is_not(None),
-            or_(MealCommercialOffer.valid_from.is_(None), MealCommercialOffer.valid_from <= now),
-            or_(MealCommercialOffer.valid_until.is_(None), MealCommercialOffer.valid_until > now),
+            or_(
+                MealCommercialOffer.valid_from.is_(None),
+                MealCommercialOffer.valid_from <= observed_at,
+            ),
+            or_(
+                MealCommercialOffer.valid_until.is_(None),
+                MealCommercialOffer.valid_until > observed_at,
+            ),
         )
         .options(
             selectinload(MealCommercialOffer.availability)
