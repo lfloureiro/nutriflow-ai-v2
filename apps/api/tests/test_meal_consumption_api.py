@@ -34,7 +34,7 @@ def _request(db_session: Session, method: str, path: str, **kwargs):
         app.dependency_overrides.clear()
 
 
-def _recipe(db_session: Session, family: Family) -> str:
+def _recipe(db_session: Session, family: Family, meal_type: str) -> str:
     ingredient = FoodItem(
         family=family,
         catalog_key=f"test:consumption:{uuid.uuid4()}",
@@ -61,6 +61,7 @@ def _recipe(db_session: Session, family: Family) -> str:
         f"/api/families/{family.id}/recipes",
         json={
             "name": "Receita consumo",
+            "suitable_meal_types": [meal_type],
             "serving_count": "4",
             "yield_quantity": "1000",
             "yield_unit": "g",
@@ -92,7 +93,7 @@ def _setup(db_session: Session, meal_type: str, local_time: str):
     )
     db_session.add_all([family, target])
     db_session.flush()
-    recipe_id = _recipe(db_session, family)
+    recipe_id = _recipe(db_session, family, meal_type)
     created = _request(
         db_session,
         "POST",
