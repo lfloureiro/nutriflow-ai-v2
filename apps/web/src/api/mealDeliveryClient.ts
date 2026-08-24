@@ -4,28 +4,30 @@ import type {
   MealDeliverySync,
 } from "./mealDeliveryTypes";
 
+export function mealDeliverySyncPath(
+  familyId: string,
+  providerKey: MealDeliveryProviderKey,
+): string {
+  return `/api/families/${encodeURIComponent(familyId)}/meal-discovery/providers/${providerKey}/sync`;
+}
+
 export async function syncMealDeliveryProvider(
   familyId: string,
   providerKey: MealDeliveryProviderKey,
   query?: string,
   limit = 30,
 ): Promise<MealDeliverySync> {
-  const response = await fetch(
-    buildApiUrl(
-      `/api/families/${encodeURIComponent(familyId)}/meal-discovery/providers/${providerKey}/sync`,
-    ),
-    {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        query: query?.trim() || null,
-        limit,
-      }),
+  const response = await fetch(buildApiUrl(mealDeliverySyncPath(familyId, providerKey)), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
     },
-  );
+    body: JSON.stringify({
+      query: query?.trim() || null,
+      limit,
+    }),
+  });
   if (!response.ok) {
     let message = response.statusText || `HTTP ${response.status}`;
     try {
