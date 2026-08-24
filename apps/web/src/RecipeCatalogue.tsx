@@ -70,6 +70,12 @@ const COPY = {
     confirmDeactivate: "Desativar esta receita? O histórico de refeições mantém-se intacto.",
     nutrition: "Nutrição calculada",
     noNutrition: "Ainda sem cálculo nutricional utilizável.",
+    nutritionReady: "Nutrição disponível",
+    nutritionIncomplete: "Nutrição incompleta",
+    missingComposition: "Sem composição nutricional",
+    missingEnergy: "Sem dados de energia",
+    missingNutritionIngredients: "Ingredientes que bloqueiam o cálculo",
+    nutritionBlockedHelp: "O total energético só é calculado quando todos os ingredientes têm composição, energia e unidades compatíveis.",
     total: "Receita total",
     perServing: "Por dose",
     issues: "Dados em falta",
@@ -131,6 +137,12 @@ const COPY = {
     confirmDeactivate: "Deactivate this recipe? Meal history remains intact.",
     nutrition: "Calculated nutrition",
     noNutrition: "No usable nutrition calculation yet.",
+    nutritionReady: "Nutrition available",
+    nutritionIncomplete: "Incomplete nutrition",
+    missingComposition: "No nutrition composition",
+    missingEnergy: "No energy data",
+    missingNutritionIngredients: "Ingredients blocking calculation",
+    nutritionBlockedHelp: "Energy totals are only calculated when every ingredient has composition, energy and compatible units.",
     total: "Whole recipe",
     perServing: "Per serving",
     issues: "Missing evidence",
@@ -159,6 +171,11 @@ type EditorValues = {
   yieldQuantity: string;
   yieldUnit: string;
   ingredients: EditableIngredient[];
+};
+
+export type RecipeNutritionBlocker = {
+  ingredient: string;
+  reason: "missing_composition" | "missing_energy";
 };
 
 function errorText(error: unknown): string {
@@ -195,6 +212,18 @@ function initialValues(recipe: Recipe | null): EditorValues {
   };
 }
 
+export function recipeNutritionBlockers(recipe: Recipe): RecipeNutritionBlocker[] {
+  return recipe.ingredients.flatMap((ingredient) => {
+    if (!ingredient.has_nutrition) {
+      return [{ ingredient: ingredient.food_item_name, reason: "missing_composition" as const }];
+    }
+    if (!ingredient.has_energy) {
+      return [{ ingredient: ingredient.food_item_name, reason: "missing_energy" as const }];
+    }
+    return [];
+  });
+}
+
 export function recipeNutritionSummary(recipe: Recipe, locale: Locale): string {
   const composition = recipe.latest_composition;
   if (!composition || composition.energy_kcal === null) {
@@ -208,21 +237,58 @@ export function recipeNutritionSummary(recipe: Recipe, locale: Locale): string {
     : `${COPY[locale].total}: ${total} ${COPY[locale].kcal} · ${COPY[locale].perServing}: ${formatter.format(Number(perServing))} ${COPY[locale].kcal}`;
 }
 
+function issueCoveredByBlocker(issue: string): boolean {
+  return (
+    issue.includes(" has no nutrition composition.") ||
+    issue === "At least one ingredient is missing energy data."
+  );
+}
+
+function nutritionIssueText(issue: string, locale: Locale): string {
+  if (locale !== "pt-PT") {
+    return issue;
+  }
+  const conversion = /^Ingredient '(.+)' cannot be safely converted from '(.+)' to '(.+)'\.$/.exec(
+    issue,
+  );
+  if (conversion) {
+    return `${conversion[1]}: não é possível converter com segurança de ${conversion[2]} para ${conversion[3]}.`;
+  }
+  return issue;
+}
+
 function RecipeNutrition({ recipe }: { recipe: Recipe }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
+  const blockers = recipeNutritionBlockers(recipe);
+  const additionalIssues = recipe.nutrition_issues.filter((issue) => !issueCoveredByBlocker(issue));
   return (
     <section className="recipe-nutrition-panel">
-      <h2>{copy.nutrition}</h2>
+      <div className="recipe-nutrition-heading">
+        <h2>{copy.nutrition}</h2>
+        <span
+          className={`recipe-nutrition-state ${recipe.latest_composition?.energy_kcal !== null && recipe.latest_composition !== null ? "ready" : "missing"}`}
+        >
+          {recipe.latest_composition?.energy_kcal !== null && recipe.latest_composition !== null
+            ? copy.nutritionReady
+            : copy.nutritionIncomplete}
+        </span>
+      </div>
       <strong>{recipeNutritionSummary(recipe, locale)}</strong>
-      {recipe.nutrition_issues.length > 0 ? (
+      {blockers.length > 0 || additionalIssues.length > 0 ? (
         <div className="recipe-issues">
-          <span>{copy.issues}</span>
+          <span>{blockers.length > 0 ? copy.missingNutritionIngredients : copy.issues}</span>
           <ul>
-            {recipe.nutrition_issues.map((issue) => (
-              <li key={issue}>{issue}</li>
+            {blockers.map((blocker, index) => (
+              <li key={`${blocker.ingredient}-${blocker.reason}-${index}`}>
+                <strong>{blocker.ingredient}</strong> — {blocker.reason === "missing_composition" ? copy.missingComposition : copy.missingEnergy}
+              </li>
+            ))}
+            {additionalIssues.map((issue) => (
+              <li key={issue}>{nutritionIssueText(issue, locale)}</li>
             ))}
           </ul>
+          {blockers.length > 0 ? <small>{copy.nutritionBlockedHelp}</small> : null}
         </div>
       ) : null}
     </section>
@@ -281,6 +347,17 @@ function SharedRecipeViewer({ recipe, onDone }: { recipe: Recipe; onDone: () => 
                     {ingredient.quantity} {ingredient.unit}
                     {ingredient.preparation ? ` · ${ingredient.preparation}` : ""}
                   </small>
+                </span>
+                <span className="ingredient-row__end">
+                  <span
+                    className={`recipe-nutrition-state ${ingredient.has_energy ? "ready" : "missing"}`}
+                  >
+                    {ingredient.has_energy
+                      ? copy.nutritionReady
+                      : ingredient.has_nutrition
+                        ? copy.missingEnergy
+                        : copy.missingComposition}
+                  </span>
                 </span>
               </div>
             ))}
@@ -542,6 +619,11 @@ function RecipeEditor({
                     {ingredients.map((ingredient) => (
                       <option key={ingredient.id} value={ingredient.id}>
                         {ingredient.name}
+                        {ingredient.latest_composition === null
+                          ? ` · ${copy.missingComposition}`
+                          : ingredient.latest_composition.energy_kcal === null
+                            ? ` · ${copy.missingEnergy}`
+                            : ""}
                       </option>
                     ))}
                   </select>
@@ -741,6 +823,9 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
                 </small>
               </span>
               <span className="ingredient-row__end">
+                {recipe.latest_composition?.energy_kcal === null || recipe.latest_composition === null ? (
+                  <span className="recipe-nutrition-state missing">{copy.nutritionIncomplete}</span>
+                ) : null}
                 {recipe.scope === "shared" ? (
                   <span className="ingredient-inactive">{copy.shared}</span>
                 ) : null}
