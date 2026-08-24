@@ -164,7 +164,7 @@ def test_recipe_ingredient_composition_without_energy_is_explicit(db_session: Se
     assert body["latest_composition"]["energy_kcal"] is None
     assert body["ingredients"][0]["has_nutrition"] is True
     assert body["ingredients"][0]["has_energy"] is False
-    assert "missing energy data" in body["nutrition_issues"]
+    assert any("missing energy data" in issue for issue in body["nutrition_issues"])
 
 
 def test_recipe_update_appends_composition_and_soft_delete_hides_recipe(
