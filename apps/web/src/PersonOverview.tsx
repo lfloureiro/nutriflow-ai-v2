@@ -246,10 +246,12 @@ export default function PersonOverview({
   dashboard,
   member,
   onBack,
+  onDataChanged,
 }: {
   dashboard: FamilyDashboard;
   member: FamilyDashboardMember;
   onBack: () => void;
+  onDataChanged: () => void;
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
@@ -282,6 +284,10 @@ export default function PersonOverview({
     };
   }, [member.person_id, revision]);
 
+  const displayName = person
+    ? [person.first_name, person.last_name].filter(Boolean).join(" ")
+    : memberDisplayName(member);
+  const displayFirstName = person?.first_name ?? member.first_name;
   const consumed = dailyState?.energy_consumed_kcal ?? member.nutrition?.energy_consumed_kcal;
   const planned = dailyState?.energy_planned_kcal ?? member.nutrition?.energy_planned_kcal;
   const assumed = dailyState?.energy_assumed_kcal ?? "0";
@@ -303,17 +309,17 @@ export default function PersonOverview({
         </button>
         <div className="person-header__identity">
           <span className="member-avatar person-header__avatar" aria-hidden="true">
-            {member.first_name.slice(0, 1).toUpperCase()}
+            {displayFirstName.slice(0, 1).toUpperCase()}
           </span>
           <div>
             <span className="eyebrow">{dashboard.dashboard_date}</span>
-            <h1>{person ? [person.first_name, person.last_name].filter(Boolean).join(" ") : memberDisplayName(member)}</h1>
+            <h1>{displayName}</h1>
             <p>{person?.timezone ?? member.timezone}</p>
           </div>
         </div>
       </header>
 
-      <nav className="person-secondary-nav" aria-label={memberDisplayName(member)}>
+      <nav className="person-secondary-nav" aria-label={displayName}>
         {SECTION_ORDER.map((item) => (
           <button
             aria-current={section === item ? "page" : undefined}
@@ -484,6 +490,7 @@ export default function PersonOverview({
               onSaved={() => {
                 setProfileEditing(false);
                 setRevision((current) => current + 1);
+                onDataChanged();
               }}
               person={person}
               profile={profile}
