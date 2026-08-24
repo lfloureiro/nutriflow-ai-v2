@@ -80,6 +80,7 @@ class IngredientRead(BaseModel):
     description: str | None
     source: str
     is_active: bool
+    recipe_usage_count: int
     latest_composition: IngredientCompositionRead | None
     created_at: datetime
     updated_at: datetime
