@@ -540,12 +540,19 @@ export default function FamilyMealsScreen({
                         <strong>{mealLabel(slot.meal_type, locale)}</strong>
                         <button
                           className="button ghost"
+                          disabled={
+                            slot.meals.length > 0 && slot.meals[0]?.status !== "planned"
+                          }
                           onClick={() =>
-                            setEditing({ date: day.date, mealType: slot.meal_type, entry: null })
+                            setEditing({
+                              date: day.date,
+                              mealType: slot.meal_type,
+                              entry: slot.meals[0] ?? null,
+                            })
                           }
                           type="button"
                         >
-                          + {copy.add}
+                          {slot.meals.length === 0 ? `+ ${copy.add}` : copy.edit}
                         </button>
                       </div>
                       {slot.meals.length === 0 ? (
@@ -587,7 +594,7 @@ export default function FamilyMealsScreen({
                                     : ` · ${copy.locked}`}
                                 </span>
                               </button>
-                              {day.date <= consumptionDate ? (
+                              {mode === "today" && day.date <= consumptionDate ? (
                                 <div className="meal-consumption-list">
                                   {entry.participants.map((participant) => (
                                     <MealConsumptionControls
