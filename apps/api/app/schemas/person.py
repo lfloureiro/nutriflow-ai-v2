@@ -68,6 +68,15 @@ class PersonCreate(BaseModel):
         return self
 
 
+class PersonUpdate(BaseModel):
+    first_name: str | None = Field(default=None, min_length=1, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
+    birth_date: date | None = None
+    preferred_locale: str | None = Field(default=None, max_length=16)
+    timezone: str | None = Field(default=None, max_length=64)
+    energy_profile: PersonEnergyProfileCreate | None = None
+
+
 class PersonRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
