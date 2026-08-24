@@ -15,7 +15,7 @@ describe("family meal-plan helpers", () => {
       { id: "breakfast", suitable_meal_types: ["breakfast"] },
       { id: "main", suitable_meal_types: ["lunch", "dinner"] },
       { id: "snack", suitable_meal_types: ["snack"] },
-    ] as Recipe[];
+    ] as unknown as Recipe[];
 
     expect(recipesForMealType(recipes, "breakfast").map((recipe) => recipe.id)).toEqual([
       "breakfast",
