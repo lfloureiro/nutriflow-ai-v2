@@ -213,12 +213,12 @@ function initialValues(recipe: Recipe | null): EditorValues {
 }
 
 export function recipeNutritionBlockers(recipe: Recipe): RecipeNutritionBlocker[] {
-  return recipe.ingredients.flatMap((ingredient) => {
+  return recipe.ingredients.flatMap<RecipeNutritionBlocker>((ingredient) => {
     if (!ingredient.has_nutrition) {
-      return [{ ingredient: ingredient.food_item_name, reason: "missing_composition" as const }];
+      return [{ ingredient: ingredient.food_item_name, reason: "missing_composition" }];
     }
     if (!ingredient.has_energy) {
-      return [{ ingredient: ingredient.food_item_name, reason: "missing_energy" as const }];
+      return [{ ingredient: ingredient.food_item_name, reason: "missing_energy" }];
     }
     return [];
   });
