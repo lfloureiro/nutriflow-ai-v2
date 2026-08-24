@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.family import Family
 from app.models.food_catalog import Recipe
 from app.models.meal import MealEvent, MealParticipant, Serving
+from app.models.meal_candidate_planning_profile import MealCandidatePlanningProfile
 from app.models.person import Person
 from app.schemas.family_meal_plan import (
     FamilyMealPlanRead,
@@ -21,7 +22,15 @@ from app.schemas.family_meal_plan import (
     MealPlanSlotRead,
 )
 from app.schemas.meal_type import MEAL_TYPES, MealType
-from app.services.recipe_catalogue import RecipeNotFoundError, get_family_recipe_model
+from app.services.meal_suitability import (
+    MealSuitabilityError,
+    recipe_default_meal_types,
+    resolve_meal_types,
+)
+from app.services.recipe_catalogue import (
+    RecipeNotFoundError,
+    get_family_visible_recipe_model,
+)
 from app.services.serving_nutrition import (
     ServingNutritionCalculationError,
     calculate_serving_nutrition,
@@ -267,17 +276,66 @@ def _scheduled_at(family: Family, on_date: date, local_time: time) -> datetime:
     return datetime.combine(on_date, local_time, tzinfo=ZoneInfo(family.timezone))
 
 
+def _validate_recipe_meal_type(
+    db: Session,
+    *,
+    family_id: uuid.UUID,
+    recipe: Recipe,
+    meal_type: MealType,
+) -> None:
+    profile = db.scalar(
+        select(MealCandidatePlanningProfile).where(
+            MealCandidatePlanningProfile.family_id == family_id,
+            MealCandidatePlanningProfile.recipe_id == recipe.id,
+        )
+    )
+    try:
+        suitable_meal_types = resolve_meal_types(
+            profile=profile,
+            catalogue_meal_types=recipe.suitable_meal_types,
+            defaults=recipe_default_meal_types(recipe.source),
+        )
+    except MealSuitabilityError as exc:
+        raise MealPlanError(str(exc)) from exc
+    if meal_type not in suitable_meal_types:
+        raise MealPlanError(
+            f"Recipe is not suitable for meal type {meal_type!r}."
+        )
+
+
+def _planning_recipe(
+    db: Session,
+    *,
+    family_id: uuid.UUID,
+    recipe_id: uuid.UUID,
+    meal_type: MealType,
+) -> Recipe:
+    try:
+        recipe = get_family_visible_recipe_model(db, family_id, recipe_id)
+    except RecipeNotFoundError as exc:
+        raise MealPlanError("Recipe not found for this Family.") from exc
+    if not recipe.is_active:
+        raise MealPlanError("Inactive recipes cannot be added to the plan.")
+    _validate_recipe_meal_type(
+        db,
+        family_id=family_id,
+        recipe=recipe,
+        meal_type=meal_type,
+    )
+    return recipe
+
+
 def create_meal_plan_entry(
     db: Session,
     family: Family,
     data: MealPlanEntryCreate,
 ) -> MealPlanEntryRead:
-    try:
-        recipe = get_family_recipe_model(db, family.id, data.recipe_id)
-    except RecipeNotFoundError as exc:
-        raise MealPlanError("Recipe not found for this Family.") from exc
-    if not recipe.is_active:
-        raise MealPlanError("Inactive recipes cannot be added to the plan.")
+    recipe = _planning_recipe(
+        db,
+        family_id=family.id,
+        recipe_id=data.recipe_id,
+        meal_type=data.meal_type,
+    )
 
     event = MealEvent(
         family=family,
@@ -328,10 +386,13 @@ def update_meal_plan_entry(
         if "local_time" in fields and data.local_time is not None
         else local.timetz().replace(tzinfo=None)
     )
+    next_meal_type = (
+        data.meal_type
+        if "meal_type" in fields and data.meal_type is not None
+        else event.meal_type
+    )
     if fields.intersection({"date", "local_time"}):
         event.scheduled_at = _scheduled_at(family, next_date, next_time)
-    if "meal_type" in fields and data.meal_type is not None:
-        event.meal_type = data.meal_type
     if "location" in fields:
         event.location = _optional_text(data.location)
     if "notes" in fields:
@@ -341,13 +402,21 @@ def update_meal_plan_entry(
     recipe = current_recipe
     recipe_changed = "recipe_id" in fields and data.recipe_id is not None
     if recipe_changed:
-        try:
-            recipe = get_family_recipe_model(db, family.id, data.recipe_id)
-        except RecipeNotFoundError as exc:
-            raise MealPlanError("Recipe not found for this Family.") from exc
-        if not recipe.is_active:
-            raise MealPlanError("Inactive recipes cannot be added to the plan.")
+        recipe = _planning_recipe(
+            db,
+            family_id=family.id,
+            recipe_id=data.recipe_id,
+            meal_type=next_meal_type,
+        )
         event.title = recipe.name
+    elif "meal_type" in fields and current_recipe is not None:
+        _validate_recipe_meal_type(
+            db,
+            family_id=family.id,
+            recipe=current_recipe,
+            meal_type=next_meal_type,
+        )
+    event.meal_type = next_meal_type
 
     participants_changed = "participants" in fields and data.participants is not None
     if recipe_changed or participants_changed:
