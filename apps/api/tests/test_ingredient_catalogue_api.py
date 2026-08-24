@@ -65,6 +65,7 @@ def test_family_ingredient_create_and_list_include_latest_composition(
     assert created["editable"] is True
     assert created["name"] == "Flocos de aveia"
     assert created["is_active"] is True
+    assert created["recipe_usage_count"] == 0
     assert created["catalog_key"].startswith(f"family:{family.id}:ingredient:")
     assert created["latest_composition"]["reference_quantity"] == "100.0000"
     assert created["latest_composition"]["reference_unit"] == "g"
@@ -106,6 +107,7 @@ def test_shared_ingredients_are_visible_but_not_family_editable(db_session: Sess
     assert item["family_id"] is None
     assert item["scope"] == "shared"
     assert item["editable"] is False
+    assert item["recipe_usage_count"] == 0
 
     detail = _request(
         db_session,
@@ -122,6 +124,44 @@ def test_shared_ingredients_are_visible_but_not_family_editable(db_session: Sess
         json={"name": "Tentativa"},
     )
     assert update.status_code == 404
+
+
+def test_ingredient_recipe_usage_count_is_family_visible_scope(db_session: Session) -> None:
+    family_a = Family(name="Usage A", timezone="Europe/Lisbon")
+    family_b = Family(name="Usage B", timezone="Europe/Lisbon")
+    shared = FoodItem(
+        family_id=None,
+        catalog_key="shared:ingredient:usage",
+        name="Ingrediente usado",
+        food_kind="ingredient",
+        source="catalogue",
+        is_active=True,
+    )
+    db_session.add_all([family_a, family_b, shared])
+    db_session.flush()
+
+    for family in (family_a, family_b):
+        created = _request(
+            db_session,
+            "POST",
+            f"/api/families/{family.id}/recipes",
+            json={
+                "name": f"Receita {family.name}",
+                "serving_count": "1",
+                "ingredients": [
+                    {"food_item_id": str(shared.id), "quantity": "100", "unit": "g"}
+                ],
+            },
+        )
+        assert created.status_code == 201
+
+    listed_a = _request(db_session, "GET", f"/api/families/{family_a.id}/ingredients")
+    assert listed_a.status_code == 200
+    assert listed_a.json()[0]["recipe_usage_count"] == 1
+
+    listed_b = _request(db_session, "GET", f"/api/families/{family_b.id}/ingredients")
+    assert listed_b.status_code == 200
+    assert listed_b.json()[0]["recipe_usage_count"] == 1
 
 
 def test_ingredient_update_creates_new_composition_version(db_session: Session) -> None:
