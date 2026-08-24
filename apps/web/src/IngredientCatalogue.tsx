@@ -18,7 +18,7 @@ const COPY = {
   "pt-PT": {
     eyebrow: "Casa · Ingredientes",
     title: "Ingredientes",
-    help: "Cria e mantém os ingredientes reutilizáveis da família. A nutrição fica versionada para poder alimentar receitas e planeamento.",
+    help: "Consulta os ingredientes partilhados do catálogo NutriFlow e mantém os ingredientes próprios da família. A nutrição fica versionada para alimentar receitas e planeamento.",
     search: "Procurar ingredientes",
     searchPlaceholder: "Ex.: aveia, tomate, salmão…",
     showInactive: "Mostrar inativos",
@@ -28,6 +28,8 @@ const COPY = {
     emptySearch: "Nenhum ingrediente corresponde à pesquisa.",
     noComposition: "Sem composição nutricional",
     inactive: "Inativo",
+    shared: "Partilhado",
+    readOnly: "Só leitura",
     edit: "Editar",
     back: "Voltar aos ingredientes",
     createTitle: "Novo ingrediente",
@@ -59,7 +61,7 @@ const COPY = {
   en: {
     eyebrow: "Home base · Ingredients",
     title: "Ingredients",
-    help: "Create and maintain reusable family ingredients. Nutrition remains versioned so recipes and planning can use traceable evidence.",
+    help: "Browse shared NutriFlow catalogue ingredients and maintain the Family's own ingredients. Nutrition remains versioned so recipes and planning can use traceable evidence.",
     search: "Search ingredients",
     searchPlaceholder: "E.g. oats, tomato, salmon…",
     showInactive: "Show inactive",
@@ -69,6 +71,8 @@ const COPY = {
     emptySearch: "No ingredients match this search.",
     noComposition: "No nutrition composition",
     inactive: "Inactive",
+    shared: "Shared",
+    readOnly: "Read only",
     edit: "Edit",
     back: "Back to ingredients",
     createTitle: "New ingredient",
@@ -431,6 +435,50 @@ function IngredientEditor({
   );
 }
 
+function IngredientRow({
+  ingredient,
+  locale,
+  onEdit,
+}: {
+  ingredient: Ingredient;
+  locale: Locale;
+  onEdit: () => void;
+}) {
+  const copy = COPY[locale];
+  const content = (
+    <>
+      <span className="ingredient-row__main">
+        <strong>{ingredient.name}</strong>
+        <small>
+          {ingredient.brand ? `${ingredient.brand} · ` : ""}
+          {ingredientNutritionSummary(ingredient, locale)}
+          {ingredient.scope === "shared" ? ` · ${ingredient.source}` : ""}
+        </small>
+      </span>
+      <span className="ingredient-row__end">
+        {!ingredient.is_active ? <span className="ingredient-inactive">{copy.inactive}</span> : null}
+        {ingredient.scope === "shared" ? (
+          <>
+            <span className="ingredient-inactive">{copy.shared}</span>
+            <span>{copy.readOnly}</span>
+          </>
+        ) : (
+          <span>{copy.edit} ›</span>
+        )}
+      </span>
+    </>
+  );
+
+  if (!ingredient.editable) {
+    return <div className="ingredient-row ingredient-row--readonly">{content}</div>;
+  }
+  return (
+    <button className="ingredient-row" onClick={onEdit} type="button">
+      {content}
+    </button>
+  );
+}
+
 export default function IngredientCatalogue({ familyId }: { familyId: string }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
@@ -539,24 +587,12 @@ export default function IngredientCatalogue({ familyId }: { familyId: string }) 
       ) : (
         <div className="ingredient-list">
           {ingredients.map((ingredient) => (
-            <button
-              className="ingredient-row"
+            <IngredientRow
+              ingredient={ingredient}
               key={ingredient.id}
-              onClick={() => setSelected(ingredient)}
-              type="button"
-            >
-              <span className="ingredient-row__main">
-                <strong>{ingredient.name}</strong>
-                <small>
-                  {ingredient.brand ? `${ingredient.brand} · ` : ""}
-                  {ingredientNutritionSummary(ingredient, locale)}
-                </small>
-              </span>
-              <span className="ingredient-row__end">
-                {!ingredient.is_active ? <span className="ingredient-inactive">{copy.inactive}</span> : null}
-                <span>{copy.edit} ›</span>
-              </span>
-            </button>
+              locale={locale}
+              onEdit={() => setSelected(ingredient)}
+            />
           ))}
         </div>
       )}
