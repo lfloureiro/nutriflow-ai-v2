@@ -9,6 +9,7 @@ from app.schemas.recommendation_decision import (
     RecommendationDecisionCreate,
     RecommendationDecisionRead,
 )
+from app.services.meal_slot import MealSlotConflictError
 from app.services.recommendation_decision_api import (
     RecommendationDecisionApiError,
     RecommendationDecisionApiNotFoundError,
@@ -34,6 +35,8 @@ def create_recommendation_decision_endpoint(
         return create_recommendation_decision(db, option_id=option_id, data=data)
     except RecommendationDecisionApiNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except MealSlotConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (
         RecommendationDecisionApiError,
         RecommendationFeedbackError,
