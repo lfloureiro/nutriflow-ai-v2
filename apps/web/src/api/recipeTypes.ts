@@ -10,6 +10,7 @@ export type RecipeIngredient = {
   notes: string | null;
   sort_order: number;
   has_nutrition: boolean;
+  has_energy: boolean;
 };
 
 export type RecipeNutrient = {
