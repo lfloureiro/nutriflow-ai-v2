@@ -3,6 +3,51 @@
   gap: 1rem;
 }
 
+.restaurant-capability {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: fit-content;
+  max-width: 760px;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.restaurant-capability__dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.restaurant-capability.status-ready {
+  border-color: color-mix(in srgb, var(--success) 30%, var(--border));
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.restaurant-capability.status-ready .restaurant-capability__dot {
+  background: var(--success);
+}
+
+.restaurant-capability.status-needs_configuration,
+.restaurant-capability.status-disabled {
+  border-color: color-mix(in srgb, var(--danger) 24%, var(--border));
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.restaurant-capability.status-needs_configuration .restaurant-capability__dot,
+.restaurant-capability.status-disabled .restaurant-capability__dot {
+  background: var(--danger);
+}
+
 .restaurant-search-card {
   align-items: end;
   background: var(--surface);
@@ -105,6 +150,11 @@
 }
 
 @media (max-width: 720px) {
+  .restaurant-capability {
+    width: 100%;
+    border-radius: var(--radius-md);
+  }
+
   .restaurant-search-card {
     align-items: stretch;
     grid-template-columns: 1fr;
