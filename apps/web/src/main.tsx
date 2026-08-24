@@ -11,6 +11,7 @@ import "./family-meals.css";
 import "./family-person-setup.css";
 import "./family-settings.css";
 import "./ingredient-catalogue.css";
+import "./delivery-menu.css";
 import "./core-planning.css";
 import "./pantry-shopping.css";
 import "./recommendation-planner.css";
