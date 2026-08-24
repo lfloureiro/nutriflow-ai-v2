@@ -62,7 +62,7 @@ class MealRecommendationRun(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     planning_date: Mapped[date] = mapped_column(Date, nullable=False)
     meal_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    engine_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    engine_version: Mapped[str] = mapped_column(String(160), nullable=False)
     context: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
 
     person: Mapped["Person"] = relationship(back_populates="meal_recommendation_runs")
