@@ -1,5 +1,4 @@
 import json
-import uuid
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import cast
