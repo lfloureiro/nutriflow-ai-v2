@@ -1,8 +1,43 @@
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from app.schemas.restaurant_discovery import RestaurantDiscoveryRead
+from app.schemas.restaurant_discovery import (
+    RestaurantDiscoveryPlaceRead,
+    RestaurantDiscoveryRead,
+)
 from app.services import restaurant_discovery
+
+
+def _place(
+    *,
+    place_id: str,
+    name: str,
+    rating: str | None = None,
+    rating_count: int | None = None,
+    primary_type: str = "restaurant",
+) -> RestaurantDiscoveryPlaceRead:
+    parsed_rating = Decimal(rating) if rating is not None else None
+    return RestaurantDiscoveryPlaceRead(
+        provider_place_id=place_id,
+        name=name,
+        cuisine=[],
+        amenity="fast_food" if primary_type == "fast_food_restaurant" else "restaurant",
+        address="Lisboa",
+        latitude=Decimal("38.75"),
+        longitude=Decimal("-9.18"),
+        website=None,
+        phone=None,
+        opening_hours=None,
+        source_reference="https://example.invalid/place",
+        primary_type=primary_type,
+        rating=parsed_rating,
+        rating_count=rating_count,
+        quality_score=restaurant_discovery._quality_score(
+            parsed_rating,
+            rating_count,
+            primary_type=primary_type,
+        ),
+    )
 
 
 def test_osm_restaurant_parser_keeps_observed_metadata() -> None:
@@ -36,6 +71,70 @@ def test_osm_restaurant_parser_keeps_observed_metadata() -> None:
     assert parsed.source_reference == "https://www.openstreetmap.org/way/123"
 
 
+def test_google_parser_exposes_quality_and_service_signals() -> None:
+    parsed = restaurant_discovery._google_place(
+        {
+            "id": "place-123",
+            "displayName": {"text": "Boa Mesa"},
+            "formattedAddress": "Benfica, Lisboa",
+            "location": {"latitude": 38.75, "longitude": -9.19},
+            "primaryType": "portuguese_restaurant",
+            "types": ["portuguese_restaurant", "restaurant", "food"],
+            "rating": 4.7,
+            "userRatingCount": 842,
+            "priceLevel": "PRICE_LEVEL_MODERATE",
+            "websiteUri": "https://example.invalid/menu",
+            "servesLunch": True,
+            "servesDinner": True,
+            "delivery": False,
+            "takeout": True,
+        }
+    )
+
+    assert parsed is not None
+    assert parsed.provider_place_id == "google:place-123"
+    assert parsed.cuisine == ["portuguese"]
+    assert parsed.rating == Decimal("4.7")
+    assert parsed.rating_count == 842
+    assert parsed.price_level == "PRICE_LEVEL_MODERATE"
+    assert parsed.serves_lunch is True
+    assert parsed.serves_dinner is True
+    assert parsed.delivery is False
+    assert parsed.takeout is True
+    assert parsed.quality_score is not None
+
+
+def test_quality_score_values_review_confidence() -> None:
+    established = restaurant_discovery._quality_score(
+        Decimal("4.7"),
+        1000,
+        primary_type="portuguese_restaurant",
+    )
+    single_review = restaurant_discovery._quality_score(
+        Decimal("5.0"),
+        1,
+        primary_type="restaurant",
+    )
+
+    assert established is not None
+    assert single_review is not None
+    assert established > single_review
+
+
+def test_restaurant_ranking_deduplicates_same_chain_name() -> None:
+    places = [
+        _place(place_id="google:1", name="100 Montaditos", rating="4.1", rating_count=200),
+        _place(place_id="google:2", name="100 montaditos", rating="4.0", rating_count=800),
+        _place(place_id="google:3", name="Boa Mesa", rating="4.7", rating_count=500),
+    ]
+
+    ranked = restaurant_discovery._rank_and_dedupe(places)
+
+    assert [place.name for place in ranked].count("100 Montaditos") <= 1
+    assert len([place for place in ranked if "montaditos" in place.name.casefold()]) == 1
+    assert ranked[0].name == "Boa Mesa"
+
+
 def test_restaurant_discovery_caches_area_results(monkeypatch) -> None:
     restaurant_discovery._CACHE.clear()
     calls: list[str] = []
@@ -49,35 +148,12 @@ def test_restaurant_discovery_caches_area_results(monkeypatch) -> None:
             cached=False,
             attribution=restaurant_discovery.OSM_ATTRIBUTION,
             restaurants=[
-                restaurant_discovery.RestaurantDiscoveryPlaceRead(
-                    provider_place_id="osm:node:1",
-                    name="A",
-                    cuisine=["portuguese"],
-                    amenity="restaurant",
-                    address="Lisboa",
-                    latitude=Decimal("38.75"),
-                    longitude=Decimal("-9.18"),
-                    website=None,
-                    phone=None,
-                    opening_hours=None,
-                    source_reference="https://www.openstreetmap.org/node/1",
-                ),
-                restaurant_discovery.RestaurantDiscoveryPlaceRead(
-                    provider_place_id="osm:node:2",
-                    name="B",
-                    cuisine=[],
-                    amenity="restaurant",
-                    address="Lisboa",
-                    latitude=Decimal("38.76"),
-                    longitude=Decimal("-9.19"),
-                    website=None,
-                    phone=None,
-                    opening_hours=None,
-                    source_reference="https://www.openstreetmap.org/node/2",
-                ),
+                _place(place_id="osm:node:1", name="A"),
+                _place(place_id="osm:node:2", name="B"),
             ],
         )
 
+    monkeypatch.setattr(restaurant_discovery, "google_places_configured", lambda: False)
     monkeypatch.setattr(restaurant_discovery, "_fetch_restaurants", fake_fetch)
 
     first = restaurant_discovery.discover_restaurants("Benfica, Lisboa", limit=2)
@@ -88,3 +164,29 @@ def test_restaurant_discovery_caches_area_results(monkeypatch) -> None:
     assert second.cached
     assert len(first.restaurants) == 2
     assert [place.name for place in second.restaurants] == ["A"]
+
+
+def test_google_provider_failure_falls_back_to_osm(monkeypatch) -> None:
+    restaurant_discovery._CACHE.clear()
+
+    def fail_google(area: str, *, limit: int) -> RestaurantDiscoveryRead:
+        raise restaurant_discovery.RestaurantDiscoveryError("google unavailable")
+
+    def osm(area: str, *, limit: int) -> RestaurantDiscoveryRead:
+        return RestaurantDiscoveryRead(
+            provider="openstreetmap",
+            area=area,
+            observed_at=datetime(2026, 8, 23, 18, 0, tzinfo=UTC),
+            cached=False,
+            attribution=restaurant_discovery.OSM_ATTRIBUTION,
+            restaurants=[_place(place_id="osm:node:1", name="Fallback")],
+        )
+
+    monkeypatch.setattr(restaurant_discovery, "google_places_configured", lambda: True)
+    monkeypatch.setattr(restaurant_discovery, "_fetch_google_restaurants", fail_google)
+    monkeypatch.setattr(restaurant_discovery, "_fetch_restaurants", osm)
+
+    result = restaurant_discovery.discover_restaurants("Benfica, Lisboa", limit=1)
+
+    assert result.provider == "openstreetmap_fallback"
+    assert result.restaurants[0].name == "Fallback"
