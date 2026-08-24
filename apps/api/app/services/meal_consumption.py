@@ -10,7 +10,10 @@ from app.models.food_catalog import FoodCompositionSnapshot, RecipeCompositionSn
 from app.models.meal import MealEvent, MealParticipant, Serving
 from app.schemas.meal_consumption import MealConsumptionRead, MealConsumptionUpdate
 from app.services.planning_bootstrap_api import get_planning_bootstrap
-from app.services.serving_nutrition import calculate_serving_nutrition
+from app.services.serving_nutrition import (
+    ServingNutritionCalculationError,
+    calculate_serving_nutrition,
+)
 
 ZERO = Decimal(0)
 ENERGY_QUANTUM = Decimal("0.01")
@@ -113,11 +116,16 @@ def _fallback_consumed_nutrition(serving: Serving) -> None:
 def _calculate_consumed_nutrition(serving: Serving) -> None:
     composition = serving.food_composition_snapshot or serving.recipe_composition_snapshot
     if composition is not None:
-        calculate_serving_nutrition(
-            serving,
-            composition,
-            calculation_version="serving-nutrition-consumption-v1",
-        )
+        try:
+            calculate_serving_nutrition(
+                serving,
+                composition,
+                calculation_version="serving-nutrition-consumption-v1",
+            )
+        except ServingNutritionCalculationError:
+            # Existing planned servings can outlive catalogue/unit-model changes. Their persisted
+            # planned nutrition is authoritative enough to scale consumption without returning 500.
+            _fallback_consumed_nutrition(serving)
         return
     _fallback_consumed_nutrition(serving)
 
