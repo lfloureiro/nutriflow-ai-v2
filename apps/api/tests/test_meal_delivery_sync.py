@@ -84,5 +84,7 @@ def test_sync_normalizes_provider_observations_into_domain(db_session: Session, 
 
     assert result.provider_key == "uber_eats"
     assert result.observed_count == 1
+    assert len(result.observations) == 1
+    assert result.observations[0].item_name == "Prato Teste"
     assert len(result.ingested) == 1
     assert not result.ingested[0].eligible_for_nutrition_ranking
