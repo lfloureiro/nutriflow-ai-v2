@@ -21,12 +21,24 @@ const COPY = {
     help: "Consulta os ingredientes partilhados do catálogo NutriFlow e mantém os ingredientes próprios da família. A nutrição fica versionada para alimentar receitas e planeamento.",
     search: "Procurar ingredientes",
     searchPlaceholder: "Ex.: aveia, tomate, salmão…",
+    nutritionFilter: "Estado nutricional",
+    filterAll: "Todos",
+    filterReady: "Com energia",
+    filterMissingEnergy: "Sem energia",
+    filterMissingComposition: "Sem composição",
     showInactive: "Mostrar inativos",
     newIngredient: "Novo ingrediente",
     loading: "A carregar ingredientes…",
     empty: "Ainda não existem ingredientes neste catálogo.",
-    emptySearch: "Nenhum ingrediente corresponde à pesquisa.",
+    emptySearch: "Nenhum ingrediente corresponde aos filtros.",
     noComposition: "Sem composição nutricional",
+    noEnergy: "Composição sem energia",
+    nutritionReady: "Com energia",
+    total: "Total",
+    complete: "Com energia",
+    incomplete: "A completar",
+    usedIn: "Usado em",
+    recipes: "receitas",
     inactive: "Inativo",
     shared: "Partilhado",
     readOnly: "Só leitura",
@@ -64,12 +76,24 @@ const COPY = {
     help: "Browse shared NutriFlow catalogue ingredients and maintain the Family's own ingredients. Nutrition remains versioned so recipes and planning can use traceable evidence.",
     search: "Search ingredients",
     searchPlaceholder: "E.g. oats, tomato, salmon…",
+    nutritionFilter: "Nutrition status",
+    filterAll: "All",
+    filterReady: "With energy",
+    filterMissingEnergy: "Missing energy",
+    filterMissingComposition: "Missing composition",
     showInactive: "Show inactive",
     newIngredient: "New ingredient",
     loading: "Loading ingredients…",
     empty: "There are no ingredients in this catalogue yet.",
-    emptySearch: "No ingredients match this search.",
+    emptySearch: "No ingredients match the filters.",
     noComposition: "No nutrition composition",
+    noEnergy: "Composition without energy",
+    nutritionReady: "Energy available",
+    total: "Total",
+    complete: "With energy",
+    incomplete: "To complete",
+    usedIn: "Used in",
+    recipes: "recipes",
     inactive: "Inactive",
     shared: "Shared",
     readOnly: "Read only",
@@ -104,6 +128,8 @@ const COPY = {
 } as const;
 
 type NutrientKey = "protein" | "carbohydrate" | "fat" | "fiber" | "sodium";
+export type IngredientNutritionStatus = "ready" | "missing_energy" | "missing_composition";
+type NutritionFilter = "all" | IngredientNutritionStatus;
 
 type EditorValues = {
   name: string;
@@ -177,6 +203,12 @@ function decimalText(value: string): string {
   return value.trim().replace(",", ".");
 }
 
+export function ingredientNutritionStatus(ingredient: Ingredient): IngredientNutritionStatus {
+  if (ingredient.latest_composition === null) return "missing_composition";
+  if (ingredient.latest_composition.energy_kcal === null) return "missing_energy";
+  return "ready";
+}
+
 export function buildIngredientComposition(
   values: EditorValues,
 ): IngredientCompositionWrite | null {
@@ -211,7 +243,7 @@ export function ingredientNutritionSummary(ingredient: Ingredient, locale: Local
     Number(composition.reference_quantity),
   );
   if (composition.energy_kcal === null) {
-    return `${reference} ${composition.reference_unit}`;
+    return `${reference} ${composition.reference_unit} · ${COPY[locale].noEnergy}`;
   }
   const energy = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(
     Number(composition.energy_kcal),
@@ -445,17 +477,25 @@ function IngredientRow({
   onEdit: () => void;
 }) {
   const copy = COPY[locale];
+  const status = ingredientNutritionStatus(ingredient);
   const content = (
     <>
       <span className="ingredient-row__main">
         <strong>{ingredient.name}</strong>
         <small>
           {ingredient.brand ? `${ingredient.brand} · ` : ""}
-          {ingredientNutritionSummary(ingredient, locale)}
+          {ingredientNutritionSummary(ingredient, locale)} · {copy.usedIn} {ingredient.recipe_usage_count} {copy.recipes}
           {ingredient.scope === "shared" ? ` · ${ingredient.source}` : ""}
         </small>
       </span>
       <span className="ingredient-row__end">
+        <span className={`ingredient-nutrition-state ${status}`}>
+          {status === "ready"
+            ? copy.nutritionReady
+            : status === "missing_energy"
+              ? copy.noEnergy
+              : copy.noComposition}
+        </span>
         {!ingredient.is_active ? <span className="ingredient-inactive">{copy.inactive}</span> : null}
         {ingredient.scope === "shared" ? (
           <>
@@ -484,6 +524,7 @@ export default function IngredientCatalogue({ familyId }: { familyId: string }) 
   const copy = COPY[locale];
   const [query, setQuery] = useState("");
   const [includeInactive, setIncludeInactive] = useState(false);
+  const [nutritionFilter, setNutritionFilter] = useState<NutritionFilter>("all");
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -522,7 +563,22 @@ export default function IngredientCatalogue({ familyId }: { familyId: string }) 
     };
   }, [familyId, query, includeInactive, revision, selected]);
 
-  const hasSearch = useMemo(() => query.trim().length > 0, [query]);
+  const hasSearch = useMemo(
+    () => query.trim().length > 0 || nutritionFilter !== "all",
+    [query, nutritionFilter],
+  );
+  const filteredIngredients = useMemo(
+    () =>
+      ingredients.filter(
+        (ingredient) =>
+          nutritionFilter === "all" || ingredientNutritionStatus(ingredient) === nutritionFilter,
+      ),
+    [ingredients, nutritionFilter],
+  );
+  const readyCount = useMemo(
+    () => ingredients.filter((ingredient) => ingredientNutritionStatus(ingredient) === "ready").length,
+    [ingredients],
+  );
 
   if (selected !== undefined) {
     return (
@@ -551,6 +607,12 @@ export default function IngredientCatalogue({ familyId }: { familyId: string }) 
         </button>
       </header>
 
+      <div className="ingredient-summary" aria-label={copy.nutritionFilter}>
+        <span><strong>{ingredients.length}</strong> {copy.total}</span>
+        <span><strong>{readyCount}</strong> {copy.complete}</span>
+        <span><strong>{ingredients.length - readyCount}</strong> {copy.incomplete}</span>
+      </div>
+
       <div className="ingredient-toolbar">
         <label className="field ingredient-search">
           <span>{copy.search}</span>
@@ -560,6 +622,18 @@ export default function IngredientCatalogue({ familyId }: { familyId: string }) 
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
+        </label>
+        <label className="field ingredient-nutrition-filter">
+          <span>{copy.nutritionFilter}</span>
+          <select
+            value={nutritionFilter}
+            onChange={(event) => setNutritionFilter(event.target.value as NutritionFilter)}
+          >
+            <option value="all">{copy.filterAll}</option>
+            <option value="ready">{copy.filterReady}</option>
+            <option value="missing_energy">{copy.filterMissingEnergy}</option>
+            <option value="missing_composition">{copy.filterMissingComposition}</option>
+          </select>
         </label>
         <label className="ingredient-check">
           <input
@@ -582,11 +656,11 @@ export default function IngredientCatalogue({ familyId }: { familyId: string }) 
         <div className="shell-loading" role="status">
           {copy.loading}
         </div>
-      ) : ingredients.length === 0 ? (
+      ) : filteredIngredients.length === 0 ? (
         <div className="ingredient-empty">{hasSearch ? copy.emptySearch : copy.empty}</div>
       ) : (
         <div className="ingredient-list">
-          {ingredients.map((ingredient) => (
+          {filteredIngredients.map((ingredient) => (
             <IngredientRow
               ingredient={ingredient}
               key={ingredient.id}
