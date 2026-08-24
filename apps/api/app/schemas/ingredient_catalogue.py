@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -70,7 +71,9 @@ class IngredientCompositionRead(BaseModel):
 
 class IngredientRead(BaseModel):
     id: uuid.UUID
-    family_id: uuid.UUID
+    family_id: uuid.UUID | None
+    scope: Literal["shared", "family"]
+    editable: bool
     catalog_key: str
     name: str
     brand: str | None
