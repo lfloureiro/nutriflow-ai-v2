@@ -34,6 +34,10 @@
   flex: 1;
 }
 
+.recipe-quality-filter {
+  min-width: 230px;
+}
+
 .recipe-form,
 .meal-plan-form {
   display: grid;
@@ -149,9 +153,29 @@
   color: var(--success);
 }
 
+.recipe-nutrition-state.synthetic {
+  background: var(--surface-strong);
+  color: var(--muted-strong);
+  border: 1px solid var(--border-strong);
+}
+
 .recipe-nutrition-state.missing {
   background: var(--danger-soft);
   color: var(--danger);
+}
+
+.recipe-evidence-note {
+  display: grid;
+  gap: 0.2rem;
+  padding: var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+
+.recipe-evidence-note span {
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .recipe-issues {
@@ -315,6 +339,10 @@
   .meal-plan-editor__heading {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .recipe-quality-filter {
+    min-width: 0;
   }
 
   .recipe-nutrition-heading {
