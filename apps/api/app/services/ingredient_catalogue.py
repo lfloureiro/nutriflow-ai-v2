@@ -73,12 +73,12 @@ def _composition_read(
     )
 
 
-def _ingredient_read(item: FoodItem) -> IngredientRead:
-    if item.family_id is None:
-        raise IngredientCatalogueError("Family ingredient is missing its Family identity.")
+def _ingredient_read(item: FoodItem, family_id: uuid.UUID) -> IngredientRead:
     return IngredientRead(
         id=item.id,
         family_id=item.family_id,
+        scope="shared" if item.family_id is None else "family",
+        editable=item.family_id == family_id,
         catalog_key=item.catalog_key,
         name=item.name,
         brand=item.brand,
@@ -156,7 +156,7 @@ def list_family_ingredients(
             )
         )
         .where(
-            FoodItem.family_id == family_id,
+            or_(FoodItem.family_id == family_id, FoodItem.family_id.is_(None)),
             FoodItem.food_kind == "ingredient",
         )
         .order_by(FoodItem.name, FoodItem.id)
@@ -171,7 +171,7 @@ def list_family_ingredients(
                 FoodItem.brand.ilike(pattern),
             )
         )
-    return [_ingredient_read(item) for item in db.scalars(statement).all()]
+    return [_ingredient_read(item, family_id) for item in db.scalars(statement).all()]
 
 
 def get_family_ingredient(
@@ -188,11 +188,11 @@ def get_family_ingredient(
         )
         .where(
             FoodItem.id == ingredient_id,
-            FoodItem.family_id == family_id,
+            or_(FoodItem.family_id == family_id, FoodItem.family_id.is_(None)),
             FoodItem.food_kind == "ingredient",
         )
     )
-    return None if item is None else _ingredient_read(item)
+    return None if item is None else _ingredient_read(item, family_id)
 
 
 def _get_family_ingredient_model(
@@ -238,7 +238,7 @@ def create_family_ingredient(
     if data.composition is not None:
         _append_composition(item, data.composition)
     db.commit()
-    return _ingredient_read(item)
+    return _ingredient_read(item, family.id)
 
 
 def update_family_ingredient(
@@ -262,7 +262,7 @@ def update_family_ingredient(
         db.flush()
         _recalculate_recipes_using_ingredient(db, family_id, item.id)
     db.commit()
-    return _ingredient_read(item)
+    return _ingredient_read(item, family_id)
 
 
 def deactivate_family_ingredient(
