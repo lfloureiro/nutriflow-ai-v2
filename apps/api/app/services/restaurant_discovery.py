@@ -34,12 +34,6 @@ _GOOGLE_FIELD_MASK = ",".join(
         "places.websiteUri",
         "places.nationalPhoneNumber",
         "places.regularOpeningHours",
-        "places.delivery",
-        "places.takeout",
-        "places.dineIn",
-        "places.servesLunch",
-        "places.servesDinner",
-        "places.servesVegetarianFood",
         "nextPageToken",
     )
 )
@@ -210,7 +204,11 @@ def _quality_score(
 
 def _restaurant_name_key(name: str) -> str:
     normalized = unicodedata.normalize("NFKD", name.casefold())
-    ascii_text = "".join(character for character in normalized if not unicodedata.combining(character))
+    ascii_text = "".join(
+        character
+        for character in normalized
+        if not unicodedata.combining(character)
+    )
     return re.sub(r"[^a-z0-9]+", " ", ascii_text).strip()
 
 
@@ -222,7 +220,9 @@ def _amenity_priority(place: RestaurantDiscoveryPlaceRead) -> int:
     return 2
 
 
-def _ranking_key(place: RestaurantDiscoveryPlaceRead) -> tuple[Decimal, int, Decimal, int, str]:
+def _ranking_key(
+    place: RestaurantDiscoveryPlaceRead,
+) -> tuple[Decimal, int, Decimal, int, str]:
     return (
         place.quality_score if place.quality_score is not None else Decimal("-1"),
         place.rating_count or 0,
@@ -255,7 +255,12 @@ def _restaurant(element: object) -> RestaurantDiscoveryPlaceRead | None:
     element_id = element.get("id")
     tags = element.get("tags")
     coordinates = _coordinates(element)
-    if not element_type or element_id is None or not isinstance(tags, dict) or coordinates is None:
+    if (
+        not element_type
+        or element_id is None
+        or not isinstance(tags, dict)
+        or coordinates is None
+    ):
         return None
     name = str(tags.get("name") or "").strip()
     if not name:
@@ -267,7 +272,10 @@ def _restaurant(element: object) -> RestaurantDiscoveryPlaceRead | None:
         if item.strip()
     ]
     latitude, longitude = coordinates
-    website = str(tags.get("contact:website") or tags.get("website") or "").strip() or None
+    website = (
+        str(tags.get("contact:website") or tags.get("website") or "").strip()
+        or None
+    )
     phone = str(tags.get("contact:phone") or tags.get("phone") or "").strip() or None
     opening_hours = str(tags.get("opening_hours") or "").strip() or None
     primary_type = "fast_food_restaurant" if amenity == "fast_food" else "restaurant"
@@ -306,7 +314,11 @@ def _google_place(place: object) -> RestaurantDiscoveryPlaceRead | None:
     place_id = str(place.get("id") or "").strip()
     display_name = place.get("displayName")
     location = place.get("location")
-    if not place_id or not isinstance(display_name, dict) or not isinstance(location, dict):
+    if (
+        not place_id
+        or not isinstance(display_name, dict)
+        or not isinstance(location, dict)
+    ):
         return None
     name = str(display_name.get("text") or "").strip()
     latitude = _optional_decimal(location.get("latitude"))
@@ -318,7 +330,9 @@ def _google_place(place: object) -> RestaurantDiscoveryPlaceRead | None:
     rating = _optional_decimal(place.get("rating"))
     rating_count = _optional_int(place.get("userRatingCount"))
     opening = place.get("regularOpeningHours")
-    weekday_descriptions = opening.get("weekdayDescriptions") if isinstance(opening, dict) else None
+    weekday_descriptions = (
+        opening.get("weekdayDescriptions") if isinstance(opening, dict) else None
+    )
     opening_hours = (
         " · ".join(str(item) for item in weekday_descriptions)
         if isinstance(weekday_descriptions, list)
@@ -343,21 +357,11 @@ def _google_place(place: object) -> RestaurantDiscoveryPlaceRead | None:
         rating=rating,
         rating_count=rating_count,
         price_level=str(place.get("priceLevel") or "").strip() or None,
-        delivery=place.get("delivery") if isinstance(place.get("delivery"), bool) else None,
-        takeout=place.get("takeout") if isinstance(place.get("takeout"), bool) else None,
-        dine_in=place.get("dineIn") if isinstance(place.get("dineIn"), bool) else None,
-        serves_lunch=(
-            place.get("servesLunch") if isinstance(place.get("servesLunch"), bool) else None
+        quality_score=_quality_score(
+            rating,
+            rating_count,
+            primary_type=primary_type,
         ),
-        serves_dinner=(
-            place.get("servesDinner") if isinstance(place.get("servesDinner"), bool) else None
-        ),
-        serves_vegetarian_food=(
-            place.get("servesVegetarianFood")
-            if isinstance(place.get("servesVegetarianFood"), bool)
-            else None
-        ),
-        quality_score=_quality_score(rating, rating_count, primary_type=primary_type),
     )
 
 
@@ -389,12 +393,16 @@ def _fetch_google_restaurants(
             },
         )
         if not isinstance(response, dict):
-            raise RestaurantDiscoveryError("Google Places returned invalid restaurant data.")
+            raise RestaurantDiscoveryError(
+                "Google Places returned invalid restaurant data."
+            )
         raw_places = response.get("places")
         if raw_places is None:
             raw_places = []
         if not isinstance(raw_places, list):
-            raise RestaurantDiscoveryError("Google Places returned invalid restaurant data.")
+            raise RestaurantDiscoveryError(
+                "Google Places returned invalid restaurant data."
+            )
         places.extend(
             parsed
             for raw in raw_places
@@ -452,6 +460,12 @@ def _live_provider_key() -> str:
     return "openstreetmap"
 
 
+def _cache_ttl(result: RestaurantDiscoveryRead) -> int:
+    if result.provider == "openstreetmap_fallback":
+        return min(settings.restaurant_discovery_cache_seconds, 300)
+    return settings.restaurant_discovery_cache_seconds
+
+
 def discover_restaurants(
     area: str,
     *,
@@ -467,7 +481,7 @@ def discover_restaurants(
     now = time.monotonic()
     with _CACHE_LOCK:
         cached = _CACHE.get(cache_key)
-        if cached is not None and now - cached[0] <= settings.restaurant_discovery_cache_seconds:
+        if cached is not None and now - cached[0] <= _cache_ttl(cached[1]):
             return cached[1].model_copy(
                 update={
                     "cached": True,
