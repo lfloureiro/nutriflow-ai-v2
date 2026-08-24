@@ -121,6 +121,39 @@
   gap: var(--space-2);
 }
 
+.recipe-nutrition-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.recipe-nutrition-heading h2 {
+  margin-bottom: 0;
+}
+
+.recipe-nutrition-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  width: fit-content;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.recipe-nutrition-state.ready {
+  background: var(--success-soft);
+  color: var(--success-strong);
+}
+
+.recipe-nutrition-state.missing {
+  background: var(--danger-soft);
+  color: var(--danger-strong);
+}
+
 .recipe-issues {
   padding: var(--space-3);
   border-radius: var(--radius-md);
@@ -131,6 +164,13 @@
 .recipe-issues ul {
   margin: var(--space-2) 0 0;
   padding-left: 1.25rem;
+}
+
+.recipe-issues small {
+  display: block;
+  margin-top: var(--space-2);
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .meal-plan-days {
@@ -274,6 +314,11 @@
   .recipe-toolbar,
   .meal-plan-editor__heading {
     align-items: stretch;
+    flex-direction: column;
+  }
+
+  .recipe-nutrition-heading {
+    align-items: flex-start;
     flex-direction: column;
   }
 
