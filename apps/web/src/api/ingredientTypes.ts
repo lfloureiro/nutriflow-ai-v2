@@ -19,7 +19,9 @@ export type IngredientComposition = {
 
 export type Ingredient = {
   id: string;
-  family_id: string;
+  family_id: string | null;
+  scope: "shared" | "family";
+  editable: boolean;
   catalog_key: string;
   name: string;
   brand: string | null;
