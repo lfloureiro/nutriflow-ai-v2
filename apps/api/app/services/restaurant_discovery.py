@@ -1,6 +1,8 @@
 import json
+import re
 import threading
 import time
+import unicodedata
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -9,12 +11,38 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from app.core.config import settings
+from app.core.provider_secrets import get_provider_secret_store
 from app.schemas.restaurant_discovery import (
     RestaurantDiscoveryPlaceRead,
     RestaurantDiscoveryRead,
 )
 
 OSM_ATTRIBUTION = "© OpenStreetMap contributors (ODbL)"
+GOOGLE_ATTRIBUTION = "Google Maps"
+GOOGLE_PLACES_API_KEY_SECRET = "NUTRIFLOW_GOOGLE_PLACES_API_KEY"
+_GOOGLE_FIELD_MASK = ",".join(
+    (
+        "places.id",
+        "places.displayName",
+        "places.formattedAddress",
+        "places.location",
+        "places.primaryType",
+        "places.types",
+        "places.rating",
+        "places.userRatingCount",
+        "places.priceLevel",
+        "places.websiteUri",
+        "places.nationalPhoneNumber",
+        "places.regularOpeningHours",
+        "places.delivery",
+        "places.takeout",
+        "places.dineIn",
+        "places.servesLunch",
+        "places.servesDinner",
+        "places.servesVegetarianFood",
+        "nextPageToken",
+    )
+)
 _CACHE_LOCK = threading.Lock()
 _CACHE: dict[str, tuple[float, RestaurantDiscoveryRead]] = {}
 _NOMINATIM_LOCK = threading.Lock()
@@ -23,6 +51,10 @@ _LAST_NOMINATIM_REQUEST_AT = 0.0
 
 class RestaurantDiscoveryError(ValueError):
     pass
+
+
+def google_places_configured() -> bool:
+    return get_provider_secret_store().get(GOOGLE_PLACES_API_KEY_SECRET) is not None
 
 
 def _normalized_area(area: str) -> str:
@@ -37,6 +69,7 @@ def _request_json(
     *,
     data: bytes | None = None,
     content_type: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> Any:
     headers = {
         "Accept": "application/json",
@@ -44,6 +77,8 @@ def _request_json(
     }
     if content_type is not None:
         headers["Content-Type"] = content_type
+    if extra_headers:
+        headers.update(extra_headers)
     request = Request(url, data=data, headers=headers, method="POST" if data else "GET")
     try:
         with urlopen(
@@ -73,6 +108,25 @@ def _decimal(value: object, *, field: str) -> Decimal:
         raise RestaurantDiscoveryError(
             f"Restaurant discovery provider returned an invalid {field}."
         ) from exc
+
+
+def _optional_decimal(value: object) -> Decimal | None:
+    if value is None:
+        return None
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+
+
+def _optional_int(value: object) -> int | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed >= 0 else None
 
 
 def _geocode_area(area: str) -> tuple[Decimal, Decimal, Decimal, Decimal]:
@@ -137,6 +191,63 @@ def _coordinates(element: dict[str, object]) -> tuple[Decimal, Decimal] | None:
         return None
 
 
+def _quality_score(
+    rating: Decimal | None,
+    rating_count: int | None,
+    *,
+    primary_type: str | None,
+) -> Decimal | None:
+    if rating is None:
+        return None
+    count = Decimal(max(rating_count or 0, 0))
+    prior_rating = Decimal("4.0")
+    prior_count = Decimal(50)
+    score = ((rating * count) + (prior_rating * prior_count)) / (count + prior_count)
+    if primary_type == "fast_food_restaurant":
+        score -= Decimal("0.20")
+    return max(score, Decimal(0)).quantize(Decimal("0.001"))
+
+
+def _restaurant_name_key(name: str) -> str:
+    normalized = unicodedata.normalize("NFKD", name.casefold())
+    ascii_text = "".join(character for character in normalized if not unicodedata.combining(character))
+    return re.sub(r"[^a-z0-9]+", " ", ascii_text).strip()
+
+
+def _amenity_priority(place: RestaurantDiscoveryPlaceRead) -> int:
+    if place.primary_type == "fast_food_restaurant" or place.amenity == "fast_food":
+        return 0
+    if place.amenity == "food_court":
+        return 1
+    return 2
+
+
+def _ranking_key(place: RestaurantDiscoveryPlaceRead) -> tuple[Decimal, int, Decimal, int, str]:
+    return (
+        place.quality_score if place.quality_score is not None else Decimal("-1"),
+        place.rating_count or 0,
+        place.rating if place.rating is not None else Decimal("-1"),
+        _amenity_priority(place),
+        place.name.casefold(),
+    )
+
+
+def _rank_and_dedupe(
+    places: list[RestaurantDiscoveryPlaceRead],
+) -> list[RestaurantDiscoveryPlaceRead]:
+    ranked = sorted(places, key=_ranking_key, reverse=True)
+    unique: list[RestaurantDiscoveryPlaceRead] = []
+    seen_names: set[str] = set()
+    for place in ranked:
+        key = _restaurant_name_key(place.name)
+        if key and key in seen_names:
+            continue
+        if key:
+            seen_names.add(key)
+        unique.append(place)
+    return unique
+
+
 def _restaurant(element: object) -> RestaurantDiscoveryPlaceRead | None:
     if not isinstance(element, dict):
         return None
@@ -159,6 +270,7 @@ def _restaurant(element: object) -> RestaurantDiscoveryPlaceRead | None:
     website = str(tags.get("contact:website") or tags.get("website") or "").strip() or None
     phone = str(tags.get("contact:phone") or tags.get("phone") or "").strip() or None
     opening_hours = str(tags.get("opening_hours") or "").strip() or None
+    primary_type = "fast_food_restaurant" if amenity == "fast_food" else "restaurant"
     return RestaurantDiscoveryPlaceRead(
         provider_place_id=f"osm:{element_type}:{element_id}",
         name=name,
@@ -171,6 +283,136 @@ def _restaurant(element: object) -> RestaurantDiscoveryPlaceRead | None:
         phone=phone,
         opening_hours=opening_hours,
         source_reference=f"https://www.openstreetmap.org/{element_type}/{element_id}",
+        primary_type=primary_type,
+    )
+
+
+def _google_cuisine(types: object) -> list[str]:
+    if not isinstance(types, list):
+        return []
+    cuisines: list[str] = []
+    for value in types:
+        if not isinstance(value, str) or not value.endswith("_restaurant"):
+            continue
+        if value in {"restaurant", "fast_food_restaurant"}:
+            continue
+        cuisines.append(value.removesuffix("_restaurant").replace("_", " "))
+    return cuisines
+
+
+def _google_place(place: object) -> RestaurantDiscoveryPlaceRead | None:
+    if not isinstance(place, dict):
+        return None
+    place_id = str(place.get("id") or "").strip()
+    display_name = place.get("displayName")
+    location = place.get("location")
+    if not place_id or not isinstance(display_name, dict) or not isinstance(location, dict):
+        return None
+    name = str(display_name.get("text") or "").strip()
+    latitude = _optional_decimal(location.get("latitude"))
+    longitude = _optional_decimal(location.get("longitude"))
+    if not name or latitude is None or longitude is None:
+        return None
+
+    primary_type = str(place.get("primaryType") or "").strip() or None
+    rating = _optional_decimal(place.get("rating"))
+    rating_count = _optional_int(place.get("userRatingCount"))
+    opening = place.get("regularOpeningHours")
+    weekday_descriptions = opening.get("weekdayDescriptions") if isinstance(opening, dict) else None
+    opening_hours = (
+        " · ".join(str(item) for item in weekday_descriptions)
+        if isinstance(weekday_descriptions, list)
+        else None
+    )
+    amenity = "fast_food" if primary_type == "fast_food_restaurant" else "restaurant"
+    return RestaurantDiscoveryPlaceRead(
+        provider_place_id=f"google:{place_id}",
+        name=name,
+        cuisine=_google_cuisine(place.get("types")),
+        amenity=amenity,
+        address=str(place.get("formattedAddress") or "").strip() or None,
+        latitude=latitude,
+        longitude=longitude,
+        website=str(place.get("websiteUri") or "").strip() or None,
+        phone=str(place.get("nationalPhoneNumber") or "").strip() or None,
+        opening_hours=opening_hours,
+        source_reference=(
+            "https://www.google.com/maps/search/?api=1&query_place_id=" + place_id
+        ),
+        primary_type=primary_type,
+        rating=rating,
+        rating_count=rating_count,
+        price_level=str(place.get("priceLevel") or "").strip() or None,
+        delivery=place.get("delivery") if isinstance(place.get("delivery"), bool) else None,
+        takeout=place.get("takeout") if isinstance(place.get("takeout"), bool) else None,
+        dine_in=place.get("dineIn") if isinstance(place.get("dineIn"), bool) else None,
+        serves_lunch=(
+            place.get("servesLunch") if isinstance(place.get("servesLunch"), bool) else None
+        ),
+        serves_dinner=(
+            place.get("servesDinner") if isinstance(place.get("servesDinner"), bool) else None
+        ),
+        serves_vegetarian_food=(
+            place.get("servesVegetarianFood")
+            if isinstance(place.get("servesVegetarianFood"), bool)
+            else None
+        ),
+        quality_score=_quality_score(rating, rating_count, primary_type=primary_type),
+    )
+
+
+def _fetch_google_restaurants(
+    area: str,
+    *,
+    limit: int,
+) -> RestaurantDiscoveryRead:
+    api_key = get_provider_secret_store().get(GOOGLE_PLACES_API_KEY_SECRET)
+    if api_key is None:
+        raise RestaurantDiscoveryError("Google Places restaurant discovery is not configured.")
+
+    places: list[RestaurantDiscoveryPlaceRead] = []
+    page_token: str | None = None
+    while len(places) < limit:
+        payload: dict[str, object] = {
+            "textQuery": f"restaurants in {area}",
+            "pageSize": min(20, max(limit - len(places), 1)),
+        }
+        if page_token is not None:
+            payload["pageToken"] = page_token
+        response = _request_json(
+            settings.restaurant_google_places_url,
+            data=json.dumps(payload).encode("utf-8"),
+            content_type="application/json",
+            extra_headers={
+                "X-Goog-Api-Key": api_key,
+                "X-Goog-FieldMask": _GOOGLE_FIELD_MASK,
+            },
+        )
+        if not isinstance(response, dict):
+            raise RestaurantDiscoveryError("Google Places returned invalid restaurant data.")
+        raw_places = response.get("places")
+        if raw_places is None:
+            raw_places = []
+        if not isinstance(raw_places, list):
+            raise RestaurantDiscoveryError("Google Places returned invalid restaurant data.")
+        places.extend(
+            parsed
+            for raw in raw_places
+            if (parsed := _google_place(raw)) is not None
+        )
+        next_token = response.get("nextPageToken")
+        page_token = str(next_token).strip() if next_token else None
+        if page_token is None or not raw_places:
+            break
+
+    ranked = _rank_and_dedupe(places)
+    return RestaurantDiscoveryRead(
+        provider="google_places",
+        area=area,
+        observed_at=datetime.now(UTC),
+        cached=False,
+        attribution=GOOGLE_ATTRIBUTION,
+        restaurants=ranked[:limit],
     )
 
 
@@ -193,15 +435,21 @@ def _fetch_restaurants(
         for element in payload["elements"]
         if (place := _restaurant(element)) is not None
     ]
-    places.sort(key=lambda place: (place.name.casefold(), place.provider_place_id))
+    ranked = _rank_and_dedupe(places)
     return RestaurantDiscoveryRead(
         provider="openstreetmap",
         area=area,
         observed_at=datetime.now(UTC),
         cached=False,
         attribution=OSM_ATTRIBUTION,
-        restaurants=places[:limit],
+        restaurants=ranked[:limit],
     )
+
+
+def _live_provider_key() -> str:
+    if settings.restaurant_google_places_enabled and google_places_configured():
+        return "google_places"
+    return "openstreetmap"
 
 
 def discover_restaurants(
@@ -214,7 +462,8 @@ def discover_restaurants(
     normalized = _normalized_area(area)
     requested_limit = limit or settings.restaurant_discovery_max_results
     requested_limit = min(max(requested_limit, 1), settings.restaurant_discovery_max_results)
-    cache_key = normalized.casefold()
+    provider_key = _live_provider_key()
+    cache_key = f"{provider_key}:{normalized.casefold()}"
     now = time.monotonic()
     with _CACHE_LOCK:
         cached = _CACHE.get(cache_key)
@@ -226,10 +475,24 @@ def discover_restaurants(
                 }
             )
 
-    result = _fetch_restaurants(
-        normalized,
-        limit=settings.restaurant_discovery_max_results,
-    )
+    result: RestaurantDiscoveryRead
+    if provider_key == "google_places":
+        try:
+            result = _fetch_google_restaurants(
+                normalized,
+                limit=settings.restaurant_discovery_max_results,
+            )
+        except RestaurantDiscoveryError:
+            result = _fetch_restaurants(
+                normalized,
+                limit=settings.restaurant_discovery_max_results,
+            ).model_copy(update={"provider": "openstreetmap_fallback"})
+    else:
+        result = _fetch_restaurants(
+            normalized,
+            limit=settings.restaurant_discovery_max_results,
+        )
+
     with _CACHE_LOCK:
         _CACHE[cache_key] = (time.monotonic(), result)
     return result.model_copy(update={"restaurants": result.restaurants[:requested_limit]})
