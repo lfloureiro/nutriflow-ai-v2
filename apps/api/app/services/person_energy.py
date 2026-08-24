@@ -85,6 +85,49 @@ def _ensure_profile(person: Person) -> PersonProfile:
     return person.profile
 
 
+def _latest_measurement_value(
+    session: Session,
+    person_id,
+    metric: str,
+) -> Decimal | None:
+    return session.scalar(
+        select(AnthropometricMeasurement.value)
+        .where(
+            AnthropometricMeasurement.person_id == person_id,
+            AnthropometricMeasurement.metric == metric,
+        )
+        .order_by(
+            AnthropometricMeasurement.measured_at.desc(),
+            AnthropometricMeasurement.created_at.desc(),
+        )
+        .limit(1)
+    )
+
+
+def _add_measurement_if_changed(
+    session: Session,
+    *,
+    person: Person,
+    metric: str,
+    value: Decimal,
+    unit: str,
+    measured_at: datetime,
+) -> None:
+    current = _latest_measurement_value(session, person.id, metric)
+    if current is not None and current == value:
+        return
+    session.add(
+        AnthropometricMeasurement(
+            person=person,
+            metric=metric,
+            value=value,
+            unit=unit,
+            measured_at=measured_at,
+            source="manual",
+        )
+    )
+
+
 def _supersede_active_energy_records(
     session: Session,
     *,
@@ -156,26 +199,23 @@ def _apply_energy_profile(
     profile.measurement_system = "metric"
     profile.energy_unit = "kcal"
 
-    session.add_all(
-        [
-            AnthropometricMeasurement(
-                person=person,
-                metric="height",
-                value=data.height_cm,
-                unit="cm",
-                measured_at=instant,
-                source="manual",
-            ),
-            AnthropometricMeasurement(
-                person=person,
-                metric="weight",
-                value=data.weight_kg,
-                unit="kg",
-                measured_at=instant,
-                source="manual",
-            ),
-        ]
+    _add_measurement_if_changed(
+        session,
+        person=person,
+        metric="height",
+        value=data.height_cm,
+        unit="cm",
+        measured_at=instant,
     )
+    _add_measurement_if_changed(
+        session,
+        person=person,
+        metric="weight",
+        value=data.weight_kg,
+        unit="kg",
+        measured_at=instant,
+    )
+
     goal = NutritionGoal(
         person=person,
         goal_type=data.goal_type,
@@ -257,18 +297,7 @@ def update_energy_profile(
 
 
 def _latest_measurement(session: Session, person_id, metric: str) -> Decimal:
-    value = session.scalar(
-        select(AnthropometricMeasurement.value)
-        .where(
-            AnthropometricMeasurement.person_id == person_id,
-            AnthropometricMeasurement.metric == metric,
-        )
-        .order_by(
-            AnthropometricMeasurement.measured_at.desc(),
-            AnthropometricMeasurement.created_at.desc(),
-        )
-        .limit(1)
-    )
+    value = _latest_measurement_value(session, person_id, metric)
     if value is None:
         raise PersonEnergyProfileError(f"Missing {metric} measurement.")
     return value
