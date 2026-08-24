@@ -23,6 +23,7 @@ class FakeUberAdapter:
 def test_capabilities_report_recipes_restaurants_and_delivery_integrations(monkeypatch) -> None:
     clear_meal_delivery_adapters()
     for name in (
+        "NUTRIFLOW_GOOGLE_PLACES_API_KEY",
         "NUTRIFLOW_UBER_CLIENT_ID",
         "NUTRIFLOW_UBER_CLIENT_SECRET",
         "NUTRIFLOW_GLOVO_CLIENT_ID",
@@ -32,6 +33,7 @@ def test_capabilities_report_recipes_restaurants_and_delivery_integrations(monke
     ):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(settings, "restaurant_discovery_enabled", True)
+    monkeypatch.setattr(settings, "restaurant_google_places_enabled", True)
     monkeypatch.setattr(settings, "uber_consumer_delivery_enabled", False)
     monkeypatch.setattr(settings, "glovo_consumer_discovery_enabled", False)
     monkeypatch.setattr(settings, "bolt_food_consumer_discovery_enabled", False)
@@ -62,8 +64,11 @@ def test_capabilities_report_recipes_restaurants_and_delivery_integrations(monke
     }
     assert by_source["shared_recipes"].status == "ready"
     assert by_source["shared_recipes"].credentials_configured is None
-    assert by_source["restaurants"].status == "ready"
-    assert by_source["restaurants"].live
+    restaurants = by_source["restaurants"]
+    assert restaurants.status == "ready"
+    assert restaurants.live
+    assert restaurants.credentials_configured is False
+    assert "OpenStreetMap fallback" in restaurants.detail
     for source in ("uber_eats", "glovo", "bolt_food"):
         capability = by_source[source]
         assert capability.status == "integration_required"
@@ -71,6 +76,28 @@ def test_capabilities_report_recipes_restaurants_and_delivery_integrations(monke
         assert capability.credentials_configured is False
         assert capability.access_enabled is False
         assert capability.adapter_available is False
+
+
+def test_restaurant_capability_prefers_google_when_key_is_configured(monkeypatch) -> None:
+    monkeypatch.setenv("NUTRIFLOW_GOOGLE_PLACES_API_KEY", "test-google-key")
+    monkeypatch.setattr(settings, "restaurant_discovery_enabled", True)
+    monkeypatch.setattr(settings, "restaurant_google_places_enabled", True)
+    family = Family(
+        name="Família Google",
+        timezone="Europe/Lisbon",
+        meal_discovery_sources=["restaurants"],
+        restaurant_area="Benfica, Lisboa",
+    )
+
+    result = build_meal_discovery_capabilities(family)
+    restaurants = next(
+        item for item in result.capabilities if item.source == "restaurants"
+    )
+
+    assert restaurants.status == "ready"
+    assert restaurants.live
+    assert restaurants.credentials_configured is True
+    assert "Google Places" in restaurants.detail
 
 
 def test_uber_capability_requires_credentials_enable_and_registered_adapter(monkeypatch) -> None:
