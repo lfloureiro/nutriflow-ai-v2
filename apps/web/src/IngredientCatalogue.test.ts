@@ -24,6 +24,8 @@ function ingredient(composition: Ingredient["latest_composition"]): Ingredient {
   return {
     id: "11111111-1111-4111-8111-111111111111",
     family_id: "22222222-2222-4222-8222-222222222222",
+    scope: "family",
+    editable: true,
     catalog_key: "family:test:ingredient:test",
     name: "Aveia",
     brand: null,
