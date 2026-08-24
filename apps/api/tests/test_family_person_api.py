@@ -46,20 +46,31 @@ def test_family_and_person_api(db_session: Session) -> None:
 
             assert person["family_id"] == family_id
 
-            list_response = client.get(
-                f"/api/families/{family_id}/persons"
-            )
+            list_response = client.get(f"/api/families/{family_id}/persons")
 
             assert list_response.status_code == 200
             assert len(list_response.json()) == 1
 
-            get_person_response = client.get(
-                f"/api/persons/{person_id}"
-            )
+            get_person_response = client.get(f"/api/persons/{person_id}")
 
             assert get_person_response.status_code == 200
             assert get_person_response.json()["first_name"] == "Test"
 
+            updated_response = client.patch(
+                f"/api/persons/{person_id}",
+                json={
+                    "first_name": "Ana",
+                    "last_name": "Atualizada",
+                    "timezone": "Europe/Madrid",
+                },
+            )
+
+            assert updated_response.status_code == 200
+            updated = updated_response.json()
+            assert updated["first_name"] == "Ana"
+            assert updated["last_name"] == "Atualizada"
+            assert updated["timezone"] == "Europe/Madrid"
+            assert updated["family_id"] == family_id
+
     finally:
         app.dependency_overrides.clear()
-
