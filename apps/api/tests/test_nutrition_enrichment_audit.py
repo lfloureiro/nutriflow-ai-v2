@@ -22,7 +22,7 @@ def _ingredient(
     name: str,
     *,
     with_composition: bool = True,
-    energy: Decimal | None = Decimal(100),
+    energy: Decimal | None = None,
     notes: str | None = None,
 ) -> FoodItem:
     item = FoodItem(
