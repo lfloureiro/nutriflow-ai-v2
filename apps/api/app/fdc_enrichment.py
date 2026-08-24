@@ -74,29 +74,24 @@ def _list_missing_command(args: argparse.Namespace) -> None:
 def _apply_map_command(args: argparse.Namespace) -> None:
     matches = _read_matches(Path(args.path))
     applied: list[dict[str, object]] = []
-    with SessionLocal() as db:
-        try:
-            for catalog_key, fdc_id in matches:
-                food = fetch_food_nutrition(fdc_id)
-                result = apply_fdc_nutrition_to_shared_ingredient(
-                    db,
-                    catalog_key=catalog_key,
-                    food=food,
-                )
-                applied.append(
-                    {
-                        "catalog_key": result.catalog_key,
-                        "fdc_id": fdc_id,
-                        "composition_id": str(result.composition_id),
-                        "data_version": result.data_version,
-                        "created": result.created,
-                        "recalculated_recipes": len(result.recalculated_recipe_ids),
-                    }
-                )
-            db.commit()
-        except Exception:
-            db.rollback()
-            raise
+    with SessionLocal() as db, db.begin():
+        for catalog_key, fdc_id in matches:
+            food = fetch_food_nutrition(fdc_id)
+            result = apply_fdc_nutrition_to_shared_ingredient(
+                db,
+                catalog_key=catalog_key,
+                food=food,
+            )
+            applied.append(
+                {
+                    "catalog_key": result.catalog_key,
+                    "fdc_id": fdc_id,
+                    "composition_id": str(result.composition_id),
+                    "data_version": result.data_version,
+                    "created": result.created,
+                    "recalculated_recipes": len(result.recalculated_recipe_ids),
+                }
+            )
     print(json.dumps(applied, ensure_ascii=False, indent=2))
 
 

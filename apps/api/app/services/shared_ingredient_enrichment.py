@@ -95,7 +95,8 @@ def apply_fdc_nutrition_to_shared_ingredient(
 ) -> SharedIngredientEnrichmentResult:
     if food.data_type not in GENERIC_DATA_TYPES:
         raise SharedIngredientEnrichmentError(
-            f"FoodData Central data type {food.data_type!r} is not approved for generic ingredients."
+            f"FoodData Central data type {food.data_type!r} "
+            "is not approved for generic ingredients."
         )
     if food.energy_kcal is None:
         raise SharedIngredientEnrichmentError(
