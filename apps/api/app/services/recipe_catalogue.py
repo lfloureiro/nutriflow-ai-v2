@@ -18,10 +18,12 @@ from app.schemas.recipe_catalogue import (
     RecipeIngredientRead,
     RecipeIngredientWrite,
     RecipeNutrientRead,
+    RecipeNutritionEvidence,
     RecipeRead,
     RecipeUpdate,
 )
 from app.services.meal_suitability import recipe_default_meal_types
+from app.services.recipe_nutrition import CALCULATION_VERSION as RECIPE_CALCULATION_VERSION
 from app.services.recipe_nutrition import build_recipe_composition
 
 
@@ -67,6 +69,21 @@ def _composition_issues(composition: RecipeCompositionSnapshot | None) -> list[s
     return [str(item) for item in raw]
 
 
+def _composition_evidence(
+    composition: RecipeCompositionSnapshot,
+) -> RecipeNutritionEvidence:
+    inputs = composition.calculation_inputs
+    if isinstance(inputs, dict) and inputs.get("nutrition_source") == "synthetic-development-fixture":
+        return "synthetic_development"
+    if composition.calculation_version.startswith("legacy-v1-demo-synthetic-nutrition"):
+        return "synthetic_development"
+    if composition.calculation_version == RECIPE_CALCULATION_VERSION:
+        return "ingredient_calculated"
+    if composition.energy_kcal is not None:
+        return "imported"
+    return "unknown"
+
+
 def _composition_read(
     recipe: Recipe,
     composition: RecipeCompositionSnapshot | None,
@@ -87,6 +104,7 @@ def _composition_read(
         energy_per_serving_kcal=energy_per_serving,
         composition_version=composition.composition_version,
         calculation_version=composition.calculation_version,
+        evidence=_composition_evidence(composition),
         computed_at=composition.computed_at,
         nutrients=[
             RecipeNutrientRead(
