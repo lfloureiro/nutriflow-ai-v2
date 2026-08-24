@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models.meal import MealEvent, MealParticipant, Serving
 from app.models.recommendation_feedback import MealRecommendationFeedback, MealRecommendationOption
+from app.services.meal_slot import assert_meal_slot_available
 from app.services.recommendation_feedback import record_recommendation_feedback
 from app.services.serving_nutrition import calculate_serving_nutrition
 
@@ -77,6 +78,14 @@ def materialize_recommendation_option(
         raise RecommendationPlanningError(
             "meal_type is required when the recommendation run does not define one."
         )
+
+    assert_meal_slot_available(
+        session,
+        family_id=person.family_id,
+        family_timezone=person.family.timezone,
+        scheduled_at=scheduled_at,
+        meal_type=resolved_meal_type,
+    )
 
     food_composition = option.food_composition_snapshot
     recipe_composition = option.recipe_composition_snapshot
