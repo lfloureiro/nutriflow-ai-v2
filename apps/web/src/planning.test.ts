@@ -50,6 +50,7 @@ describe("planning form helpers", () => {
       energy_kcal: "89.0000",
       composition_version: "v1",
       composition_at: "2026-08-20T10:00:00Z",
+      suitable_meal_types: ["breakfast", "snack"],
     };
 
     expect(candidateDraftFromBootstrap(candidate, "row-2")).toEqual({
