@@ -10,6 +10,17 @@ export type RestaurantDiscoveryPlace = {
   phone: string | null;
   opening_hours: string | null;
   source_reference: string;
+  primary_type: string | null;
+  rating: string | null;
+  rating_count: number | null;
+  price_level: string | null;
+  delivery: boolean | null;
+  takeout: boolean | null;
+  dine_in: boolean | null;
+  serves_lunch: boolean | null;
+  serves_dinner: boolean | null;
+  serves_vegetarian_food: boolean | null;
+  quality_score: string | null;
 };
 
 export type RestaurantDiscovery = {
