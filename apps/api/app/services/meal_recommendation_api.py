@@ -29,10 +29,10 @@ from app.services.meal_recommendation import (
     recommend_meals,
 )
 from app.services.meal_suitability import (
-    MAIN_MEAL_TYPES,
     VALID_MEAL_TYPES,
     MealSuitabilityError,
     food_default_meal_types,
+    recipe_default_meal_types,
     resolve_meal_types,
 )
 from app.services.recommendation_feedback import persist_recommendation_run
@@ -232,7 +232,7 @@ def _candidate_meal_types(
             )
         )
         catalogue = candidate.recipe.suitable_meal_types
-        defaults = MAIN_MEAL_TYPES
+        defaults = recipe_default_meal_types(candidate.recipe.source)
     elif candidate.food_item is not None:
         profile = session.scalar(
             select(MealCandidatePlanningProfile).where(
