@@ -8,7 +8,10 @@ from app.providers.meal_delivery import (
     MealDeliveryDiscoveryRequest,
 )
 from app.providers.registry import get_registered_meal_delivery_adapter
-from app.schemas.external_menu import ExternalMenuItemIngestedRead
+from app.schemas.external_menu import (
+    ExternalMenuItemIngestedRead,
+    ExternalMenuItemObservationWrite,
+)
 from app.services.external_menu_ingestion import ingest_external_menu_item
 from app.services.meal_delivery_provider import get_meal_delivery_provider_integration
 
@@ -21,6 +24,7 @@ class MealDeliveryProviderUnavailable(RuntimeError):
 class MealDeliverySyncResult:
     provider_key: str
     observed_count: int
+    observations: tuple[ExternalMenuItemObservationWrite, ...]
     ingested: tuple[ExternalMenuItemIngestedRead, ...]
 
 
@@ -81,6 +85,7 @@ def sync_meal_delivery_provider(
     return MealDeliverySyncResult(
         provider_key=provider_key,
         observed_count=len(observations),
+        observations=tuple(observations),
         ingested=tuple(ingested),
     )
 
