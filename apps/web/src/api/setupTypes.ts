@@ -87,6 +87,15 @@ export type PersonCreate = {
   meal_discovery?: PersonMealDiscoveryCreate | null;
 };
 
+export type PersonUpdate = {
+  first_name?: string;
+  last_name?: string | null;
+  birth_date?: string | null;
+  preferred_locale?: string;
+  timezone?: string;
+  energy_profile?: PersonEnergyProfileCreate;
+};
+
 export type PersonEnergyProfile = {
   person_id: string;
   sex_for_energy_calculation: EnergyCalculationSex;
