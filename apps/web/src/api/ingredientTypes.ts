@@ -28,6 +28,7 @@ export type Ingredient = {
   description: string | null;
   source: string;
   is_active: boolean;
+  recipe_usage_count: number;
   latest_composition: IngredientComposition | null;
   created_at: string;
   updated_at: string;
