@@ -146,12 +146,12 @@
 
 .recipe-nutrition-state.ready {
   background: var(--success-soft);
-  color: var(--success-strong);
+  color: var(--success);
 }
 
 .recipe-nutrition-state.missing {
   background: var(--danger-soft);
-  color: var(--danger-strong);
+  color: var(--danger);
 }
 
 .recipe-issues {
