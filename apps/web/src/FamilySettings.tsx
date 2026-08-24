@@ -4,6 +4,7 @@ import { ApiError } from "./api/client";
 import { getFamily, updateFamily } from "./api/setupClient";
 import type { Family, MealDiscoverySource } from "./api/setupTypes";
 import { useI18n } from "./i18n";
+import MealDiscoveryCapabilitySummary from "./MealDiscoveryCapabilitySummary";
 import { supportedTimezones } from "./timezones";
 
 const SOURCES: MealDiscoverySource[] = [
@@ -23,6 +24,8 @@ const COPY = {
     deliveryAddress: "Morada para entregas",
     restaurantArea: "Área para restaurantes",
     sources: "Origens de refeições",
+    sourceStatus: "Estado das integrações",
+    sourceStatusHelp: "A seleção define o que a família pretende usar; o estado abaixo mostra o que esta instalação consegue consultar realmente.",
     shared_recipes: "Receitas partilhadas",
     restaurants: "Restaurantes",
     uber_eats: "Uber Eats",
@@ -45,6 +48,8 @@ const COPY = {
     deliveryAddress: "Delivery address",
     restaurantArea: "Restaurant area",
     sources: "Meal sources",
+    sourceStatus: "Integration status",
+    sourceStatusHelp: "Selection defines what the Family wants to use; the status below shows what this installation can actually query.",
     shared_recipes: "Shared recipes",
     restaurants: "Restaurants",
     uber_eats: "Uber Eats",
@@ -215,6 +220,16 @@ export default function FamilySettings({
             ))}
           </div>
         </fieldset>
+        <div className="family-capability-section">
+          <div>
+            <strong>{copy.sourceStatus}</strong>
+            <p>{copy.sourceStatusHelp}</p>
+          </div>
+          <MealDiscoveryCapabilitySummary
+            familyId={familyId}
+            key={`${familyId}-${family?.updated_at ?? "loading"}`}
+          />
+        </div>
         <button className="button primary family-settings-save" disabled={busy} type="submit">
           {busy ? copy.saving : copy.save}
         </button>
