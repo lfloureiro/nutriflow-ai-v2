@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import DeliveryMenuScreen from "./DeliveryMenuScreen";
 import IngredientCatalogue from "./IngredientCatalogue";
 import MealDiscoverySettings from "./MealDiscoverySettings";
 import PantryScreen from "./PantryScreen";
@@ -16,7 +17,8 @@ type HomeBaseView =
   | "shopping"
   | "preferences"
   | "sources"
-  | "restaurants";
+  | "restaurants"
+  | "delivery";
 
 export default function HomeBase({ familyId }: { familyId: string }) {
   const { locale } = useI18n();
@@ -32,6 +34,7 @@ export default function HomeBase({ familyId }: { familyId: string }) {
           preferences: "Preferências",
           sources: "Fontes",
           restaurants: "Restaurantes",
+          delivery: "Menus entrega",
         }
       : {
           label: "Home management",
@@ -42,6 +45,7 @@ export default function HomeBase({ familyId }: { familyId: string }) {
           preferences: "Preferences",
           sources: "Sources",
           restaurants: "Restaurants",
+          delivery: "Delivery menus",
         };
 
   return (
@@ -103,6 +107,14 @@ export default function HomeBase({ familyId }: { familyId: string }) {
         >
           {copy.restaurants}
         </button>
+        <button
+          aria-current={view === "delivery" ? "page" : undefined}
+          className={view === "delivery" ? "active" : ""}
+          onClick={() => setView("delivery")}
+          type="button"
+        >
+          {copy.delivery}
+        </button>
       </nav>
       {view === "recipes" ? <RecipeCatalogue familyId={familyId} /> : null}
       {view === "ingredients" ? <IngredientCatalogue familyId={familyId} /> : null}
@@ -111,6 +123,7 @@ export default function HomeBase({ familyId }: { familyId: string }) {
       {view === "preferences" ? <RecipePreferences familyId={familyId} /> : null}
       {view === "sources" ? <MealDiscoverySettings familyId={familyId} /> : null}
       {view === "restaurants" ? <RestaurantDiscoveryScreen familyId={familyId} /> : null}
+      {view === "delivery" ? <DeliveryMenuScreen familyId={familyId} /> : null}
     </div>
   );
 }
