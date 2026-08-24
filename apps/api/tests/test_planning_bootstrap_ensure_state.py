@@ -1,5 +1,6 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -14,6 +15,8 @@ from app.models.nutrition_target import NutritionTarget
 from app.models.person import Person
 from app.models.person_profile import PersonProfile
 
+LISBON = ZoneInfo("Europe/Lisbon")
+
 
 def _override_db(db_session: Session):
     def override_get_db():
@@ -22,9 +25,19 @@ def _override_db(db_session: Session):
     return override_get_db
 
 
-def test_recommendation_bootstrap_can_materialize_missing_daily_state(
+def _lisbon_date(offset_days: int) -> date:
+    return datetime.now(UTC).astimezone(LISBON).date() + timedelta(days=offset_days)
+
+
+def _local_datetime(on_date: date, at_time: time) -> datetime:
+    return datetime.combine(on_date, at_time, tzinfo=LISBON)
+
+
+def test_recommendation_bootstrap_can_materialize_future_daily_state_without_breakfast_assumption(
     db_session: Session,
 ) -> None:
+    planning_date = _lisbon_date(2)
+    scheduled_at = _local_datetime(planning_date, time(12, 0))
     family = Family(name="Future planning family", timezone="Europe/Lisbon")
     person = Person(
         family=family,
@@ -41,7 +54,7 @@ def test_recommendation_bootstrap_can_materialize_missing_daily_state(
             response = client.get(
                 f"/api/persons/{person.id}/planning-bootstrap",
                 params={
-                    "scheduled_at": datetime(2026, 8, 25, 12, 0, tzinfo=UTC).isoformat(),
+                    "scheduled_at": scheduled_at.isoformat(),
                     "ensure_state": "true",
                 },
             )
@@ -51,17 +64,17 @@ def test_recommendation_bootstrap_can_materialize_missing_daily_state(
     assert response.status_code == 200
     state = response.json()["daily_nutrition_state"]
     assert state is not None
-    assert state["state_date"] == "2026-08-25"
+    assert state["state_date"] == planning_date.isoformat()
     assert state["calculation_version"] == "daily-nutrition-from-servings-v1"
-    assert state["energy_assumed_kcal"] == "350.00"
+    assert state["energy_assumed_kcal"] == "0.00"
     assert db_session.scalar(select(DailyNutritionState)) is not None
 
 
-def test_recommendation_bootstrap_refreshes_existing_serving_derived_state(
+def test_recommendation_bootstrap_refreshes_existing_future_serving_derived_state(
     db_session: Session,
 ) -> None:
-    planning_date = date(2026, 8, 25)
-    scheduled_at = datetime(2026, 8, 25, 12, 0, tzinfo=UTC)
+    planning_date = _lisbon_date(2)
+    scheduled_at = _local_datetime(planning_date, time(12, 0))
     family = Family(name="Refresh planning family", timezone="Europe/Lisbon")
     person = Person(
         family=family,
@@ -71,7 +84,7 @@ def test_recommendation_bootstrap_refreshes_existing_serving_derived_state(
     )
     target = NutritionTarget(
         person=person,
-        valid_from=date(2026, 1, 1),
+        valid_from=date(2020, 1, 1),
         energy_min_kcal=Decimal(1800),
         energy_max_kcal=Decimal(2000),
         calculation_version="test-target-v1",
@@ -134,17 +147,17 @@ def test_recommendation_bootstrap_refreshes_existing_serving_derived_state(
     assert response.status_code == 200
     state = response.json()["daily_nutrition_state"]
     assert state["energy_planned_kcal"] == "600.00"
-    assert state["energy_assumed_kcal"] == "350.00"
-    assert state["energy_remaining_min_kcal"] == "850.00"
-    assert state["energy_remaining_max_kcal"] == "1050.00"
+    assert state["energy_assumed_kcal"] == "0.00"
+    assert state["energy_remaining_min_kcal"] == "1200.00"
+    assert state["energy_remaining_max_kcal"] == "1400.00"
 
 
-def test_missing_breakfast_is_assumed_then_replaced_by_declared_breakfast(
+def test_missing_past_breakfast_is_assumed_then_replaced_by_declared_breakfast(
     db_session: Session,
 ) -> None:
-    planning_date = date(2026, 8, 25)
-    lunch_time = datetime(2026, 8, 25, 12, 0, tzinfo=UTC)
-    breakfast_time = datetime(2026, 8, 25, 7, 30, tzinfo=UTC)
+    planning_date = _lisbon_date(-1)
+    lunch_time = _local_datetime(planning_date, time(12, 0))
+    breakfast_time = _local_datetime(planning_date, time(8, 30))
     family = Family(name="Breakfast assumption family", timezone="Europe/Lisbon")
     person = Person(
         family=family,
@@ -160,7 +173,7 @@ def test_missing_breakfast_is_assumed_then_replaced_by_declared_breakfast(
     )
     target = NutritionTarget(
         person=person,
-        valid_from=date(2026, 1, 1),
+        valid_from=date(2020, 1, 1),
         energy_min_kcal=Decimal(1800),
         energy_max_kcal=Decimal(2000),
         calculation_version="test-target-v1",
