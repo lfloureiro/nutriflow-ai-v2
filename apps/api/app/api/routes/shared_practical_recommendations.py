@@ -17,6 +17,7 @@ from app.services.meal_recommendation_api import (
     MealRecommendationApiError,
     MealRecommendationApiNotFoundError,
 )
+from app.services.meal_slot import MealSlotConflictError
 from app.services.pantry_planning import PantryPlanningError
 from app.services.persisted_practical_availability import PersistedPracticalAvailabilityError
 from app.services.planning_bootstrap_api import (
@@ -97,5 +98,7 @@ def plan_shared_practical_recommendation_endpoint(
         return plan_shared_practical_recommendation(db, family=family, data=data)
     except _NOT_FOUND_ERRORS as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except MealSlotConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except _DOMAIN_ERRORS as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
