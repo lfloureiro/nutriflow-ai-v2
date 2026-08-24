@@ -10,11 +10,14 @@ from app.schemas.person import (
     PersonMealDiscoveryRead,
     PersonMealDiscoveryUpdate,
     PersonRead,
+    PersonUpdate,
 )
 from app.services.person import (
     PersonDiscoveryConfigurationError,
+    PersonUpdateError,
     get_person,
     get_person_meal_discovery,
+    update_person,
     update_person_meal_discovery,
 )
 from app.services.person_energy import PersonEnergyProfileError, get_energy_profile
@@ -33,6 +36,21 @@ def get_person_endpoint(
         raise HTTPException(status_code=404, detail="Person not found")
 
     return person
+
+
+@router.patch("/{person_id}", response_model=PersonRead)
+def update_person_endpoint(
+    person_id: uuid.UUID,
+    data: PersonUpdate,
+    db: Annotated[Session, Depends(get_db)],
+) -> PersonRead:
+    person = get_person(db, person_id)
+    if person is None:
+        raise HTTPException(status_code=404, detail="Person not found")
+    try:
+        return update_person(db, person=person, data=data)
+    except (PersonUpdateError, PersonEnergyProfileError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/{person_id}/energy-profile", response_model=PersonEnergyProfileRead)
