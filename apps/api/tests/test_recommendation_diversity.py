@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.models.food_catalog import Recipe
 from app.schemas.practical_recommendation import RecommendationHistoryHint
 from app.services.meal_recommendation import (
     CandidateEvaluation,
@@ -17,7 +18,20 @@ FAMILY_ID = uuid.UUID("e14db6e5-d284-4b2d-ad43-8dd45b5ec565")
 PLANNING_DATE = date(2026, 8, 23)
 
 
-def _candidate(key: str, name: str) -> MealCandidate:
+def _candidate(
+    key: str,
+    name: str,
+    *,
+    suitable_meal_types: list[str] | None = None,
+) -> MealCandidate:
+    recipe = Recipe(
+        id=uuid.uuid4(),
+        recipe_key=key,
+        name=name,
+        suitable_meal_types=suitable_meal_types,
+        source="test",
+        is_active=True,
+    )
     return MealCandidate(
         key=key,
         name=name,
@@ -26,6 +40,7 @@ def _candidate(key: str, name: str) -> MealCandidate:
         quantity_unit="serving",
         nutrition=NutritionSnapshot(energy_kcal=Decimal(600), nutrients={}),
         subjects=frozenset({("recipe", key)}),
+        recipe=recipe,
     )
 
 
@@ -72,11 +87,19 @@ def test_provisional_previous_day_selection_pushes_repeated_recipe_below_novel_o
     assert "variety: used in the last 3 days" in chicken_result.explanation
 
 
-def test_meal_type_profile_fallback_excludes_breakfast_food_from_lunch(
+def test_catalogue_meal_suitability_excludes_breakfast_recipe_from_lunch(
     db_session: Session,
 ) -> None:
-    breakfast = _candidate("recipe:yogurt", "Iogurte com muesli")
-    lunch = _candidate("recipe:fish", "Peixe com arroz")
+    breakfast = _candidate(
+        "recipe:yogurt",
+        "Iogurte com muesli",
+        suitable_meal_types=["breakfast"],
+    )
+    lunch = _candidate(
+        "recipe:fish",
+        "Peixe com arroz",
+        suitable_meal_types=["lunch", "dinner"],
+    )
     base = RecommendationResult(
         engine_version="test-v1",
         evaluations=(_evaluation(breakfast), _evaluation(lunch)),
