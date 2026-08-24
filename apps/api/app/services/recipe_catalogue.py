@@ -102,6 +102,28 @@ def _composition_read(
     )
 
 
+def _ingredient_read(ingredient: RecipeIngredient) -> RecipeIngredientRead:
+    food_composition = (
+        ingredient.food_item.compositions[-1]
+        if ingredient.food_item.compositions
+        else None
+    )
+    return RecipeIngredientRead(
+        id=ingredient.id,
+        food_item_id=ingredient.food_item_id,
+        food_item_name=ingredient.food_item.name,
+        quantity=ingredient.quantity,
+        unit=ingredient.unit,
+        preparation=ingredient.preparation,
+        notes=ingredient.notes,
+        sort_order=ingredient.sort_order,
+        has_nutrition=food_composition is not None,
+        has_energy=(
+            food_composition is not None and food_composition.energy_kcal is not None
+        ),
+    )
+
+
 def _recipe_read(recipe: Recipe) -> RecipeRead:
     composition = _latest_composition(recipe)
     is_shared = recipe.family_id is None
@@ -121,20 +143,7 @@ def _recipe_read(recipe: Recipe) -> RecipeRead:
         serving_count=recipe.serving_count,
         source=recipe.source,
         is_active=recipe.is_active,
-        ingredients=[
-            RecipeIngredientRead(
-                id=ingredient.id,
-                food_item_id=ingredient.food_item_id,
-                food_item_name=ingredient.food_item.name,
-                quantity=ingredient.quantity,
-                unit=ingredient.unit,
-                preparation=ingredient.preparation,
-                notes=ingredient.notes,
-                sort_order=ingredient.sort_order,
-                has_nutrition=bool(ingredient.food_item.compositions),
-            )
-            for ingredient in recipe.ingredients
-        ],
+        ingredients=[_ingredient_read(ingredient) for ingredient in recipe.ingredients],
         latest_composition=_composition_read(recipe, composition),
         nutrition_issues=_composition_issues(composition),
         created_at=recipe.created_at,
