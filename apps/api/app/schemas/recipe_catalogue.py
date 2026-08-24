@@ -73,6 +73,7 @@ class RecipeIngredientRead(BaseModel):
     notes: str | None
     sort_order: int
     has_nutrition: bool
+    has_energy: bool
 
 
 class RecipeNutrientRead(BaseModel):
