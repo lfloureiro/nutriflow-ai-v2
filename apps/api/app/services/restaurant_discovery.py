@@ -34,6 +34,12 @@ _GOOGLE_FIELD_MASK = ",".join(
         "places.websiteUri",
         "places.nationalPhoneNumber",
         "places.regularOpeningHours",
+        "places.delivery",
+        "places.takeout",
+        "places.dineIn",
+        "places.servesLunch",
+        "places.servesDinner",
+        "places.servesVegetarianFood",
         "nextPageToken",
     )
 )
@@ -121,6 +127,10 @@ def _optional_int(value: object) -> int | None:
     except (TypeError, ValueError):
         return None
     return parsed if parsed >= 0 else None
+
+
+def _optional_bool(value: object) -> bool | None:
+    return value if isinstance(value, bool) else None
 
 
 def _geocode_area(area: str) -> tuple[Decimal, Decimal, Decimal, Decimal]:
@@ -357,6 +367,12 @@ def _google_place(place: object) -> RestaurantDiscoveryPlaceRead | None:
         rating=rating,
         rating_count=rating_count,
         price_level=str(place.get("priceLevel") or "").strip() or None,
+        delivery=_optional_bool(place.get("delivery")),
+        takeout=_optional_bool(place.get("takeout")),
+        dine_in=_optional_bool(place.get("dineIn")),
+        serves_lunch=_optional_bool(place.get("servesLunch")),
+        serves_dinner=_optional_bool(place.get("servesDinner")),
+        serves_vegetarian_food=_optional_bool(place.get("servesVegetarianFood")),
         quality_score=_quality_score(
             rating,
             rating_count,
