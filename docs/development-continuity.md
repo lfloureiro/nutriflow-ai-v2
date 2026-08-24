@@ -4,13 +4,14 @@ This is the handover entry point for NutriFlow AI v2. Repository code, migration
 
 ## Product direction
 
-NutriFlow AI v2 is standalone from v1. The primary operational chain is now implemented through shopping:
+NutriFlow AI v2 is standalone from v1. The implemented operational chain now covers:
 
 ```text
-Ingredients
+Family / Persons
+-> Ingredients
 -> Recipes
--> Recipe nutrition
--> Family plan
+-> versioned nutrition evidence
+-> Family meal plan
 -> Person-specific portions
 -> Pantry
 -> Shopping
@@ -27,11 +28,14 @@ Family Home remains a lightweight orientation dashboard. Focused menus/screens a
 - each participant has Person-specific Servings;
 - normal meal planning uses exactly breakfast, lunch, snack and dinner;
 - Food/Recipe composition is versioned and historical provenance is preserved;
+- anthropometric history is append-only when a measurement actually changes;
 - hard safety/mandatory nutrition rules run before preference/ranking signals;
 - missing evidence is unknown, never silently zero;
 - browser code presents server-authoritative nutrition/shopping/ranking evidence;
 - user preference is separate from algorithmic nutrition/practical score;
-- demo data is explicit and synthetic.
+- shared catalogue entities are visible to Families but remain read-only unless explicitly owned by that Family;
+- demo or synthetic evidence must remain explicitly identified and must not be presented as real measured/curated nutrition;
+- persisted timezone values must be valid IANA timezone names.
 
 ## Delivery workflow
 
@@ -43,135 +47,130 @@ The user requested larger coherent integrations for speed. Safeguards remain man
 2. build code/tests/docs together;
 3. run all relevant local gates on the exact final head;
 4. warnings are failures;
-5. open PR only after explicit local green confirmation;
+5. open a PR only after explicit local green confirmation;
 6. verify GitHub Actions on the exact PR head;
 7. verify mergeability/head unchanged;
-8. guarded squash merge with expected head SHA;
+8. guarded merge with expected head SHA;
 9. verify resulting `main` SHA;
 10. start the next block only from verified `main`.
 
-## Last integrated checkpoint
+## Last verified `main` checkpoint
 
-PR #34, `Add core Family meal-planning foundation`, was squash-merged after local green confirmation and green API/Web CI.
+The branch preceding this work was fast-forwarded cleanly into `main`.
 
 ```text
-main SHA:    5e84364b451a887a1e2d09718fdea0db2109295b
-schema head: d4f1a7c2e9b3
+main baseline for this branch:
+8f8ddf74698adf708caa73ee1af11b774eeca576
 ```
 
-That integrated block includes:
+That baseline already includes the Family-first shell, ingredient/recipe/pantry/shopping flow, Family meal planning, preference-aware recommendations, feedback learning, structural meal suitability and calorie-aware planning refinements.
 
-- Family ingredient catalogue and versioned nutrition;
-- Recipe CRUD/editor and deterministic Recipe nutrition;
-- automatic Recipe recalculation after ingredient nutrition edits;
-- fixed four meal types;
-- editable Today/Week Family planner;
-- Person-specific planned Servings;
-- Pantry CRUD/UI;
-- planned Recipe ingredient aggregation;
-- quantity-aware stock subtraction;
-- durable ShoppingList / ShoppingListItem lifecycle;
-- simplified recommendation flow for one or several days;
-- recommendation meal-type dropdown;
-- cooked Recipe / delivery / restaurant source selection;
-- automatic future DailyNutritionState materialization when recommendation needs it.
-
-## Current large integration branch
+## Current integration branch
 
 ```text
-feature/recipe-preferences-recommendation-ranking
+feature/family-catalog-and-profile-editing
 ```
 
 Baseline:
 
 ```text
-5e84364b451a887a1e2d09718fdea0db2109295b
+8f8ddf74698adf708caa73ee1af11b774eeca576
 ```
 
-No database migration is required in this block; it reuses `FoodPreference`.
+No database migration is currently required by this branch. It reuses existing Family, PersonProfile, AnthropometricMeasurement, NutritionGoal, NutritionTarget, FoodItem and Recipe structures.
 
-### Recipe ratings
+### Family editing
 
-Recipe ratings use:
+`Mais` now exposes focused Family settings for:
 
-```text
-subject_type = recipe
-subject_key = Recipe.recipe_key
-preference_type = rating
-intensity = 1..5
-```
+- Family name;
+- IANA timezone;
+- meal-discovery sources;
+- delivery address;
+- restaurant area.
 
-API:
+The existing Family PATCH API remains authoritative and the shell dashboard is refreshed after a successful save.
 
-```text
-GET    /api/families/{family_id}/recipes/{recipe_id}/preferences
-PUT    /api/families/{family_id}/recipes/{recipe_id}/preferences/{person_id}
-DELETE /api/families/{family_id}/recipes/{recipe_id}/preferences/{person_id}
-```
+### Person editing and energy-profile history
+
+`Pessoas -> Perfil` now supports editing:
+
+- first/last name;
+- birth date;
+- IANA timezone;
+- sex used for energy calculation;
+- height and weight;
+- habitual activity level;
+- maintain/lose/gain goal and weekly rate;
+- standard breakfast energy.
 
 Rules:
 
-- strict Family/Person/Recipe scope;
-- one current rating per Person/Recipe at service level;
-- update replaces the current rating and removes duplicate rating rows if encountered;
-- clearing a rating is explicit;
-- missing rating is neutral, not zero stars.
+- identity-only changes do not create a new energy target;
+- birth date, timezone or an actual energy input change triggers recalculation when a complete energy profile exists;
+- a recalculation supersedes the prior active NutritionGoal/NutritionTarget instead of deleting history;
+- height/weight measurements are appended only when the corresponding value actually changes;
+- Person meal-discovery overrides remain intact when the energy profile is updated;
+- the Family dashboard is refreshed after Person edits so names/timezones do not remain stale in the list or shell.
 
-### Family preference UX
+### Shared ingredient catalogue
 
-`Casa` now has:
-
-```text
-Receitas | Ingredientes | Despensa | Compras | Preferências
-```
-
-`Casa -> Preferências` is deliberately a separate focused screen:
-
-- choose Recipe;
-- rate 1..5 stars per Family member;
-- see Family average and rating count;
-- clear a Person rating.
-
-The Recipe editor remains focused on definition and nutrition evidence.
-
-### Recommendation ranking
-
-Personal recipe rating contributes to the existing `preferences` score:
+The Family ingredient catalogue now returns:
 
 ```text
-1 star  -> -1.0
-2 stars -> -0.5
-3 stars ->  0.0
-4 stars -> +0.5
-5 stars -> +1.0
+Family-owned ingredients
++ active shared ingredients (family_id IS NULL)
 ```
 
-For practical recommendations, ratings from the other Family members contribute a separate smaller `family_preferences` signal:
+Read models expose explicit `scope` and `editable` fields. Shared ingredients are visible in `Casa -> Ingredientes`, can be used by Family recipes, and render as read-only rows. Family CRUD endpoints still reject writes to shared catalogue rows.
+
+### Recipe nutrition readiness
+
+Recipe ingredient reads now distinguish:
 
 ```text
-family score = ((average rating - 3) / 2) * 0.5
+has_nutrition
+has_energy
 ```
 
-The selected Person is excluded from the Family average because their own rating already contributes through the stronger personal component.
+This lets the Recipe UI identify the exact ingredient blocking an energy calculation rather than only displaying a generic missing-evidence error.
 
-Mandatory safety/nutrition exclusions are evaluated before these signals. A high rating can never restore an excluded candidate.
+The deterministic Recipe nutrition rule remains fail-closed:
 
-Runs with no rating signal retain `meal-recommendation-practical-v1`; runs where rating evidence participates use `meal-recommendation-practical-v2`. Family rating evidence used in the run is persisted in recommendation context.
+- energy is calculated only when every Recipe ingredient has usable composition/energy evidence and safe unit conversion;
+- missing composition stays explicit;
+- composition without energy stays explicit;
+- unsafe unit conversion stays explicit;
+- stale nutrition is never silently reused after Recipe definition changes.
 
-See `docs/domain/recipe-preferences-and-ranking.md`.
+### Legacy v1 nutrition policy
 
-## Validation for current branch
+The real v1 snapshot contains ingredient names and Recipe quantities but does not contain trustworthy ingredient nutrition compositions.
 
-Expected test counts before local execution are approximately:
+Therefore:
 
-```text
-API: 133 pytest tests
-Web: 35 Vitest tests
-```
+- v1 structure may be imported;
+- absent nutrition must not be fabricated as production evidence;
+- existing development-only synthetic Recipe nutrition remains demo evidence only and is explicitly marked as synthetic;
+- a future catalogue-enrichment/import path must preserve source, source reference, effective date and data version for each FoodCompositionSnapshot.
 
-Counts are expectations only until the exact final branch head passes locally.
+### UI cleanup
 
-No migration is expected, so validation is:
+This branch also includes:
+
+- responsive Family and Person edit forms;
+- timezone selectors based on browser-supported IANA zones;
+- clearer shared/read-only ingredient states;
+- recipe nutrition blocker states;
+- preference rating layout fixes so stars/actions do not overflow their cards.
+
+## Validation state
+
+Do not treat this branch as green until the exact final head has passed the relevant gates.
+
+Push-triggered GitHub Actions are not currently visible through the connected status endpoint used during this work; an empty legacy status list is **not** evidence of green CI.
+
+Required local gates on the exact final head:
 
 ```powershell
 cd D:\Python\nutriflow-ai-v2
@@ -187,32 +186,33 @@ npm run test
 npm run build
 ```
 
-Do not open the PR until the exact final head is explicitly confirmed green locally.
+After local green confirmation, verify API CI and Web CI on the exact GitHub head before integration.
 
 ## Deferred / next work
 
-After ratings/preferences are integrated, the next large block should focus on feedback-driven planning rather than expanding dashboards. Candidate scope:
+The immediate follow-up after this branch should be trustworthy catalogue enrichment rather than adding more synthetic calories. Candidate scope:
 
 ```text
-accepted/rejected recommendation feedback
-+ meal outcome feedback
-+ repetition/fairness signal
-+ recommendation explanation polish
-+ plan/recommendation feedback loop
+authoritative generic-food nutrition source
++ explicit ingredient matching/review
++ source/version provenance
++ unit/reference normalization
++ recipe recalculation from enriched ingredients
++ clear distinction between curated, user-entered and demo nutrition
 ```
 
 Broader limitations remain:
 
 - Family UUID is still development context, not production authorization;
 - production authentication/Family authorization is not implemented;
-- DB-level MealEvent meal_type check remains future hardening;
 - purchased ShoppingListItem does not automatically create PantryStockLot;
-- npm lockfile / npm ci production hardening remains pending.
+- npm lockfile / npm ci production hardening remains pending;
+- external commercial meal integrations still depend on provider access/configuration.
 
 ## Resume procedure
 
 1. read this file, ADR-007 and relevant domain docs;
 2. inspect exact `main`, active branch and schema head;
-3. confirm local gate result on exact branch head;
+3. confirm local gate result on the exact branch head;
 4. never PR/merge an unvalidated head;
 5. after merge verify exact new `main` before starting the next block.
