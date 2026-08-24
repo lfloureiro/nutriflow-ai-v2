@@ -56,7 +56,7 @@ const COPY = {
     remove: "Remover do plano",
     cancel: "Cancelar",
     confirmRemove: "Remover esta refeição do planeamento? O registo fica preservado como cancelado.",
-    noRecipes: "Ainda não existem receitas ativas. Cria primeiro uma receita em Casa → Receitas.",
+    noRecipes: "Não existem receitas disponíveis para este tempo de refeição.",
     noPeople: "Não existem pessoas disponíveis nesta família.",
     planned: "Planeada",
     completed: "Concluída",
@@ -89,7 +89,7 @@ const COPY = {
     remove: "Remove from plan",
     cancel: "Cancel",
     confirmRemove: "Remove this meal from the plan? The record remains preserved as cancelled.",
-    noRecipes: "There are no active recipes yet. Create one in Home base → Recipes first.",
+    noRecipes: "There are no recipes available for this meal slot.",
     noPeople: "There are no people available in this family.",
     planned: "Planned",
     completed: "Completed",
@@ -129,6 +129,10 @@ export function startOfWeekDate(isoDate: string): string {
   const offset = weekday === 0 ? -6 : 1 - weekday;
   value.setUTCDate(value.getUTCDate() + offset);
   return value.toISOString().slice(0, 10);
+}
+
+export function recipesForMealType(recipes: Recipe[], mealType: MealType): Recipe[] {
+  return recipes.filter((recipe) => recipe.suitable_meal_types.includes(mealType));
 }
 
 function formatDate(value: string, locale: Locale): string {
@@ -188,7 +192,13 @@ function MealEditForm({
   const { locale } = useI18n();
   const copy = COPY[locale];
   const entry = target.entry;
-  const [recipeId, setRecipeId] = useState(entry?.recipe_id ?? recipes[0]?.id ?? "");
+  const eligibleRecipes = useMemo(
+    () => recipesForMealType(recipes, target.mealType),
+    [recipes, target.mealType],
+  );
+  const [recipeId, setRecipeId] = useState(
+    entry?.recipe_id ?? eligibleRecipes[0]?.id ?? "",
+  );
   const [localTime, setLocalTime] = useState(
     entry?.local_time.slice(0, 5) ?? DEFAULT_TIMES[target.mealType],
   );
@@ -284,7 +294,7 @@ function MealEditForm({
           <strong>{copy.error}</strong><span>{error}</span>
         </div>
       ) : null}
-      {recipes.length === 0 ? (
+      {eligibleRecipes.length === 0 ? (
         <div className="family-meals-empty-day">{copy.noRecipes}</div>
       ) : null}
       <form className="meal-plan-form" onSubmit={submit}>
@@ -293,7 +303,7 @@ function MealEditForm({
             <span>{copy.recipe}</span>
             <select value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
               <option value="">{copy.chooseRecipe}</option>
-              {recipes.map((recipe) => (
+              {eligibleRecipes.map((recipe) => (
                 <option key={recipe.id} value={recipe.id}>{recipe.name}</option>
               ))}
             </select>
@@ -364,7 +374,7 @@ function MealEditForm({
         <div className="meal-plan-editor__actions">
           <button
             className="button primary"
-            disabled={busy || recipes.length === 0}
+            disabled={busy || eligibleRecipes.length === 0}
             type="submit"
           >
             {busy ? copy.saving : copy.save}
