@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     default_timezone: str = "Europe/Lisbon"
 
     restaurant_discovery_enabled: bool = True
+    restaurant_google_places_enabled: bool = True
+    restaurant_google_places_url: str = "https://places.googleapis.com/v1/places:searchText"
     restaurant_discovery_nominatim_url: str = "https://nominatim.openstreetmap.org"
     restaurant_discovery_overpass_url: str = "https://overpass-api.de/api/interpreter"
     restaurant_discovery_user_agent: str = "NutriFlowAI/0.1 restaurant-discovery"
