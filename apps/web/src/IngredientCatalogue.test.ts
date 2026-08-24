@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Ingredient } from "./api/ingredientTypes";
 import {
   buildIngredientComposition,
+  ingredientNutritionStatus,
   ingredientNutritionSummary,
 } from "./IngredientCatalogue";
 
@@ -32,6 +33,7 @@ function ingredient(composition: Ingredient["latest_composition"]): Ingredient {
     description: null,
     source: "user",
     is_active: true,
+    recipe_usage_count: 0,
     latest_composition: composition,
     created_at: "2026-08-22T10:00:00Z",
     updated_at: "2026-08-22T10:00:00Z",
@@ -66,25 +68,42 @@ describe("ingredient catalogue helpers", () => {
     expect(ingredientNutritionSummary(ingredient(null), "pt-PT")).toBe(
       "Sem composição nutricional",
     );
+    expect(ingredientNutritionStatus(ingredient(null))).toBe("missing_composition");
+  });
+
+  it("distinguishes a composition that has no energy", () => {
+    const withoutEnergy = ingredient({
+      id: "33333333-3333-4333-8333-333333333333",
+      reference_quantity: "100.0000",
+      reference_unit: "g",
+      energy_kcal: null,
+      data_version: "manual-test",
+      source: "user",
+      source_reference: null,
+      effective_at: "2026-08-22T10:00:00Z",
+      notes: null,
+      nutrients: [],
+    });
+    expect(ingredientNutritionStatus(withoutEnergy)).toBe("missing_energy");
+    expect(ingredientNutritionSummary(withoutEnergy, "pt-PT")).toBe(
+      "100 g · Composição sem energia",
+    );
   });
 
   it("formats the latest energy evidence against its reference quantity", () => {
-    expect(
-      ingredientNutritionSummary(
-        ingredient({
-          id: "33333333-3333-4333-8333-333333333333",
-          reference_quantity: "100.0000",
-          reference_unit: "g",
-          energy_kcal: "370.0000",
-          data_version: "manual-test",
-          source: "user",
-          source_reference: null,
-          effective_at: "2026-08-22T10:00:00Z",
-          notes: null,
-          nutrients: [],
-        }),
-        "pt-PT",
-      ),
-    ).toBe("100 g · 370 kcal");
+    const ready = ingredient({
+      id: "33333333-3333-4333-8333-333333333333",
+      reference_quantity: "100.0000",
+      reference_unit: "g",
+      energy_kcal: "370.0000",
+      data_version: "manual-test",
+      source: "user",
+      source_reference: null,
+      effective_at: "2026-08-22T10:00:00Z",
+      notes: null,
+      nutrients: [],
+    });
+    expect(ingredientNutritionSummary(ready, "pt-PT")).toBe("100 g · 370 kcal");
+    expect(ingredientNutritionStatus(ready)).toBe("ready");
   });
 });
