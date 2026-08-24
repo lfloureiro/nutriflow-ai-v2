@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, time, timedelta
+from datetime import UTC, datetime, time, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -146,11 +146,25 @@ def _breakfast_assumption(
     *,
     person: Person,
     planning_date,
-    scheduled_at: datetime,
 ) -> tuple[Decimal, dict[str, object]]:
-    local_time = scheduled_at.astimezone(ZoneInfo(person.timezone)).time().replace(tzinfo=None)
-    if local_time < BREAKFAST_ASSUMPTION_CUTOFF:
-        return Decimal(0), {"standard_breakfast": {"applied": False, "reason": "before_cutoff"}}
+    try:
+        zone = ZoneInfo(person.timezone)
+    except ZoneInfoNotFoundError as exc:
+        raise PlanningBootstrapApiError(
+            f"Person has an unknown timezone: {person.timezone!r}."
+        ) from exc
+    now_local = datetime.now(UTC).astimezone(zone)
+    if planning_date > now_local.date():
+        return Decimal(0), {
+            "standard_breakfast": {"applied": False, "reason": "future_date"}
+        }
+    if (
+        planning_date == now_local.date()
+        and now_local.timetz().replace(tzinfo=None) < BREAKFAST_ASSUMPTION_CUTOFF
+    ):
+        return Decimal(0), {
+            "standard_breakfast": {"applied": False, "reason": "before_cutoff"}
+        }
     if _declared_breakfast(session, person=person, planning_date=planning_date):
         return Decimal(0), {"standard_breakfast": {"applied": False, "reason": "declared"}}
 
@@ -179,7 +193,6 @@ def _ensure_daily_state(
     *,
     person: Person,
     planning_date,
-    scheduled_at: datetime,
 ) -> DailyNutritionState:
     target = _active_target(
         session,
@@ -190,7 +203,6 @@ def _ensure_daily_state(
         session,
         person=person,
         planning_date=planning_date,
-        scheduled_at=scheduled_at,
     )
     state = recalculate_daily_nutrition_state(
         session,
@@ -435,7 +447,6 @@ def get_planning_bootstrap(
             session,
             person=person,
             planning_date=planning_date,
-            scheduled_at=scheduled_at,
         )
     food_profiles, recipe_profiles = _planning_profile_maps(
         session,
