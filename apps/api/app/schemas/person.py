@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.schemas.family import MealDiscoverySource
+from app.schemas.timezone import validate_timezone_name
 
 ActivityLevel = Literal["sedentary", "light", "moderate", "active", "very_active"]
 EnergyCalculationSex = Literal["male", "female"]
@@ -61,6 +62,11 @@ class PersonCreate(BaseModel):
     energy_profile: PersonEnergyProfileCreate | None = None
     meal_discovery: PersonMealDiscoveryCreate | None = None
 
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, value: str) -> str:
+        return validate_timezone_name(value)
+
     @model_validator(mode="after")
     def validate_energy_birth_date(self) -> "PersonCreate":
         if self.energy_profile is not None and self.birth_date is None:
@@ -75,6 +81,11 @@ class PersonUpdate(BaseModel):
     preferred_locale: str | None = Field(default=None, max_length=16)
     timezone: str | None = Field(default=None, max_length=64)
     energy_profile: PersonEnergyProfileCreate | None = None
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, value: str | None) -> str | None:
+        return None if value is None else validate_timezone_name(value)
 
 
 class PersonRead(BaseModel):
