@@ -140,7 +140,7 @@ def test_fdc_enrichment_persists_approved_portion_conversion(
         food=_nutrition(),
         effective_at=NOW,
         unit_portion=portion,
-        recipe_unit="un",
+        recipe_unit="dentes",
     )
     db_session.flush()
 
@@ -149,7 +149,83 @@ def test_fdc_enrichment_persists_approved_portion_conversion(
     assert composition.notes is not None
     assert '"portion_conversions"' in composition.notes
     assert '"quantity_in_reference_unit": "3"' in composition.notes
+    assert '"recipe_unit_quantity": "1"' in composition.notes
     assert '"fdc_portion_id": 321' in composition.notes
+
+
+def test_fdc_enrichment_supports_explicit_volume_equivalence(
+    db_session: Session,
+) -> None:
+    ingredient, _ = _shared_recipe(db_session)
+    portion = FdcFoodPortion(
+        portion_id=654,
+        amount=Decimal(1),
+        gram_weight=Decimal(240),
+        description="1 cup",
+        measure_unit="cup",
+        modifier=None,
+    )
+
+    apply_fdc_nutrition_to_shared_ingredient(
+        db_session,
+        catalog_key=ingredient.catalog_key,
+        food=_nutrition(),
+        effective_at=NOW,
+        unit_portion=portion,
+        recipe_unit="ml",
+        recipe_unit_quantity=Decimal(240),
+    )
+    db_session.flush()
+
+    composition = ingredient.compositions[-1]
+    assert composition.notes is not None
+    assert '"quantity_in_reference_unit": "1"' in composition.notes
+    assert '"recipe_unit_quantity": "240"' in composition.notes
+
+
+def test_fdc_enrichment_preserves_prior_conversions_for_same_food(
+    db_session: Session,
+) -> None:
+    ingredient, _ = _shared_recipe(db_session)
+    clove = FdcFoodPortion(
+        portion_id=321,
+        amount=Decimal(1),
+        gram_weight=Decimal(3),
+        description="clove",
+        measure_unit="piece",
+        modifier="clove",
+    )
+    tablespoon = FdcFoodPortion(
+        portion_id=322,
+        amount=Decimal(1),
+        gram_weight=Decimal(9),
+        description="tablespoon",
+        measure_unit="tbsp",
+        modifier=None,
+    )
+
+    apply_fdc_nutrition_to_shared_ingredient(
+        db_session,
+        catalog_key=ingredient.catalog_key,
+        food=_nutrition(),
+        effective_at=NOW,
+        unit_portion=clove,
+        recipe_unit="dentes",
+    )
+    apply_fdc_nutrition_to_shared_ingredient(
+        db_session,
+        catalog_key=ingredient.catalog_key,
+        food=_nutrition(),
+        effective_at=NOW,
+        unit_portion=tablespoon,
+        recipe_unit="c. sopa",
+    )
+    db_session.flush()
+
+    notes = ingredient.compositions[-1].notes
+    assert notes is not None
+    assert '"dentes"' in notes
+    assert '"c. sopa"' in notes
 
 
 def test_fdc_enrichment_rejects_non_generic_data_type(db_session: Session) -> None:

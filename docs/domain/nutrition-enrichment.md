@@ -40,13 +40,17 @@ USDA documents the public `DEMO_KEY` for initial exploration with lower rate lim
 From `apps/api`:
 
 ```powershell
+python -m app.fdc_enrichment audit
+python -m app.fdc_enrichment audit --all
 python -m app.fdc_enrichment list-missing
 python -m app.fdc_enrichment search "garlic raw"
 python -m app.fdc_enrichment inspect 123456
 python -m app.fdc_enrichment apply-map path\to\approved-fdc-mapping.json
 ```
 
-`list-missing` never calls USDA. `search` only returns candidates. `inspect` shows the nutrient values and any USDA portion weights exposed by the selected FDC food. `apply-map` is the only operation that writes nutrition, and it accepts explicit FDC IDs only.
+`audit` is the preferred starting point. It does not call USDA and reports each shared Ingredient's Recipe usage, Recipe units, nutrition status and any remaining unsafe unit conversions. By default it shows blockers only; `--all` includes ready Ingredients.
+
+`list-missing` is a simpler composition-only view. `search` returns candidates. `inspect` shows the nutrition and USDA `foodPortions` for one candidate. `apply-map` is the only operation that writes nutrition, and it accepts explicit FDC IDs only.
 
 ## Provenance and versioning
 
@@ -60,60 +64,67 @@ Each approved FDC match creates an immutable `FoodCompositionSnapshot` with:
 - FDC ID, data type, publication date and curation method in notes;
 - a deterministic source data version.
 
-Reapplying the same FDC record is idempotent and does not create another Ingredient composition.
+Reapplying the same FDC record and conversion is idempotent and does not create another Ingredient composition.
 
-## Safe portion conversions
+## Safe Recipe-unit conversions
 
-Legacy v1 Recipes sometimes use count units such as `un`, while the authoritative FDC nutrient composition is per 100 g. NutriFlow must not assume that one unit weighs one gram.
+Recipe quantities are not silently coerced to grams. Native mass-to-mass and volume-to-volume conversions continue to use the deterministic serving conversion rules. Cross-dimension or count conversions require explicit evidence.
 
-FoodData Central exposes food-specific portion gram weights for some foods. A curator can explicitly approve one of those portions for a Recipe unit by extending the mapping:
+FoodData Central `foodPortions` may be approved as Ingredient-specific conversions. For example, if an approved FDC record states that one clove weighs 3 g:
 
 ```json
 {
   "matches": [
     {
-      "catalog_key": "legacy-v1:ingredient:meatball",
+      "catalog_key": "legacy-v1:ingredient:4",
       "fdc_id": 123456,
-      "unit_portion_id": 98765,
-      "recipe_unit": "un"
+      "unit_portion_id": 789,
+      "recipe_unit": "dentes"
     }
   ]
 }
 ```
 
-The `recipe_unit` defaults to `un` when `unit_portion_id` is provided.
+If the USDA portion itself represents multiple items, NutriFlow uses its `amount` and `gramWeight` to derive grams per one Recipe unit.
 
-The selected USDA portion is stored inside the immutable composition notes with:
+For volume-to-mass cases, the curator must also state how many Recipe units the approved FDC portion represents. Example: if an inspected FDC portion represents 240 ml and weighs 236 g:
 
-- FDC portion ID;
-- original FDC amount and gram weight;
-- portion description/modifier;
-- derived grams per approved Recipe unit;
-- source and source reference.
-
-The Recipe nutrition engine may then convert, for example:
-
-```text
-4 un
-x 25 g per un
-= 100 g
+```json
+{
+  "matches": [
+    {
+      "catalog_key": "legacy-v1:ingredient:13",
+      "fdc_id": 654321,
+      "unit_portion_id": 987,
+      "recipe_unit": "ml",
+      "recipe_unit_quantity": "240"
+    }
+  ]
+}
 ```
 
-before applying the per-100 g nutrient composition.
+The stored conversion becomes `236 / 240 g per ml`. Without that explicit quantity, NutriFlow must not interpret a cup or other volume portion as one millilitre.
 
-This conversion is used only when direct unit conversion is impossible. Existing safe conversions such as `mg <-> g <-> kg` continue to take precedence.
+Multiple approved conversions for the same FDC Ingredient are cumulative. Adding `dentes` and later `c. sopa` for the same FDC food preserves both conversions in the latest composition snapshot.
 
-A Recipe remains explicitly incomplete when no approved portion conversion exists. The system does not infer a weight from the Ingredient name, average another food, or assume `un = g`.
+## Enrichment audit statuses
 
-Volume-to-mass conversion such as `ml -> g` remains fail-closed unless a future curated density/measure conversion provides equivalent authoritative evidence.
+The audit classifies each active shared Ingredient as one of:
+
+```text
+missing_composition
+missing_energy
+missing_unit_conversion
+ready
+```
+
+It also reports all Recipe units currently using the Ingredient and the subset that still cannot be converted safely. Results are ordered by blocker class, then by number of active Recipes affected, so curation can focus on the changes with the highest impact.
 
 ## Recipe recalculation
 
-After a new shared Ingredient composition is added, every active Recipe that references that Ingredient is recalculated through the deterministic Recipe nutrition engine.
+After a new shared Ingredient composition or approved portion conversion is added, every active Recipe that references that Ingredient is recalculated through the deterministic Recipe nutrition engine.
 
 This is intentionally incremental. A Recipe remains nutritionally incomplete until every required Ingredient has usable energy evidence and safe unit conversion. Once the final blocker is enriched, the next Recipe composition snapshot contains calculated energy from the Ingredient evidence.
-
-When an approved portion conversion is used, its unit, gram equivalent, source and description are copied into the Recipe composition calculation inputs. This keeps the calculation auditable without mutating the historical Ingredient snapshot.
 
 The previous Recipe and Ingredient snapshots remain in history.
 
@@ -123,7 +134,7 @@ The previous Recipe and Ingredient snapshots remain in history.
 - no absent kcal value is invented;
 - Branded FDC data are not used by this generic importer;
 - imported values keep source/version provenance;
-- count-to-mass conversion requires an explicitly approved FDC portion;
-- unsupported volume-to-mass conversion remains visible as a blocker;
+- count or volume-to-mass conversions require explicit portion evidence;
+- an FDC portion is never assumed to equal one Recipe unit unless that relationship is explicit;
 - shared catalogue curation is not exposed as ordinary Family CRUD;
 - Family-owned Ingredients continue to use the existing versioned Family editor.

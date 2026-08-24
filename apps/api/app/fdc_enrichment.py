@@ -1,6 +1,7 @@
 import argparse
 import json
 from dataclasses import asdict, dataclass
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,9 @@ from app.services.fooddata_central import (
     fetch_food_nutrition,
     search_foods,
 )
+from app.services.nutrition_enrichment_audit import (
+    build_shared_ingredient_enrichment_audit,
+)
 from app.services.shared_ingredient_enrichment import (
     apply_fdc_nutrition_to_shared_ingredient,
 )
@@ -26,6 +30,7 @@ class ApprovedFdcMatch:
     fdc_id: int
     unit_portion_id: int | None
     recipe_unit: str | None
+    recipe_unit_quantity: Decimal | None
 
 
 def _missing_shared_ingredients(db: Session, *, limit: int) -> list[dict[str, str]]:
@@ -53,6 +58,20 @@ def _missing_shared_ingredients(db: Session, *, limit: int) -> list[dict[str, st
     return result
 
 
+def _positive_decimal(value: object, *, field: str) -> Decimal | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise TypeError(f"{field} must be numeric when provided.")
+    try:
+        parsed = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValueError(f"{field} must be numeric when provided.") from exc
+    if parsed <= 0:
+        raise ValueError(f"{field} must be positive when provided.")
+    return parsed
+
+
 def _read_matches(path: Path) -> list[ApprovedFdcMatch]:
     payload: Any = json.loads(path.read_text(encoding="utf-8"))
     raw_matches = payload.get("matches") if isinstance(payload, dict) else payload
@@ -74,6 +93,7 @@ def _read_matches(path: Path) -> list[ApprovedFdcMatch]:
 
         unit_portion_id = raw.get("unit_portion_id")
         recipe_unit: str | None = None
+        recipe_unit_quantity: Decimal | None = None
         if unit_portion_id is not None:
             if isinstance(unit_portion_id, bool) or not isinstance(unit_portion_id, int):
                 raise TypeError("unit_portion_id must be an integer when provided.")
@@ -87,8 +107,14 @@ def _read_matches(path: Path) -> list[ApprovedFdcMatch]:
                 raise ValueError("recipe_unit must not be empty.")
             if len(recipe_unit) > 24:
                 raise ValueError("recipe_unit must be at most 24 characters.")
-        elif "recipe_unit" in raw:
-            raise ValueError("recipe_unit requires unit_portion_id.")
+            recipe_unit_quantity = _positive_decimal(
+                raw.get("recipe_unit_quantity"),
+                field="recipe_unit_quantity",
+            )
+        elif "recipe_unit" in raw or "recipe_unit_quantity" in raw:
+            raise ValueError(
+                "recipe_unit and recipe_unit_quantity require unit_portion_id."
+            )
 
         matches.append(
             ApprovedFdcMatch(
@@ -96,6 +122,7 @@ def _read_matches(path: Path) -> list[ApprovedFdcMatch]:
                 fdc_id=fdc_id,
                 unit_portion_id=unit_portion_id,
                 recipe_unit=recipe_unit,
+                recipe_unit_quantity=recipe_unit_quantity,
             )
         )
     return matches
@@ -134,6 +161,20 @@ def _list_missing_command(args: argparse.Namespace) -> None:
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
+def _audit_command(args: argparse.Namespace) -> None:
+    with SessionLocal() as db:
+        result = build_shared_ingredient_enrichment_audit(db)
+    if not args.all:
+        result = [item for item in result if item.status != "ready"]
+    print(
+        json.dumps(
+            [asdict(item) for item in result],
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+
+
 def _apply_map_command(args: argparse.Namespace) -> None:
     matches = _read_matches(Path(args.path))
     applied: list[dict[str, object]] = []
@@ -147,6 +188,7 @@ def _apply_map_command(args: argparse.Namespace) -> None:
                 food=food,
                 unit_portion=portion,
                 recipe_unit=match.recipe_unit,
+                recipe_unit_quantity=match.recipe_unit_quantity,
             )
             applied.append(
                 {
@@ -158,6 +200,11 @@ def _apply_map_command(args: argparse.Namespace) -> None:
                     "recalculated_recipes": len(result.recalculated_recipe_ids),
                     "unit_portion_id": match.unit_portion_id,
                     "recipe_unit": match.recipe_unit,
+                    "recipe_unit_quantity": (
+                        str(match.recipe_unit_quantity)
+                        if match.recipe_unit_quantity is not None
+                        else None
+                    ),
                 }
             )
     print(json.dumps(applied, ensure_ascii=False, indent=2))
@@ -187,6 +234,17 @@ def _parser() -> argparse.ArgumentParser:
     )
     missing.add_argument("--limit", type=int, default=100)
     missing.set_defaults(handler=_list_missing_command)
+
+    audit = subparsers.add_parser(
+        "audit",
+        help="Show shared-ingredient nutrition and unit-conversion blockers by impact.",
+    )
+    audit.add_argument(
+        "--all",
+        action="store_true",
+        help="Include ingredients that are already ready.",
+    )
+    audit.set_defaults(handler=_audit_command)
 
     apply_map = subparsers.add_parser(
         "apply-map",
