@@ -7,6 +7,13 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.meal_type import MealType
 
+RecipeNutritionEvidence = Literal[
+    "ingredient_calculated",
+    "synthetic_development",
+    "imported",
+    "unknown",
+]
+
 
 class RecipeIngredientWrite(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -91,6 +98,7 @@ class RecipeCompositionRead(BaseModel):
     energy_per_serving_kcal: Decimal | None
     composition_version: str
     calculation_version: str
+    evidence: RecipeNutritionEvidence
     computed_at: datetime
     nutrients: list[RecipeNutrientRead]
 
