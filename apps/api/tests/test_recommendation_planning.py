@@ -8,6 +8,7 @@ from app.models.family import Family
 from app.models.food_catalog import FoodCompositionSnapshot, FoodItem, FoodNutrientComponent
 from app.models.person import Person
 from app.models.recommendation_feedback import MealRecommendationOption, MealRecommendationRun
+from app.services.meal_slot import MealSlotConflictError
 from app.services.recommendation_planning import (
     RecommendationPlanningError,
     materialize_recommendation_option,
@@ -141,4 +142,27 @@ def test_accepted_action_rejects_quantity_changes(db_session: Session) -> None:
             scheduled_at=datetime(2026, 8, 22, 19, 30, tzinfo=UTC),
             timezone="Europe/Lisbon",
             quantity=Decimal("150.0000"),
+        )
+
+
+def test_recommendation_planning_rejects_occupied_family_meal_slot(
+    db_session: Session,
+) -> None:
+    option = _persisted_option(db_session)
+    materialize_recommendation_option(
+        db_session,
+        option=option,
+        action="accepted",
+        scheduled_at=datetime(2026, 8, 22, 19, 30, tzinfo=UTC),
+        timezone="Europe/Lisbon",
+    )
+    db_session.flush()
+
+    with pytest.raises(MealSlotConflictError, match="already planned"):
+        materialize_recommendation_option(
+            db_session,
+            option=option,
+            action="accepted",
+            scheduled_at=datetime(2026, 8, 22, 20, 30, tzinfo=UTC),
+            timezone="Europe/Lisbon",
         )
