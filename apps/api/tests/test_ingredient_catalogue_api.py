@@ -61,6 +61,8 @@ def test_family_ingredient_create_and_list_include_latest_composition(
     assert response.status_code == 201
     created = response.json()
     assert created["family_id"] == str(family.id)
+    assert created["scope"] == "family"
+    assert created["editable"] is True
     assert created["name"] == "Flocos de aveia"
     assert created["is_active"] is True
     assert created["catalog_key"].startswith(f"family:{family.id}:ingredient:")
@@ -81,6 +83,45 @@ def test_family_ingredient_create_and_list_include_latest_composition(
     )
     assert listed.status_code == 200
     assert [item["id"] for item in listed.json()] == [created["id"]]
+
+
+def test_shared_ingredients_are_visible_but_not_family_editable(db_session: Session) -> None:
+    family = Family(name="Shared catalogue family", timezone="Europe/Lisbon")
+    shared = FoodItem(
+        family_id=None,
+        catalog_key="shared:ingredient:tomato",
+        name="Tomate partilhado",
+        food_kind="ingredient",
+        source="catalogue",
+        is_active=True,
+    )
+    db_session.add_all([family, shared])
+    db_session.flush()
+
+    listed = _request(db_session, "GET", f"/api/families/{family.id}/ingredients")
+    assert listed.status_code == 200
+    assert len(listed.json()) == 1
+    item = listed.json()[0]
+    assert item["id"] == str(shared.id)
+    assert item["family_id"] is None
+    assert item["scope"] == "shared"
+    assert item["editable"] is False
+
+    detail = _request(
+        db_session,
+        "GET",
+        f"/api/families/{family.id}/ingredients/{shared.id}",
+    )
+    assert detail.status_code == 200
+    assert detail.json()["scope"] == "shared"
+
+    update = _request(
+        db_session,
+        "PATCH",
+        f"/api/families/{family.id}/ingredients/{shared.id}",
+        json={"name": "Tentativa"},
+    )
+    assert update.status_code == 404
 
 
 def test_ingredient_update_creates_new_composition_version(db_session: Session) -> None:
