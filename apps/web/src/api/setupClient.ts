@@ -9,6 +9,7 @@ import type {
   PersonEnergyProfile,
   PersonMealDiscovery,
   PersonMealDiscoveryUpdate,
+  PersonUpdate,
 } from "./setupTypes";
 import type { Person, PlanningBootstrap } from "./types";
 
@@ -65,6 +66,13 @@ export function createFamilyPerson(familyId: string, payload: PersonCreate): Pro
 
 export function getPerson(personId: string): Promise<Person> {
   return setupRequest<Person>(`/api/persons/${encodeURIComponent(personId)}`);
+}
+
+export function updatePerson(personId: string, payload: PersonUpdate): Promise<Person> {
+  return setupRequest<Person>(`/api/persons/${encodeURIComponent(personId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function getPersonEnergyProfile(personId: string): Promise<PersonEnergyProfile> {
