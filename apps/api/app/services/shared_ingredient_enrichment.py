@@ -13,7 +13,7 @@ from app.models.food_catalog import (
     Recipe,
     RecipeIngredient,
 )
-from app.services.fooddata_central import FdcFoodNutrition, GENERIC_DATA_TYPES
+from app.services.fooddata_central import GENERIC_DATA_TYPES, FdcFoodNutrition
 from app.services.recipe_nutrition import build_recipe_composition
 
 

@@ -44,12 +44,12 @@ def _read_matches(path: Path) -> list[tuple[str, int]]:
     payload: Any = json.loads(path.read_text(encoding="utf-8"))
     raw_matches = payload.get("matches") if isinstance(payload, dict) else payload
     if not isinstance(raw_matches, list):
-        raise ValueError("Mapping must be a list or an object containing a matches list.")
+        raise TypeError("Mapping must be a list or an object containing a matches list.")
 
     matches: list[tuple[str, int]] = []
     for raw in raw_matches:
         if not isinstance(raw, dict):
-            raise ValueError("Each mapping entry must be an object.")
+            raise TypeError("Each mapping entry must be an object.")
         catalog_key = raw.get("catalog_key")
         fdc_id = raw.get("fdc_id")
         if not isinstance(catalog_key, str) or not catalog_key.strip():

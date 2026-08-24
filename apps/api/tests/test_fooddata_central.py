@@ -43,13 +43,13 @@ def test_food_parser_maps_energy_and_core_nutrients_per_100g() -> None:
         }
     )
 
-    assert food.energy_kcal == Decimal("149")
+    assert food.energy_kcal == Decimal(149)
     by_key = {nutrient.key: nutrient for nutrient in food.nutrients}
     assert by_key["protein"].value == Decimal("6.36")
     assert by_key["fat"].value == Decimal("0.5")
     assert by_key["carbohydrate"].value == Decimal("33.06")
     assert by_key["fiber"].value == Decimal("2.1")
-    assert by_key["sodium"].value == Decimal("17")
+    assert by_key["sodium"].value == Decimal(17)
     assert by_key["sodium"].unit == "mg"
     assert food.source_reference.endswith("/123/nutrients")
 
@@ -67,4 +67,4 @@ def test_food_parser_prefers_kcal_energy() -> None:
         }
     )
 
-    assert food.energy_kcal == Decimal("88")
+    assert food.energy_kcal == Decimal(88)
