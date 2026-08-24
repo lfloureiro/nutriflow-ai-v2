@@ -6,6 +6,7 @@ import type { FamilyDashboard } from "./api/types";
 import FamilyEntryScreen from "./FamilyEntryScreen";
 import FamilyHome, { memberDisplayName } from "./FamilyHome";
 import FamilyMealsScreen, { type FamilyMealsMode } from "./FamilyMeals";
+import FamilySettings from "./FamilySettings";
 import HomeBase from "./HomeBase";
 import { useI18n, type Locale } from "./i18n";
 import PersonOverview from "./PersonOverview";
@@ -327,6 +328,10 @@ export default function App() {
                   <p>{t("more.help")}</p>
                 </div>
               </header>
+              <FamilySettings
+                familyId={activeFamilyId}
+                onSaved={() => refreshDashboard()}
+              />
               <section className="settings-card">
                 <label className="field">
                   <span>{t("nav.language")}</span>
