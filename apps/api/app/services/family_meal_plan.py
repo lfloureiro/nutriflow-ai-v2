@@ -51,6 +51,10 @@ class MealPlanEntryLockedError(MealPlanError):
     pass
 
 
+class MealPlanSlotConflictError(MealPlanError):
+    pass
+
+
 def _optional_text(value: str | None) -> str | None:
     if value is None:
         return None
@@ -276,6 +280,30 @@ def _scheduled_at(family: Family, on_date: date, local_time: time) -> datetime:
     return datetime.combine(on_date, local_time, tzinfo=ZoneInfo(family.timezone))
 
 
+def _assert_slot_available(
+    db: Session,
+    *,
+    family: Family,
+    on_date: date,
+    meal_type: MealType,
+    exclude_event_id: uuid.UUID | None = None,
+) -> None:
+    start_at, end_at = _range_bounds(family, on_date, 1)
+    query = select(MealEvent.id).where(
+        MealEvent.family_id == family.id,
+        MealEvent.meal_type == meal_type,
+        MealEvent.scheduled_at >= start_at,
+        MealEvent.scheduled_at < end_at,
+        MealEvent.status.in_(ACTIVE_PLAN_STATUSES),
+    )
+    if exclude_event_id is not None:
+        query = query.where(MealEvent.id != exclude_event_id)
+    if db.scalar(query.limit(1)) is not None:
+        raise MealPlanSlotConflictError(
+            "A meal is already planned for this meal slot on this date."
+        )
+
+
 def _validate_recipe_meal_type(
     db: Session,
     *,
@@ -330,6 +358,12 @@ def create_meal_plan_entry(
     family: Family,
     data: MealPlanEntryCreate,
 ) -> MealPlanEntryRead:
+    _assert_slot_available(
+        db,
+        family=family,
+        on_date=data.date,
+        meal_type=data.meal_type,
+    )
     recipe = _planning_recipe(
         db,
         family_id=family.id,
@@ -391,6 +425,14 @@ def update_meal_plan_entry(
         if "meal_type" in fields and data.meal_type is not None
         else event.meal_type
     )
+    if fields.intersection({"date", "meal_type"}):
+        _assert_slot_available(
+            db,
+            family=family,
+            on_date=next_date,
+            meal_type=next_meal_type,
+            exclude_event_id=event.id,
+        )
     if fields.intersection({"date", "local_time"}):
         event.scheduled_at = _scheduled_at(family, next_date, next_time)
     if "location" in fields:
