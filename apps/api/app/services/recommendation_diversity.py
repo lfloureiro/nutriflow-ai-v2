@@ -16,6 +16,12 @@ from app.services.meal_recommendation import (
     MealCandidate,
     RecommendationResult,
 )
+from app.services.meal_suitability import (
+    MealSuitabilityError,
+    food_default_meal_types,
+    recipe_default_meal_types,
+    resolve_meal_types,
+)
 from app.services.shared_family_meal import (
     SharedFamilyMealRecommendationResult,
     SharedMealCandidateEvaluation,
@@ -24,7 +30,6 @@ from app.services.shared_family_meal import (
 
 SCORE_QUANTUM = Decimal("0.0001")
 ZERO = Decimal(0)
-VALID_MEAL_TYPES = frozenset({"breakfast", "lunch", "snack", "dinner"})
 BALANCE_CATEGORIES = ("meat", "fish", "vegetarian_legumes")
 
 RECIPE_USED_TODAY_PENALTY = Decimal("-3.5000")
@@ -146,17 +151,6 @@ def _infer_category_and_protein(candidate: MealCandidate) -> tuple[str | None, s
     return None, None
 
 
-def _fallback_meal_types(candidate: MealCandidate) -> frozenset[str]:
-    text = _candidate_text(candidate)
-    breakfast_terms = ("torrada", "muesli", "iogurte", "papas", "pequeno almoço")
-    snack_terms = ("lanche", "snack")
-    if any(term in text for term in breakfast_terms):
-        return frozenset({"breakfast", "snack"})
-    if any(term in text for term in snack_terms):
-        return frozenset({"snack"})
-    return frozenset({"lunch", "dinner"})
-
-
 def _profile_identity(candidate: MealCandidate) -> tuple[str, uuid.UUID] | None:
     if candidate.food_item is not None and candidate.food_item.id is not None:
         return "food_item", candidate.food_item.id
@@ -197,22 +191,39 @@ def _profile_map(
     return result
 
 
+def _resolved_candidate_meal_types(
+    candidate: MealCandidate,
+    profile: MealCandidatePlanningProfile | None,
+) -> frozenset[str]:
+    if candidate.recipe is not None:
+        catalogue = candidate.recipe.suitable_meal_types
+        defaults = recipe_default_meal_types(candidate.recipe.source)
+    elif candidate.food_item is not None:
+        catalogue = candidate.food_item.suitable_meal_types
+        defaults = food_default_meal_types(candidate.food_item.food_kind)
+    else:
+        raise RecommendationDiversityError(
+            f"Candidate {candidate.key!r} has no catalogue entity."
+        )
+    try:
+        return frozenset(
+            resolve_meal_types(
+                profile=profile,
+                catalogue_meal_types=catalogue,
+                defaults=defaults,
+            )
+        )
+    except MealSuitabilityError as exc:
+        raise RecommendationDiversityError(str(exc)) from exc
+
+
 def _planning_traits(
     candidate: MealCandidate,
     profiles: dict[tuple[str, uuid.UUID], MealCandidatePlanningProfile],
 ) -> CandidatePlanningTraits:
-    profile = profiles.get(_profile_identity(candidate)) if _profile_identity(candidate) else None
+    identity = _profile_identity(candidate)
+    profile = profiles.get(identity) if identity is not None else None
     inferred_category, inferred_protein = _infer_category_and_protein(candidate)
-    meal_types = _fallback_meal_types(candidate)
-    if profile is not None and profile.suitable_meal_types:
-        normalized = frozenset(
-            meal_type
-            for raw in profile.suitable_meal_types
-            if isinstance(raw, str)
-            and (meal_type := _normalize_token(raw)) in VALID_MEAL_TYPES
-        )
-        if normalized:
-            meal_types = normalized
     return CandidatePlanningTraits(
         category=(
             _normalize_token(profile.planning_category)
@@ -224,7 +235,7 @@ def _planning_traits(
             if profile is not None and profile.primary_protein
             else inferred_protein
         ),
-        suitable_meal_types=meal_types,
+        suitable_meal_types=_resolved_candidate_meal_types(candidate, profile),
         auto_plan_enabled=True if profile is None else profile.auto_plan_enabled,
     )
 
