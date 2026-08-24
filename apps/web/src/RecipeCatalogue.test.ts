@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import type { Recipe } from "./api/recipeTypes";
-import { recipeNutritionBlockers, recipeNutritionSummary } from "./RecipeCatalogue";
+import type { Recipe, RecipeNutritionEvidence } from "./api/recipeTypes";
+import {
+  recipeNutritionBlockers,
+  recipeNutritionEvidenceLabel,
+  recipeNutritionSummary,
+} from "./RecipeCatalogue";
 
 function recipe(
   energy: string | null,
   perServing: string | null,
   ingredients: Recipe["ingredients"] = [],
+  evidence: RecipeNutritionEvidence = "ingredient_calculated",
 ): Recipe {
   return {
     id: "recipe-1",
@@ -31,6 +36,7 @@ function recipe(
       energy_per_serving_kcal: perServing,
       composition_version: "calculated-1",
       calculation_version: "recipe-nutrition-v1",
+      evidence,
       computed_at: "2026-08-22T12:00:00Z",
       nutrients: [],
     },
@@ -50,6 +56,15 @@ describe("recipe catalogue helpers", () => {
   it("keeps missing nutrition explicit", () => {
     expect(recipeNutritionSummary(recipe(null, null), "pt-PT")).toBe(
       "Ainda sem cálculo nutricional utilizável.",
+    );
+  });
+
+  it("labels synthetic development nutrition separately", () => {
+    expect(recipeNutritionEvidenceLabel(recipe("2400", "600", [], "synthetic_development"), "pt-PT")).toBe(
+      "Estimativa de desenvolvimento",
+    );
+    expect(recipeNutritionEvidenceLabel(recipe("2400", "600"), "pt-PT")).toBe(
+      "Calculada pelos ingredientes",
     );
   });
 
