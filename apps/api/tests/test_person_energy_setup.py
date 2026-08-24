@@ -2,7 +2,7 @@ import uuid
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -53,9 +53,7 @@ def test_family_and_person_setup_generates_calorie_target(db_session: Session) -
             assert person_response.status_code == 201
             person_id_text = person_response.json()["id"]
 
-            profile_response = client.get(
-                f"/api/persons/{person_id_text}/energy-profile"
-            )
+            profile_response = client.get(f"/api/persons/{person_id_text}/energy-profile")
     finally:
         app.dependency_overrides.clear()
 
@@ -87,6 +85,96 @@ def test_family_and_person_setup_generates_calorie_target(db_session: Session) -
         )
     ).all()
     assert {measurement.metric for measurement in measurements} == {"height", "weight"}
+
+
+def test_person_energy_profile_update_preserves_discovery_and_versions_history(
+    db_session: Session,
+) -> None:
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    try:
+        with TestClient(app) as client:
+            family = client.post(
+                "/api/families",
+                json={"name": "Família Perfil", "timezone": "Europe/Lisbon"},
+            ).json()
+            created = client.post(
+                f"/api/families/{family['id']}/persons",
+                json={
+                    "first_name": "Luis",
+                    "birth_date": "1973-06-01",
+                    "timezone": "Europe/Lisbon",
+                    "energy_profile": {
+                        "sex_for_energy_calculation": "male",
+                        "height_cm": "178",
+                        "weight_kg": "104",
+                        "activity_level": "sedentary",
+                        "goal_type": "maintain",
+                        "standard_breakfast_kcal": "350",
+                    },
+                    "meal_discovery": {
+                        "meal_discovery_sources": ["shared_recipes"],
+                        "restaurant_area": "Benfica",
+                    },
+                },
+            )
+            assert created.status_code == 201
+            person_id = created.json()["id"]
+
+            updated = client.patch(
+                f"/api/persons/{person_id}",
+                json={
+                    "energy_profile": {
+                        "sex_for_energy_calculation": "male",
+                        "height_cm": "178",
+                        "weight_kg": "101.5",
+                        "activity_level": "light",
+                        "goal_type": "lose",
+                        "target_rate_kg_per_week": "0.4",
+                        "standard_breakfast_kcal": "330",
+                    }
+                },
+            )
+            profile = client.get(f"/api/persons/{person_id}/energy-profile")
+            discovery = client.get(f"/api/persons/{person_id}/meal-discovery")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert updated.status_code == 200
+    assert profile.status_code == 200
+    assert profile.json()["weight_kg"] == "101.5000"
+    assert profile.json()["activity_level"] == "light"
+    assert profile.json()["goal_type"] == "lose"
+    assert profile.json()["standard_breakfast_kcal"] == "330.00"
+
+    assert discovery.status_code == 200
+    assert discovery.json()["inherits_family_defaults"] is False
+    assert discovery.json()["meal_discovery_sources"] == ["shared_recipes"]
+    assert discovery.json()["restaurant_area"] == "Benfica"
+
+    person_uuid = uuid.UUID(person_id)
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(AnthropometricMeasurement)
+        .where(AnthropometricMeasurement.person_id == person_uuid)
+    ) == 4
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(NutritionGoal)
+        .where(NutritionGoal.person_id == person_uuid)
+    ) == 2
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(NutritionTarget)
+        .where(NutritionTarget.person_id == person_uuid)
+    ) == 2
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(NutritionTarget)
+        .where(
+            NutritionTarget.person_id == person_uuid,
+            NutritionTarget.status == "active",
+        )
+    ) == 1
 
 
 def test_energy_setup_rejects_child_with_adult_formula(db_session: Session) -> None:
