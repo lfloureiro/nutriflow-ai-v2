@@ -10,7 +10,7 @@ from app.db.session import get_db
 from app.main import app
 from app.models.family import Family
 from app.models.food_catalog import FoodCompositionSnapshot, FoodItem
-from app.models.meal import MealEvent
+from app.models.meal import MealEvent, Serving
 from app.models.nutrition_target import NutritionTarget
 from app.models.person import Person
 from app.services.planning_bootstrap_api import get_planning_bootstrap
@@ -163,6 +163,30 @@ def test_partial_consumption_scales_catalogue_nutrition(db_session: Session) -> 
     assert Decimal(state["energy_consumed_kcal"]) == Decimal(200)
     assert Decimal(state["energy_planned_kcal"]) == Decimal(0)
     assert Decimal(state["energy_assumed_kcal"]) == Decimal(350)
+
+
+def test_consumed_legacy_serving_uses_persisted_planned_nutrition(
+    db_session: Session,
+) -> None:
+    family, person, entry, participant = _setup(db_session, "lunch", "13:00")
+    serving = db_session.get(Serving, uuid.UUID(participant["serving_id"]))
+    assert serving is not None
+    assert serving.energy_planned_kcal == Decimal("400.00")
+
+    # Simulate a legacy serving whose unit no longer converts directly to the bound catalogue
+    # composition. Consumption should scale the authoritative persisted plan instead of 500ing.
+    serving.quantity_unit = "serving"
+    db_session.flush()
+
+    response = _request(
+        db_session,
+        "PATCH",
+        _consumption_path(family, person, entry, participant),
+        json={"status": "consumed"},
+    )
+
+    assert response.status_code == 200
+    assert Decimal(response.json()["energy_consumed_kcal"]) == Decimal("400.00")
 
 
 def test_skipped_breakfast_is_declared_zero_and_removes_later_assumption(
