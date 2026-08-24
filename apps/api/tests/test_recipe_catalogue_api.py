@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.legacy_v1_demo_seed import seed_legacy_v1_demo_catalog
 from app.main import app
 from app.models.family import Family
 from app.models.food_catalog import (
@@ -100,6 +101,7 @@ def test_recipe_create_calculates_total_and_per_serving_nutrition(db_session: Se
     assert all(item["has_energy"] for item in body["ingredients"])
     assert Decimal(body["latest_composition"]["energy_kcal"]) == Decimal(250)
     assert Decimal(body["latest_composition"]["energy_per_serving_kcal"]) == Decimal(125)
+    assert body["latest_composition"]["evidence"] == "ingredient_calculated"
     assert body["nutrition_issues"] == []
     protein = body["latest_composition"]["nutrients"][0]
     assert protein["key"] == "protein"
@@ -129,6 +131,7 @@ def test_recipe_missing_ingredient_composition_is_explicit(db_session: Session) 
     assert response.status_code == 201
     body = response.json()
     assert body["latest_composition"]["energy_kcal"] is None
+    assert body["latest_composition"]["evidence"] == "ingredient_calculated"
     assert body["ingredients"][0]["has_nutrition"] is False
     assert body["ingredients"][0]["has_energy"] is False
     assert body["nutrition_issues"]
@@ -162,9 +165,25 @@ def test_recipe_ingredient_composition_without_energy_is_explicit(db_session: Se
     assert response.status_code == 201
     body = response.json()
     assert body["latest_composition"]["energy_kcal"] is None
+    assert body["latest_composition"]["evidence"] == "ingredient_calculated"
     assert body["ingredients"][0]["has_nutrition"] is True
     assert body["ingredients"][0]["has_energy"] is False
     assert any("missing energy data" in issue for issue in body["nutrition_issues"])
+
+
+def test_legacy_v1_demo_nutrition_is_explicitly_synthetic(db_session: Session) -> None:
+    family = Family(name="Legacy evidence family", timezone="Europe/Lisbon")
+    db_session.add(family)
+    db_session.flush()
+    seed_legacy_v1_demo_catalog(db_session, family=family)
+    db_session.commit()
+
+    response = _request(db_session, "GET", f"/api/families/{family.id}/recipes")
+    assert response.status_code == 200
+    legacy = [item for item in response.json() if item["source"] == "legacy-v1-demo"]
+    assert legacy
+    assert all(item["latest_composition"]["evidence"] == "synthetic_development" for item in legacy)
+    assert all(item["latest_composition"]["energy_kcal"] is not None for item in legacy)
 
 
 def test_recipe_update_appends_composition_and_soft_delete_hides_recipe(
@@ -200,6 +219,7 @@ def test_recipe_update_appends_composition_and_soft_delete_hides_recipe(
     )
     assert updated.status_code == 200
     assert Decimal(updated.json()["latest_composition"]["energy_kcal"]) == Decimal(390)
+    assert updated.json()["latest_composition"]["evidence"] == "ingredient_calculated"
 
     snapshot_count = db_session.scalar(
         select(func.count())
