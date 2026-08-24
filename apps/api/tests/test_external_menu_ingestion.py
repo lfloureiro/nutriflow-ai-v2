@@ -22,8 +22,8 @@ from app.services.planning_bootstrap_api import get_planning_bootstrap
 NOW = datetime(2026, 8, 23, 19, 0, tzinfo=UTC)
 
 
-def _family(db_session: Session) -> Family:
-    family = Family(name="Família Menu", timezone="Europe/Lisbon")
+def _family(db_session: Session, *, name: str = "Família Menu") -> Family:
+    family = Family(name=name, timezone="Europe/Lisbon")
     db_session.add(family)
     db_session.flush()
     return family
@@ -95,7 +95,7 @@ def test_external_menu_item_without_nutrition_is_not_ranking_ready(
 
     item = db_session.get(FoodItem, first.food_item_id)
     assert item is not None
-    assert item.family_id is None
+    assert item.family_id == family.id
     assert item.food_kind == "dish"
     assert item.brand == "Restaurante Exemplo"
 
@@ -163,3 +163,53 @@ def test_external_menu_item_with_nutrition_creates_versioned_evidence(
     )
     assert candidate.category == "dish"
     assert candidate.energy_kcal == Decimal("640.0000")
+
+
+def test_external_menu_items_are_isolated_per_family(db_session: Session) -> None:
+    first_family = _family(db_session, name="Família A")
+    second_family = _family(db_session, name="Família B")
+    second_person = Person(
+        family=second_family,
+        first_name="Bruno",
+        preferred_locale="pt-PT",
+        timezone="Europe/Lisbon",
+    )
+    db_session.add(second_person)
+    db_session.flush()
+
+    first_item = ingest_external_menu_item(
+        db_session,
+        family=first_family,
+        data=_observation(with_nutrition=True),
+    )
+    db_session.flush()
+
+    second_bootstrap = get_planning_bootstrap(
+        db_session,
+        person_id=second_person.id,
+        scheduled_at=NOW + timedelta(minutes=1),
+    )
+    assert all(
+        candidate.catalog_key != first_item.catalog_key
+        for candidate in second_bootstrap.candidates
+    )
+
+    second_item = ingest_external_menu_item(
+        db_session,
+        family=second_family,
+        data=_observation(with_nutrition=True),
+    )
+    db_session.flush()
+
+    assert second_item.food_item_id != first_item.food_item_id
+    assert second_item.catalog_key != first_item.catalog_key
+
+    refreshed = get_planning_bootstrap(
+        db_session,
+        person_id=second_person.id,
+        scheduled_at=NOW + timedelta(minutes=1),
+    )
+    assert any(
+        candidate.catalog_key == second_item.catalog_key
+        for candidate in refreshed.candidates
+    )

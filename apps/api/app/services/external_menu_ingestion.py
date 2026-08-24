@@ -22,8 +22,8 @@ def _digest(*parts: str, length: int = 32) -> str:
     return hashlib.sha256(raw).hexdigest()[:length]
 
 
-def _catalog_key(data: ExternalMenuItemObservationWrite) -> str:
-    digest = _digest(data.provider_key, data.merchant_key, data.item_key)
+def _catalog_key(family: Family, data: ExternalMenuItemObservationWrite) -> str:
+    digest = _digest(str(family.id), data.provider_key, data.merchant_key, data.item_key)
     return f"external:{data.provider_key[:24]}:{digest}"
 
 
@@ -69,11 +69,11 @@ def ingest_external_menu_item(
     family: Family,
     data: ExternalMenuItemObservationWrite,
 ) -> ExternalMenuItemIngestedRead:
-    catalog_key = _catalog_key(data)
+    catalog_key = _catalog_key(family, data)
     food_item = db.scalar(select(FoodItem).where(FoodItem.catalog_key == catalog_key))
     if food_item is None:
         food_item = FoodItem(
-            family_id=None,
+            family_id=family.id,
             catalog_key=catalog_key,
             name=data.item_name,
             food_kind="dish",
