@@ -155,7 +155,7 @@
 
 .recipe-nutrition-state.synthetic {
   background: var(--surface-strong);
-  color: var(--muted-strong);
+  color: var(--muted);
   border: 1px solid var(--border-strong);
 }
 
