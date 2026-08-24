@@ -18,6 +18,7 @@ from app.services.family_meal_plan import (
     MealPlanEntryLockedError,
     MealPlanEntryNotFoundError,
     MealPlanError,
+    MealPlanSlotConflictError,
     build_family_meal_plan,
     cancel_meal_plan_entry,
     create_meal_plan_entry,
@@ -59,6 +60,8 @@ def create_meal_plan_entry_endpoint(
     family = _require_family(db, family_id)
     try:
         return create_meal_plan_entry(db, family, data)
+    except MealPlanSlotConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except MealPlanError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -75,7 +78,7 @@ def update_meal_plan_entry_endpoint(
         return update_meal_plan_entry(db, family, meal_event_id, data)
     except MealPlanEntryNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except MealPlanEntryLockedError as exc:
+    except (MealPlanEntryLockedError, MealPlanSlotConflictError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except MealPlanError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
