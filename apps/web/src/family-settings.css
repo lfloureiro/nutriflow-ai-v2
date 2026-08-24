@@ -77,13 +77,87 @@
   font-weight: 720;
 }
 
+.family-capability-section {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.family-capability-section > div:first-child {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.family-capability-section > div:first-child > strong {
+  font-size: 0.9rem;
+}
+
+.family-capability-section > div:first-child > p {
+  max-width: 72ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.family-capability-section .meal-capability-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.family-capability-section .meal-capability-card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+
+.family-capability-section .meal-capability-card > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.family-capability-section .meal-capability-card small {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.family-capability-section .meal-capability-status {
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.family-capability-section .status-ready {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.family-capability-section .status-needs_configuration,
+.family-capability-section .status-integration_required,
+.family-capability-section .status-disabled {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
 .family-settings-save {
   justify-self: start;
 }
 
 @media (max-width: 760px) {
   .family-settings-grid,
-  .family-source-grid {
+  .family-source-grid,
+  .family-capability-section .meal-capability-grid {
     grid-template-columns: 1fr;
   }
 
