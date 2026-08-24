@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.family import Family
@@ -73,7 +73,12 @@ def _composition_read(
     )
 
 
-def _ingredient_read(item: FoodItem, family_id: uuid.UUID) -> IngredientRead:
+def _ingredient_read(
+    item: FoodItem,
+    family_id: uuid.UUID,
+    *,
+    recipe_usage_count: int = 0,
+) -> IngredientRead:
     return IngredientRead(
         id=item.id,
         family_id=item.family_id,
@@ -85,10 +90,42 @@ def _ingredient_read(item: FoodItem, family_id: uuid.UUID) -> IngredientRead:
         description=item.description,
         source=item.source,
         is_active=item.is_active,
+        recipe_usage_count=recipe_usage_count,
         latest_composition=_composition_read(_latest_composition(item)),
         created_at=item.created_at,
         updated_at=item.updated_at,
     )
+
+
+def _visible_recipe_usage_counts(
+    db: Session,
+    family_id: uuid.UUID,
+    ingredient_ids: list[uuid.UUID],
+) -> dict[uuid.UUID, int]:
+    if not ingredient_ids:
+        return {}
+    rows = db.execute(
+        select(
+            RecipeIngredient.food_item_id,
+            func.count(func.distinct(Recipe.id)),
+        )
+        .join(Recipe, Recipe.id == RecipeIngredient.recipe_id)
+        .where(
+            RecipeIngredient.food_item_id.in_(ingredient_ids),
+            Recipe.is_active.is_(True),
+            or_(Recipe.family_id == family_id, Recipe.family_id.is_(None)),
+        )
+        .group_by(RecipeIngredient.food_item_id)
+    ).all()
+    return {ingredient_id: int(count) for ingredient_id, count in rows}
+
+
+def _visible_recipe_usage_count(
+    db: Session,
+    family_id: uuid.UUID,
+    ingredient_id: uuid.UUID,
+) -> int:
+    return _visible_recipe_usage_counts(db, family_id, [ingredient_id]).get(ingredient_id, 0)
 
 
 def _append_composition(
@@ -171,7 +208,12 @@ def list_family_ingredients(
                 FoodItem.brand.ilike(pattern),
             )
         )
-    return [_ingredient_read(item, family_id) for item in db.scalars(statement).all()]
+    items = list(db.scalars(statement).all())
+    usage = _visible_recipe_usage_counts(db, family_id, [item.id for item in items])
+    return [
+        _ingredient_read(item, family_id, recipe_usage_count=usage.get(item.id, 0))
+        for item in items
+    ]
 
 
 def get_family_ingredient(
@@ -192,7 +234,13 @@ def get_family_ingredient(
             FoodItem.food_kind == "ingredient",
         )
     )
-    return None if item is None else _ingredient_read(item, family_id)
+    if item is None:
+        return None
+    return _ingredient_read(
+        item,
+        family_id,
+        recipe_usage_count=_visible_recipe_usage_count(db, family_id, item.id),
+    )
 
 
 def _get_family_ingredient_model(
@@ -238,7 +286,7 @@ def create_family_ingredient(
     if data.composition is not None:
         _append_composition(item, data.composition)
     db.commit()
-    return _ingredient_read(item, family.id)
+    return _ingredient_read(item, family.id, recipe_usage_count=0)
 
 
 def update_family_ingredient(
@@ -262,7 +310,11 @@ def update_family_ingredient(
         db.flush()
         _recalculate_recipes_using_ingredient(db, family_id, item.id)
     db.commit()
-    return _ingredient_read(item, family_id)
+    return _ingredient_read(
+        item,
+        family_id,
+        recipe_usage_count=_visible_recipe_usage_count(db, family_id, item.id),
+    )
 
 
 def deactivate_family_ingredient(
