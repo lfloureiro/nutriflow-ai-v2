@@ -14,10 +14,12 @@ import type {
   RecipeCreate,
   RecipeIngredientWrite,
   RecipeMealType,
+  RecipeNutritionEvidence,
 } from "./api/recipeTypes";
 import { useI18n, type Locale } from "./i18n";
 
 const MEAL_TYPES: RecipeMealType[] = ["breakfast", "lunch", "snack", "dinner"];
+type NutritionFilter = "all" | "ingredient_calculated" | "incomplete" | "synthetic_development";
 
 const COPY = {
   "pt-PT": {
@@ -27,10 +29,15 @@ const COPY = {
     search: "Procurar receitas",
     placeholder: "Ex.: bolonhesa, salmão…",
     showInactive: "Mostrar inativas",
+    nutritionFilter: "Qualidade nutricional",
+    filterAll: "Todas",
+    filterCalculated: "Calculadas pelos ingredientes",
+    filterIncomplete: "Incompletas",
+    filterSynthetic: "Estimativas de desenvolvimento",
     newRecipe: "Nova receita",
     loading: "A carregar receitas…",
     empty: "Ainda não existem receitas.",
-    emptySearch: "Nenhuma receita corresponde à pesquisa.",
+    emptySearch: "Nenhuma receita corresponde aos filtros.",
     edit: "Editar",
     view: "Ver",
     shared: "Partilhada",
@@ -68,10 +75,14 @@ const COPY = {
     deactivate: "Desativar receita",
     restore: "Reativar receita",
     confirmDeactivate: "Desativar esta receita? O histórico de refeições mantém-se intacto.",
-    nutrition: "Nutrição calculada",
+    nutrition: "Nutrição",
     noNutrition: "Ainda sem cálculo nutricional utilizável.",
-    nutritionReady: "Nutrição disponível",
     nutritionIncomplete: "Nutrição incompleta",
+    evidenceCalculated: "Calculada pelos ingredientes",
+    evidenceSynthetic: "Estimativa de desenvolvimento",
+    evidenceImported: "Nutrição importada",
+    evidenceUnknown: "Origem nutricional desconhecida",
+    syntheticHelp: "Este valor existe apenas para desenvolvimento/testes e não deve ser interpretado como nutrição real da receita. Será substituído quando os ingredientes tiverem dados nutricionais suficientes.",
     missingComposition: "Sem composição nutricional",
     missingEnergy: "Sem dados de energia",
     missingNutritionIngredients: "Ingredientes que bloqueiam o cálculo",
@@ -94,10 +105,15 @@ const COPY = {
     search: "Search recipes",
     placeholder: "E.g. bolognese, salmon…",
     showInactive: "Show inactive",
+    nutritionFilter: "Nutrition quality",
+    filterAll: "All",
+    filterCalculated: "Calculated from ingredients",
+    filterIncomplete: "Incomplete",
+    filterSynthetic: "Development estimates",
     newRecipe: "New recipe",
     loading: "Loading recipes…",
     empty: "There are no recipes yet.",
-    emptySearch: "No recipes match the search.",
+    emptySearch: "No recipes match the filters.",
     edit: "Edit",
     view: "View",
     shared: "Shared",
@@ -135,10 +151,14 @@ const COPY = {
     deactivate: "Deactivate recipe",
     restore: "Reactivate recipe",
     confirmDeactivate: "Deactivate this recipe? Meal history remains intact.",
-    nutrition: "Calculated nutrition",
+    nutrition: "Nutrition",
     noNutrition: "No usable nutrition calculation yet.",
-    nutritionReady: "Nutrition available",
     nutritionIncomplete: "Incomplete nutrition",
+    evidenceCalculated: "Calculated from ingredients",
+    evidenceSynthetic: "Development estimate",
+    evidenceImported: "Imported nutrition",
+    evidenceUnknown: "Unknown nutrition origin",
+    syntheticHelp: "This value exists only for development/testing and must not be interpreted as real recipe nutrition. It will be replaced when ingredient evidence is sufficient.",
     missingComposition: "No nutrition composition",
     missingEnergy: "No energy data",
     missingNutritionIngredients: "Ingredients blocking calculation",
@@ -237,10 +257,31 @@ export function recipeNutritionSummary(recipe: Recipe, locale: Locale): string {
     : `${COPY[locale].total}: ${total} ${COPY[locale].kcal} · ${COPY[locale].perServing}: ${formatter.format(Number(perServing))} ${COPY[locale].kcal}`;
 }
 
+function evidenceCopyKey(
+  evidence: RecipeNutritionEvidence,
+): "evidenceCalculated" | "evidenceSynthetic" | "evidenceImported" | "evidenceUnknown" {
+  if (evidence === "ingredient_calculated") return "evidenceCalculated";
+  if (evidence === "synthetic_development") return "evidenceSynthetic";
+  if (evidence === "imported") return "evidenceImported";
+  return "evidenceUnknown";
+}
+
+export function recipeNutritionEvidenceLabel(recipe: Recipe, locale: Locale): string {
+  const evidence = recipe.latest_composition?.evidence ?? "unknown";
+  return COPY[locale][evidenceCopyKey(evidence)];
+}
+
+function recipeNutritionState(recipe: Recipe): "ready" | "synthetic" | "missing" {
+  const composition = recipe.latest_composition;
+  if (!composition || composition.energy_kcal === null) return "missing";
+  return composition.evidence === "synthetic_development" ? "synthetic" : "ready";
+}
+
 function issueCoveredByBlocker(issue: string): boolean {
   return (
     issue.includes(" has no nutrition composition.") ||
-    issue === "At least one ingredient is missing energy data."
+    issue === "At least one ingredient is missing energy data." ||
+    issue.includes("Development-only synthetic nutrition estimate")
   );
 }
 
@@ -262,19 +303,22 @@ function RecipeNutrition({ recipe }: { recipe: Recipe }) {
   const copy = COPY[locale];
   const blockers = recipeNutritionBlockers(recipe);
   const additionalIssues = recipe.nutrition_issues.filter((issue) => !issueCoveredByBlocker(issue));
+  const state = recipeNutritionState(recipe);
   return (
     <section className="recipe-nutrition-panel">
       <div className="recipe-nutrition-heading">
         <h2>{copy.nutrition}</h2>
-        <span
-          className={`recipe-nutrition-state ${recipe.latest_composition?.energy_kcal !== null && recipe.latest_composition !== null ? "ready" : "missing"}`}
-        >
-          {recipe.latest_composition?.energy_kcal !== null && recipe.latest_composition !== null
-            ? copy.nutritionReady
-            : copy.nutritionIncomplete}
+        <span className={`recipe-nutrition-state ${state}`}>
+          {state === "missing" ? copy.nutritionIncomplete : recipeNutritionEvidenceLabel(recipe, locale)}
         </span>
       </div>
       <strong>{recipeNutritionSummary(recipe, locale)}</strong>
+      {state === "synthetic" ? (
+        <div className="recipe-evidence-note">
+          <strong>{copy.evidenceSynthetic}</strong>
+          <span>{copy.syntheticHelp}</span>
+        </div>
+      ) : null}
       {blockers.length > 0 || additionalIssues.length > 0 ? (
         <div className="recipe-issues">
           <span>{blockers.length > 0 ? copy.missingNutritionIngredients : copy.issues}</span>
@@ -353,7 +397,7 @@ function SharedRecipeViewer({ recipe, onDone }: { recipe: Recipe; onDone: () => 
                     className={`recipe-nutrition-state ${ingredient.has_energy ? "ready" : "missing"}`}
                   >
                     {ingredient.has_energy
-                      ? copy.nutritionReady
+                      ? copy.evidenceCalculated
                       : ingredient.has_nutrition
                         ? copy.missingEnergy
                         : copy.missingComposition}
@@ -700,11 +744,22 @@ function RecipeEditor({
   );
 }
 
+function matchesNutritionFilter(recipe: Recipe, filter: NutritionFilter): boolean {
+  if (filter === "all") return true;
+  const composition = recipe.latest_composition;
+  if (filter === "incomplete") return composition === null || composition.energy_kcal === null;
+  if (filter === "synthetic_development") {
+    return composition?.evidence === "synthetic_development";
+  }
+  return composition?.energy_kcal !== null && composition?.evidence === "ingredient_calculated";
+}
+
 export default function RecipeCatalogue({ familyId }: { familyId: string }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
   const [query, setQuery] = useState("");
   const [includeInactive, setIncludeInactive] = useState(false);
+  const [nutritionFilter, setNutritionFilter] = useState<NutritionFilter>("all");
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [selected, setSelected] = useState<Recipe | null | undefined>(undefined);
@@ -747,7 +802,11 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
     };
   }, [familyId, includeInactive, query, revision, selected]);
 
-  const hasSearch = useMemo(() => query.trim().length > 0, [query]);
+  const hasSearch = useMemo(() => query.trim().length > 0 || nutritionFilter !== "all", [query, nutritionFilter]);
+  const filteredRecipes = useMemo(
+    () => recipes.filter((recipe) => matchesNutritionFilter(recipe, nutritionFilter)),
+    [recipes, nutritionFilter],
+  );
 
   if (selected !== undefined) {
     if (selected !== null && !selected.editable) {
@@ -788,6 +847,18 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
+        <label className="field recipe-quality-filter">
+          <span>{copy.nutritionFilter}</span>
+          <select
+            value={nutritionFilter}
+            onChange={(event) => setNutritionFilter(event.target.value as NutritionFilter)}
+          >
+            <option value="all">{copy.filterAll}</option>
+            <option value="ingredient_calculated">{copy.filterCalculated}</option>
+            <option value="incomplete">{copy.filterIncomplete}</option>
+            <option value="synthetic_development">{copy.filterSynthetic}</option>
+          </select>
+        </label>
         <label className="ingredient-check">
           <input
             checked={includeInactive}
@@ -805,35 +876,38 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
       ) : null}
       {busy ? (
         <div className="shell-loading" role="status">{copy.loading}</div>
-      ) : recipes.length === 0 ? (
+      ) : filteredRecipes.length === 0 ? (
         <div className="ingredient-empty">{hasSearch ? copy.emptySearch : copy.empty}</div>
       ) : (
         <div className="ingredient-list">
-          {recipes.map((recipe) => (
-            <button
-              className="ingredient-row"
-              key={recipe.id}
-              onClick={() => setSelected(recipe)}
-              type="button"
-            >
-              <span className="ingredient-row__main">
-                <strong>{recipe.name}</strong>
-                <small>
-                  {recipe.suitable_meal_types.map((type) => copy[type]).join(" · ")} · {recipe.ingredients.length} {copy.ingredients.toLowerCase()} · {recipeNutritionSummary(recipe, locale)}
-                </small>
-              </span>
-              <span className="ingredient-row__end">
-                {recipe.latest_composition?.energy_kcal === null || recipe.latest_composition === null ? (
-                  <span className="recipe-nutrition-state missing">{copy.nutritionIncomplete}</span>
-                ) : null}
-                {recipe.scope === "shared" ? (
-                  <span className="ingredient-inactive">{copy.shared}</span>
-                ) : null}
-                {!recipe.is_active ? <span className="ingredient-inactive">{copy.inactive}</span> : null}
-                <span>{recipe.editable ? copy.edit : copy.view} ›</span>
-              </span>
-            </button>
-          ))}
+          {filteredRecipes.map((recipe) => {
+            const state = recipeNutritionState(recipe);
+            return (
+              <button
+                className="ingredient-row"
+                key={recipe.id}
+                onClick={() => setSelected(recipe)}
+                type="button"
+              >
+                <span className="ingredient-row__main">
+                  <strong>{recipe.name}</strong>
+                  <small>
+                    {recipe.suitable_meal_types.map((type) => copy[type]).join(" · ")} · {recipe.ingredients.length} {copy.ingredients.toLowerCase()} · {recipeNutritionSummary(recipe, locale)}
+                  </small>
+                </span>
+                <span className="ingredient-row__end">
+                  <span className={`recipe-nutrition-state ${state}`}>
+                    {state === "missing" ? copy.nutritionIncomplete : recipeNutritionEvidenceLabel(recipe, locale)}
+                  </span>
+                  {recipe.scope === "shared" ? (
+                    <span className="ingredient-inactive">{copy.shared}</span>
+                  ) : null}
+                  {!recipe.is_active ? <span className="ingredient-inactive">{copy.inactive}</span> : null}
+                  <span>{recipe.editable ? copy.edit : copy.view} ›</span>
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
