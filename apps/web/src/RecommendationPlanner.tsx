@@ -52,13 +52,13 @@ import {
 } from "./recommendationPlanning";
 
 const MAX_VISIBLE_RESULTS = 3;
-const RESTAURANT_LIMIT = 8;
+const RESTAURANT_LIMIT = 12;
 const MAIN_MEAL_TYPES = new Set<RecommendationMealType>(["lunch", "dinner"]);
 
 const COPY = {
   "pt-PT": {
     title: "Recomendar refeições",
-    help: "Escolhe quem vai comer, quando e onde procurar. As receitas são avaliadas pelas necessidades nutricionais e preferências; restaurantes são pesquisados live na área configurada.",
+    help: "Escolhe quem vai comer, quando e onde procurar. As receitas e pratos são avaliados pelas necessidades nutricionais e preferências; os restaurantes usam descoberta live ordenada por sinais de qualidade quando disponíveis.",
     people: "Pessoas",
     peopleLower: "pessoas",
     allPeople: "Todos",
@@ -73,9 +73,11 @@ const COPY = {
     cooked: "Receitas",
     cookedHelp: "Receitas partilhadas e receitas próprias da família, filtradas para esta refeição",
     uber_eats: "Uber Eats",
-    uber_eatsHelp: "Menus live quando a integração oficial estiver disponível",
+    uber_eatsHelp: "Pratos sincronizados quando a integração consumer oficial estiver operacional",
     glovo: "Glovo",
-    glovoHelp: "Menus live quando a integração oficial estiver disponível",
+    glovoHelp: "Pratos sincronizados quando existir acesso autorizado ao catálogo",
+    bolt_food: "Bolt Food",
+    bolt_foodHelp: "Pratos sincronizados quando existir acesso autorizado ao catálogo",
     restaurant: "Restaurantes",
     restaurantHelp: "Restaurantes live na área configurada; usado apenas em almoço e jantar",
     sourceUnavailable: "Não está disponível para esta refeição ou para todas as pessoas selecionadas",
@@ -89,7 +91,7 @@ const COPY = {
     peopleRequired: "Escolhe pelo menos uma pessoa.",
     sourceRequired: "Escolhe pelo menos uma origem disponível.",
     noCandidates: "Não existem receitas ou pratos com dados suficientes para esta refeição.",
-    noResults: "Não foram encontradas receitas adequadas para este dia.",
+    noResults: "Não foram encontradas receitas ou pratos adequados para este dia.",
     stateUnavailable: "Não foi possível preparar o orçamento nutricional para",
     error: "Não foi possível obter a recomendação",
     results: "Recomendações",
@@ -107,7 +109,7 @@ const COPY = {
     groupFit: "Adequação do grupo",
     portion: "Porção",
     restaurants: "Restaurantes na área",
-    restaurantLiveNote: "Descoberta live de restaurantes. Sem menu nutricional real, estes locais ainda não são ordenados por calorias, dieta ou preferências de pratos.",
+    restaurantLiveNote: "Descoberta live ordenada por qualidade/reputação quando o Google Places está configurado. A adequação nutricional continua a depender de um prato/menu concreto.",
     restaurantAreaRequired: "Configura uma área de restaurantes em Casa → Fontes ou indica uma área em Mais opções.",
     restaurantAreaMismatch: "As pessoas selecionadas têm áreas de restaurantes diferentes. Indica uma área comum em Mais opções.",
     restaurantUnavailable: "Não foi possível pesquisar restaurantes nesta área.",
@@ -115,10 +117,12 @@ const COPY = {
     address: "Morada",
     openingHours: "Horário",
     website: "Site",
+    ratings: "avaliações",
+    price: "Preço",
   },
   en: {
     title: "Meal recommendations",
-    help: "Choose who will eat, when and where to search. Recipes are evaluated against nutrition needs and preferences; restaurants are searched live in the configured area.",
+    help: "Choose who will eat, when and where to search. Recipes and dishes are evaluated against nutrition needs and preferences; restaurants use live discovery ranked by quality signals when available.",
     people: "People",
     peopleLower: "people",
     allPeople: "Everyone",
@@ -133,9 +137,11 @@ const COPY = {
     cooked: "Recipes",
     cookedHelp: "Shared and Family recipes filtered for this meal",
     uber_eats: "Uber Eats",
-    uber_eatsHelp: "Live menus when the official integration is available",
+    uber_eatsHelp: "Synchronized dishes when the official consumer integration is operational",
     glovo: "Glovo",
-    glovoHelp: "Live menus when the official integration is available",
+    glovoHelp: "Synchronized dishes when authorized catalogue access is available",
+    bolt_food: "Bolt Food",
+    bolt_foodHelp: "Synchronized dishes when authorized catalogue access is available",
     restaurant: "Restaurants",
     restaurantHelp: "Live restaurants in the configured area; lunch and dinner only",
     sourceUnavailable: "Not available for this meal or every selected person",
@@ -149,7 +155,7 @@ const COPY = {
     peopleRequired: "Choose at least one person.",
     sourceRequired: "Choose at least one available source.",
     noCandidates: "There are no recipes or dishes with enough data for this meal.",
-    noResults: "No suitable recipes were found for this day.",
+    noResults: "No suitable recipes or dishes were found for this day.",
     stateUnavailable: "Could not prepare the nutrition budget for",
     error: "The recommendation could not be created",
     results: "Recommendations",
@@ -167,7 +173,7 @@ const COPY = {
     groupFit: "Group fit",
     portion: "Portion",
     restaurants: "Restaurants in the area",
-    restaurantLiveNote: "Live restaurant discovery. Without real menu nutrition, these places are not yet ordered by calories, diet or dish preferences.",
+    restaurantLiveNote: "Live discovery is ranked by quality/reputation when Google Places is configured. Nutritional suitability still requires a concrete dish/menu item.",
     restaurantAreaRequired: "Configure a restaurant area under Home base → Sources or enter an area in More options.",
     restaurantAreaMismatch: "The selected people have different restaurant areas. Enter one common area in More options.",
     restaurantUnavailable: "Restaurants could not be searched in this area.",
@@ -175,6 +181,8 @@ const COPY = {
     address: "Address",
     openingHours: "Opening hours",
     website: "Website",
+    ratings: "ratings",
+    price: "Price",
   },
 } as const;
 
@@ -262,6 +270,7 @@ function discoveryToRecommendationSources(
   if (discovery.meal_discovery_sources.includes("shared_recipes")) mapped.push("cooked");
   if (discovery.meal_discovery_sources.includes("uber_eats")) mapped.push("uber_eats");
   if (discovery.meal_discovery_sources.includes("glovo")) mapped.push("glovo");
+  if (discovery.meal_discovery_sources.includes("bolt_food")) mapped.push("bolt_food");
   if (discovery.meal_discovery_sources.includes("restaurants")) mapped.push("restaurant");
   return mapped;
 }
@@ -285,6 +294,7 @@ function sourceSupportsMeal(
   mealType: RecommendationMealType,
 ): boolean {
   if (source === "restaurant") return MAIN_MEAL_TYPES.has(mealType);
+  if (source !== "cooked") return MAIN_MEAL_TYPES.has(mealType);
   return true;
 }
 
@@ -314,6 +324,7 @@ function matchingOffers(
     if (offer.candidate_key !== candidateKey || offer.source_kind !== "delivery") return false;
     if (offer.provider_key === "uber_eats") return sources.includes("uber_eats");
     if (offer.provider_key === "glovo") return sources.includes("glovo");
+    if (offer.provider_key === "bolt_food") return sources.includes("bolt_food");
     return false;
   });
 }
@@ -366,6 +377,7 @@ function SourceChoice({
     | "cookedHelp"
     | "uber_eatsHelp"
     | "glovoHelp"
+    | "bolt_foodHelp"
     | "restaurantHelp";
   return (
     <label className={`recommend-source-card ${selected ? "selected" : ""} ${disabled ? "disabled" : ""}`}>
@@ -533,6 +545,18 @@ function RestaurantResults({ result }: { result: RestaurantDiscovery }) {
               <div>
                 <span className="eyebrow">Live · {result.provider}</span>
                 <h3>{restaurant.name}</h3>
+                {restaurant.rating ? (
+                  <p className="muted compact">
+                    ★ {Number(restaurant.rating).toLocaleString(locale, {
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    })}
+                    {restaurant.rating_count !== null
+                      ? ` · ${new Intl.NumberFormat(locale).format(restaurant.rating_count)} ${copy.ratings}`
+                      : ""}
+                    {restaurant.price_level ? ` · ${copy.price}: ${restaurant.price_level}` : ""}
+                  </p>
+                ) : null}
               </div>
             </div>
             {restaurant.cuisine.length > 0 ? <p><strong>{copy.cuisine}:</strong> {restaurant.cuisine.join(", ")}</p> : null}
