@@ -3,12 +3,14 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.development_breakfast_seed import seed_development_breakfast_catalog
 from app.main import app
 from app.models.family import Family
-from app.models.food_catalog import FoodCompositionSnapshot, FoodItem
+from app.models.food_catalog import FoodCompositionSnapshot, FoodItem, Recipe
 from app.models.person import Person
 
 PLAN_DATE = "2026-08-23"
@@ -184,3 +186,74 @@ def test_family_meal_plan_rejects_unknown_meal_types_and_cross_family_people(
         },
     )
     assert cross_family.status_code == 422
+
+
+def test_family_meal_plan_accepts_shared_breakfast_and_enforces_slot(
+    db_session: Session,
+) -> None:
+    family = Family(name="Shared breakfast planner", timezone="Europe/Lisbon")
+    person = Person(family=family, first_name="Ana", timezone="Europe/Lisbon")
+    db_session.add(family)
+    db_session.flush()
+    seed_development_breakfast_catalog(db_session)
+    db_session.flush()
+
+    recipes = list(
+        db_session.scalars(
+            select(Recipe)
+            .where(Recipe.source == "development-breakfast")
+            .order_by(Recipe.recipe_key)
+            .limit(2)
+        ).all()
+    )
+    assert len(recipes) == 2
+
+    created = _request(
+        db_session,
+        "POST",
+        f"/api/families/{family.id}/meal-plan",
+        json={
+            "date": PLAN_DATE,
+            "meal_type": "breakfast",
+            "local_time": "08:30",
+            "recipe_id": str(recipes[0].id),
+            "participants": [{"person_id": str(person.id)}],
+        },
+    )
+    assert created.status_code == 201
+    entry = created.json()
+    assert entry["recipe_id"] == str(recipes[0].id)
+    assert entry["meal_type"] == "breakfast"
+
+    updated = _request(
+        db_session,
+        "PATCH",
+        f"/api/families/{family.id}/meal-plan/{entry['id']}",
+        json={"recipe_id": str(recipes[1].id)},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["recipe_id"] == str(recipes[1].id)
+
+    wrong_slot = _request(
+        db_session,
+        "POST",
+        f"/api/families/{family.id}/meal-plan",
+        json={
+            "date": PLAN_DATE,
+            "meal_type": "lunch",
+            "local_time": "13:00",
+            "recipe_id": str(recipes[0].id),
+            "participants": [{"person_id": str(person.id)}],
+        },
+    )
+    assert wrong_slot.status_code == 422
+    assert "not suitable for meal type 'lunch'" in wrong_slot.json()["detail"]
+
+    wrong_update = _request(
+        db_session,
+        "PATCH",
+        f"/api/families/{family.id}/meal-plan/{entry['id']}",
+        json={"meal_type": "lunch"},
+    )
+    assert wrong_update.status_code == 422
+    assert "not suitable for meal type 'lunch'" in wrong_update.json()["detail"]
