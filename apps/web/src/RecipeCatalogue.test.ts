@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import type { Recipe } from "./api/recipeTypes";
-import { recipeNutritionSummary } from "./RecipeCatalogue";
+import { recipeNutritionBlockers, recipeNutritionSummary } from "./RecipeCatalogue";
 
-function recipe(energy: string | null, perServing: string | null): Recipe {
+function recipe(
+  energy: string | null,
+  perServing: string | null,
+  ingredients: Recipe["ingredients"] = [],
+): Recipe {
   return {
     id: "recipe-1",
     family_id: "family-1",
@@ -18,7 +22,7 @@ function recipe(energy: string | null, perServing: string | null): Recipe {
     serving_count: "4",
     source: "user",
     is_active: true,
-    ingredients: [],
+    ingredients,
     latest_composition: {
       id: "composition-1",
       reference_quantity: "1000",
@@ -47,5 +51,53 @@ describe("recipe catalogue helpers", () => {
     expect(recipeNutritionSummary(recipe(null, null), "pt-PT")).toBe(
       "Ainda sem cálculo nutricional utilizável.",
     );
+  });
+
+  it("identifies the ingredients that block energy calculation", () => {
+    expect(
+      recipeNutritionBlockers(
+        recipe(null, null, [
+          {
+            id: "ingredient-1",
+            food_item_id: "food-1",
+            food_item_name: "Arroz",
+            quantity: "200",
+            unit: "g",
+            preparation: null,
+            notes: null,
+            sort_order: 0,
+            has_nutrition: false,
+            has_energy: false,
+          },
+          {
+            id: "ingredient-2",
+            food_item_id: "food-2",
+            food_item_name: "Molho",
+            quantity: "100",
+            unit: "g",
+            preparation: null,
+            notes: null,
+            sort_order: 1,
+            has_nutrition: true,
+            has_energy: false,
+          },
+          {
+            id: "ingredient-3",
+            food_item_id: "food-3",
+            food_item_name: "Carne",
+            quantity: "150",
+            unit: "g",
+            preparation: null,
+            notes: null,
+            sort_order: 2,
+            has_nutrition: true,
+            has_energy: true,
+          },
+        ]),
+      ),
+    ).toEqual([
+      { ingredient: "Arroz", reason: "missing_composition" },
+      { ingredient: "Molho", reason: "missing_energy" },
+    ]);
   });
 });
