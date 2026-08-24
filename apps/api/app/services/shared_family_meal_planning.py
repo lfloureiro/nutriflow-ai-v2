@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.food_catalog import FoodCompositionSnapshot, RecipeCompositionSnapshot
 from app.models.meal import MealEvent, MealParticipant, Serving
 from app.models.person import Person
+from app.services.meal_slot import assert_meal_slot_available
 from app.services.serving_nutrition import calculate_serving_nutrition
 from app.services.shared_family_meal import (
     SharedFamilyMealRecommendationResult,
@@ -216,6 +217,7 @@ def materialize_shared_family_recommendation(
         ]
     ] = []
     family_id: uuid.UUID | None = None
+    family_timezone: str | None = None
     seen_person_ids: set[uuid.UUID] = set()
     for participant in selected.participant_evaluations:
         _validate_participant_candidate(selected, participant)
@@ -228,6 +230,7 @@ def materialize_shared_family_recommendation(
 
         if family_id is None:
             family_id = person.family_id
+            family_timezone = person.family.timezone
         elif person.family_id != family_id:
             raise SharedFamilyMealPlanningError(
                 "All shared-family planned-meal participants must belong to the same Family."
@@ -237,8 +240,16 @@ def materialize_shared_family_recommendation(
         _validate_composition_identity(selected, composition, person.family_id)
         loaded.append((participant, person, composition))
 
-    if family_id is None:
+    if family_id is None or family_timezone is None:
         raise SharedFamilyMealPlanningError("Shared-family recommendation has no participants.")
+
+    assert_meal_slot_available(
+        session,
+        family_id=family_id,
+        family_timezone=family_timezone,
+        scheduled_at=scheduled_at,
+        meal_type=meal_type,
+    )
 
     event = MealEvent(
         family_id=family_id,
