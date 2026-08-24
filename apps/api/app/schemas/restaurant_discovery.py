@@ -16,6 +16,17 @@ class RestaurantDiscoveryPlaceRead(BaseModel):
     phone: str | None
     opening_hours: str | None
     source_reference: str
+    primary_type: str | None = None
+    rating: Decimal | None = None
+    rating_count: int | None = None
+    price_level: str | None = None
+    delivery: bool | None = None
+    takeout: bool | None = None
+    dine_in: bool | None = None
+    serves_lunch: bool | None = None
+    serves_dinner: bool | None = None
+    serves_vegetarian_food: bool | None = None
+    quality_score: Decimal | None = None
 
 
 class RestaurantDiscoveryRead(BaseModel):
