@@ -139,14 +139,15 @@ function serviceLabels(
   locale: "pt-PT" | "en",
 ): string[] {
   const copy = COPY[locale];
-  return [
+  const labels: Array<string | null> = [
     restaurant.serves_lunch ? copy.lunch : null,
     restaurant.serves_dinner ? copy.dinner : null,
     restaurant.delivery ? copy.delivery : null,
     restaurant.takeout ? copy.takeout : null,
     restaurant.dine_in ? copy.dineIn : null,
     restaurant.serves_vegetarian_food ? copy.vegetarian : null,
-  ].filter((value): value is string => value !== null);
+  ];
+  return labels.filter((value): value is string => value !== null);
 }
 
 export default function RestaurantDiscoveryScreen({ familyId }: { familyId: string }) {
