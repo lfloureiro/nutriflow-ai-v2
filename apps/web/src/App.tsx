@@ -263,6 +263,7 @@ export default function App() {
                 dashboard={dashboard}
                 member={selectedMember}
                 onBack={() => setSelectedPersonId(null)}
+                onDataChanged={refreshDashboard}
               />
             ) : (
               <div className="people-screen">
