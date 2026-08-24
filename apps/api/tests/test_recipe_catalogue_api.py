@@ -96,6 +96,8 @@ def test_recipe_create_calculates_total_and_per_serving_nutrition(db_session: Se
     body = response.json()
     assert body["name"] == "Taça de aveia"
     assert [item["food_item_name"] for item in body["ingredients"]] == ["Aveia", "Iogurte"]
+    assert all(item["has_nutrition"] for item in body["ingredients"])
+    assert all(item["has_energy"] for item in body["ingredients"])
     assert Decimal(body["latest_composition"]["energy_kcal"]) == Decimal(250)
     assert Decimal(body["latest_composition"]["energy_per_serving_kcal"]) == Decimal(125)
     assert body["nutrition_issues"] == []
@@ -127,8 +129,42 @@ def test_recipe_missing_ingredient_composition_is_explicit(db_session: Session) 
     assert response.status_code == 201
     body = response.json()
     assert body["latest_composition"]["energy_kcal"] is None
+    assert body["ingredients"][0]["has_nutrition"] is False
+    assert body["ingredients"][0]["has_energy"] is False
     assert body["nutrition_issues"]
     assert "no nutrition composition" in body["nutrition_issues"][0]
+
+
+def test_recipe_ingredient_composition_without_energy_is_explicit(db_session: Session) -> None:
+    family = Family(name="Missing energy family", timezone="Europe/Lisbon")
+    incomplete = _ingredient(
+        family,
+        name="Ingrediente sem energia",
+        energy=None,
+        protein="5",
+    )
+    db_session.add_all([family, incomplete])
+    db_session.flush()
+
+    response = _request(
+        db_session,
+        "POST",
+        f"/api/families/{family.id}/recipes",
+        json={
+            "name": "Receita sem energia",
+            "serving_count": "1",
+            "ingredients": [
+                {"food_item_id": str(incomplete.id), "quantity": "100", "unit": "g"}
+            ],
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["latest_composition"]["energy_kcal"] is None
+    assert body["ingredients"][0]["has_nutrition"] is True
+    assert body["ingredients"][0]["has_energy"] is False
+    assert "missing energy data" in body["nutrition_issues"]
 
 
 def test_recipe_update_appends_composition_and_soft_delete_hides_recipe(
