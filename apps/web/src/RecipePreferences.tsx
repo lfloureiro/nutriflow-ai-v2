@@ -23,7 +23,7 @@ const COPY = {
     ratings: "avaliações",
     loading: "A carregar preferências…",
     noRecipes: "Ainda não existem receitas ativas para avaliar.",
-    dislike: "0 · Não gosto",
+    dislike: "Não gosto",
     clear: "Limpar",
     error: "Não foi possível atualizar as preferências",
     star: "estrela",
@@ -40,7 +40,7 @@ const COPY = {
     ratings: "ratings",
     loading: "Loading preferences…",
     noRecipes: "There are no active recipes to rate yet.",
-    dislike: "0 · Dislike",
+    dislike: "Dislike",
     clear: "Clear",
     error: "Preferences could not be updated",
     star: "star",
@@ -211,38 +211,42 @@ export default function RecipePreferences({ familyId }: { familyId: string }) {
                 const saving = savingPersonId === person.id;
                 return (
                   <div className="recipe-preference-person" key={person.id}>
-                    <strong>{displayName(person)}</strong>
-                    <button
-                      className={`button ghost ${current === 0 ? "active" : ""}`}
-                      disabled={saving}
-                      onClick={() => void rate(person.id, 0)}
-                      type="button"
-                    >
-                      {copy.dislike}
-                    </button>
-                    <div className="recipe-stars" aria-label={displayName(person)}>
-                      {[1, 2, 3, 4, 5].map((rating) => (
-                        <button
-                          aria-label={`${rating} ${rating === 1 ? copy.star : copy.stars}`}
-                          className={current !== null && rating <= current ? "selected" : ""}
-                          disabled={saving}
-                          key={rating}
-                          onClick={() => void rate(person.id, rating)}
-                          type="button"
-                        >
-                          ★
-                        </button>
-                      ))}
+                    <strong className="recipe-preference-name">{displayName(person)}</strong>
+                    <div className="recipe-preference-controls">
+                      <button
+                        className={`button ghost recipe-dislike ${current === 0 ? "active" : ""}`}
+                        disabled={saving}
+                        onClick={() => void rate(person.id, 0)}
+                        type="button"
+                      >
+                        {copy.dislike}
+                      </button>
+                      <div className="recipe-stars" aria-label={displayName(person)}>
+                        {[1, 2, 3, 4, 5].map((rating) => (
+                          <button
+                            aria-label={`${rating} ${rating === 1 ? copy.star : copy.stars}`}
+                            className={current !== null && rating <= current ? "selected" : ""}
+                            disabled={saving}
+                            key={rating}
+                            onClick={() => void rate(person.id, rating)}
+                            type="button"
+                          >
+                            ★
+                          </button>
+                        ))}
+                      </div>
+                      <span className="recipe-person-rating">
+                        {current === null ? "—" : `${current}/5`}
+                      </span>
+                      <button
+                        className="button ghost recipe-clear-rating"
+                        disabled={saving || current === null}
+                        onClick={() => void clear(person.id)}
+                        type="button"
+                      >
+                        {copy.clear}
+                      </button>
                     </div>
-                    <span className="recipe-person-rating">{current === null ? "—" : `${current}/5`}</span>
-                    <button
-                      className="button ghost"
-                      disabled={saving || current === null}
-                      onClick={() => void clear(person.id)}
-                      type="button"
-                    >
-                      {copy.clear}
-                    </button>
                   </div>
                 );
               })}
