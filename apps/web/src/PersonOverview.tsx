@@ -12,6 +12,7 @@ import type {
 import { memberDisplayName } from "./FamilyHome";
 import type { Locale } from "./i18n";
 import { useI18n } from "./i18n";
+import PersonProfileEditor from "./PersonProfileEditor";
 
 type PersonSection =
   | "overview"
@@ -39,6 +40,7 @@ const COPY = {
     health: "Saúde",
     history: "Histórico",
     profile: "Perfil",
+    editProfile: "Editar perfil",
     today: "Hoje",
     todayHelp: "O essencial desta pessoa para o dia atual.",
     consumed: "Energia consumida",
@@ -95,6 +97,7 @@ const COPY = {
     health: "Health",
     history: "History",
     profile: "Profile",
+    editProfile: "Edit profile",
     today: "Today",
     todayHelp: "The essentials for this person today.",
     consumed: "Energy consumed",
@@ -254,6 +257,8 @@ export default function PersonOverview({
   const [person, setPerson] = useState<Person | null>(null);
   const [profile, setProfile] = useState<PersonEnergyProfile | null>(null);
   const [dailyState, setDailyState] = useState<PlanningDailyNutritionState | null>(null);
+  const [profileEditing, setProfileEditing] = useState(false);
+  const [revision, setRevision] = useState(0);
   const meals = useMemo(
     () => personMeals(dashboard, member.person_id),
     [dashboard, member.person_id],
@@ -275,7 +280,7 @@ export default function PersonOverview({
     return () => {
       cancelled = true;
     };
-  }, [member.person_id]);
+  }, [member.person_id, revision]);
 
   const consumed = dailyState?.energy_consumed_kcal ?? member.nutrition?.energy_consumed_kcal;
   const planned = dailyState?.energy_planned_kcal ?? member.nutrition?.energy_planned_kcal;
@@ -302,8 +307,8 @@ export default function PersonOverview({
           </span>
           <div>
             <span className="eyebrow">{dashboard.dashboard_date}</span>
-            <h1>{memberDisplayName(member)}</h1>
-            <p>{member.timezone}</p>
+            <h1>{person ? [person.first_name, person.last_name].filter(Boolean).join(" ") : memberDisplayName(member)}</h1>
+            <p>{person?.timezone ?? member.timezone}</p>
           </div>
         </div>
       </header>
@@ -314,7 +319,10 @@ export default function PersonOverview({
             aria-current={section === item ? "page" : undefined}
             className={section === item ? "active" : ""}
             key={item}
-            onClick={() => setSection(item)}
+            onClick={() => {
+              setProfileEditing(false);
+              setSection(item);
+            }}
             type="button"
           >
             {sectionLabel(item, locale)}
@@ -464,17 +472,34 @@ export default function PersonOverview({
               <h2>{copy.profile}</h2>
               <p>{copy.profileHelp}</p>
             </div>
+            {!profileEditing && person ? (
+              <button className="button ghost" onClick={() => setProfileEditing(true)} type="button">
+                {copy.editProfile}
+              </button>
+            ) : null}
           </div>
-          <div className="person-detail-grid">
-            <DetailItem label={copy.birthDate} value={formatDate(person?.birth_date ?? null, locale) ?? copy.noData} />
-            <DetailItem label={copy.sex} value={profile ? copy[profile.sex_for_energy_calculation] : copy.noData} />
-            <DetailItem label={copy.height} value={profile ? `${formatNumber(profile.height_cm, locale, 1)} cm` : copy.noData} />
-            <DetailItem label={copy.weight} value={profile ? `${formatNumber(profile.weight_kg, locale, 1)} kg` : copy.noData} />
-            <DetailItem label={copy.usualActivity} value={profile ? copy[profile.activity_level] : copy.noData} />
-            <DetailItem label={copy.goal} value={profile ? goalText(profile, locale) : copy.noData} />
-            <DetailItem label={copy.timezone} value={person?.timezone ?? member.timezone} />
-            <DetailItem label={copy.breakfast} value={profile ? kcal(profile.standard_breakfast_kcal, locale) ?? copy.noData : copy.noData} />
-          </div>
+          {profileEditing && person ? (
+            <PersonProfileEditor
+              onCancel={() => setProfileEditing(false)}
+              onSaved={() => {
+                setProfileEditing(false);
+                setRevision((current) => current + 1);
+              }}
+              person={person}
+              profile={profile}
+            />
+          ) : (
+            <div className="person-detail-grid">
+              <DetailItem label={copy.birthDate} value={formatDate(person?.birth_date ?? null, locale) ?? copy.noData} />
+              <DetailItem label={copy.sex} value={profile ? copy[profile.sex_for_energy_calculation] : copy.noData} />
+              <DetailItem label={copy.height} value={profile ? `${formatNumber(profile.height_cm, locale, 1)} cm` : copy.noData} />
+              <DetailItem label={copy.weight} value={profile ? `${formatNumber(profile.weight_kg, locale, 1)} kg` : copy.noData} />
+              <DetailItem label={copy.usualActivity} value={profile ? copy[profile.activity_level] : copy.noData} />
+              <DetailItem label={copy.goal} value={profile ? goalText(profile, locale) : copy.noData} />
+              <DetailItem label={copy.timezone} value={person?.timezone ?? member.timezone} />
+              <DetailItem label={copy.breakfast} value={profile ? kcal(profile.standard_breakfast_kcal, locale) ?? copy.noData : copy.noData} />
+            </div>
+          )}
         </section>
       ) : null}
 
