@@ -1,6 +1,7 @@
+import json
 import uuid
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from app.models.food_catalog import (
     FoodCompositionSnapshot,
@@ -24,6 +25,16 @@ class RecipeNutritionBuildResult:
     issues: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class IngredientPortionConversion:
+    recipe_unit: str
+    reference_unit: str
+    quantity_in_reference_unit: Decimal
+    source: str | None
+    source_reference: str | None
+    description: str | None
+
+
 def _reference(recipe: Recipe) -> tuple[Decimal, str]:
     if recipe.yield_quantity is not None and recipe.yield_unit is not None:
         return recipe.yield_quantity, recipe.yield_unit
@@ -35,6 +46,84 @@ def _reference(recipe: Recipe) -> tuple[Decimal, str]:
 def _latest_food_composition(recipe_ingredient) -> FoodCompositionSnapshot | None:
     compositions = recipe_ingredient.food_item.compositions
     return compositions[-1] if compositions else None
+
+
+def _portion_conversion(
+    composition: FoodCompositionSnapshot,
+    recipe_unit: str,
+) -> IngredientPortionConversion | None:
+    if not composition.notes:
+        return None
+    try:
+        payload = json.loads(composition.notes)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    raw_conversions = payload.get("portion_conversions")
+    if not isinstance(raw_conversions, dict):
+        return None
+
+    normalized_unit = recipe_unit.strip().casefold()
+    raw = raw_conversions.get(normalized_unit)
+    if not isinstance(raw, dict):
+        return None
+    reference_unit = raw.get("reference_unit")
+    raw_quantity = raw.get("quantity_in_reference_unit")
+    if not isinstance(reference_unit, str) or raw_quantity is None:
+        return None
+    try:
+        quantity = Decimal(str(raw_quantity))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    if quantity <= 0:
+        return None
+    normalized_reference_unit = reference_unit.strip().casefold()
+    if not normalized_reference_unit:
+        return None
+    source = raw.get("source")
+    source_reference = raw.get("source_reference")
+    description = raw.get("fdc_portion_description")
+    return IngredientPortionConversion(
+        recipe_unit=normalized_unit,
+        reference_unit=normalized_reference_unit,
+        quantity_in_reference_unit=quantity,
+        source=source if isinstance(source, str) else None,
+        source_reference=(
+            source_reference if isinstance(source_reference, str) else None
+        ),
+        description=description if isinstance(description, str) else None,
+    )
+
+
+def _scale_recipe_ingredient(
+    recipe_ingredient,
+    composition: FoodCompositionSnapshot,
+) -> tuple[NutritionSnapshot, IngredientPortionConversion | None]:
+    try:
+        return (
+            scale_composition_nutrition(
+                composition,
+                quantity=recipe_ingredient.quantity,
+                quantity_unit=recipe_ingredient.unit,
+            ),
+            None,
+        )
+    except UnsupportedUnitConversionError as direct_error:
+        conversion = _portion_conversion(composition, recipe_ingredient.unit)
+        if conversion is None:
+            raise direct_error
+        converted_quantity = (
+            recipe_ingredient.quantity * conversion.quantity_in_reference_unit
+        )
+        return (
+            scale_composition_nutrition(
+                composition,
+                quantity=converted_quantity,
+                quantity_unit=conversion.reference_unit,
+            ),
+            conversion,
+        )
 
 
 def _aggregate_nutrients(
@@ -95,38 +184,48 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
 
     issues: list[str] = []
     scaled: list[NutritionSnapshot] = []
-    inputs: list[dict[str, str | int | None]] = []
+    inputs: list[dict[str, object]] = []
 
     if not recipe.ingredients:
         issues.append("Recipe has no ingredients.")
 
     for index, ingredient in enumerate(recipe.ingredients):
         composition = _latest_food_composition(ingredient)
-        inputs.append(
-            {
-                "sort_order": index,
-                "recipe_ingredient_id": str(ingredient.id) if ingredient.id else None,
-                "food_item_id": str(ingredient.food_item_id),
-                "food_catalog_key": ingredient.food_item.catalog_key,
-                "quantity": str(ingredient.quantity),
-                "unit": ingredient.unit,
-                "composition_snapshot_id": str(composition.id) if composition else None,
-                "composition_data_version": composition.data_version if composition else None,
-            }
-        )
+        input_row: dict[str, object] = {
+            "sort_order": index,
+            "recipe_ingredient_id": str(ingredient.id) if ingredient.id else None,
+            "food_item_id": (
+                str(ingredient.food_item_id) if ingredient.food_item_id else None
+            ),
+            "food_catalog_key": ingredient.food_item.catalog_key,
+            "quantity": str(ingredient.quantity),
+            "unit": ingredient.unit,
+            "composition_snapshot_id": str(composition.id) if composition else None,
+            "composition_data_version": composition.data_version if composition else None,
+        }
+        inputs.append(input_row)
         if composition is None:
             issues.append(
                 f"Ingredient {ingredient.food_item.name!r} has no nutrition composition."
             )
             continue
         try:
-            scaled.append(
-                scale_composition_nutrition(
-                    composition,
-                    quantity=ingredient.quantity,
-                    quantity_unit=ingredient.unit,
-                )
+            snapshot, portion_conversion = _scale_recipe_ingredient(
+                ingredient,
+                composition,
             )
+            scaled.append(snapshot)
+            if portion_conversion is not None:
+                input_row["portion_conversion"] = {
+                    "recipe_unit": portion_conversion.recipe_unit,
+                    "reference_unit": portion_conversion.reference_unit,
+                    "quantity_in_reference_unit": str(
+                        portion_conversion.quantity_in_reference_unit
+                    ),
+                    "source": portion_conversion.source,
+                    "source_reference": portion_conversion.source_reference,
+                    "description": portion_conversion.description,
+                }
         except UnsupportedUnitConversionError:
             issues.append(
                 f"Ingredient {ingredient.food_item.name!r} cannot be safely converted "
@@ -157,8 +256,12 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
         calculation_inputs={
             "ingredients": inputs,
             "issues": issues,
-            "serving_count": str(recipe.serving_count) if recipe.serving_count is not None else None,
-            "yield_quantity": str(recipe.yield_quantity) if recipe.yield_quantity is not None else None,
+            "serving_count": (
+                str(recipe.serving_count) if recipe.serving_count is not None else None
+            ),
+            "yield_quantity": (
+                str(recipe.yield_quantity) if recipe.yield_quantity is not None else None
+            ),
             "yield_unit": recipe.yield_unit,
         },
     )
