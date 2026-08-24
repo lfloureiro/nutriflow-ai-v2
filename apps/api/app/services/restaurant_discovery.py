@@ -20,28 +20,26 @@ from app.schemas.restaurant_discovery import (
 OSM_ATTRIBUTION = "© OpenStreetMap contributors (ODbL)"
 GOOGLE_ATTRIBUTION = "Google Maps"
 GOOGLE_PLACES_API_KEY_SECRET = "NUTRIFLOW_GOOGLE_PLACES_API_KEY"
-_GOOGLE_FIELD_MASK = ",".join(
-    (
-        "places.id",
-        "places.displayName",
-        "places.formattedAddress",
-        "places.location",
-        "places.primaryType",
-        "places.types",
-        "places.rating",
-        "places.userRatingCount",
-        "places.priceLevel",
-        "places.websiteUri",
-        "places.nationalPhoneNumber",
-        "places.regularOpeningHours",
-        "places.delivery",
-        "places.takeout",
-        "places.dineIn",
-        "places.servesLunch",
-        "places.servesDinner",
-        "places.servesVegetarianFood",
-        "nextPageToken",
-    )
+_GOOGLE_FIELD_MASK = (
+    "places.id,"
+    "places.displayName,"
+    "places.formattedAddress,"
+    "places.location,"
+    "places.primaryType,"
+    "places.types,"
+    "places.rating,"
+    "places.userRatingCount,"
+    "places.priceLevel,"
+    "places.websiteUri,"
+    "places.nationalPhoneNumber,"
+    "places.regularOpeningHours,"
+    "places.delivery,"
+    "places.takeout,"
+    "places.dineIn,"
+    "places.servesLunch,"
+    "places.servesDinner,"
+    "places.servesVegetarianFood,"
+    "nextPageToken"
 )
 _CACHE_LOCK = threading.Lock()
 _CACHE: dict[str, tuple[float, RestaurantDiscoveryRead]] = {}
@@ -234,9 +232,9 @@ def _ranking_key(
     place: RestaurantDiscoveryPlaceRead,
 ) -> tuple[Decimal, int, Decimal, int, str]:
     return (
-        place.quality_score if place.quality_score is not None else Decimal("-1"),
+        place.quality_score if place.quality_score is not None else Decimal(-1),
         place.rating_count or 0,
-        place.rating if place.rating is not None else Decimal("-1"),
+        place.rating if place.rating is not None else Decimal(-1),
         _amenity_priority(place),
         place.name.casefold(),
     )
