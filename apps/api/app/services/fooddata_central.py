@@ -42,6 +42,20 @@ class FdcNutrient:
 
 
 @dataclass(frozen=True)
+class FdcFoodPortion:
+    portion_id: int
+    amount: Decimal
+    gram_weight: Decimal
+    description: str
+    measure_unit: str | None
+    modifier: str | None
+
+    @property
+    def grams_per_measure_unit(self) -> Decimal:
+        return self.gram_weight / self.amount
+
+
+@dataclass(frozen=True)
 class FdcFoodNutrition:
     fdc_id: int
     description: str
@@ -49,6 +63,7 @@ class FdcFoodNutrition:
     publication_date: str | None
     energy_kcal: Decimal | None
     nutrients: tuple[FdcNutrient, ...]
+    portions: tuple[FdcFoodPortion, ...] = ()
 
     @property
     def source_reference(self) -> str:
@@ -82,6 +97,16 @@ def _positive_int(value: object) -> int | None:
     try:
         parsed = int(value)
     except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _positive_decimal(value: object) -> Decimal | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        parsed = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
         return None
     return parsed if parsed > 0 else None
 
@@ -185,6 +210,51 @@ def _nutrient_amounts(payload: dict[str, object]) -> dict[int, tuple[Decimal, st
     return values
 
 
+def _portion_measure_unit(raw: dict[str, object]) -> str | None:
+    measure = raw.get("measureUnit")
+    if isinstance(measure, dict):
+        return (
+            _optional_text(measure.get("abbreviation"))
+            or _optional_text(measure.get("name"))
+        )
+    return _optional_text(measure)
+
+
+def _parse_portions(payload: dict[str, object]) -> tuple[FdcFoodPortion, ...]:
+    raw_portions = payload.get("foodPortions")
+    if not isinstance(raw_portions, list):
+        return ()
+
+    portions: list[FdcFoodPortion] = []
+    for raw in raw_portions:
+        if not isinstance(raw, dict):
+            continue
+        portion_id = _positive_int(raw.get("id"))
+        amount = _positive_decimal(raw.get("amount"))
+        gram_weight = _positive_decimal(raw.get("gramWeight"))
+        if portion_id is None or amount is None or gram_weight is None:
+            continue
+        modifier = _optional_text(raw.get("modifier"))
+        measure_unit = _portion_measure_unit(raw)
+        description = (
+            _optional_text(raw.get("portionDescription"))
+            or modifier
+            or measure_unit
+            or f"FDC portion {portion_id}"
+        )
+        portions.append(
+            FdcFoodPortion(
+                portion_id=portion_id,
+                amount=amount,
+                gram_weight=gram_weight,
+                description=description,
+                measure_unit=measure_unit,
+                modifier=modifier,
+            )
+        )
+    return tuple(portions)
+
+
 def _parse_food_response(payload: object) -> FdcFoodNutrition:
     if not isinstance(payload, dict):
         raise FoodDataCentralError("FoodData Central returned invalid food data.")
@@ -217,14 +287,12 @@ def _parse_food_response(payload: object) -> FdcFoodNutrition:
         publication_date=_optional_text(payload.get("publicationDate")),
         energy_kcal=energy_kcal,
         nutrients=tuple(nutrients),
+        portions=_parse_portions(payload),
     )
 
 
 def fetch_food_nutrition(fdc_id: int) -> FdcFoodNutrition:
     if fdc_id <= 0:
         raise FoodDataCentralError("fdc_id must be positive.")
-    url = (
-        f"{FDC_API_BASE_URL}/food/{fdc_id}?"
-        f"{urlencode({'api_key': _api_key()})}"
-    )
+    url = f"{FDC_API_BASE_URL}/food/{fdc_id}?{urlencode({'api_key': _api_key()})}"
     return _parse_food_response(_request_json(url))
