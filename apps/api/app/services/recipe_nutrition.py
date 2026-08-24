@@ -109,10 +109,10 @@ def _scale_recipe_ingredient(
             ),
             None,
         )
-    except UnsupportedUnitConversionError as direct_error:
+    except UnsupportedUnitConversionError:
         conversion = _portion_conversion(composition, recipe_ingredient.unit)
         if conversion is None:
-            raise direct_error
+            raise
         converted_quantity = (
             recipe_ingredient.quantity * conversion.quantity_in_reference_unit
         )
