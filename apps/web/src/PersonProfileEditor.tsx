@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 
 import { ApiError } from "./api/client";
 import { updatePerson } from "./api/setupClient";
@@ -11,6 +11,7 @@ import type {
 } from "./api/setupTypes";
 import type { Person } from "./api/types";
 import { useI18n } from "./i18n";
+import { supportedTimezones } from "./timezones";
 
 const COPY = {
   "pt-PT": {
@@ -145,6 +146,7 @@ export default function PersonProfileEditor({
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
+  const timezones = useMemo(supportedTimezones, []);
   const [values, setValues] = useState<Values>(() => initialValues(person, profile));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -200,7 +202,7 @@ export default function PersonProfileEditor({
         first_name: values.firstName.trim(),
         last_name: values.lastName.trim() || null,
         birth_date: values.birthDate || null,
-        timezone: values.timezone.trim() || "Europe/Lisbon",
+        timezone: values.timezone,
         ...(energyProfile ? { energy_profile: energyProfile } : {}),
       });
       onSaved();
@@ -235,7 +237,11 @@ export default function PersonProfileEditor({
         </label>
         <label className="field">
           <span>{copy.timezone}</span>
-          <input value={values.timezone} onChange={(event) => update("timezone", event.target.value)} />
+          <select value={values.timezone} onChange={(event) => update("timezone", event.target.value)}>
+            {timezones.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
         </label>
       </div>
 
