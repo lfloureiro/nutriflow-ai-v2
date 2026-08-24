@@ -61,8 +61,12 @@
   border-bottom: 0;
 }
 
-.ingredient-row:hover {
+button.ingredient-row:hover {
   background: var(--surface-soft);
+}
+
+.ingredient-row--readonly {
+  background: color-mix(in srgb, var(--surface-soft) 55%, transparent);
 }
 
 .ingredient-row__main {
