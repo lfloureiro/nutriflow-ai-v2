@@ -5,13 +5,21 @@ import type {
 } from "./api/types";
 
 export type RecommendationPeriodMode = "single" | "range";
-export type RecommendationSource = "cooked" | "uber_eats" | "glovo" | "restaurant";
+export type RecommendationSource =
+  | "cooked"
+  | "uber_eats"
+  | "glovo"
+  | "bolt_food"
+  | "restaurant";
 export type RecommendationMealType = "breakfast" | "lunch" | "snack" | "dinner";
 
-// Sources shown in the browser today. Restaurant means live place discovery;
-// dishes only enter nutritional ranking when an actual menu is ingested.
+// Every user-selectable source is exposed here. Availability/configuration is
+// resolved per Person/Family; providers without an approved live adapter stay disabled.
 export const RECOMMENDATION_SOURCES = [
   "cooked",
+  "uber_eats",
+  "glovo",
+  "bolt_food",
   "restaurant",
 ] as const satisfies readonly RecommendationSource[];
 
@@ -67,7 +75,11 @@ export function recommendationSourceKinds(
 ): PracticalSourceKind[] {
   const result: PracticalSourceKind[] = [];
   if (sources.includes("cooked")) result.push("home");
-  if (sources.includes("uber_eats") || sources.includes("glovo")) {
+  if (
+    sources.includes("uber_eats") ||
+    sources.includes("glovo") ||
+    sources.includes("bolt_food")
+  ) {
     result.push("delivery");
   }
   return result;
@@ -79,6 +91,7 @@ export function recommendationDeliveryProviderKeys(
   const providers: string[] = [];
   if (sources.includes("uber_eats")) providers.push("uber_eats");
   if (sources.includes("glovo")) providers.push("glovo");
+  if (sources.includes("bolt_food")) providers.push("bolt_food");
   return providers;
 }
 
@@ -88,7 +101,10 @@ export function recommendationCandidates(
   mealType: RecommendationMealType,
 ): RecommendationCandidateInput[] {
   const allowCooked = sources.includes("cooked");
-  const allowDelivery = sources.includes("uber_eats") || sources.includes("glovo");
+  const allowDelivery =
+    sources.includes("uber_eats") ||
+    sources.includes("glovo") ||
+    sources.includes("bolt_food");
   return candidates
     .filter((candidate) => {
       if (!candidate.suitable_meal_types.includes(mealType)) return false;
