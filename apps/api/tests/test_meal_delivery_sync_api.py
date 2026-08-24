@@ -106,6 +106,12 @@ def test_sync_endpoint_uses_registered_adapter_and_ingests_offer(
         assert result.observed_count == 1
         assert len(result.ingested) == 1
         assert not result.ingested[0].eligible_for_nutrition_ranking
+        assert len(result.items) == 1
+        assert result.items[0].merchant_name == "Restaurante Live"
+        assert result.items[0].item_name == "Prato Live"
+        assert result.items[0].item_price == Decimal("11.90")
+        assert result.items[0].energy_kcal is None
+        assert not result.items[0].eligible_for_nutrition_ranking
         assert db_session.scalar(select(func.count()).select_from(MealCommercialOffer)) == 1
     finally:
         clear_meal_delivery_adapters()
