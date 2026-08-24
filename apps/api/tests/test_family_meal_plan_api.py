@@ -106,6 +106,23 @@ def test_family_meal_plan_exposes_four_slots_and_supports_create_update_cancel(
         Decimal(500),
     ]
 
+    duplicate = _request(
+        db_session,
+        "POST",
+        f"/api/families/{family.id}/meal-plan",
+        json={
+            "date": PLAN_DATE,
+            "meal_type": "dinner",
+            "local_time": "21:00",
+            "recipe_id": recipe_id,
+            "participants": [{"person_id": str(ana.id), "quantity": "300", "unit": "g"}],
+        },
+    )
+    assert duplicate.status_code == 409
+    assert duplicate.json()["detail"] == (
+        "A meal is already planned for this meal slot on this date."
+    )
+
     plan = _request(
         db_session,
         "GET",
