@@ -76,12 +76,49 @@ def _goal_adjustment(
     return -capped if goal_type == "lose" else capped
 
 
-def create_energy_profile(
+def _ensure_profile(person: Person) -> PersonProfile:
+    if person.profile is None:
+        person.profile = PersonProfile(
+            measurement_system="metric",
+            energy_unit="kcal",
+        )
+    return person.profile
+
+
+def _supersede_active_energy_records(
+    session: Session,
+    *,
+    person: Person,
+    local_date: date,
+) -> None:
+    goals = session.scalars(
+        select(NutritionGoal).where(
+            NutritionGoal.person_id == person.id,
+            NutritionGoal.status == "active",
+        )
+    ).all()
+    for goal in goals:
+        goal.status = "superseded"
+
+    targets = session.scalars(
+        select(NutritionTarget).where(
+            NutritionTarget.person_id == person.id,
+            NutritionTarget.status == "active",
+        )
+    ).all()
+    for target in targets:
+        target.status = "superseded"
+        if target.valid_until is None and local_date >= target.valid_from:
+            target.valid_until = local_date
+
+
+def _apply_energy_profile(
     session: Session,
     *,
     person: Person,
     data: PersonEnergyProfileCreate,
-    now: datetime | None = None,
+    now: datetime | None,
+    supersede_existing: bool,
 ) -> NutritionTarget:
     if person.birth_date is None:
         raise PersonEnergyProfileError("birth_date is required for calorie target calculation.")
@@ -105,14 +142,20 @@ def create_energy_profile(
     energy_min = _q(max(Decimal(1), center - TARGET_HALF_WIDTH_KCAL))
     energy_max = _q(center + TARGET_HALF_WIDTH_KCAL)
 
-    profile = PersonProfile(
-        sex_for_energy_calculation=data.sex_for_energy_calculation,
-        activity_level=data.activity_level,
-        standard_breakfast_kcal=data.standard_breakfast_kcal,
-        measurement_system="metric",
-        energy_unit="kcal",
-    )
-    person.profile = profile
+    if supersede_existing:
+        _supersede_active_energy_records(
+            session,
+            person=person,
+            local_date=local_date,
+        )
+
+    profile = _ensure_profile(person)
+    profile.sex_for_energy_calculation = data.sex_for_energy_calculation
+    profile.activity_level = data.activity_level
+    profile.standard_breakfast_kcal = data.standard_breakfast_kcal
+    profile.measurement_system = "metric"
+    profile.energy_unit = "kcal"
+
     session.add_all(
         [
             AnthropometricMeasurement(
@@ -179,6 +222,38 @@ def create_energy_profile(
     )
     session.add(target)
     return target
+
+
+def create_energy_profile(
+    session: Session,
+    *,
+    person: Person,
+    data: PersonEnergyProfileCreate,
+    now: datetime | None = None,
+) -> NutritionTarget:
+    return _apply_energy_profile(
+        session,
+        person=person,
+        data=data,
+        now=now,
+        supersede_existing=False,
+    )
+
+
+def update_energy_profile(
+    session: Session,
+    *,
+    person: Person,
+    data: PersonEnergyProfileCreate,
+    now: datetime | None = None,
+) -> NutritionTarget:
+    return _apply_energy_profile(
+        session,
+        person=person,
+        data=data,
+        now=now,
+        supersede_existing=True,
+    )
 
 
 def _latest_measurement(session: Session, person_id, metric: str) -> Decimal:
