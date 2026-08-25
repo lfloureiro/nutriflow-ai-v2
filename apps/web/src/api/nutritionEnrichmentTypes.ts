@@ -15,6 +15,7 @@ export type NutritionEnrichmentRun = {
   source_version: string;
   cache_refreshed: boolean;
   applied_count: number;
+  unit_conversion_count: number;
   review_count: number;
   unmatched_count: number;
   recalculated_recipe_count: number;
