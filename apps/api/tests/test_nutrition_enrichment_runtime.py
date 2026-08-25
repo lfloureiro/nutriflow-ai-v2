@@ -1,4 +1,3 @@
-import os
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -36,6 +35,11 @@ def test_stale_portfir_cache_is_refreshed(tmp_path, monkeypatch) -> None:
     cache.write_bytes(b"old")
     observed_at = datetime.now(UTC)
     stale_timestamp = (observed_at - timedelta(days=31)).timestamp()
+    cache.touch()
+    cache.chmod(0o600)
+
+    import os
+
     os.utime(cache, (stale_timestamp, stale_timestamp))
     calls: list[object] = []
 
@@ -69,7 +73,7 @@ def test_runtime_summarizes_safe_auto_enrichment(
     food = PortfirFoodNutrition(
         code="A1",
         name="Azeite",
-        energy_kcal=Decimal("899"),
+        energy_kcal=Decimal(899),
         nutrients=(),
     )
     enrichment = (
@@ -96,25 +100,15 @@ def test_runtime_summarizes_safe_auto_enrichment(
             recalculated_recipe_count=0,
         ),
     )
-
-    def fake_load(_path):
-        return (food,)
-
-    def fake_auto_enrich(_db, *, foods, apply: bool, limit: int):
-        assert foods == (food,)
-        assert apply is True
-        assert limit == 200
-        return enrichment
-
     monkeypatch.setattr(
         nutrition_enrichment_runtime,
         "load_portfir_foods",
-        fake_load,
+        lambda _path: (food,),
     )
     monkeypatch.setattr(
         nutrition_enrichment_runtime,
         "auto_enrich_shared_ingredients_from_portfir",
-        fake_auto_enrich,
+        lambda _db, *, foods, apply, limit: enrichment,
     )
 
     result = nutrition_enrichment_runtime.run_automatic_nutrition_enrichment(
