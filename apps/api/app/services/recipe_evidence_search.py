@@ -74,7 +74,11 @@ def _request_json(url: str, *, data: bytes) -> object:
             timeout=settings.nutrition_web_evidence_timeout_seconds,
         ) as response:
             return json.loads(response.read().decode("utf-8"))
-    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+    except HTTPError as exc:
+        raise RecipeEvidenceSearchError(
+            f"Nutrition evidence search provider returned HTTP {exc.code}."
+        ) from exc
+    except (URLError, TimeoutError, json.JSONDecodeError) as exc:
         raise RecipeEvidenceSearchError(
             "Nutrition evidence search provider is unavailable."
         ) from exc
@@ -185,9 +189,8 @@ def search_recipe_nutrition_evidence(
         {
             "queries": query,
             "maxPagesPerQuery": 1,
-            "resultsPerPage": limit,
             "countryCode": "pt",
-            "languageCode": "pt",
+            "languageCode": "pt-PT",
             "includeUnfilteredResults": False,
             "saveHtml": False,
             "saveHtmlToKeyValueStore": False,
