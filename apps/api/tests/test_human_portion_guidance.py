@@ -2,7 +2,6 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from app.models.food_catalog import (
-    FoodCompositionSnapshot,
     FoodItem,
     Recipe,
     RecipeCompositionSnapshot,
