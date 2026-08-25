@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     default_timezone: str = "Europe/Lisbon"
 
     restaurant_discovery_enabled: bool = True
+    restaurant_apify_google_enabled: bool = True
+    restaurant_apify_google_url: str = (
+        "https://api.apify.com/v2/actors/compass~crawler-google-places/"
+        "run-sync-get-dataset-items"
+    )
+    restaurant_apify_timeout_seconds: float = 120.0
     restaurant_google_places_enabled: bool = True
     restaurant_google_places_url: str = "https://places.googleapis.com/v1/places:searchText"
     restaurant_discovery_nominatim_url: str = "https://nominatim.openstreetmap.org"
@@ -26,6 +32,7 @@ class Settings(BaseSettings):
     restaurant_discovery_max_results: int = 40
 
     provider_secret_backend: str = "environment"
+    nutriflow_apify_api_token: str | None = None
     nutriflow_google_places_api_key: str | None = None
     nutriflow_fdc_api_key: str | None = None
     nutriflow_uber_client_id: str | None = None
