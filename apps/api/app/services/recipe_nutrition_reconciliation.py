@@ -12,6 +12,8 @@ from app.models.food_catalog import (
 )
 from app.services.recipe_nutrition import CALCULATION_VERSION, build_recipe_composition
 
+CURRENT_EVIDENCE_POLICY_VERSION = "recipe-evidence-v3"
+
 
 @dataclass(frozen=True)
 class LegacyRecipeNutritionCoverage:
@@ -83,6 +85,8 @@ def _snapshot_is_current(
     if composition is None or not isinstance(composition.calculation_inputs, dict):
         return False
     inputs = composition.calculation_inputs
+    if inputs.get("policy_version") != CURRENT_EVIDENCE_POLICY_VERSION:
+        return False
     actual = inputs.get("ingredients")
     if not isinstance(actual, list):
         return False
