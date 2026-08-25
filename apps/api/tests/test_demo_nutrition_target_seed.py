@@ -40,10 +40,11 @@ def test_demo_nutrition_targets_cover_all_people_and_future_planning(db_session:
     assert today.daily_nutrition_state.energy_remaining_min_kcal == Decimal("800.00")
     assert today.daily_nutrition_state.energy_remaining_max_kcal == Decimal("1000.00")
 
+    future_at = max(NOW, datetime.now(UTC)) + timedelta(days=2)
     future = get_planning_bootstrap(
         db_session,
         person_id=DEMO_PERSON_ID,
-        scheduled_at=NOW + timedelta(days=2),
+        scheduled_at=future_at,
         ensure_state=True,
     )
     assert future.daily_nutrition_state is not None
