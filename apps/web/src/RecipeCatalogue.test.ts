@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Recipe, RecipeNutritionEvidence } from "./api/recipeTypes";
 import {
+  matchesMealTypeFilter,
   recipeNutritionBlockers,
   recipeNutritionEvidenceLabel,
   recipeNutritionSummary,
@@ -59,16 +60,38 @@ describe("recipe catalogue helpers", () => {
     );
   });
 
-  it("labels synthetic development nutrition separately", () => {
-    expect(recipeNutritionEvidenceLabel(recipe("2400", "600", [], "synthetic_development"), "pt-PT")).toBe(
-      "Estimativa de desenvolvimento",
-    );
+  it("labels practical and development estimates separately", () => {
+    expect(
+      recipeNutritionEvidenceLabel(
+        recipe("2400", "600", [], "ingredient_estimated"),
+        "pt-PT",
+      ),
+    ).toBe("Estimativa nutricional");
+    expect(
+      recipeNutritionEvidenceLabel(
+        recipe("2400", "600", [], "synthetic_development"),
+        "pt-PT",
+      ),
+    ).toBe("Estimativa de desenvolvimento");
     expect(recipeNutritionEvidenceLabel(recipe("2400", "600"), "pt-PT")).toBe(
       "Calculada pelos ingredientes",
     );
   });
 
-  it("identifies the ingredients that block energy calculation", () => {
+  it("filters recipes by meal type instead of nutrition implementation detail", () => {
+    const lunchRecipe = recipe("2400", "600");
+    const snackRecipe = {
+      ...recipe("250", "250", [], "ingredient_estimated"),
+      suitable_meal_types: ["snack"] as Recipe["suitable_meal_types"],
+    };
+
+    expect(matchesMealTypeFilter(lunchRecipe, "all")).toBe(true);
+    expect(matchesMealTypeFilter(lunchRecipe, "lunch")).toBe(true);
+    expect(matchesMealTypeFilter(lunchRecipe, "snack")).toBe(false);
+    expect(matchesMealTypeFilter(snackRecipe, "snack")).toBe(true);
+  });
+
+  it("identifies ingredients without detailed composition", () => {
     expect(
       recipeNutritionBlockers(
         recipe(null, null, [
