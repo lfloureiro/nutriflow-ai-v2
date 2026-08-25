@@ -1,41 +1,104 @@
 # Shared ingredient nutrition enrichment
 
-Status: active design contract for `feature/family-catalog-and-profile-editing`.
+Status: active design contract for `feature/automatic-meal-intelligence`.
 
-## Why enrichment is separate from Family editing
+## Purpose
 
-Legacy v1 Recipes reference shared Ingredients. Allowing an arbitrary Family to edit those shared Ingredient compositions would silently change nutrition for every Family that can use the shared Recipe catalogue.
+Legacy and shared Recipes should become nutritionally usable without requiring a Family user to maintain a second copy of the shared Ingredient catalogue. Shared nutrition is therefore curated globally, while Family-owned Ingredients remain editable through `Casa -> Ingredientes`.
 
-Therefore shared nutrition is curated globally, while Family-owned Ingredients remain editable through `Casa -> Ingredientes`.
-
-## Authoritative source
-
-The first supported curation source is USDA FoodData Central (FDC).
-
-NutriFlow uses only generic `Foundation` and `SR Legacy` records for this shared-ingredient workflow. USDA documents Foundation nutrient values on a 100 g edible-portion basis, which matches the reference model used by NutriFlow. Branded foods are deliberately excluded from this generic-ingredient importer.
-
-No Ingredient is matched automatically just because a name looks similar. The workflow requires an explicit approved mapping:
-
-```json
-{
-  "matches": [
-    {
-      "catalog_key": "legacy-v1:ingredient:example",
-      "fdc_id": 123456
-    }
-  ]
-}
-```
-
-## Development workflow
-
-Configure a local API key in the untracked `.env`:
+The runtime follows two separate responsibilities:
 
 ```text
-NUTRIFLOW_FDC_API_KEY=...
+PortFIR -> nutrition composition
+USDA FoodData Central -> safe measurement evidence when needed
 ```
 
-USDA documents the public `DEMO_KEY` for initial exploration with lower rate limits. A normal data.gov API key should be used for regular development.
+A measurement source must not silently replace the nutrition source.
+
+## Primary nutrition source: PortFIR
+
+PortFIR is the primary generic-food composition source for the Portuguese catalogue. NutriFlow imports the current supported PortFIR workbook, stores immutable `FoodCompositionSnapshot` records and recalculates active Recipes that use an enriched Ingredient.
+
+Most PortFIR food values use a 100 g reference. Alcoholic beverages use a 100 ml reference and NutriFlow preserves that distinction, so a Recipe using wine in millilitres does not require an invented density conversion.
+
+The PortFIR workbook is cached locally under `.cache/portfir/` for up to 30 days. Opening a Family starts best-effort automatic enrichment in the background. Failure to download or parse PortFIR does not block normal application navigation.
+
+Automatic matching is deliberately conservative:
+
+- exact normalized names are preferred;
+- low-risk preparation descriptors such as `cru`, `fresco`, `congelado` and `picado` may be ignored for a core-name comparison;
+- a match must exceed the automatic confidence threshold and have a sufficient margin over the next candidate;
+- ambiguous matches remain for review;
+- an existing newer non-PortFIR composition is never overwritten by automatic PortFIR maintenance.
+
+PortFIR snapshots include the source version and reference unit in their deterministic data version. If a previously imported PortFIR item is later corrected from a 100 g basis to a 100 ml basis, a new immutable snapshot is created and affected Recipes are recalculated.
+
+## Secondary measurement source: USDA FoodData Central
+
+USDA FoodData Central remains available for explicit curation and, when a configured FDC API key is available, for a small conservative set of automatic measurement conversions.
+
+NutriFlow uses only generic `Foundation` and `SR Legacy` records in this workflow. USDA nutrition is not substituted for an existing PortFIR composition merely to obtain a portion weight.
+
+A USDA `foodPortion` may supply evidence such as:
+
+```text
+1 clove = 3 g
+1 medium onion = 110 g
+1 cup olive oil = 216 g
+```
+
+For volume measures, NutriFlow first converts the explicit household measure to its known volume and then derives grams per millilitre from the USDA portion. It never assumes that `1 cup = 1 ml` or that `1 ml = 1 g`.
+
+The initial automatic conversion allow-list is intentionally narrow and requires an exact expected USDA food identity. It covers selected common cases such as olive oil in `ml` and garlic, onion, egg, lemon, carrot and peppers in `un`. If the food identity or required portion is not present, no conversion is written.
+
+If no FDC key is configured or FDC is unavailable, PortFIR enrichment still succeeds; unresolved measurement conversions remain blockers.
+
+## Estimated versus exact calculations
+
+A source-backed average portion is useful but is not the same as weighing the actual ingredient. Automatic USDA portion conversions are therefore stored with `estimated = true`.
+
+When a Recipe uses one of those conversions:
+
+- energy can be calculated;
+- the Recipe calculation records the exact conversion and source reference;
+- `energy_estimated` is true;
+- the number of estimated portion conversions is recorded in calculation inputs.
+
+Explicit curator-approved conversions can remain non-estimated when the evidence describes the actual Recipe measurement.
+
+## Qualitative amounts (`q.b.`)
+
+`q.b.` / `quanto baste` is not converted into a fake quantity. It is excluded from the energy sum and the resulting energy is explicitly marked estimated when the remaining quantitative Ingredients are calculable.
+
+Nutrient totals are withheld when a qualitative amount is present because an unknown quantity of salt or another ingredient must not be treated as complete evidence for mandatory nutrient limits.
+
+## Units that remain fail-closed
+
+Native mass-to-mass and volume-to-volume conversions use deterministic conversion rules. Cross-dimension or count conversions require evidence.
+
+Examples that deliberately remain unresolved without more information include:
+
+```text
+1 emb -> unknown package weight
+1 bottle/can -> unknown package volume when it is not encoded
+1 whole chicken -> variable real weight
+```
+
+A Recipe can therefore remain incomplete even after its Ingredients have nutritional compositions if one required quantitative unit still lacks safe conversion evidence.
+
+## Background runtime and Web refresh
+
+The Family endpoint:
+
+```text
+POST /api/families/{family_id}/nutrition-enrichment/auto
+```
+
+runs PortFIR enrichment first and then attempts the safe USDA unit-conversion allow-list. The response reports composition applications, automatic unit conversions and the number of Recipes recalculated.
+
+The Web app invokes this process in the background when a Family is opened. When data change, it emits a Family-scoped nutrition event so the Ingredient and Recipe catalogues refresh without requiring a browser reload.
+
+## Manual audit and curation tools
 
 From `apps/api`:
 
@@ -48,68 +111,7 @@ python -m app.fdc_enrichment inspect 123456
 python -m app.fdc_enrichment apply-map path\to\approved-fdc-mapping.json
 ```
 
-`audit` is the preferred starting point. It does not call USDA and reports each shared Ingredient's Recipe usage, Recipe units, nutrition status and any remaining unsafe unit conversions. By default it shows blockers only; `--all` includes ready Ingredients.
-
-`list-missing` is a simpler composition-only view. `search` returns candidates. `inspect` shows the nutrition and USDA `foodPortions` for one candidate. `apply-map` is the only operation that writes nutrition, and it accepts explicit FDC IDs only.
-
-## Provenance and versioning
-
-Each approved FDC match creates an immutable `FoodCompositionSnapshot` with:
-
-- 100 g reference quantity;
-- kcal energy when available;
-- core protein, fat, carbohydrate, fibre and sodium values when present;
-- `source = usda-fdc`;
-- direct FDC food-details source reference;
-- FDC ID, data type, publication date and curation method in notes;
-- a deterministic source data version.
-
-Reapplying the same FDC record and conversion is idempotent and does not create another Ingredient composition.
-
-## Safe Recipe-unit conversions
-
-Recipe quantities are not silently coerced to grams. Native mass-to-mass and volume-to-volume conversions continue to use the deterministic serving conversion rules. Cross-dimension or count conversions require explicit evidence.
-
-FoodData Central `foodPortions` may be approved as Ingredient-specific conversions. For example, if an approved FDC record states that one clove weighs 3 g:
-
-```json
-{
-  "matches": [
-    {
-      "catalog_key": "legacy-v1:ingredient:4",
-      "fdc_id": 123456,
-      "unit_portion_id": 789,
-      "recipe_unit": "dentes"
-    }
-  ]
-}
-```
-
-If the USDA portion itself represents multiple items, NutriFlow uses its `amount` and `gramWeight` to derive grams per one Recipe unit.
-
-For volume-to-mass cases, the curator must also state how many Recipe units the approved FDC portion represents. Example: if an inspected FDC portion represents 240 ml and weighs 236 g:
-
-```json
-{
-  "matches": [
-    {
-      "catalog_key": "legacy-v1:ingredient:13",
-      "fdc_id": 654321,
-      "unit_portion_id": 987,
-      "recipe_unit": "ml",
-      "recipe_unit_quantity": "240"
-    }
-  ]
-}
-```
-
-The stored conversion becomes `236 / 240 g per ml`. Without that explicit quantity, NutriFlow must not interpret a cup or other volume portion as one millilitre.
-
-Multiple approved conversions for the same FDC Ingredient are cumulative. Adding `dentes` and later `c. sopa` for the same FDC food preserves both conversions in the latest composition snapshot.
-
-## Enrichment audit statuses
-
-The audit classifies each active shared Ingredient as one of:
+`audit` does not call USDA. It reports Recipe usage, Recipe units, nutrition status and remaining unsafe conversions. The statuses are:
 
 ```text
 missing_composition
@@ -118,23 +120,27 @@ missing_unit_conversion
 ready
 ```
 
-It also reports all Recipe units currently using the Ingredient and the subset that still cannot be converted safely. Results are ordered by blocker class, then by number of active Recipes affected, so curation can focus on the changes with the highest impact.
+Manual `apply-map` remains available for cases that cannot be safely automated. It accepts explicit FDC IDs and optional approved portion mappings; it does not fuzzy-apply a candidate.
 
-## Recipe recalculation
+## Provenance and versioning
 
-After a new shared Ingredient composition or approved portion conversion is added, every active Recipe that references that Ingredient is recalculated through the deterministic Recipe nutrition engine.
+Ingredient and Recipe composition snapshots remain immutable. New evidence creates a new version instead of rewriting history. Stored provenance includes, as applicable:
 
-This is intentionally incremental. A Recipe remains nutritionally incomplete until every required Ingredient has usable energy evidence and safe unit conversion. Once the final blocker is enriched, the next Recipe composition snapshot contains calculated energy from the Ingredient evidence.
-
-The previous Recipe and Ingredient snapshots remain in history.
+- PortFIR code, version, reference basis and automatic match confidence;
+- USDA FDC ID, data type, publication date and direct source reference;
+- USDA portion ID, amount, gram weight, description and measure;
+- Recipe unit represented by the conversion;
+- whether the conversion is estimated;
+- calculation issues and exact Ingredient snapshots used by a Recipe.
 
 ## Safety rules
 
-- no fuzzy match is applied without explicit approval;
 - no absent kcal value is invented;
-- Branded FDC data are not used by this generic importer;
-- imported values keep source/version provenance;
-- count or volume-to-mass conversions require explicit portion evidence;
-- an FDC portion is never assumed to equal one Recipe unit unless that relationship is explicit;
+- no count-to-mass or volume-to-mass conversion is assumed without evidence;
+- no package weight is inferred from the word `emb`;
+- PortFIR remains the preferred generic nutrition source for this Portuguese catalogue;
+- USDA portion evidence can augment a PortFIR snapshot without replacing its nutrition values;
+- ambiguous automatic matches remain unresolved;
+- automatic average portions are labelled as estimates;
 - shared catalogue curation is not exposed as ordinary Family CRUD;
-- Family-owned Ingredients continue to use the existing versioned Family editor.
+- Family-owned Ingredients continue to use the versioned Family editor.
