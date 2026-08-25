@@ -193,14 +193,12 @@ def recipe_search_name(recipe_name: str) -> str:
     return " ".join(without_notes.strip().split())
 
 
-def search_recipe_nutrition_evidence(
-    recipe_name: str,
+def _search_nutrition_query(
+    display_name: str,
     *,
-    max_results: int | None = None,
+    query: str,
+    max_results: int | None,
 ) -> RecipeEvidenceSearchResult:
-    normalized_name = " ".join(recipe_name.strip().split())
-    if not normalized_name:
-        raise RecipeEvidenceSearchError("Recipe evidence search requires a recipe name.")
     if not settings.nutrition_web_evidence_enabled:
         raise RecipeEvidenceSearchError("Nutrition web evidence search is disabled.")
 
@@ -214,8 +212,6 @@ def search_recipe_nutrition_evidence(
         max(max_results or settings.nutrition_web_evidence_max_results, 1),
         20,
     )
-    search_name = recipe_search_name(normalized_name) or normalized_name
-    query = f'"{search_name}" calorias kcal receita'
     payload = json.dumps(
         {
             "queries": query,
@@ -247,7 +243,45 @@ def search_recipe_nutrition_evidence(
             break
 
     return RecipeEvidenceSearchResult(
-        recipe_name=normalized_name,
+        recipe_name=display_name,
         query=query,
         hits=tuple(hits),
+    )
+
+
+def search_recipe_nutrition_evidence(
+    recipe_name: str,
+    *,
+    max_results: int | None = None,
+) -> RecipeEvidenceSearchResult:
+    normalized_name = " ".join(recipe_name.strip().split())
+    if not normalized_name:
+        raise RecipeEvidenceSearchError("Recipe evidence search requires a recipe name.")
+    search_name = recipe_search_name(normalized_name) or normalized_name
+    return _search_nutrition_query(
+        normalized_name,
+        query=f'"{search_name}" calorias kcal receita',
+        max_results=max_results,
+    )
+
+
+def search_named_food_nutrition_evidence(
+    food_name: str,
+    *,
+    max_results: int | None = None,
+) -> RecipeEvidenceSearchResult:
+    """Search nutrition evidence for a branded/prepared food stored only by name.
+
+    This intentionally avoids the word ``receita`` so exact product labels and retailer/brand
+    nutrition pages rank above recipe blogs.
+    """
+
+    normalized_name = " ".join(food_name.strip().split())
+    if not normalized_name:
+        raise RecipeEvidenceSearchError("Named food evidence search requires a food name.")
+    search_name = recipe_search_name(normalized_name) or normalized_name
+    return _search_nutrition_query(
+        normalized_name,
+        query=f'"{search_name}" calorias kcal 100g',
+        max_results=max_results,
     )
