@@ -50,6 +50,10 @@ def _snippet_evidence(
     return evidence
 
 
+def _has_structured_anchor(scored: tuple[ScoredRecipeEvidence, ...]) -> bool:
+    return any(item.evidence.source != "search-snippet" for item in scored)
+
+
 def collect_recipe_nutrition_evidence(
     *,
     recipe_name: str,
@@ -84,7 +88,11 @@ def collect_recipe_nutrition_evidence(
         ingredient_names=ingredient_names,
         evidence=collected,
     )
-    estimate = robust_recipe_energy_estimate(scored)
+    estimate = (
+        robust_recipe_energy_estimate(scored)
+        if _has_structured_anchor(scored)
+        else None
+    )
     return RecipeEvidenceCollection(
         recipe_name=recipe_name,
         query=search.query,
