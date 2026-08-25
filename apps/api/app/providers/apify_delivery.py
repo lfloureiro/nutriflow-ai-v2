@@ -135,9 +135,7 @@ def _uber_store_is_portuguese(raw_store: dict[str, object]) -> bool:
         country = (_text(location.get("country")) or "").upper()
     if country and country != "PT":
         return False
-    if currency and currency != "EUR":
-        return False
-    return True
+    return not (currency and currency != "EUR")
 
 
 def _uber_rows(
