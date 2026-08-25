@@ -1,6 +1,11 @@
 from decimal import Decimal
 
-from app.providers.apify_delivery import _city_from_address, _glovo_rows, _uber_rows
+from app.providers.apify_delivery import (
+    _city_from_address,
+    _glovo_rows,
+    _merchant_matches,
+    _uber_rows,
+)
 from app.providers.meal_delivery import MealDeliveryDiscoveryRequest
 
 
@@ -38,7 +43,7 @@ def test_uber_rows_extracts_live_store_menu_items() -> None:
         }
     ]
 
-    result = _uber_rows(rows, request=_request("Li Yuan"))
+    result = _uber_rows(rows, request=_request("Restaurante Li Yuan"))
 
     assert len(result) == 1
     item = result[0]
@@ -52,6 +57,35 @@ def test_uber_rows_extracts_live_store_menu_items() -> None:
     assert item.location == "Benfica, Lisboa"
     assert item.source_kind == "delivery"
     assert item.source_reference.startswith("https://www.ubereats.com/")
+
+
+def test_uber_rows_rejects_wrong_restaurant_returned_by_marketplace_search() -> None:
+    rows = [
+        {
+            "uuid": "store-matuya",
+            "title": "Matuya",
+            "url": "https://www.ubereats.com/pt/store/matuya/example",
+            "currencyCode": "EUR",
+            "menu": [
+                {
+                    "title": "Pratos",
+                    "catalogItems": [
+                        {
+                            "uuid": "dish-1",
+                            "title": "Vaca com Molho Ostra",
+                            "priceTagline": "10,00 €",
+                        }
+                    ],
+                }
+            ],
+        }
+    ]
+
+    result = _uber_rows(rows, request=_request("Restaurante Li Yuan"))
+
+    assert result == ()
+    assert _merchant_matches("Restaurante Li Yuan", "Li Yuan")
+    assert not _merchant_matches("Restaurante Li Yuan", "Matuya")
 
 
 def test_uber_rows_deduplicates_same_catalog_item_across_sections() -> None:
