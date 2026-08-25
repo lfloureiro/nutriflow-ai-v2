@@ -82,6 +82,50 @@ def test_collect_recipe_nutrition_evidence_prefers_structured_pages(monkeypatch)
     assert result.estimate.energy_kcal_per_serving in {Decimal(351), Decimal(480)}
 
 
+def test_collect_recipe_nutrition_evidence_does_not_estimate_from_snippet_only(
+    monkeypatch,
+) -> None:
+    search = RecipeEvidenceSearchResult(
+        recipe_name="Almondegas",
+        query='"Almondegas" calorias kcal receita',
+        hits=(
+            RecipeEvidenceSearchHit(
+                title="Almôndegas de Perú - 166 kcal por porção",
+                url="https://example.test/snippet",
+                description="166 kcal por porção",
+                position=1,
+                calorie_mentions=(
+                    CalorieMention(
+                        energy_kcal=Decimal(166),
+                        basis="per_serving",
+                        context="166 kcal por porção",
+                    ),
+                ),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        recipe_evidence_collector,
+        "search_recipe_nutrition_evidence",
+        lambda recipe_name, max_results: search,
+    )
+    monkeypatch.setattr(
+        recipe_evidence_collector,
+        "fetch_structured_recipe_pages",
+        lambda _url: (),
+    )
+
+    result = recipe_evidence_collector.collect_recipe_nutrition_evidence(
+        recipe_name="Almondegas",
+        ingredient_names=("Almondegas", "Azeite", "Cebola"),
+    )
+
+    assert len(result.evidence) == 1
+    assert len(result.scored) == 1
+    assert result.scored[0].evidence.source == "search-snippet"
+    assert result.estimate is None
+
+
 def test_collect_recipe_nutrition_evidence_tracks_failed_pages(monkeypatch) -> None:
     search = RecipeEvidenceSearchResult(
         recipe_name="Filetes no forno com limão",
