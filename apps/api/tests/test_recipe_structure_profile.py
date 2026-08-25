@@ -47,6 +47,8 @@ def test_classification_focuses_on_nutritionally_relevant_dimensions() -> None:
     assert classify_ingredient_dimensions("Azeite") == (DIM_ENERGY_MODIFIER,)
     assert classify_ingredient_dimensions("Pimenta preta em pó") == (DIM_ACCESSORY,)
     assert classify_ingredient_dimensions("Sal grosso") == (DIM_ACCESSORY,)
+    assert classify_ingredient_dimensions("Caldo de carne") == (DIM_ACCESSORY,)
+    assert classify_ingredient_dimensions("Noz moscada") == (DIM_ACCESSORY,)
 
 
 def test_profile_identifies_primary_structure_and_ignores_accessories_as_drivers() -> None:
