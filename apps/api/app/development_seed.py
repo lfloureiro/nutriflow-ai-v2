@@ -33,10 +33,20 @@ def _remove_fake_commercial_browser_data(session) -> None:
 
 def _configure_loureiro_meal_sources(family: Family) -> None:
     family.meal_discovery_sources = list(
-        dict.fromkeys([*family.meal_discovery_sources, "shared_recipes", "restaurants"])
+        dict.fromkeys(
+            [
+                *family.meal_discovery_sources,
+                "shared_recipes",
+                "uber_eats",
+                "glovo",
+                "restaurants",
+            ]
+        )
     )
     if not (family.restaurant_area or "").strip():
-        family.restaurant_area = "Lisboa"
+        family.restaurant_area = "Benfica, Lisboa"
+    if not (family.delivery_address or "").strip():
+        family.delivery_address = "Benfica, Lisboa"
 
 
 def main() -> None:
@@ -83,7 +93,7 @@ def main() -> None:
     print(f"New shared snack ingredients: {snacks.new_ingredient_count}")
     print(f"Demo nutrition targets: {nutrition.target_count}")
     print(f"Demo calorie budget states: {nutrition.state_count}")
-    print("Família Loureiro meal sources: shared recipes + live restaurants")
+    print("Família Loureiro meal sources: shared recipes + Uber Eats + Glovo + restaurants")
     print("Commercial demo providers: removed/disabled")
     print(f"Planning profiles: {planning.profile_count}")
 
