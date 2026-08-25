@@ -14,17 +14,18 @@ function candidate(
   category: string,
   id: string,
   suitableMealTypes: PlanningMealType[] = ["lunch", "dinner"],
+  catalogKey = `${kind}:${id}`,
 ): PlanningCandidate {
   return {
     candidate_kind: kind,
     composition_id: id,
-    catalog_key: `${kind}:${id}`,
+    catalog_key: catalogKey,
     name: id,
     category,
     brand: null,
     description: null,
-    reference_quantity: "100",
-    reference_unit: "g",
+    reference_quantity: "1",
+    reference_unit: kind === "food_item" ? "serving" : "serving",
     energy_kcal: "200",
     composition_version: "v1",
     composition_at: "2026-08-22T12:00:00Z",
@@ -72,23 +73,47 @@ describe("recommendation planning helpers", () => {
     ).toEqual(["uber_eats", "glovo", "bolt_food"]);
   });
 
-  it("allows menu-backed restaurant dishes into nutritional ranking", () => {
+  it("keeps restaurant and delivery dishes on their selected source", () => {
     const candidates = [
       candidate("recipe", "recipe", "recipe-1"),
-      candidate("food_item", "dish", "dish-1"),
-      candidate("food_item", "ingredient", "ingredient-1"),
+      candidate(
+        "food_item",
+        "dish",
+        "restaurant-dish",
+        ["lunch", "dinner"],
+        "external:restaurant_website:abc",
+      ),
+      candidate(
+        "food_item",
+        "dish",
+        "uber-dish",
+        ["lunch", "dinner"],
+        "external:uber_eats:def",
+      ),
+      candidate(
+        "food_item",
+        "dish",
+        "bolt-dish",
+        ["lunch", "dinner"],
+        "external:bolt_food:ghi",
+      ),
     ];
 
     expect(
       recommendationCandidates(candidates, ["cooked", "restaurant"], "lunch").map(
         (item) => item.composition_id,
       ),
-    ).toEqual(["recipe-1", "dish-1"]);
+    ).toEqual(["recipe-1", "restaurant-dish"]);
+    expect(
+      recommendationCandidates(candidates, ["uber_eats"], "lunch").map(
+        (item) => item.composition_id,
+      ),
+    ).toEqual(["uber-dish"]);
     expect(
       recommendationCandidates(candidates, ["bolt_food"], "lunch").map(
         (item) => item.composition_id,
       ),
-    ).toEqual(["dish-1"]);
+    ).toEqual(["bolt-dish"]);
   });
 
   it("keeps breakfast, snack and main-meal candidates in their own slots", () => {
@@ -96,7 +121,13 @@ describe("recommendation planning helpers", () => {
       candidate("recipe", "recipe", "breakfast", ["breakfast"]),
       candidate("recipe", "recipe", "snack", ["snack"]),
       candidate("recipe", "recipe", "main", ["lunch", "dinner"]),
-      candidate("food_item", "dish", "commercial-main", ["lunch", "dinner"]),
+      candidate(
+        "food_item",
+        "dish",
+        "restaurant-main",
+        ["lunch", "dinner"],
+        "external:restaurant_website:main",
+      ),
     ];
 
     expect(
@@ -113,11 +144,6 @@ describe("recommendation planning helpers", () => {
       recommendationCandidates(candidates, ["cooked", "restaurant"], "lunch").map(
         (item) => item.composition_id,
       ),
-    ).toEqual(["main", "commercial-main"]);
-    expect(
-      recommendationCandidates(candidates, ["cooked", "bolt_food"], "dinner").map(
-        (item) => item.composition_id,
-      ),
-    ).toEqual(["main", "commercial-main"]);
+    ).toEqual(["main", "restaurant-main"]);
   });
 });
