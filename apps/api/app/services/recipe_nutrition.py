@@ -9,6 +9,10 @@ from app.models.food_catalog import (
     RecipeCompositionSnapshot,
     RecipeNutrientComponent,
 )
+from app.services.retail_quantity_estimates import (
+    PACKAGE_UNITS,
+    estimate_retail_package_quantity,
+)
 from app.services.serving_nutrition import (
     NutritionSnapshot,
     UnsupportedUnitConversionError,
@@ -35,6 +39,7 @@ class IngredientPortionConversion:
     source_reference: str | None
     description: str | None
     estimated: bool
+    confidence: str | None = None
 
 
 def _reference(recipe: Recipe) -> tuple[Decimal, str]:
@@ -85,7 +90,8 @@ def _portion_conversion(
         return None
     source = raw.get("source")
     source_reference = raw.get("source_reference")
-    description = raw.get("fdc_portion_description")
+    description = raw.get("description") or raw.get("fdc_portion_description")
+    confidence = raw.get("confidence")
     return IngredientPortionConversion(
         recipe_unit=normalized_unit,
         reference_unit=normalized_reference_unit,
@@ -96,10 +102,39 @@ def _portion_conversion(
         ),
         description=description if isinstance(description, str) else None,
         estimated=raw.get("estimated") is True,
+        confidence=confidence if isinstance(confidence, str) else None,
+    )
+
+
+def _retail_package_conversion(
+    recipe: Recipe,
+    recipe_ingredient,
+    composition: FoodCompositionSnapshot,
+) -> IngredientPortionConversion | None:
+    normalized_unit = recipe_ingredient.unit.strip().casefold()
+    if normalized_unit not in PACKAGE_UNITS:
+        return None
+    estimate = estimate_retail_package_quantity(
+        ingredient_name=recipe_ingredient.food_item.name,
+        composition_reference_unit=composition.reference_unit,
+        serving_count=recipe.serving_count,
+    )
+    if estimate is None:
+        return None
+    return IngredientPortionConversion(
+        recipe_unit=normalized_unit,
+        reference_unit=estimate.reference_unit,
+        quantity_in_reference_unit=estimate.quantity_in_reference_unit,
+        source=estimate.source,
+        source_reference=estimate.source_reference,
+        description=estimate.description,
+        estimated=True,
+        confidence=estimate.confidence,
     )
 
 
 def _scale_recipe_ingredient(
+    recipe: Recipe,
     recipe_ingredient,
     composition: FoodCompositionSnapshot,
 ) -> tuple[NutritionSnapshot, IngredientPortionConversion | None]:
@@ -114,6 +149,12 @@ def _scale_recipe_ingredient(
         )
     except UnsupportedUnitConversionError:
         conversion = _portion_conversion(composition, recipe_ingredient.unit)
+        if conversion is None:
+            conversion = _retail_package_conversion(
+                recipe,
+                recipe_ingredient,
+                composition,
+            )
         if conversion is None:
             raise
         converted_quantity = (
@@ -180,9 +221,10 @@ def _aggregate_nutrients(
 def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
     """Create a new immutable composition snapshot from current Recipe ingredients.
 
-    Missing or unsafe quantitative evidence remains fail-closed. Qualitative amounts such as
-    ``q.b.`` are excluded from the energy total and make that total explicitly estimated.
-    Source-backed average portion conversions may be used, but also mark energy as estimated.
+    Missing nutrition evidence remains fail-closed. Qualitative amounts such as ``q.b.`` are
+    excluded from the energy total and make that total explicitly estimated. Source-backed
+    average portions and supermarket-package extrapolations may be used, but are also marked
+    as estimates rather than exact quantities.
     """
 
     issues: list[str] = []
@@ -231,6 +273,7 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
             continue
         try:
             snapshot, portion_conversion = _scale_recipe_ingredient(
+                recipe,
                 ingredient,
                 composition,
             )
@@ -246,12 +289,13 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
                     "source_reference": portion_conversion.source_reference,
                     "description": portion_conversion.description,
                     "estimated": portion_conversion.estimated,
+                    "confidence": portion_conversion.confidence,
                 }
                 if portion_conversion.estimated:
                     estimated_portion_conversion_count += 1
                     issues.append(
-                        f"Ingredient {ingredient.food_item.name!r} uses a source-backed "
-                        "average portion conversion; its contribution is estimated."
+                        f"Ingredient {ingredient.food_item.name!r} uses an estimated "
+                        "quantity conversion; its contribution is approximate."
                     )
         except UnsupportedUnitConversionError:
             issues.append(
@@ -299,7 +343,7 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
             "energy_estimated": energy_estimated,
             "qualitative_ingredient_count": qualitative_count,
             "estimated_portion_conversion_count": estimated_portion_conversion_count,
-            "policy_version": "recipe-evidence-v2",
+            "policy_version": "recipe-evidence-v3",
             "serving_count": (
                 str(recipe.serving_count) if recipe.serving_count is not None else None
             ),
