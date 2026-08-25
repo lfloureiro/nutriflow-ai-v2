@@ -12,6 +12,9 @@ class EnvironmentProviderSecretStore:
     def get(self, name: str) -> str | None:
         value = os.getenv(name)
         if value is None:
+            configured = getattr(settings, name.casefold(), None)
+            value = configured if isinstance(configured, str) else None
+        if value is None:
             return None
         value = value.strip()
         return value or None
