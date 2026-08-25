@@ -15,6 +15,9 @@ from app.services.portfir import (
     load_portfir_foods,
 )
 from app.services.portfir_enrichment import auto_enrich_shared_ingredients_from_portfir
+from app.services.recipe_nutrition_reconciliation import (
+    reconcile_legacy_recipe_nutrition,
+)
 
 DEFAULT_PORTFIR_CACHE_PATH = Path(".cache/portfir/insa_tca.xlsx")
 PORTFIR_CACHE_MAX_AGE = timedelta(days=30)
@@ -73,6 +76,7 @@ def run_automatic_nutrition_enrichment(
             limit=limit,
         )
         conversions = auto_enrich_shared_unit_conversions(db)
+        coverage = reconcile_legacy_recipe_nutrition(db)
         items = [
             NutritionEnrichmentItemRead(
                 catalog_key=item.catalog_key,
@@ -98,6 +102,12 @@ def run_automatic_nutrition_enrichment(
             recalculated_recipe_count=(
                 sum(item.recalculated_recipe_count for item in enrichment)
                 + sum(item.recalculated_recipe_count for item in conversions)
+                + coverage.rebuilt_count
             ),
+            legacy_recipe_total_count=coverage.total_count,
+            legacy_recipe_rebuilt_count=coverage.rebuilt_count,
+            legacy_recipe_calculated_count=coverage.calculated_count,
+            legacy_recipe_estimated_count=coverage.estimated_count,
+            legacy_recipe_blocked_count=coverage.blocked_count,
             items=items,
         )
