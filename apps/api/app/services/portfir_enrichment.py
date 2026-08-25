@@ -93,8 +93,14 @@ def _recipes_using_ingredient(db: Session, ingredient_id: uuid.UUID) -> list[Rec
 
 
 def _data_version(food: PortfirFoodNutrition) -> str:
-    safe_code = "".join(character for character in food.code if character.isalnum() or character in "-_")
-    return f"portfir-{food.version}-{safe_code or 'unknown'}"[:64]
+    safe_code = "".join(
+        character
+        for character in food.code
+        if character.isalnum() or character in "-_"
+    )
+    return (
+        f"portfir-{food.version}-{safe_code or 'unknown'}-{food.reference_unit}"
+    )[:64]
 
 
 def apply_portfir_nutrition_to_shared_ingredient(
@@ -129,7 +135,7 @@ def apply_portfir_nutrition_to_shared_ingredient(
         "portfir_code": food.code,
         "portfir_name": food.name,
         "portfir_version": food.version,
-        "reference_basis": "100 g edible portion",
+        "reference_basis": f"100 {food.reference_unit}",
         "curation": "automatic-high-confidence" if match is not None else "explicit-match",
     }
     if match is not None:
@@ -142,7 +148,7 @@ def apply_portfir_nutrition_to_shared_ingredient(
 
     composition = FoodCompositionSnapshot(
         reference_quantity=Decimal(100),
-        reference_unit="g",
+        reference_unit=food.reference_unit,
         energy_kcal=food.energy_kcal,
         data_version=data_version,
         source="portfir",
@@ -245,7 +251,9 @@ def auto_enrich_shared_ingredients_from_portfir(
                 reason=automatic.reason,
                 composition_created=enrichment.created if enrichment is not None else False,
                 recalculated_recipe_count=(
-                    len(enrichment.recalculated_recipe_ids) if enrichment is not None else 0
+                    len(enrichment.recalculated_recipe_ids)
+                    if enrichment is not None
+                    else 0
                 ),
             )
         )
