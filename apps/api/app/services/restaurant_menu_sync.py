@@ -13,7 +13,7 @@ from app.schemas.restaurant_menu_sync import (
     RestaurantMenuSyncRead,
 )
 from app.services.external_menu_ingestion import ingest_external_menu_item
-from app.services.restaurant_discovery import discover_restaurants
+from app.services.restaurant_discovery import discover_restaurants, google_places_configured
 from app.services.restaurant_dish_nutrition import estimate_restaurant_dish_nutrition
 from app.services.restaurant_menu_scraper import (
     RestaurantMenuScraperError,
@@ -22,7 +22,6 @@ from app.services.restaurant_menu_scraper import (
 )
 
 RESTAURANT_WEBSITE_PROVIDER_KEY = "restaurant_website"
-RESTAURANT_WEBSITE_PROVIDER_NAME = "Official restaurant website"
 MENU_VALIDITY = timedelta(hours=24)
 
 
@@ -66,6 +65,12 @@ def sync_restaurant_menus(
 ) -> RestaurantMenuSyncRead:
     area = _area(family, data.area)
     discovery = discover_restaurants(area, limit=data.restaurant_limit)
+    if google_places_configured() and discovery.provider != "google_places":
+        raise RestaurantMenuSyncError(
+            "Google Places is configured but unavailable. Restaurant menu sync will not mix "
+            "OpenStreetMap fallback results into recommendations."
+        )
+
     observed_at = datetime.now(UTC)
     menus: list[RestaurantMenuRead] = []
     ingested_count = 0
@@ -117,14 +122,14 @@ def sync_restaurant_menus(
                     family=family,
                     data=ExternalMenuItemObservationWrite(
                         provider_key=RESTAURANT_WEBSITE_PROVIDER_KEY,
-                        provider_name=RESTAURANT_WEBSITE_PROVIDER_NAME,
+                        provider_name=restaurant.name,
                         merchant_key=restaurant.provider_place_id,
                         merchant_name=restaurant.name,
                         item_key=_item_key(restaurant.provider_place_id, item),
                         item_name=item.name,
                         description=item.description,
                         source_kind="restaurant",
-                        location=restaurant.address or area,
+                        location=area,
                         item_price=item.price,
                         currency=item.currency,
                         delivery_fee=None,
