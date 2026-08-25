@@ -13,6 +13,8 @@ export type RecommendationSource =
   | "restaurant";
 export type RecommendationMealType = "breakfast" | "lunch" | "snack" | "dinner";
 
+// Every user-selectable source is exposed here. Availability/configuration is
+// resolved per Person/Family; providers without an approved live adapter stay disabled.
 export const RECOMMENDATION_SOURCES = [
   "cooked",
   "uber_eats",
@@ -73,7 +75,6 @@ export function recommendationSourceKinds(
 ): PracticalSourceKind[] {
   const result: PracticalSourceKind[] = [];
   if (sources.includes("cooked")) result.push("home");
-  if (sources.includes("restaurant")) result.push("restaurant");
   if (
     sources.includes("uber_eats") ||
     sources.includes("glovo") ||
@@ -81,6 +82,7 @@ export function recommendationSourceKinds(
   ) {
     result.push("delivery");
   }
+  if (sources.includes("restaurant")) result.push("restaurant");
   return result;
 }
 
@@ -98,13 +100,19 @@ function commercialDishMatchesSource(
   candidate: PlanningCandidate,
   sources: RecommendationSource[],
 ): boolean {
-  const key = candidate.catalog_key.casefold();
+  const key = candidate.catalog_key.toLocaleLowerCase();
   if (sources.includes("restaurant") && key.startsWith("external:restaurant_website:")) {
     return true;
   }
-  if (sources.includes("uber_eats") && key.startsWith("external:uber_eats:")) return true;
-  if (sources.includes("glovo") && key.startsWith("external:glovo:")) return true;
-  if (sources.includes("bolt_food") && key.startsWith("external:bolt_food:")) return true;
+  if (sources.includes("uber_eats") && key.startsWith("external:uber_eats:")) {
+    return true;
+  }
+  if (sources.includes("glovo") && key.startsWith("external:glovo:")) {
+    return true;
+  }
+  if (sources.includes("bolt_food") && key.startsWith("external:bolt_food:")) {
+    return true;
+  }
   return false;
 }
 
