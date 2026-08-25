@@ -4,6 +4,8 @@ from app.models.food_catalog import FoodItem, Recipe, RecipeIngredient
 from app.services.practical_nutrition_profile import (
     ENERGY_SIGNAL_HIGH,
     ENERGY_SIGNAL_LOW,
+    ENERGY_SIGNAL_MODERATE,
+    ENERGY_SIGNAL_UNKNOWN,
     LOAD_HIGH,
     LOAD_LOW,
     LOAD_MODERATE,
@@ -13,6 +15,7 @@ from app.services.practical_nutrition_profile import (
     VEGETABLE_LOW,
     VEGETABLE_MODERATE,
     build_practical_nutrition_profile,
+    score_practical_nutrition_profile,
 )
 
 
@@ -60,7 +63,7 @@ def test_profile_highlights_large_added_fat_without_caring_about_accessories() -
     assert "high_energy_modifier" in profile.balance_signals
 
 
-def test_profile_treats_typical_oil_amount_as_low_load() -> None:
+def test_profile_treats_typical_oil_amount_as_low_modifier_load() -> None:
     recipe = _recipe(
         "Arroz de bacalhau",
         [
@@ -78,6 +81,7 @@ def test_profile_treats_typical_oil_amount_as_low_load() -> None:
     modifier = next(item for item in profile.modifiers if item.name == "Azeite")
     assert modifier.kind == MODIFIER_ADDED_FAT
     assert modifier.load == LOAD_LOW
+    assert profile.energy_load_signal == ENERGY_SIGNAL_MODERATE
     assert profile.vegetable_level == VEGETABLE_MODERATE
     assert "structurally_balanced" in profile.balance_signals
 
@@ -117,3 +121,47 @@ def test_qualitative_modifier_does_not_raise_energy_load() -> None:
     milk = next(item for item in profile.modifiers if item.name == "Leite")
     assert milk.load == "none"
     assert profile.energy_load_signal == ENERGY_SIGNAL_LOW
+
+
+def test_empty_recipe_is_marked_as_insufficient_data() -> None:
+    recipe = Recipe(recipe_key="test:empty", name="Douradinhos", source="test")
+
+    profile = build_practical_nutrition_profile(recipe)
+    score, reasons = score_practical_nutrition_profile(profile)
+
+    assert profile.energy_load_signal == ENERGY_SIGNAL_UNKNOWN
+    assert profile.balance_signals == ("insufficient_data",)
+    assert score == Decimal("0.0000")
+    assert reasons == ("meal_structure:insufficient_data",)
+
+
+def test_structure_score_prefers_balanced_recipe_over_rich_high_energy_recipe() -> None:
+    balanced = build_practical_nutrition_profile(
+        _recipe(
+            "Arroz de bacalhau",
+            [
+                ("Bacalhau", Decimal(400), "g"),
+                ("Arroz", Decimal(280), "g"),
+                ("Cebola", Decimal(1), "un"),
+                ("Tomate", Decimal(400), "g"),
+                ("Azeite", Decimal(30), "ml"),
+            ],
+        )
+    )
+    rich = build_practical_nutrition_profile(
+        _recipe(
+            "Bifanas com natas",
+            [
+                ("Bifanas", Decimal(800), "g"),
+                ("Margarina", Decimal(100), "g"),
+                ("Natas", Decimal(3), "emb"),
+            ],
+        )
+    )
+
+    balanced_score, balanced_reasons = score_practical_nutrition_profile(balanced)
+    rich_score, rich_reasons = score_practical_nutrition_profile(rich)
+
+    assert balanced_score > rich_score
+    assert "meal_structure:balanced" in balanced_reasons
+    assert "meal_structure:high_energy_load" in rich_reasons
