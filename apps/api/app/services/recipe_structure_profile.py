@@ -228,6 +228,7 @@ def classify_ingredient_dimensions(name: str) -> tuple[str, ...]:
 
 def _infer_cooking_method(recipe: Recipe) -> str:
     texts = [recipe.name]
+    texts.extend(ingredient.food_item.name for ingredient in recipe.ingredients)
     texts.extend(
         value
         for ingredient in recipe.ingredients
