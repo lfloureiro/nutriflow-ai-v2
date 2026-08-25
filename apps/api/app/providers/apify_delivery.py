@@ -1,10 +1,12 @@
 import hashlib
 import json
 import re
+import unicodedata
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
+from difflib import SequenceMatcher
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 from urllib.request import Request, urlopen
 
 from app.core.config import settings
@@ -133,6 +135,35 @@ def _source_reference(url: str, item_key: str) -> str:
     return f"{url}#item-{item_key}"[:255]
 
 
+def _normalize_name(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value.casefold())
+    ascii_text = "".join(
+        character for character in normalized if not unicodedata.combining(character)
+    )
+    words = re.findall(r"[a-z0-9]+", ascii_text)
+    ignored = {
+        "restaurante",
+        "restaurant",
+        "cc",
+        "c",
+        "centro",
+        "comercial",
+        "lisboa",
+        "lisbon",
+    }
+    return " ".join(word for word in words if word not in ignored)
+
+
+def _merchant_matches(query: str, merchant_name: str) -> bool:
+    expected = _normalize_name(query)
+    actual = _normalize_name(merchant_name)
+    if not expected or not actual:
+        return False
+    if expected in actual or actual in expected:
+        return True
+    return SequenceMatcher(None, expected, actual).ratio() >= 0.78
+
+
 def _uber_store_is_portuguese(raw_store: dict[str, object]) -> bool:
     currency = (_text(raw_store.get("currencyCode")) or "").upper()
     location = raw_store.get("location")
@@ -151,13 +182,15 @@ def _uber_rows(
 ) -> tuple[ExternalMenuItemObservationWrite, ...]:
     observed_at = datetime.now(UTC)
     results: list[ExternalMenuItemObservationWrite] = []
-    seen: set[tuple[str, str]] = set()
+    seen_items: set[tuple[str, str]] = set()
     for raw_store in payload:
         if not isinstance(raw_store, dict) or not _uber_store_is_portuguese(raw_store):
             continue
         merchant_name = _text(raw_store.get("title") or raw_store.get("sanitizedTitle"))
         url = _text(raw_store.get("url"))
         if merchant_name is None or url is None:
+            continue
+        if request.query and not _merchant_matches(request.query, merchant_name):
             continue
         merchant_key = _text(raw_store.get("uuid")) or _stable_key(url, merchant_name)
         currency = (_text(raw_store.get("currencyCode")) or "EUR").upper()[:3]
@@ -190,9 +223,9 @@ def _uber_rows(
                     item_name,
                 )
                 dedupe_key = (merchant_key, item_key)
-                if dedupe_key in seen:
+                if dedupe_key in seen_items:
                     continue
-                seen.add(dedupe_key)
+                seen_items.add(dedupe_key)
                 results.append(
                     ExternalMenuItemObservationWrite(
                         provider_key="uber_eats",
@@ -224,9 +257,68 @@ def _city_from_address(address: str) -> str:
     normalized = " ".join(address.split())
     lower = normalized.casefold()
     if "lisboa" in lower or "lisbon" in lower:
-        return "Lisbon"
+        return "Lisboa"
     parts = [part.strip() for part in normalized.split(",") if part.strip()]
     return parts[-1] if parts else normalized
+
+
+def _organic_results(payload: list[object]) -> list[dict[str, object]]:
+    results: list[dict[str, object]] = []
+    for row in payload:
+        if not isinstance(row, dict):
+            continue
+        if row.get("type") == "organic":
+            results.append(row)
+        nested = row.get("organicResults")
+        if isinstance(nested, list):
+            results.extend(item for item in nested if isinstance(item, dict))
+    return results
+
+
+def _uber_store_urls_from_google(
+    payload: list[object],
+    *,
+    query: str,
+) -> tuple[str, ...]:
+    candidates: list[tuple[int, str]] = []
+    seen: set[str] = set()
+    for row in _organic_results(payload):
+        url = _text(row.get("url") or row.get("link"))
+        title = _text(row.get("title")) or ""
+        if url is None or url in seen:
+            continue
+        parsed = urlparse(url)
+        if parsed.hostname not in {"www.ubereats.com", "ubereats.com"}:
+            continue
+        if "/pt/store/" not in parsed.path and "/pt-en/store/" not in parsed.path:
+            continue
+        if not _merchant_matches(query, title):
+            continue
+        seen.add(url)
+        normalized_title = _normalize_name(title)
+        normalized_query = _normalize_name(query)
+        score = 2 if normalized_query and normalized_query in normalized_title else 1
+        candidates.append((score, url))
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    return tuple(url for _, url in candidates[:3])
+
+
+def _resolve_uber_store_urls(query: str, delivery_address: str) -> tuple[str, ...]:
+    city = _city_from_address(delivery_address)
+    payload = _actor_request(
+        settings.nutrition_apify_google_search_url,
+        {
+            "queries": f'site:ubereats.com/pt/store "{query}" {city}',
+            "maxPagesPerQuery": 1,
+            "countryCode": "pt",
+            "searchLanguage": "pt",
+            "languageCode": "pt-PT",
+            "includeUnfilteredResults": False,
+            "saveHtml": False,
+            "saveHtmlToKeyValueStore": False,
+        },
+    )
+    return _uber_store_urls_from_google(payload, query=query)
 
 
 def _glovo_rows(
@@ -245,7 +337,6 @@ def _glovo_rows(
     query = (request.query or "").strip().casefold()
     observed_at = datetime.now(UTC)
     results: list[ExternalMenuItemObservationWrite] = []
-    seen: set[tuple[str, str]] = set()
     for row in payload:
         if not isinstance(row, dict) or row.get("recordType") != "product":
             continue
@@ -262,10 +353,6 @@ def _glovo_rows(
             f"https://glovoapp.com/pt/pt/lisboa/stores/{slug}"
         )
         item_key = _text(row.get("productId")) or _stable_key(slug, item_name)
-        dedupe_key = (slug, item_key)
-        if dedupe_key in seen:
-            continue
-        seen.add(dedupe_key)
         results.append(
             ExternalMenuItemObservationWrite(
                 provider_key="glovo",
@@ -311,7 +398,24 @@ class UberEatsApifyAdapter:
                 "getMenuCustomizations": False,
             },
         )
-        return _uber_rows(payload, request=request)
+        observations = _uber_rows(payload, request=request)
+        if observations or not request.query:
+            return observations
+
+        store_urls = _resolve_uber_store_urls(request.query, request.delivery_address)
+        if not store_urls:
+            return ()
+        direct_payload = _actor_request(
+            settings.uber_eats_apify_url,
+            {
+                "locale": "pt-PT",
+                "addressCountry": "PT",
+                "urls": list(store_urls),
+                "maxRows": min(len(store_urls), max_stores),
+                "getMenuCustomizations": False,
+            },
+        )
+        return _uber_rows(direct_payload, request=request)
 
 
 class GlovoApifyAdapter:
