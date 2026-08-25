@@ -257,7 +257,7 @@ def _city_from_address(address: str) -> str:
     normalized = " ".join(address.split())
     lower = normalized.casefold()
     if "lisboa" in lower or "lisbon" in lower:
-        return "Lisboa"
+        return "Lisbon"
     parts = [part.strip() for part in normalized.split(",") if part.strip()]
     return parts[-1] if parts else normalized
 
