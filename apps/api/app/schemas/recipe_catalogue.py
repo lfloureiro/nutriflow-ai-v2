@@ -91,15 +91,42 @@ class RecipeNutrientRead(BaseModel):
     per_serving_value: Decimal | None
 
 
+class RecipePracticalModifierRead(BaseModel):
+    name: str
+    kind: str
+    quantity: str
+    unit: str
+    load: str
+
+
+class RecipePracticalProfileRead(BaseModel):
+    cooking_method: str
+    primary_protein: str | None
+    secondary_proteins: list[str]
+    protein_pattern: str
+    primary_carbohydrate: str | None
+    other_carbohydrates: list[str]
+    carbohydrate_pattern: str
+    vegetables: list[str]
+    vegetable_level: str
+    modifiers: list[RecipePracticalModifierRead]
+    energy_load_signal: str
+    balance_signals: list[str]
+    calorie_drivers: list[str]
+
+
 class RecipeCompositionRead(BaseModel):
     id: uuid.UUID
     reference_quantity: Decimal
     reference_unit: str
     energy_kcal: Decimal | None
     energy_per_serving_kcal: Decimal | None
+    energy_confidence: str | None
+    serving_count_estimated: bool
     composition_version: str
     calculation_version: str
     evidence: RecipeNutritionEvidence
+    practical_profile: RecipePracticalProfileRead | None
     computed_at: datetime
     nutrients: list[RecipeNutrientRead]
 
