@@ -9,6 +9,7 @@ from app.models.food_catalog import (
     RecipeCompositionSnapshot,
     RecipeNutrientComponent,
 )
+from app.services.named_recipe_reference import known_named_recipe_reference
 from app.services.practical_energy_estimate import (
     estimate_practical_recipe_energy,
     practical_energy_payload,
@@ -233,14 +234,96 @@ def _aggregate_nutrients(
     return components
 
 
+def _named_recipe_profile_payload(recipe_name: str) -> dict[str, object] | None:
+    reference = known_named_recipe_reference(recipe_name)
+    if reference is None:
+        return None
+    secondary_proteins: list[str] = []
+    other_carbohydrates: list[str] = []
+    return {
+        "cooking_method": reference.cooking_method,
+        "primary_protein": reference.primary_protein,
+        "secondary_proteins": secondary_proteins,
+        "protein_pattern": "single" if reference.primary_protein else "none",
+        "primary_carbohydrate": reference.primary_carbohydrate,
+        "other_carbohydrates": other_carbohydrates,
+        "carbohydrate_pattern": "single" if reference.primary_carbohydrate else "none",
+        "vegetables": [],
+        "vegetable_level": "none",
+        "modifiers": [],
+        "energy_load_signal": reference.energy_load_signal,
+        "balance_signals": list(reference.balance_signals),
+        "calorie_drivers": [reference.primary_protein] if reference.primary_protein else [],
+        "suggested_accompaniments": list(reference.suggested_accompaniments),
+    }
+
+
+def _build_named_recipe_reference(
+    recipe: Recipe,
+) -> RecipeNutritionBuildResult | None:
+    if recipe.ingredients:
+        return None
+    reference = known_named_recipe_reference(recipe.name)
+    if reference is None:
+        return None
+
+    issues = [
+        "Recipe has no ingredient breakdown; a named prepared-food reference is used instead.",
+    ]
+    if reference.estimated:
+        issues.append(
+            "The named prepared-food energy is a practical category estimate rather than an exact product value."
+        )
+
+    profile = _named_recipe_profile_payload(recipe.name)
+    assert profile is not None
+    composition = RecipeCompositionSnapshot(
+        reference_quantity=Decimal(1),
+        reference_unit="serving",
+        energy_kcal=reference.energy_per_serving_kcal,
+        composition_version=f"named-reference-{uuid.uuid4()}",
+        calculation_version=CALCULATION_VERSION,
+        calculation_inputs={
+            "ingredients": [],
+            "issues": issues,
+            "nutrition_source": "external-product-reference",
+            "energy_estimated": reference.estimated,
+            "practical_energy_used": False,
+            "qualitative_ingredient_count": 0,
+            "estimated_portion_conversion_count": 0,
+            "policy_version": EVIDENCE_POLICY_VERSION,
+            "serving_count": None,
+            "serving_count_estimated": True,
+            "yield_quantity": None,
+            "yield_unit": None,
+            "practical_profile": profile,
+            "practical_energy": None,
+            "external_named_reference": {
+                "confidence": reference.confidence,
+                "serving_description": reference.serving_description,
+                "source_reference": reference.source_reference,
+                "estimated": reference.estimated,
+                "suggested_accompaniments": list(reference.suggested_accompaniments),
+            },
+        },
+    )
+    recipe.compositions.append(composition)
+    return RecipeNutritionBuildResult(composition=composition, issues=tuple(issues))
+
+
 def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
     """Create an immutable recipe composition plus a practical nutrition classification.
 
     Exact catalogue nutrition remains preferred. When exact energy cannot be completed because
     a material ingredient lacks composition or a safe unit conversion, a conservative practical
     estimate is allowed for the main calorie drivers. Accessories never block that estimate.
-    The provenance, coverage and confidence of every estimate are persisted in calculation_inputs.
+    Ingredient-less prepared foods may use a narrow named-product reference with explicit
+    provenance and confidence rather than disappearing from planning altogether.
     """
+
+    named_result = _build_named_recipe_reference(recipe)
+    if named_result is not None:
+        return named_result
 
     issues: list[str] = []
     scaled: list[NutritionSnapshot] = []
