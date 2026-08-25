@@ -15,6 +15,14 @@ class Settings(BaseSettings):
     default_locale: str = "pt-PT"
     default_timezone: str = "Europe/Lisbon"
 
+    nutrition_web_evidence_enabled: bool = True
+    nutrition_apify_google_search_url: str = (
+        "https://api.apify.com/v2/actors/apify~google-search-scraper/"
+        "run-sync-get-dataset-items?maxItems=1&maxTotalChargeUsd=0.03"
+    )
+    nutrition_web_evidence_timeout_seconds: float = 120.0
+    nutrition_web_evidence_max_results: int = 10
+
     restaurant_discovery_enabled: bool = True
     restaurant_apify_google_enabled: bool = True
     restaurant_apify_google_url: str = (
