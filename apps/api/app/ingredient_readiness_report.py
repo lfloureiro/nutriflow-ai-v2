@@ -2,9 +2,7 @@ import argparse
 
 from app.db.session import SessionLocal
 from app.services.ingredient_readiness_report import (
-    BLOCKER_MISSING_COMPOSITION,
     BLOCKER_MISSING_CONVERSION,
-    BLOCKER_MISSING_ENERGY,
     IngredientBlockerPriority,
     IngredientReadinessReport,
     build_ingredient_readiness_report,
