@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -32,30 +32,39 @@ _MAJOR_DIMENSIONS = frozenset(
     }
 )
 
-_PROTEIN_ROOTS = (
-    "frang",
-    "peru",
+_FISH_ROOTS = (
     "bacalhau",
     "salmao",
     "pescad",
     "peix",
+    "perca",
     "atum",
     "sardin",
-    "carne",
-    "vaca",
-    "porco",
-    "porc",
-    "rojo",
-    "bife",
-    "bifana",
-    "almondeg",
-    "hamburg",
-    "coelho",
-    "ovo",
     "camarao",
     "marisco",
     "polvo",
     "lula",
+)
+_PROTEIN_ROOTS = (
+    "frang",
+    "peru",
+    *_FISH_ROOTS,
+    "carne",
+    "vaca",
+    "vitela",
+    "porco",
+    "porc",
+    "rojo",
+    "entrecosto",
+    "bife",
+    "bifana",
+    "escalope",
+    "almondeg",
+    "hamburg",
+    "coelho",
+    "ovo",
+    "salsich",
+    "fiambre",
     "tofu",
     "seitan",
 )
@@ -66,6 +75,8 @@ _CARB_ROOTS = (
     "macarronete",
     "esparguet",
     "tagliatelle",
+    "fettuccine",
+    "fetucine",
     "batata",
     "pao",
     "cuscuz",
@@ -74,9 +85,12 @@ _CARB_ROOTS = (
     "tortilha",
     "noodle",
     "farinha",
+    "maisena",
+    "amido",
     "aveia",
     "milho",
 )
+_THICKENER_ROOTS = ("farinha", "maisena", "amido")
 _VEGETABLE_ROOTS = (
     "cebola",
     "tomate",
@@ -106,6 +120,8 @@ _ENERGY_MODIFIER_ROOTS = (
     "bacon",
     "chouric",
     "linguic",
+    "salsich",
+    "fiambre",
     "alheira",
     "farinheira",
     "leite",
@@ -121,6 +137,8 @@ _SECONDARY_PROTEIN_MODIFIER_ROOTS = (
     "bacon",
     "chouric",
     "linguic",
+    "salsich",
+    "fiambre",
     "alheira",
     "farinheira",
 )
@@ -266,6 +284,30 @@ def _name_overlap_score(recipe_name: str, ingredient_name: str) -> int:
     return len(recipe_tokens & ingredient_tokens)
 
 
+def _semantic_name_score(
+    recipe_name: str,
+    item: IngredientStructure,
+    *,
+    dimension: str,
+) -> int:
+    recipe_tokens = _tokens(recipe_name)
+    item_tokens = _tokens(item.name)
+    if dimension == DIM_PROTEIN and "peixe" in recipe_tokens:
+        return 2 if _has_root(item_tokens, _FISH_ROOTS) else 0
+    return 0
+
+
+def _is_small_thickener(item: IngredientStructure) -> bool:
+    if not _has_root(_tokens(item.name), _THICKENER_ROOTS):
+        return False
+    if item.unit.strip().casefold() != "g":
+        return False
+    try:
+        return Decimal(item.quantity) <= Decimal(100)
+    except (InvalidOperation, ValueError):
+        return False
+
+
 def _select_primary(
     recipe_name: str,
     candidates: list[IngredientStructure],
@@ -275,15 +317,24 @@ def _select_primary(
     if not candidates:
         return None
 
-    def rank(item: IngredientStructure) -> tuple[int, int, int]:
+    ranked_candidates = candidates
+    if dimension == DIM_CARBOHYDRATE:
+        substantive = [item for item in candidates if not _is_small_thickener(item)]
+        if substantive:
+            ranked_candidates = substantive
+        elif all(_is_small_thickener(item) for item in candidates):
+            return None
+
+    def rank(item: IngredientStructure) -> tuple[int, int, int, int]:
         mixed_penalty = int(len(item.dimensions) > 1)
         overlap = _name_overlap_score(recipe_name, item.name)
+        semantic = _semantic_name_score(recipe_name, item, dimension=dimension)
         modifier_penalty = int(DIM_ENERGY_MODIFIER in item.dimensions)
         if dimension == DIM_CARBOHYDRATE:
             modifier_penalty = 0
-        return (-modifier_penalty, -mixed_penalty, overlap)
+        return (-modifier_penalty, -mixed_penalty, semantic, overlap)
 
-    return max(candidates, key=rank)
+    return max(ranked_candidates, key=rank)
 
 
 def _decimal_text(value: Decimal) -> str:
