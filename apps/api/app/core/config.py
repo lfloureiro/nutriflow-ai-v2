@@ -41,6 +41,22 @@ class Settings(BaseSettings):
     restaurant_discovery_cache_seconds: int = 21600
     restaurant_discovery_max_results: int = 20
 
+    # Public marketplace discovery is deliberately separate from official provider APIs.
+    # The same Apify token already used elsewhere in NutriFlow can drive executable adapters
+    # against public Uber Eats / Glovo marketplace pages while official provider access remains
+    # optional and explicitly represented below.
+    meal_delivery_apify_enabled: bool = True
+    meal_delivery_apify_timeout_seconds: float = 120.0
+    meal_delivery_apify_max_stores: int = 8
+    uber_eats_apify_url: str = (
+        "https://api.apify.com/v2/acts/scraper-engine~uber-eats-scraper/"
+        "run-sync-get-dataset-items?maxTotalChargeUsd=0.05"
+    )
+    glovo_apify_url: str = (
+        "https://api.apify.com/v2/acts/solidcode~glovo-scraper/"
+        "run-sync-get-dataset-items?maxTotalChargeUsd=0.05"
+    )
+
     provider_secret_backend: str = "environment"
     nutriflow_apify_api_token: str | None = None
     nutriflow_google_places_api_key: str | None = None
