@@ -24,4 +24,9 @@ class NutritionEnrichmentRunRead(BaseModel):
     review_count: int
     unmatched_count: int
     recalculated_recipe_count: int
+    legacy_recipe_total_count: int
+    legacy_recipe_rebuilt_count: int
+    legacy_recipe_calculated_count: int
+    legacy_recipe_estimated_count: int
+    legacy_recipe_blocked_count: int
     items: list[NutritionEnrichmentItemRead]
