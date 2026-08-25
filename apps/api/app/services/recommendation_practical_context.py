@@ -14,6 +14,10 @@ from app.services.meal_recommendation import (
     RecommendationResult,
     recommend_meals,
 )
+from app.services.practical_nutrition_profile import (
+    build_practical_nutrition_profile,
+    score_practical_nutrition_profile,
+)
 
 _WEEKDAYS = {
     "MO": 0,
@@ -391,6 +395,57 @@ def _rerank_with_family_preferences(
     ]
 
 
+def _rerank_with_nutrition_structure(
+    evaluations: list[CandidateEvaluation],
+) -> list[CandidateEvaluation]:
+    adjusted: list[CandidateEvaluation] = []
+    for evaluation in evaluations:
+        if not evaluation.eligible or evaluation.candidate.recipe is None:
+            adjusted.append(evaluation)
+            continue
+
+        profile = build_practical_nutrition_profile(evaluation.candidate.recipe)
+        structure_score, structure_reasons = score_practical_nutrition_profile(profile)
+        breakdown = dict(evaluation.score_breakdown)
+        breakdown["meal_structure"] = structure_score
+        score = ((evaluation.score or _ZERO) + structure_score).quantize(
+            _SCORE_QUANTUM,
+            rounding=ROUND_HALF_UP,
+        )
+        adjusted.append(
+            CandidateEvaluation(
+                candidate=evaluation.candidate,
+                eligible=True,
+                rank=None,
+                score=score,
+                score_breakdown=breakdown,
+                exclusion_reasons=(),
+                explanation=evaluation.explanation + structure_reasons,
+            )
+        )
+
+    eligible = sorted(
+        (evaluation for evaluation in adjusted if evaluation.eligible),
+        key=lambda evaluation: (-(evaluation.score or _ZERO), evaluation.candidate.key),
+    )
+    ranks = {
+        evaluation.candidate.key: rank
+        for rank, evaluation in enumerate(eligible, start=1)
+    }
+    return [
+        CandidateEvaluation(
+            candidate=evaluation.candidate,
+            eligible=evaluation.eligible,
+            rank=ranks.get(evaluation.candidate.key),
+            score=evaluation.score,
+            score_breakdown=evaluation.score_breakdown,
+            exclusion_reasons=evaluation.exclusion_reasons,
+            explanation=evaluation.explanation,
+        )
+        for evaluation in adjusted
+    ]
+
+
 def recommend_meals_with_practical_context(
     *,
     daily_state: DailyNutritionState,
@@ -445,6 +500,7 @@ def recommend_meals_with_practical_context(
         family_recipe_ratings or {},
         practical_explanations,
     )
+    evaluated = _rerank_with_nutrition_structure(evaluated)
     evaluated.extend(practical_excluded)
     evaluated.sort(
         key=lambda evaluation: (
