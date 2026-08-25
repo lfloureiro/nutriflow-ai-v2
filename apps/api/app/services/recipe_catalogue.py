@@ -107,6 +107,12 @@ def _energy_confidence(composition: RecipeCompositionSnapshot) -> str | None:
     if inputs.get("practical_energy_used") is True and isinstance(raw_energy, dict):
         confidence = raw_energy.get("confidence")
         return confidence if isinstance(confidence, str) else "low"
+    if int(inputs.get("estimated_portion_conversion_count") or 0) > 0:
+        return "low"
+    if inputs.get("serving_count_estimated") is True:
+        return "medium"
+    if int(inputs.get("qualitative_ingredient_count") or 0) > 0:
+        return "medium"
     return "high"
 
 
