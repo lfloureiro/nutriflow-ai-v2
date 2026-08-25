@@ -24,7 +24,10 @@ from app.services.meal_energy_allocation import (
     size_candidate_for_meal,
 )
 from app.services.meal_recommendation import MealCandidate
-from app.services.meal_recommendation_api import load_recommendation_inputs
+from app.services.meal_recommendation_api import (
+    human_portion_guidance_read,
+    load_recommendation_inputs,
+)
 from app.services.planning_bootstrap_api import get_planning_bootstrap
 from app.services.practical_recommendation_api import (
     _build_practical_channels,
@@ -150,6 +153,9 @@ def _result_read(
                         score=participant.evaluation.score,
                         quantity=participant.portion.quantity,
                         quantity_unit=participant.portion.quantity_unit,
+                        portion_guidance=human_portion_guidance_read(
+                            participant.evaluation.candidate
+                        ),
                         energy_kcal=participant.evaluation.candidate.nutrition.energy_kcal,
                         explanation=list(participant.evaluation.explanation),
                     )
