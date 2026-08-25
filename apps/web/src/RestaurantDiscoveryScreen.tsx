@@ -21,7 +21,7 @@ const COPY = {
     areaHelp: "Deixa vazio para usar a área definida na família.",
     search: "Atualizar restaurantes e ementas",
     searching: "A procurar restaurantes e ementas…",
-    sourceGoogle: "Google Places",
+    sourceGoogle: "Google",
     sourceOsm: "OpenStreetMap",
     restaurants: "restaurantes analisados",
     dishes: "pratos encontrados",
@@ -30,8 +30,8 @@ const COPY = {
     noItems: "Não foram encontrados pratos utilizáveis na ementa.",
     error: "Não foi possível atualizar restaurantes e ementas",
     providerUnavailable: "A descoberta ou leitura das ementas não respondeu. Tenta novamente mais tarde.",
-    capabilityGoogle: "Google Places ativo · os mesmos restaurantes alimentam a sincronização das ementas e as recomendações",
-    capabilityFallback: "Google Places não está configurado · OpenStreetMap é usado como fonte de descoberta desta instalação",
+    capabilityGoogle: "Google ativo · os mesmos restaurantes alimentam a sincronização das ementas e as recomendações",
+    capabilityFallback: "Google não está configurado · OpenStreetMap é usado apenas como fonte alternativa nesta instalação",
     capabilityNeedsArea: "Falta definir a área padrão da família. Podes configurá-la em Mais ou escrever uma área nesta pesquisa.",
     capabilityDisabled: "A pesquisa de restaurantes está desativada nesta instalação.",
     capabilityUnknown: "Não foi possível confirmar agora o estado da integração.",
@@ -52,7 +52,7 @@ const COPY = {
     areaHelp: "Leave empty to use the Family's configured area.",
     search: "Refresh restaurants and menus",
     searching: "Finding restaurants and menus…",
-    sourceGoogle: "Google Places",
+    sourceGoogle: "Google",
     sourceOsm: "OpenStreetMap",
     restaurants: "restaurants analysed",
     dishes: "dishes found",
@@ -61,8 +61,8 @@ const COPY = {
     noItems: "No usable dishes were found in this menu.",
     error: "Restaurants and menus could not be refreshed",
     providerUnavailable: "Restaurant discovery or menu reading did not respond. Try again later.",
-    capabilityGoogle: "Google Places active · the same restaurant catalogue feeds menu synchronization and recommendations",
-    capabilityFallback: "Google Places is not configured · OpenStreetMap is this installation's discovery source",
+    capabilityGoogle: "Google active · the same restaurant catalogue feeds menu synchronization and recommendations",
+    capabilityFallback: "Google is not configured · OpenStreetMap is used only as this installation's fallback source",
     capabilityNeedsArea: "The Family has no default restaurant area. Configure it in More or enter an area here.",
     capabilityDisabled: "Restaurant discovery is disabled in this installation.",
     capabilityUnknown: "The integration status could not be confirmed right now.",
@@ -96,7 +96,9 @@ export function restaurantCapabilityMessage(
 }
 
 function providerLabel(provider: string, locale: "pt-PT" | "en"): string {
-  return provider === "google_places" ? COPY[locale].sourceGoogle : COPY[locale].sourceOsm;
+  return provider === "google_places" || provider === "google_maps_apify"
+    ? COPY[locale].sourceGoogle
+    : COPY[locale].sourceOsm;
 }
 
 function evidenceLabel(item: RestaurantMenuItem, locale: "pt-PT" | "en"): string {
