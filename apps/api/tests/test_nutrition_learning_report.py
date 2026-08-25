@@ -110,25 +110,25 @@ def test_status_classification_keeps_quality_axes_conservative() -> None:
 
 
 def test_report_counts_statuses() -> None:
-    base = dict(
-        recipe_name="Recipe",
-        ingredient_count=5,
-        serving_count=None,
-        search_hit_count=0,
-        structured_page_count=0,
-        failed_page_count=0,
-        evidence_count=0,
-        accepted_count=0,
-        estimate_kcal_per_serving=None,
-        lower_kcal_per_serving=None,
-        upper_kcal_per_serving=None,
-        retained_source_count=0,
-        mean_similarity=None,
-        confidence=None,
-        anomaly_count=0,
-        anomalies=(),
-        error=None,
-    )
+    base = {
+        "recipe_name": "Recipe",
+        "ingredient_count": 5,
+        "serving_count": None,
+        "search_hit_count": 0,
+        "structured_page_count": 0,
+        "failed_page_count": 0,
+        "evidence_count": 0,
+        "accepted_count": 0,
+        "estimate_kcal_per_serving": None,
+        "lower_kcal_per_serving": None,
+        "upper_kcal_per_serving": None,
+        "retained_source_count": 0,
+        "mean_similarity": None,
+        "confidence": None,
+        "anomaly_count": 0,
+        "anomalies": (),
+        "error": None,
+    }
     report = NutritionLearningDiagnosticReport(
         recipes=(
             RecipeLearningDiagnostic(**base, status=STATUS_NO_EVIDENCE),
