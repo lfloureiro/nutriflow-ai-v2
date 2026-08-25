@@ -4,6 +4,7 @@ from app.models.food_catalog import FoodItem, Recipe, RecipeIngredient
 from app.services.recipe_structure_profile import (
     COOKING_AIR_FRIED,
     COOKING_BOILED,
+    COOKING_FRIED,
     COOKING_STEWED,
     COOKING_UNKNOWN,
     DIM_ACCESSORY,
@@ -113,7 +114,7 @@ def test_qualitative_energy_modifier_is_not_a_major_calorie_driver() -> None:
     assert profile.major_calorie_drivers == ()
 
 
-def test_profile_infers_common_cooking_method_from_recipe_name() -> None:
+def test_profile_infers_common_cooking_method() -> None:
     stewed = _recipe(
         "Carne guisada com massa",
         ["Carne de vaca", "Massa", "Cenoura", "Azeite"],
@@ -130,11 +131,16 @@ def test_profile_infers_common_cooking_method_from_recipe_name() -> None:
         "Chili",
         ["Carne picada", "Feijão vermelho"],
     )
+    fried = _recipe(
+        "Carne de porco à portuguesa",
+        ["Rojões", "Batatas fritar", "Azeite"],
+    )
 
     assert build_recipe_structure_profile(stewed).cooking_method == COOKING_STEWED
     assert build_recipe_structure_profile(air_fried).cooking_method == COOKING_AIR_FRIED
     assert build_recipe_structure_profile(rice).cooking_method == COOKING_BOILED
     assert build_recipe_structure_profile(chili).cooking_method == COOKING_STEWED
+    assert build_recipe_structure_profile(fried).cooking_method == COOKING_FRIED
 
 
 def test_cheese_and_processed_meat_can_be_protein_and_energy_modifier() -> None:
