@@ -14,6 +14,8 @@ from app.models.food_catalog import (
 from app.models.meal_candidate_planning_profile import MealCandidatePlanningProfile
 from app.models.person import Person
 from app.schemas.meal_recommendation import (
+    HumanPortionComponentRead,
+    HumanPortionGuidanceRead,
     MealRecommendationCandidateInput,
     MealRecommendationCreate,
     MealRecommendationOptionRead,
@@ -21,6 +23,7 @@ from app.schemas.meal_recommendation import (
     RecommendationNutrientRead,
     RecommendationNutritionRead,
 )
+from app.services.human_portion_guidance import build_human_portion_guidance
 from app.services.meal_recommendation import (
     MealCandidate,
     RecommendationResult,
@@ -283,6 +286,26 @@ def _validate_candidate_meal_types(
         )
 
 
+def human_portion_guidance_read(
+    candidate: MealCandidate,
+) -> HumanPortionGuidanceRead | None:
+    guidance = build_human_portion_guidance(candidate)
+    if guidance is None:
+        return None
+    return HumanPortionGuidanceRead(
+        kind=guidance.kind,
+        components=[
+            HumanPortionComponentRead(
+                name=component.name,
+                quantity=component.quantity,
+                unit=component.unit,
+                qualitative=component.qualitative,
+            )
+            for component in guidance.components
+        ],
+    )
+
+
 def _option_response(
     recommendation: RecommendationResult,
     option_ids: list[uuid.UUID],
@@ -303,6 +326,7 @@ def _option_response(
                 candidate_kind=candidate.kind,
                 quantity=candidate.quantity,
                 quantity_unit=candidate.quantity_unit,
+                portion_guidance=human_portion_guidance_read(candidate),
                 eligible=evaluation.eligible,
                 rank=evaluation.rank,
                 score=evaluation.score,
