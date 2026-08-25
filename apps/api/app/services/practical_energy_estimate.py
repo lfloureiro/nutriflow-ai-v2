@@ -14,6 +14,7 @@ from app.services.recipe_units import QUALITATIVE_UNITS
 from app.services.retail_quantity_estimates import PACKAGE_UNITS
 
 _DEFAULT_SERVING_COUNT = Decimal(4)
+_LIGHT_MEAL_DEFAULT_SERVING_COUNT = Decimal(1)
 _ENERGY_QUANTUM = Decimal(1)
 _PROTEIN_GRAMS_PER_SERVING = Decimal(180)
 _FISH_GRAMS_PER_SERVING = Decimal(160)
@@ -144,15 +145,25 @@ def _serving_hint(item: IngredientStructure) -> Decimal | None:
     return None
 
 
-def _estimated_serving_count(structure) -> tuple[Decimal, str]:
+def _default_serving_count(recipe: Recipe) -> Decimal:
+    meal_types = set(recipe.suitable_meal_types or [])
+    if meal_types and meal_types <= {"breakfast", "snack"}:
+        return _LIGHT_MEAL_DEFAULT_SERVING_COUNT
+    if recipe.source in {"development-breakfast", "development-snack"}:
+        return _LIGHT_MEAL_DEFAULT_SERVING_COUNT
+    return _DEFAULT_SERVING_COUNT
+
+
+def _estimated_serving_count(recipe: Recipe, structure) -> tuple[Decimal, str]:
+    default = _default_serving_count(recipe)
     hints = [
         hint
         for item in structure.ingredients
         if (hint := _serving_hint(item)) is not None and hint > 0
     ]
     if not hints:
-        return _DEFAULT_SERVING_COUNT, "practical-default"
-    inferred = max([_DEFAULT_SERVING_COUNT, *hints])
+        return default, "practical-default"
+    inferred = max([default, *hints])
     return inferred, "practical-portion-inference"
 
 
@@ -162,10 +173,18 @@ def _density_kcal_per_g(item: IngredientStructure) -> Decimal | None:
         return Decimal("8.84")
     if _contains(name, "margarina", "manteiga"):
         return Decimal("7.2")
+    if _contains(name, "frutos secos", "amendoim", "amendoa", "caju", "avela", "pistach", "noz"):
+        return Decimal("6.0")
     if _contains(name, "batata palha"):
         return Decimal("5.2")
     if _contains(name, "bacon", "chourico", "linguica", "alheira", "farinheira"):
         return Decimal("4.5")
+    if _contains(name, "granola"):
+        return Decimal("4.5")
+    if _contains(name, "bolacha"):
+        return Decimal("4.4")
+    if _contains(name, "cereal", "muesli", "cerelac", "nestum"):
+        return Decimal("3.8")
     if _contains(name, "salsicha"):
         return Decimal("2.8")
     if _contains(name, "fiambre"):
@@ -186,6 +205,18 @@ def _density_kcal_per_g(item: IngredientStructure) -> Decimal | None:
         return Decimal("3.5")
     if _contains(name, "natas"):
         return Decimal("2.0")
+    if _contains(name, "iogurte grego"):
+        return Decimal("1.1")
+    if _contains(name, "iogurt"):
+        return Decimal("0.65")
+    if _contains(name, "banana"):
+        return Decimal("0.89")
+    if _contains(name, "maca", "pera"):
+        return Decimal("0.52")
+    if _contains(name, "frutos vermelhos", "morango", "mirtil", "framboes"):
+        return Decimal("0.50")
+    if _contains(name, "laranja", "kiwi"):
+        return Decimal("0.60")
     if _contains(name, "salmao"):
         return Decimal("2.1")
     if _contains(name, "entrecosto"):
@@ -220,6 +251,8 @@ def _density_kcal_per_g(item: IngredientStructure) -> Decimal | None:
         return Decimal("0.8")
     if _contains(name, "leite"):
         return Decimal("0.5")
+    if _contains(name, "pao"):
+        return Decimal("2.6")
     if DIM_PROTEIN in item.dimensions:
         return Decimal("1.8")
     if DIM_CARBOHYDRATE in item.dimensions:
@@ -237,6 +270,8 @@ def _density_kcal_per_ml(item: IngredientStructure) -> Decimal | None:
         return Decimal("2.0")
     if _contains(name, "leite"):
         return Decimal("0.5")
+    if _contains(name, "iogurt"):
+        return Decimal("0.65")
     if DIM_ENERGY_MODIFIER in item.dimensions:
         return Decimal("1.0")
     return None
@@ -248,6 +283,8 @@ def _package_energy(item: IngredientStructure, quantity: Decimal) -> Decimal | N
         return quantity * Decimal(200) * Decimal("2.0")
     if _is_legume(item):
         return quantity * Decimal(240) * Decimal("1.2")
+    if _contains(name, "cereal", "muesli", "granola", "cerelac", "nestum"):
+        return quantity * Decimal(375) * Decimal("3.8")
     if _contains(
         name,
         "massa",
@@ -262,6 +299,10 @@ def _package_energy(item: IngredientStructure, quantity: Decimal) -> Decimal | N
         return quantity * Decimal(200) * Decimal("1.5")
     if _contains(name, "queijo"):
         return quantity * Decimal(200) * Decimal("4.0")
+    if _contains(name, "iogurt"):
+        return quantity * Decimal(125) * Decimal("0.65")
+    if _contains(name, "frutos secos"):
+        return quantity * Decimal(150) * Decimal("6.0")
     if DIM_CARBOHYDRATE in item.dimensions:
         return quantity * Decimal(400) * Decimal("2.5")
     if DIM_PROTEIN in item.dimensions:
@@ -275,6 +316,12 @@ def _unit_energy(item: IngredientStructure, quantity: Decimal) -> Decimal | None
     name = item.name
     if _contains(name, "ovo"):
         return quantity * Decimal(75)
+    if _contains(name, "banana"):
+        return quantity * Decimal(105)
+    if _contains(name, "maca", "pera"):
+        return quantity * Decimal(80)
+    if _contains(name, "iogurt"):
+        return quantity * Decimal(85)
     if _contains(name, "almondeg"):
         return quantity * Decimal(70)
     if _contains(name, "hamburg"):
@@ -361,7 +408,7 @@ def estimate_practical_recipe_energy(
         serving_count = recipe.serving_count
         serving_count_source = "catalogue"
     else:
-        serving_count, serving_count_source = _estimated_serving_count(structure)
+        serving_count, serving_count_source = _estimated_serving_count(recipe, structure)
 
     known = known_energy_by_index or {}
     components: list[PracticalEnergyComponent] = []
