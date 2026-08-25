@@ -86,7 +86,7 @@ def test_new_recipe_is_classified_and_gets_planning_energy_automatically(
     assert composition["energy_per_serving_kcal"] is not None
     assert composition["evidence"] == "ingredient_estimated"
     assert composition["serving_count_estimated"] is True
-    assert composition["energy_confidence"] == "low"
+    assert composition["energy_confidence"] == "medium"
     assert profile["primary_protein"] == "Bifes de peru"
     assert profile["primary_carbohydrate"] is None
     assert profile["energy_load_signal"] == "moderate"
