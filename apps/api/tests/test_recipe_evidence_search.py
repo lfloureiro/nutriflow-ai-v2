@@ -22,6 +22,19 @@ def test_extract_calorie_mentions_distinguishes_serving_and_100g() -> None:
     ]
 
 
+def test_recipe_search_name_removes_source_notes() -> None:
+    assert (
+        recipe_evidence_search.recipe_search_name(
+            "Bacalhau com legumes (revista robot de cozinha)"
+        )
+        == "Bacalhau com legumes"
+    )
+    assert (
+        recipe_evidence_search.recipe_search_name("Sopa [receita antiga]")
+        == "Sopa"
+    )
+
+
 def test_search_recipe_nutrition_evidence_parses_apify_organic_results(
     monkeypatch,
 ) -> None:
@@ -61,7 +74,7 @@ def test_search_recipe_nutrition_evidence_parses_apify_organic_results(
         max_results=10,
     )
 
-    assert result.query == '"Bacalhau com grão" calorias kcal receita'
+    assert result.query == '"Bacalhau com grão" receita'
     assert len(result.hits) == 2
     assert result.hits[0].calorie_mentions[0].energy_kcal == Decimal(480)
     assert result.hits[0].calorie_mentions[0].basis == "per_serving"
@@ -69,6 +82,7 @@ def test_search_recipe_nutrition_evidence_parses_apify_organic_results(
     assert "token=secret%20token" in str(observed["url"])
     payload = observed["payload"]
     assert isinstance(payload, dict)
+    assert payload["queries"] == '"Bacalhau com grão" receita'
     assert payload["countryCode"] == "pt"
     assert payload["languageCode"] == "pt-PT"
     assert payload["maxPagesPerQuery"] == 1
