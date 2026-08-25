@@ -26,6 +26,14 @@ class Settings(BaseSettings):
     restaurant_discovery_max_results: int = 40
 
     provider_secret_backend: str = "environment"
+    nutriflow_google_places_api_key: str | None = None
+    nutriflow_fdc_api_key: str | None = None
+    nutriflow_uber_client_id: str | None = None
+    nutriflow_uber_client_secret: str | None = None
+    nutriflow_glovo_client_id: str | None = None
+    nutriflow_glovo_client_secret: str | None = None
+    nutriflow_bolt_food_integrator_id: str | None = None
+    nutriflow_bolt_food_secret_key: str | None = None
     uber_consumer_delivery_enabled: bool = False
     glovo_consumer_discovery_enabled: bool = False
     bolt_food_consumer_discovery_enabled: bool = False
