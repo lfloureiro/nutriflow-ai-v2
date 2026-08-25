@@ -54,6 +54,31 @@ def test_uber_rows_extracts_live_store_menu_items() -> None:
     assert item.source_reference.startswith("https://www.ubereats.com/")
 
 
+def test_uber_rows_deduplicates_same_catalog_item_across_sections() -> None:
+    item = {
+        "uuid": "dish-1",
+        "title": "Carbonara",
+        "priceTagline": "9,50 €",
+    }
+    rows = [
+        {
+            "uuid": "store-1",
+            "title": "Tomatino",
+            "url": "https://www.ubereats.com/pt/store/tomatino/example",
+            "currencyCode": "EUR",
+            "menu": [
+                {"title": "Popular", "catalogItems": [item]},
+                {"title": "Massas", "catalogItems": [item]},
+            ],
+        }
+    ]
+
+    result = _uber_rows(rows, request=_request("Tomatino"))
+
+    assert len(result) == 1
+    assert result[0].item_name == "Carbonara"
+
+
 def test_glovo_rows_extracts_products_and_filters_by_query() -> None:
     rows = [
         {
