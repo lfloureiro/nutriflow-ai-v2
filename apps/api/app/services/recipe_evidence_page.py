@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.services.nutrition_learning import RecipeEvidence
 
 _CALORIE_PATTERN = re.compile(r"(?<!\d)(\d{1,5}(?:[.,]\d+)?)\s*kcal\b", re.IGNORECASE)
+_NUMBER_PATTERN = re.compile(r"(?<!\d)(\d{1,5}(?:[.,]\d+)?)")
 _SERVING_PATTERN = re.compile(
     r"(?<!\d)(\d+(?:[.,]\d+)?)\s*(?:porcoes?|porções|pessoas?|servings?|doses?)\b",
     re.IGNORECASE,
@@ -44,7 +45,11 @@ class StructuredRecipePage:
     serving_count: Decimal | None
     ingredient_names: tuple[str, ...]
 
-    def as_recipe_evidence(self, *, source_quality: Decimal = Decimal("0.80")) -> RecipeEvidence | None:
+    def as_recipe_evidence(
+        self,
+        *,
+        source_quality: Decimal = Decimal("0.80"),
+    ) -> RecipeEvidence | None:
         if self.energy_kcal_per_serving is None:
             return None
         host = urlparse(self.source_reference).hostname or "web"
@@ -100,6 +105,22 @@ def _recipe_nodes(value: object) -> list[dict[str, object]]:
     return nodes
 
 
+def _positive_decimal(value: object) -> Decimal | None:
+    if isinstance(value, (int, float, Decimal)) and not isinstance(value, bool):
+        parsed = Decimal(str(value))
+        return parsed if parsed > 0 else None
+    if not isinstance(value, str):
+        return None
+    match = _NUMBER_PATTERN.search(value)
+    if match is None:
+        return None
+    try:
+        parsed = Decimal(match.group(1).replace(",", "."))
+    except InvalidOperation:
+        return None
+    return parsed if parsed > 0 else None
+
+
 def _decimal_from_calories(value: object) -> Decimal | None:
     if isinstance(value, (int, float, Decimal)) and not isinstance(value, bool):
         parsed = Decimal(str(value))
@@ -115,13 +136,48 @@ def _decimal_from_calories(value: object) -> Decimal | None:
     return parsed if 0 < parsed <= Decimal(5000) else None
 
 
-def _energy(node: dict[str, object]) -> Decimal | None:
+def _macro_energy_kcal(nutrition: dict[str, object]) -> Decimal | None:
+    protein = _positive_decimal(nutrition.get("proteinContent"))
+    carbohydrate = _positive_decimal(nutrition.get("carbohydrateContent"))
+    fat = _positive_decimal(nutrition.get("fatContent"))
+    available = [value for value in (protein, carbohydrate, fat) if value is not None]
+    if len(available) < 2:
+        return None
+    return (
+        (protein or Decimal(0)) * Decimal(4)
+        + (carbohydrate or Decimal(0)) * Decimal(4)
+        + (fat or Decimal(0)) * Decimal(9)
+    )
+
+
+def _energy(
+    node: dict[str, object],
+    *,
+    serving_count: Decimal | None,
+) -> Decimal | None:
     nutrition = node.get("nutrition")
-    if isinstance(nutrition, dict):
-        calories = _decimal_from_calories(nutrition.get("calories"))
-        if calories is not None:
-            return calories
-    return None
+    if not isinstance(nutrition, dict):
+        return None
+
+    calories = _decimal_from_calories(nutrition.get("calories"))
+    if calories is None:
+        return None
+
+    macro_energy = _macro_energy_kcal(nutrition)
+    if macro_energy is not None and macro_energy > 0:
+        ratio = calories / macro_energy
+        if ratio < Decimal("0.55") or ratio > Decimal("1.80"):
+            return None
+
+        if (
+            serving_count is not None
+            and serving_count >= Decimal(2)
+            and calories >= Decimal(1800)
+            and macro_energy >= Decimal(1500)
+        ):
+            return None
+
+    return calories
 
 
 def _serving_count(value: object) -> Decimal | None:
@@ -170,7 +226,11 @@ def _ingredient_names(value: object) -> tuple[str, ...]:
     return tuple(result)
 
 
-def parse_structured_recipe_pages(html: str, *, source_reference: str) -> tuple[StructuredRecipePage, ...]:
+def parse_structured_recipe_pages(
+    html: str,
+    *,
+    source_reference: str,
+) -> tuple[StructuredRecipePage, ...]:
     soup = BeautifulSoup(html, "html.parser")
     result: list[StructuredRecipePage] = []
     for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
@@ -185,12 +245,16 @@ def parse_structured_recipe_pages(html: str, *, source_reference: str) -> tuple[
             name = str(node.get("name") or "").strip()
             if not name:
                 continue
+            serving_count = _serving_count(node.get("recipeYield"))
             result.append(
                 StructuredRecipePage(
                     source_reference=source_reference,
                     recipe_name=name,
-                    energy_kcal_per_serving=_energy(node),
-                    serving_count=_serving_count(node.get("recipeYield")),
+                    energy_kcal_per_serving=_energy(
+                        node,
+                        serving_count=serving_count,
+                    ),
+                    serving_count=serving_count,
                     ingredient_names=_ingredient_names(node.get("recipeIngredient")),
                 )
             )
