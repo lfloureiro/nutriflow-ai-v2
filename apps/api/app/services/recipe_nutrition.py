@@ -16,7 +16,7 @@ from app.services.serving_nutrition import (
     scale_composition_nutrition,
 )
 
-CALCULATION_VERSION = "recipe-nutrition-v1"
+CALCULATION_VERSION = "recipe-nutrition-v2"
 QUALITATIVE_UNITS = frozenset({"qb", "q.b.", "q.b", "quanto baste"})
 
 
@@ -299,7 +299,7 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
             "energy_estimated": energy_estimated,
             "qualitative_ingredient_count": qualitative_count,
             "estimated_portion_conversion_count": estimated_portion_conversion_count,
-            "policy_version": "recipe-qualitative-amount-v1",
+            "policy_version": "recipe-evidence-v2",
             "serving_count": (
                 str(recipe.serving_count) if recipe.serving_count is not None else None
             ),
