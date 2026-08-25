@@ -9,7 +9,7 @@ from app.services.meal_recommendation import (
 )
 
 POLICY_VERSION = "meal-energy-allocation-v2"
-PORTION_VERSION = "portion-sizing-v1"
+PORTION_VERSION = "portion-sizing-v2"
 ZERO = Decimal(0)
 ONE = Decimal(1)
 ENERGY_QUANTUM = Decimal("0.01")
@@ -191,6 +191,14 @@ def _with_allocation(
     )
 
 
+def _uses_fixed_serving(candidate: MealCandidate) -> bool:
+    return (
+        candidate.food_item is not None
+        and candidate.food_item.food_kind == "dish"
+        and candidate.quantity_unit.casefold() in {"serving", "portion", "dose"}
+    )
+
+
 def size_candidate_for_meal(
     candidate: MealCandidate,
     state: DailyNutritionState,
@@ -198,6 +206,17 @@ def size_candidate_for_meal(
     meal_type: str,
 ) -> PortionSizingResult:
     allocation = allocate_meal_energy(state, meal_type=meal_type)
+    if _uses_fixed_serving(candidate):
+        return PortionSizingResult(
+            candidate=_with_allocation(
+                candidate,
+                allocation=allocation,
+                portion_factor=ONE,
+            ),
+            allocation=allocation,
+            portion_factor=ONE,
+        )
+
     target = _target_midpoint(allocation)
     energy = candidate.nutrition.energy_kcal
 
