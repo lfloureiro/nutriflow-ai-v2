@@ -17,6 +17,15 @@ _SERVING_PATTERN = re.compile(
     r"(?<!\d)(\d+(?:[.,]\d+)?)\s*(?:porcoes?|porções|pessoas?|servings?|doses?)\b",
     re.IGNORECASE,
 )
+_VISIBLE_NUTRITION_HEADING = re.compile(
+    r"(?:valor|informação|informacao)\s+nutricional",
+    re.IGNORECASE,
+)
+_VISIBLE_NUTRITION_BASIS = re.compile(
+    r"(?:por\s+pessoa|por\s+dose|porção\s+de\s+\d+(?:[.,]\d+)?\s*g|"
+    r"porcao\s+de\s+\d+(?:[.,]\d+)?\s*g|per\s+serving)",
+    re.IGNORECASE,
+)
 _LEADING_QUANTITY = re.compile(
     r"^\s*(?:\d+(?:[.,]\d+)?|[¼½¾⅓⅔⅛⅜⅝⅞])(?:\s*[-–]\s*\d+(?:[.,]\d+)?)?\s*",
     re.IGNORECASE,
@@ -136,10 +145,11 @@ def _decimal_from_calories(value: object) -> Decimal | None:
     return parsed if 0 < parsed <= Decimal(5000) else None
 
 
-def _macro_energy_kcal(nutrition: dict[str, object]) -> Decimal | None:
-    protein = _positive_decimal(nutrition.get("proteinContent"))
-    carbohydrate = _positive_decimal(nutrition.get("carbohydrateContent"))
-    fat = _positive_decimal(nutrition.get("fatContent"))
+def _energy_from_macros(
+    protein: Decimal | None,
+    carbohydrate: Decimal | None,
+    fat: Decimal | None,
+) -> Decimal | None:
     available = [value for value in (protein, carbohydrate, fat) if value is not None]
     if len(available) < 2:
         return None
@@ -150,10 +160,55 @@ def _macro_energy_kcal(nutrition: dict[str, object]) -> Decimal | None:
     )
 
 
+def _macro_energy_kcal(nutrition: dict[str, object]) -> Decimal | None:
+    return _energy_from_macros(
+        _positive_decimal(nutrition.get("proteinContent")),
+        _positive_decimal(nutrition.get("carbohydrateContent")),
+        _positive_decimal(nutrition.get("fatContent")),
+    )
+
+
+def _visible_labeled_decimal(text: str, labels: tuple[str, ...]) -> Decimal | None:
+    label_pattern = "|".join(re.escape(label) for label in labels)
+    match = re.search(
+        rf"(?:{label_pattern})\s*:?[\s-]*(\d{{1,5}}(?:[.,]\d+)?)\s*g\b",
+        text,
+        re.IGNORECASE,
+    )
+    if match is None:
+        return None
+    return _positive_decimal(match.group(1))
+
+
+def _visible_macro_energy_kcal(soup: BeautifulSoup) -> Decimal | None:
+    text = " ".join(soup.stripped_strings)
+    for heading in _VISIBLE_NUTRITION_HEADING.finditer(text):
+        window = text[heading.start() : heading.start() + 900]
+        if _VISIBLE_NUTRITION_BASIS.search(window) is None:
+            continue
+        protein = _visible_labeled_decimal(
+            window,
+            ("proteínas", "proteinas", "proteína", "proteina", "protein"),
+        )
+        carbohydrate = _visible_labeled_decimal(
+            window,
+            ("carboidratos", "hidratos de carbono", "carbohydrates"),
+        )
+        fat = _visible_labeled_decimal(
+            window,
+            ("gorduras", "gordura", "fat"),
+        )
+        energy = _energy_from_macros(protein, carbohydrate, fat)
+        if energy is not None:
+            return energy
+    return None
+
+
 def _energy(
     node: dict[str, object],
     *,
     serving_count: Decimal | None,
+    visible_macro_energy: Decimal | None,
 ) -> Decimal | None:
     nutrition = node.get("nutrition")
     if not isinstance(nutrition, dict):
@@ -163,7 +218,7 @@ def _energy(
     if calories is None:
         return None
 
-    macro_energy = _macro_energy_kcal(nutrition)
+    macro_energy = _macro_energy_kcal(nutrition) or visible_macro_energy
     if macro_energy is not None and macro_energy > 0:
         ratio = calories / macro_energy
         if ratio < Decimal("0.55") or ratio > Decimal("1.80"):
@@ -232,6 +287,7 @@ def parse_structured_recipe_pages(
     source_reference: str,
 ) -> tuple[StructuredRecipePage, ...]:
     soup = BeautifulSoup(html, "html.parser")
+    visible_macro_energy = _visible_macro_energy_kcal(soup)
     result: list[StructuredRecipePage] = []
     for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
         raw = script.string or script.get_text()
@@ -253,6 +309,7 @@ def parse_structured_recipe_pages(
                     energy_kcal_per_serving=_energy(
                         node,
                         serving_count=serving_count,
+                        visible_macro_energy=visible_macro_energy,
                     ),
                     serving_count=serving_count,
                     ingredient_names=_ingredient_names(node.get("recipeIngredient")),
