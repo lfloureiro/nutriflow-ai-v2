@@ -6,6 +6,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from app.core.config import settings
 from app.core.provider_secrets import get_provider_secret_store
 
 FDC_API_BASE_URL = "https://api.nal.usda.gov/fdc/v1"
@@ -72,11 +73,13 @@ class FdcFoodNutrition:
 
 def _api_key() -> str:
     key = get_provider_secret_store().get(FDC_API_KEY_SECRET)
-    if key is None:
-        raise FoodDataCentralError(
-            "FoodData Central requires NUTRIFLOW_FDC_API_KEY in the provider secret store."
-        )
-    return key
+    if key is not None:
+        return key
+    if settings.app_env.strip().casefold() == "development":
+        return "DEMO_KEY"
+    raise FoodDataCentralError(
+        "FoodData Central requires NUTRIFLOW_FDC_API_KEY in the provider secret store."
+    )
 
 
 def _request_json(url: str, *, data: bytes | None = None) -> Any:
