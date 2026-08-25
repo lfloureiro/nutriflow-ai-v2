@@ -36,9 +36,14 @@ VEGETABLE_LOW = "low"
 VEGETABLE_MODERATE = "moderate"
 VEGETABLE_HIGH = "high"
 
+ENERGY_SIGNAL_UNKNOWN = "unknown"
 ENERGY_SIGNAL_LOW = "low"
 ENERGY_SIGNAL_MODERATE = "moderate"
 ENERGY_SIGNAL_HIGH = "high"
+
+_STRUCTURE_SCORE_QUANTUM = Decimal("0.0001")
+_STRUCTURE_SCORE_MIN = Decimal("-0.5000")
+_STRUCTURE_SCORE_MAX = Decimal("0.5000")
 
 _ADDED_FAT_ROOTS = ("azeite", "oleo", "manteig", "margarin")
 _RICH_SAUCE_ROOTS = ("natas", "maiones", "pesto", "molho", "bechamel")
@@ -171,6 +176,9 @@ def _energy_load_signal(
     structure: RecipeStructureProfile,
     modifiers: tuple[PracticalModifier, ...],
 ) -> str:
+    if not structure.ingredients:
+        return ENERGY_SIGNAL_UNKNOWN
+
     score = 0
     if structure.cooking_method == COOKING_FRIED:
         score += 3
@@ -196,7 +204,7 @@ def _energy_load_signal(
 
     if score >= 4:
         return ENERGY_SIGNAL_HIGH
-    if score >= 2:
+    if score >= 1:
         return ENERGY_SIGNAL_MODERATE
     return ENERGY_SIGNAL_LOW
 
@@ -210,6 +218,9 @@ def _balance_signals(
     modifiers: tuple[PracticalModifier, ...],
     energy_load_signal: str,
 ) -> tuple[str, ...]:
+    if not structure.ingredients:
+        return ("insufficient_data",)
+
     signals: list[str] = []
     if protein_pattern == PATTERN_NONE:
         signals.append("protein_missing")
@@ -300,3 +311,54 @@ def build_practical_nutrition_profile(recipe: Recipe) -> PracticalNutritionProfi
         ),
         calorie_drivers=structure.major_calorie_drivers,
     )
+
+
+def score_practical_nutrition_profile(
+    profile: PracticalNutritionProfile,
+) -> tuple[Decimal, tuple[str, ...]]:
+    """Return a small planning tie-breaker, not an exact nutrition judgement.
+
+    Missing carbohydrate or vegetables are intentionally explanatory rather than automatic
+    penalties because they may be supplied by a side dish. Safety rules, personal targets,
+    preferences and exact catalogue nutrition remain higher-priority signals.
+    """
+
+    if "insufficient_data" in profile.balance_signals:
+        return Decimal(0), ("meal_structure:insufficient_data",)
+
+    score = Decimal(0)
+    reasons: list[str] = []
+
+    if "structurally_balanced" in profile.balance_signals:
+        score += Decimal("0.25")
+        reasons.append("meal_structure:balanced")
+
+    if profile.vegetable_level in {VEGETABLE_MODERATE, VEGETABLE_HIGH}:
+        score += Decimal("0.10")
+        reasons.append("meal_structure:vegetable_support")
+
+    if profile.protein_pattern != PATTERN_NONE:
+        score += Decimal("0.10")
+        reasons.append("meal_structure:protein_present")
+
+    if profile.energy_load_signal == ENERGY_SIGNAL_HIGH:
+        score -= Decimal("0.25")
+        reasons.append("meal_structure:high_energy_load")
+
+    if "fried" in profile.balance_signals:
+        score -= Decimal("0.15")
+        reasons.append("meal_structure:fried")
+
+    if "rich_sauce" in profile.balance_signals:
+        score -= Decimal("0.05")
+        reasons.append("meal_structure:rich_sauce")
+
+    if "carb_light" in profile.balance_signals:
+        reasons.append("meal_structure:carb_light")
+    if "vegetables_missing" in profile.balance_signals:
+        reasons.append("meal_structure:vegetables_missing")
+    elif "vegetables_light" in profile.balance_signals:
+        reasons.append("meal_structure:vegetables_light")
+
+    score = min(_STRUCTURE_SCORE_MAX, max(_STRUCTURE_SCORE_MIN, score))
+    return score.quantize(_STRUCTURE_SCORE_QUANTUM), tuple(reasons)
