@@ -52,8 +52,14 @@ def _actor_request(url: str, payload: dict[str, object]) -> list[object]:
         ) as response:
             raw = json.loads(response.read().decode())
     except HTTPError as exc:
+        detail = ""
+        try:
+            detail = " ".join(exc.read().decode(errors="replace").split())[:500]
+        except OSError:
+            detail = ""
+        suffix = f" {detail}" if detail else ""
         raise ApifyDeliveryProviderError(
-            f"Delivery marketplace provider returned HTTP {exc.code}."
+            f"Delivery marketplace provider returned HTTP {exc.code}.{suffix}"
         ) from exc
     except (URLError, TimeoutError, json.JSONDecodeError) as exc:
         raise ApifyDeliveryProviderError(
@@ -292,7 +298,6 @@ class UberEatsApifyAdapter:
                 "query": request.query or "",
                 "storeType": "RESTAURANTS",
                 "maxRows": max_stores,
-                "urls": [],
                 "getMenuCustomizations": False,
             },
         )
