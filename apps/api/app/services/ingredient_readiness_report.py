@@ -21,6 +21,8 @@ STATUS_READY = "READY"
 STATUS_BLOCKED = "BLOCKED"
 STATUS_NO_INGREDIENTS = "NO_INGREDIENTS"
 
+BlockerKey = tuple[str, str, str | None, str | None]
+
 
 @dataclass(frozen=True)
 class IngredientReadiness:
@@ -89,7 +91,7 @@ class IngredientReadinessReport:
         return sum(item.status == STATUS_NO_INGREDIENTS for item in self.recipes)
 
 
-def _blocker_key(item: IngredientReadiness, blocker: str) -> tuple[str, str, str | None, str | None]:
+def _blocker_key(item: IngredientReadiness, blocker: str) -> BlockerKey:
     if blocker == BLOCKER_MISSING_CONVERSION:
         return (
             blocker,
@@ -115,7 +117,9 @@ def inspect_recipe_ingredient(
             ingredient_name=ingredient.food_item.name,
             quantity=ingredient.quantity,
             unit=normalized_unit,
-            reference_unit=composition.reference_unit if composition is not None else None,
+            reference_unit=(
+                composition.reference_unit if composition is not None else None
+            ),
             qualitative=True,
             estimated_conversion=False,
             blockers=(),
@@ -205,19 +209,13 @@ def _recipe_diagnostic(recipe: Recipe) -> RecipeReadinessDiagnostic:
 def _priority_rows(
     diagnostics: tuple[RecipeReadinessDiagnostic, ...],
 ) -> tuple[IngredientBlockerPriority, ...]:
-    occurrence_counts: dict[tuple[str, str, str | None, str | None], int] = defaultdict(int)
-    affected_recipes: dict[
-        tuple[str, str, str | None, str | None], set[str]
-    ] = defaultdict(set)
-    sole_blocker_recipes: dict[
-        tuple[str, str, str | None, str | None], set[str]
-    ] = defaultdict(set)
-    labels: dict[
-        tuple[str, str, str | None, str | None], tuple[str, str]
-    ] = {}
+    occurrence_counts: dict[BlockerKey, int] = defaultdict(int)
+    affected_recipes: dict[BlockerKey, set[str]] = defaultdict(set)
+    sole_blocker_recipes: dict[BlockerKey, set[str]] = defaultdict(set)
+    labels: dict[BlockerKey, tuple[str, str]] = {}
 
     for recipe in diagnostics:
-        recipe_keys: set[tuple[str, str, str | None, str | None]] = set()
+        recipe_keys: set[BlockerKey] = set()
         for item in recipe.ingredients:
             for blocker in item.blockers:
                 key = _blocker_key(item, blocker)
