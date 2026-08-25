@@ -23,7 +23,7 @@ function capability(
 describe("restaurant capability messaging", () => {
   it("explains canonical Google discovery and recommendation flow", () => {
     expect(restaurantCapabilityMessage(capability("ready", true), "pt-PT")).toContain(
-      "Google Places ativo",
+      "Google ativo",
     );
     expect(restaurantCapabilityMessage(capability("ready", true), "pt-PT")).toContain(
       "recomendações",
