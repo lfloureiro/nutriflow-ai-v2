@@ -9,6 +9,15 @@ from app.models.food_catalog import (
     RecipeCompositionSnapshot,
     RecipeNutrientComponent,
 )
+from app.services.practical_energy_estimate import (
+    estimate_practical_recipe_energy,
+    practical_energy_payload,
+)
+from app.services.practical_nutrition_profile import (
+    build_practical_nutrition_profile,
+    practical_profile_payload,
+)
+from app.services.recipe_units import QUALITATIVE_UNITS
 from app.services.retail_quantity_estimates import (
     PACKAGE_UNITS,
     estimate_retail_package_quantity,
@@ -20,8 +29,7 @@ from app.services.serving_nutrition import (
     scale_composition_nutrition,
 )
 
-CALCULATION_VERSION = "recipe-nutrition-v2"
-QUALITATIVE_UNITS = frozenset({"qb", "q.b.", "q.b", "quanto baste"})
+CALCULATION_VERSION = "recipe-nutrition-v3"
 
 
 @dataclass(frozen=True)
@@ -42,11 +50,17 @@ class IngredientPortionConversion:
     confidence: str | None = None
 
 
-def _reference(recipe: Recipe) -> tuple[Decimal, str]:
+def _reference(
+    recipe: Recipe,
+    *,
+    practical_serving_count: Decimal | None = None,
+) -> tuple[Decimal, str]:
     if recipe.yield_quantity is not None and recipe.yield_unit is not None:
         return recipe.yield_quantity, recipe.yield_unit
     if recipe.serving_count is not None:
         return recipe.serving_count, "serving"
+    if practical_serving_count is not None:
+        return practical_serving_count, "serving"
     return Decimal(1), "recipe"
 
 
@@ -219,16 +233,17 @@ def _aggregate_nutrients(
 
 
 def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
-    """Create a new immutable composition snapshot from current Recipe ingredients.
+    """Create an immutable recipe composition plus a practical nutrition classification.
 
-    Missing nutrition evidence remains fail-closed. Qualitative amounts such as ``q.b.`` are
-    excluded from the energy total and make that total explicitly estimated. Source-backed
-    average portions and supermarket-package extrapolations may be used, but are also marked
-    as estimates rather than exact quantities.
+    Exact catalogue nutrition remains preferred. When exact energy cannot be completed because
+    a material ingredient lacks composition or a safe unit conversion, a conservative practical
+    estimate is allowed for the main calorie drivers. Accessories never block that estimate.
+    The provenance, coverage and confidence of every estimate are persisted in calculation_inputs.
     """
 
     issues: list[str] = []
     scaled: list[NutritionSnapshot] = []
+    known_energy_by_index: dict[int, Decimal] = {}
     inputs: list[dict[str, object]] = []
     qualitative_count = 0
     quantitative_count = 0
@@ -278,6 +293,8 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
                 composition,
             )
             scaled.append(snapshot)
+            if snapshot.energy_kcal is not None:
+                known_energy_by_index[index] = snapshot.energy_kcal
             if portion_conversion is not None:
                 input_row["portion_conversion"] = {
                     "recipe_unit": portion_conversion.recipe_unit,
@@ -304,12 +321,12 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
             )
 
     all_quantitative_scaled = len(scaled) == quantitative_count and quantitative_count > 0
-    energy_kcal: Decimal | None = None
+    exact_energy_kcal: Decimal | None = None
     nutrients: list[RecipeNutrientComponent] = []
 
     if all_quantitative_scaled:
         if all(snapshot.energy_kcal is not None for snapshot in scaled):
-            energy_kcal = sum(
+            exact_energy_kcal = sum(
                 (
                     snapshot.energy_kcal
                     for snapshot in scaled
@@ -327,10 +344,48 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
                 "unquantified qualitative amount."
             )
 
-    reference_quantity, reference_unit = _reference(recipe)
-    energy_estimated = energy_kcal is not None and (
-        qualitative_count > 0 or estimated_portion_conversion_count > 0
+    practical_profile = build_practical_nutrition_profile(recipe)
+    practical_energy = estimate_practical_recipe_energy(
+        recipe,
+        known_energy_by_index=known_energy_by_index,
     )
+
+    practical_energy_used = exact_energy_kcal is None and practical_energy is not None
+    energy_kcal = (
+        practical_energy.total_energy_kcal if practical_energy_used else exact_energy_kcal
+    )
+    if practical_energy_used:
+        nutrients = []
+        issues.append(
+            "Exact recipe energy is incomplete; a practical estimate based on the main "
+            "calorie drivers is being used for planning."
+        )
+
+    practical_serving_count = (
+        practical_energy.serving_count if practical_energy is not None else None
+    )
+    reference_quantity, reference_unit = _reference(
+        recipe,
+        practical_serving_count=practical_serving_count,
+    )
+    serving_count_estimated = (
+        recipe.serving_count is None
+        and recipe.yield_quantity is None
+        and reference_unit == "serving"
+    )
+    energy_estimated = energy_kcal is not None and (
+        practical_energy_used
+        or qualitative_count > 0
+        or estimated_portion_conversion_count > 0
+        or serving_count_estimated
+    )
+    if practical_energy_used:
+        nutrition_source = "practical-estimate"
+    elif energy_kcal is not None:
+        nutrition_source = "ingredient-calculated"
+    else:
+        nutrition_source = "missing"
+
     composition = RecipeCompositionSnapshot(
         reference_quantity=reference_quantity,
         reference_unit=reference_unit,
@@ -340,17 +395,22 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
         calculation_inputs={
             "ingredients": inputs,
             "issues": issues,
+            "nutrition_source": nutrition_source,
             "energy_estimated": energy_estimated,
+            "practical_energy_used": practical_energy_used,
             "qualitative_ingredient_count": qualitative_count,
             "estimated_portion_conversion_count": estimated_portion_conversion_count,
-            "policy_version": "recipe-evidence-v3",
+            "policy_version": "practical-recipe-nutrition-v1",
             "serving_count": (
                 str(recipe.serving_count) if recipe.serving_count is not None else None
             ),
+            "serving_count_estimated": serving_count_estimated,
             "yield_quantity": (
                 str(recipe.yield_quantity) if recipe.yield_quantity is not None else None
             ),
             "yield_unit": recipe.yield_unit,
+            "practical_profile": practical_profile_payload(practical_profile),
+            "practical_energy": practical_energy_payload(practical_energy),
         },
     )
     composition.nutrients.extend(nutrients)
