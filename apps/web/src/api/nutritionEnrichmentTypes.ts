@@ -19,5 +19,10 @@ export type NutritionEnrichmentRun = {
   review_count: number;
   unmatched_count: number;
   recalculated_recipe_count: number;
+  legacy_recipe_total_count: number;
+  legacy_recipe_rebuilt_count: number;
+  legacy_recipe_calculated_count: number;
+  legacy_recipe_estimated_count: number;
+  legacy_recipe_blocked_count: number;
   items: NutritionEnrichmentItem[];
 };
