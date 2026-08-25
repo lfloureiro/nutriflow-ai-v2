@@ -107,8 +107,25 @@ def test_exact_total_energy_is_kept_but_missing_servings_get_practical_serving_r
     assert inputs["serving_count_estimated"] is True
 
 
-def test_empty_recipe_is_classified_but_does_not_invent_energy() -> None:
+def test_named_prepared_food_without_ingredients_uses_external_reference() -> None:
     recipe = Recipe(recipe_key="test:empty", name="Douradinhos", source="test")
+
+    composition = build_recipe_composition(recipe).composition
+    inputs = composition.calculation_inputs
+
+    assert composition.energy_kcal == Decimal(184)
+    assert composition.reference_quantity == Decimal(1)
+    assert composition.reference_unit == "serving"
+    assert isinstance(inputs, dict)
+    assert inputs["nutrition_source"] == "external-product-reference"
+    profile = inputs["practical_profile"]
+    assert isinstance(profile, dict)
+    assert profile["primary_protein"] == "Peixe branco panado (Douradinhos Iglo)"
+    assert profile["suggested_accompaniments"] == ["arroz", "legumes", "salada"]
+
+
+def test_unknown_empty_recipe_still_does_not_invent_energy() -> None:
+    recipe = Recipe(recipe_key="test:unknown-empty", name="Produto sem dados", source="test")
 
     composition = build_recipe_composition(recipe).composition
     inputs = composition.calculation_inputs
