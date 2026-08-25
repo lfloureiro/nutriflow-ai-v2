@@ -34,6 +34,7 @@ class IngredientPortionConversion:
     source: str | None
     source_reference: str | None
     description: str | None
+    estimated: bool
 
 
 def _reference(recipe: Recipe) -> tuple[Decimal, str]:
@@ -94,6 +95,7 @@ def _portion_conversion(
             source_reference if isinstance(source_reference, str) else None
         ),
         description=description if isinstance(description, str) else None,
+        estimated=raw.get("estimated") is True,
     )
 
 
@@ -179,9 +181,8 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
     """Create a new immutable composition snapshot from current Recipe ingredients.
 
     Missing or unsafe quantitative evidence remains fail-closed. Qualitative amounts such as
-    ``q.b.`` are excluded from the energy total and make that total explicitly estimated;
-    nutrient totals are withheld because an unknown salt/spice amount must not be treated as
-    complete evidence for mandatory nutrient constraints.
+    ``q.b.`` are excluded from the energy total and make that total explicitly estimated.
+    Source-backed average portion conversions may be used, but also mark energy as estimated.
     """
 
     issues: list[str] = []
@@ -189,6 +190,7 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
     inputs: list[dict[str, object]] = []
     qualitative_count = 0
     quantitative_count = 0
+    estimated_portion_conversion_count = 0
 
     if not recipe.ingredients:
         issues.append("Recipe has no ingredients.")
@@ -243,7 +245,14 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
                     "source": portion_conversion.source,
                     "source_reference": portion_conversion.source_reference,
                     "description": portion_conversion.description,
+                    "estimated": portion_conversion.estimated,
                 }
+                if portion_conversion.estimated:
+                    estimated_portion_conversion_count += 1
+                    issues.append(
+                        f"Ingredient {ingredient.food_item.name!r} uses a source-backed "
+                        "average portion conversion; its contribution is estimated."
+                    )
         except UnsupportedUnitConversionError:
             issues.append(
                 f"Ingredient {ingredient.food_item.name!r} cannot be safely converted "
@@ -257,7 +266,11 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
     if all_quantitative_scaled:
         if all(snapshot.energy_kcal is not None for snapshot in scaled):
             energy_kcal = sum(
-                (snapshot.energy_kcal for snapshot in scaled if snapshot.energy_kcal is not None),
+                (
+                    snapshot.energy_kcal
+                    for snapshot in scaled
+                    if snapshot.energy_kcal is not None
+                ),
                 start=Decimal(0),
             )
         else:
@@ -271,6 +284,9 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
             )
 
     reference_quantity, reference_unit = _reference(recipe)
+    energy_estimated = energy_kcal is not None and (
+        qualitative_count > 0 or estimated_portion_conversion_count > 0
+    )
     composition = RecipeCompositionSnapshot(
         reference_quantity=reference_quantity,
         reference_unit=reference_unit,
@@ -280,8 +296,9 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
         calculation_inputs={
             "ingredients": inputs,
             "issues": issues,
-            "energy_estimated": qualitative_count > 0 and energy_kcal is not None,
+            "energy_estimated": energy_estimated,
             "qualitative_ingredient_count": qualitative_count,
+            "estimated_portion_conversion_count": estimated_portion_conversion_count,
             "policy_version": "recipe-qualitative-amount-v1",
             "serving_count": (
                 str(recipe.serving_count) if recipe.serving_count is not None else None
