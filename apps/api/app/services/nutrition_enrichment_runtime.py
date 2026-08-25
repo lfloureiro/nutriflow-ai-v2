@@ -9,6 +9,9 @@ from app.schemas.nutrition_enrichment import (
     NutritionEnrichmentRunRead,
 )
 from app.services.automatic_unit_conversions import auto_enrich_shared_unit_conversions
+from app.services.legacy_v1_unit_corrections import (
+    apply_verified_legacy_v1_unit_corrections,
+)
 from app.services.portfir import (
     PORTFIR_VERSION,
     download_portfir_workbook,
@@ -63,6 +66,7 @@ def run_automatic_nutrition_enrichment(
         raise ValueError("Nutrition enrichment limit must be between 1 and 1000.")
 
     with _RUN_LOCK:
+        apply_verified_legacy_v1_unit_corrections(db)
         path, cache_refreshed = ensure_portfir_cache(
             path=cache_path,
             refresh=refresh,
