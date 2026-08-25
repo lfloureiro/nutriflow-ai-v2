@@ -74,7 +74,7 @@ def test_search_recipe_nutrition_evidence_parses_apify_organic_results(
         max_results=10,
     )
 
-    assert result.query == '"Bacalhau com grão" receita'
+    assert result.query == '"Bacalhau com grão" calorias kcal receita'
     assert len(result.hits) == 2
     assert result.hits[0].calorie_mentions[0].energy_kcal == Decimal(480)
     assert result.hits[0].calorie_mentions[0].basis == "per_serving"
@@ -82,8 +82,35 @@ def test_search_recipe_nutrition_evidence_parses_apify_organic_results(
     assert "token=secret%20token" in str(observed["url"])
     payload = observed["payload"]
     assert isinstance(payload, dict)
-    assert payload["queries"] == '"Bacalhau com grão" receita'
+    assert payload["queries"] == '"Bacalhau com grão" calorias kcal receita'
     assert payload["countryCode"] == "pt"
     assert payload["languageCode"] == "pt-PT"
     assert payload["maxPagesPerQuery"] == 1
     assert "resultsPerPage" not in payload
+
+
+def test_search_recipe_nutrition_evidence_cleans_notes_before_query(
+    monkeypatch,
+) -> None:
+    observed: dict[str, object] = {}
+
+    def fake_request(url: str, *, data: bytes) -> object:
+        observed["payload"] = json.loads(data.decode("utf-8"))
+        return []
+
+    monkeypatch.setattr(
+        recipe_evidence_search,
+        "get_provider_secret_store",
+        lambda: _SecretStore(),
+    )
+    monkeypatch.setattr(recipe_evidence_search, "_request_json", fake_request)
+
+    result = recipe_evidence_search.search_recipe_nutrition_evidence(
+        "Bacalhau com legumes (revista robot de cozinha)",
+        max_results=10,
+    )
+
+    assert result.query == '"Bacalhau com legumes" calorias kcal receita'
+    payload = observed["payload"]
+    assert isinstance(payload, dict)
+    assert payload["queries"] == '"Bacalhau com legumes" calorias kcal receita'
