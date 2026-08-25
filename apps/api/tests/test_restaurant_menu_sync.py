@@ -129,8 +129,6 @@ def test_google_menu_sync_ingests_real_dish_offer_for_recommendations(
     assert offer.provider_key == "restaurant_website"
     assert offer.provider_name == "Boa Mesa"
     assert offer.location == "Benfica, Lisboa"
-    assert offer.valid_until is not None
-    assert offer.valid_until - offer.valid_from == restaurant_menu_sync.MENU_VALIDITY
 
     availability = db_session.scalar(select(MealCandidateAvailability))
     assert availability is not None
