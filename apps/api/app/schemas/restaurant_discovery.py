@@ -13,6 +13,7 @@ class RestaurantDiscoveryPlaceRead(BaseModel):
     latitude: Decimal
     longitude: Decimal
     website: str | None
+    menu_url: str | None = None
     phone: str | None
     opening_hours: str | None
     source_reference: str
