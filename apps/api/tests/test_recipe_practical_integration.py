@@ -5,7 +5,9 @@ from app.models.food_catalog import (
     FoodCompositionSnapshot,
     FoodItem,
     Recipe,
+    RecipeCompositionSnapshot,
     RecipeIngredient,
+    RecipeNutrientComponent,
 )
 from app.services.recipe_nutrition import CALCULATION_VERSION, build_recipe_composition
 
@@ -105,6 +107,61 @@ def test_exact_total_energy_is_kept_but_missing_servings_get_practical_serving_r
     assert isinstance(inputs, dict)
     assert inputs["practical_energy_used"] is False
     assert inputs["serving_count_estimated"] is True
+
+
+def test_shared_light_meal_preserves_existing_recipe_reference_and_adds_profile() -> None:
+    yogurt = _food("yogurt", "Iogurte natural", energy_per_100g=None)
+    banana = _food("banana", "Banana", energy_per_100g=None)
+    recipe = Recipe(
+        recipe_key="snack:recipe:yogurt-banana",
+        name="Iogurte natural com banana",
+        source="development-snack",
+        serving_count=Decimal(1),
+        suitable_meal_types=["snack"],
+    )
+    recipe.ingredients.extend(
+        [
+            _ingredient(yogurt, Decimal(170), "g", 0),
+            _ingredient(banana, Decimal(90), "g", 1),
+        ]
+    )
+    prior = RecipeCompositionSnapshot(
+        reference_quantity=Decimal(1),
+        reference_unit="serving",
+        energy_kcal=Decimal(200),
+        composition_version="snack-estimate-v1",
+        calculation_version="development-snack-estimate-v1",
+        calculation_inputs={"evidence_level": "estimated"},
+    )
+    prior.nutrients.extend(
+        [
+            RecipeNutrientComponent(
+                nutrient_key="protein",
+                value=Decimal(9),
+                unit="g",
+            ),
+            RecipeNutrientComponent(
+                nutrient_key="fiber",
+                value=Decimal(3),
+                unit="g",
+            ),
+        ]
+    )
+    recipe.compositions.append(prior)
+
+    composition = build_recipe_composition(recipe).composition
+    inputs = composition.calculation_inputs
+
+    assert composition.energy_kcal == Decimal(200)
+    assert isinstance(inputs, dict)
+    assert inputs["shared_recipe_reference_used"] is True
+    assert inputs["practical_energy_used"] is False
+    profile = inputs["practical_profile"]
+    assert isinstance(profile, dict)
+    assert profile["primary_protein"] == "Iogurte natural"
+    assert profile["primary_carbohydrate"] == "Banana"
+    nutrients = {item.nutrient_key: item.value for item in composition.nutrients}
+    assert nutrients == {"protein": Decimal(9), "fiber": Decimal(3)}
 
 
 def test_named_prepared_food_without_ingredients_uses_external_reference() -> None:
