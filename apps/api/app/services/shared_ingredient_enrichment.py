@@ -155,6 +155,7 @@ def _portion_conversion(
     *,
     unit_portion: FdcFoodPortion,
     recipe_unit_quantity: Decimal | None,
+    estimated: bool = False,
 ) -> dict[str, object]:
     effective_quantity = _effective_recipe_unit_quantity(
         unit_portion,
@@ -173,6 +174,7 @@ def _portion_conversion(
         "fdc_measure_unit": unit_portion.measure_unit,
         "fdc_modifier": unit_portion.modifier,
         "recipe_unit_quantity": str(effective_quantity),
+        "estimated": estimated,
     }
 
 
@@ -211,6 +213,7 @@ def _conversion_data_version(
     unit_portion: FdcFoodPortion,
     recipe_unit: str,
     recipe_unit_quantity: Decimal | None,
+    estimated: bool,
 ) -> str:
     effective_quantity = _effective_recipe_unit_quantity(
         unit_portion,
@@ -218,7 +221,7 @@ def _conversion_data_version(
     )
     evidence = (
         f"{composition.data_version}|{food.fdc_id}|{unit_portion.portion_id}|"
-        f"{recipe_unit}|{effective_quantity}"
+        f"{recipe_unit}|{effective_quantity}|estimated={estimated}"
     )
     digest = hashlib.sha256(evidence.encode("utf-8")).hexdigest()[:12]
     return f"{composition.data_version[:49]}-c{digest}"[:64]
@@ -232,6 +235,7 @@ def apply_fdc_portion_conversion_to_shared_ingredient(
     unit_portion: FdcFoodPortion,
     recipe_unit: str,
     recipe_unit_quantity: Decimal | None = None,
+    estimated: bool = False,
     effective_at: datetime | None = None,
 ) -> SharedIngredientEnrichmentResult:
     if food.data_type not in GENERIC_DATA_TYPES:
@@ -265,6 +269,7 @@ def apply_fdc_portion_conversion_to_shared_ingredient(
         food,
         unit_portion=unit_portion,
         recipe_unit_quantity=recipe_unit_quantity,
+        estimated=estimated,
     )
     if conversions.get(normalized_recipe_unit) == conversion:
         return SharedIngredientEnrichmentResult(
@@ -284,6 +289,7 @@ def apply_fdc_portion_conversion_to_shared_ingredient(
         unit_portion=unit_portion,
         recipe_unit=normalized_recipe_unit,
         recipe_unit_quantity=recipe_unit_quantity,
+        estimated=estimated,
     )
     composition = FoodCompositionSnapshot(
         reference_quantity=latest.reference_quantity,
