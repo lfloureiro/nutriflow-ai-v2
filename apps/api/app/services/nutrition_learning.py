@@ -10,6 +10,118 @@ _MIN_EVIDENCE_SIMILARITY = Decimal("0.45")
 _ANOMALY_MIN_GROUP_SIZE = 4
 _ANOMALY_RATIO = Decimal(5)
 
+_INGREDIENT_STOPWORDS = frozenset(
+    {
+        "a",
+        "ao",
+        "aos",
+        "as",
+        "com",
+        "da",
+        "das",
+        "de",
+        "do",
+        "dos",
+        "e",
+        "em",
+        "para",
+        "por",
+        "quanto",
+        "baste",
+        "g",
+        "gr",
+        "kg",
+        "mg",
+        "ml",
+        "cl",
+        "l",
+        "un",
+        "unid",
+        "unidade",
+        "unidades",
+        "c",
+        "colher",
+        "colheres",
+        "sopa",
+        "cha",
+        "xicara",
+        "xicaras",
+        "copo",
+        "copos",
+        "emb",
+        "embalagem",
+        "lata",
+        "latas",
+        "fatia",
+        "fatias",
+        "dente",
+        "dentes",
+        "ramo",
+        "ramos",
+        "pitada",
+        "pitadas",
+        "gosto",
+        "pequeno",
+        "pequena",
+        "pequenos",
+        "pequenas",
+        "medio",
+        "media",
+        "medios",
+        "medias",
+        "grande",
+        "grandes",
+        "fresco",
+        "fresca",
+        "frescos",
+        "frescas",
+        "seco",
+        "seca",
+        "secos",
+        "secas",
+        "cozido",
+        "cozida",
+        "cozidos",
+        "cozidas",
+        "cru",
+        "crua",
+        "crus",
+        "cruas",
+        "branco",
+        "branca",
+        "brancos",
+        "brancas",
+        "roxo",
+        "roxa",
+        "roxos",
+        "roxas",
+        "desfiado",
+        "desfiada",
+        "desfiados",
+        "desfiadas",
+        "lombo",
+        "lombos",
+        "virgem",
+        "extra",
+        "fino",
+        "fina",
+    }
+)
+
+_TOKEN_CANONICAL = {
+    "cebolas": "cebola",
+    "ovos": "ovo",
+    "alhos": "alho",
+    "tomates": "tomate",
+    "cenouras": "cenoura",
+    "batatas": "batata",
+    "coentros": "coentro",
+    "graos": "grao",
+    "ervilhas": "ervilha",
+    "pimentos": "pimento",
+    "limoes": "limao",
+}
+
 
 @dataclass(frozen=True)
 class RecipeEvidence:
@@ -91,13 +203,74 @@ def normalize_food_text(value: str) -> str:
     return " ".join(re.findall(r"[a-z0-9]+", ascii_text))
 
 
-def _token_set(values: tuple[str, ...] | list[str]) -> set[str]:
-    result: set[str] = set()
-    for value in values:
-        normalized = normalize_food_text(value)
-        if normalized:
-            result.add(normalized)
-    return result
+def _name_similarity(target_name: str, candidate_name: str) -> Decimal:
+    target_tokens = set(target_name.split())
+    candidate_tokens = set(candidate_name.split())
+    if target_tokens and target_tokens <= candidate_tokens:
+        return Decimal(1)
+    return Decimal(str(SequenceMatcher(None, target_name, candidate_name).ratio()))
+
+
+def _ingredient_tokens(value: str) -> set[str]:
+    tokens: set[str] = set()
+    for token in normalize_food_text(value).split():
+        if token.isdigit() or token in _INGREDIENT_STOPWORDS:
+            continue
+        tokens.add(_TOKEN_CANONICAL.get(token, token))
+    return tokens
+
+
+def _ingredient_pair_similarity(left: str, right: str) -> Decimal:
+    left_tokens = _ingredient_tokens(left)
+    right_tokens = _ingredient_tokens(right)
+    if not left_tokens or not right_tokens:
+        return Decimal(0)
+    intersection = left_tokens & right_tokens
+    if not intersection:
+        return Decimal(0)
+    union = left_tokens | right_tokens
+    jaccard = Decimal(len(intersection)) / Decimal(len(union))
+    overlap = Decimal(len(intersection)) / Decimal(min(len(left_tokens), len(right_tokens)))
+    return max(jaccard, overlap)
+
+
+def _ingredient_set_similarity(
+    target_values: tuple[str, ...] | list[str],
+    evidence_values: tuple[str, ...] | list[str],
+) -> Decimal:
+    if not target_values or not evidence_values:
+        return Decimal(0)
+
+    candidates: list[tuple[Decimal, int, int]] = []
+    for target_index, target in enumerate(target_values):
+        for evidence_index, candidate in enumerate(evidence_values):
+            similarity = _ingredient_pair_similarity(target, candidate)
+            if similarity >= Decimal("0.50"):
+                candidates.append((similarity, target_index, evidence_index))
+
+    matched_target: set[int] = set()
+    matched_evidence: set[int] = set()
+    matched_weight = Decimal(0)
+    for similarity, target_index, evidence_index in sorted(candidates, reverse=True):
+        if target_index in matched_target or evidence_index in matched_evidence:
+            continue
+        matched_target.add(target_index)
+        matched_evidence.add(evidence_index)
+        matched_weight += similarity
+
+    if not matched_target:
+        return Decimal(0)
+
+    target_coverage = matched_weight / Decimal(len(target_values))
+    evidence_coverage = matched_weight / Decimal(len(evidence_values))
+    if target_coverage + evidence_coverage == 0:
+        return Decimal(0)
+    return (
+        Decimal(2)
+        * target_coverage
+        * evidence_coverage
+        / (target_coverage + evidence_coverage)
+    )
 
 
 def recipe_similarity(
@@ -111,15 +284,13 @@ def recipe_similarity(
     if not target_name or not candidate_name:
         return Decimal(0)
 
-    name_score = Decimal(str(SequenceMatcher(None, target_name, candidate_name).ratio()))
-    target_ingredients = _token_set(ingredient_names)
-    evidence_ingredients = _token_set(evidence.ingredient_names)
-    if not target_ingredients or not evidence_ingredients:
+    name_score = _name_similarity(target_name, candidate_name)
+    if not ingredient_names or not evidence.ingredient_names:
         return name_score.quantize(Decimal("0.001"))
 
-    union = target_ingredients | evidence_ingredients
-    ingredient_score = Decimal(len(target_ingredients & evidence_ingredients)) / Decimal(
-        len(union)
+    ingredient_score = _ingredient_set_similarity(
+        ingredient_names,
+        evidence.ingredient_names,
     )
     combined = (name_score * Decimal("0.40")) + (
         ingredient_score * Decimal("0.60")
