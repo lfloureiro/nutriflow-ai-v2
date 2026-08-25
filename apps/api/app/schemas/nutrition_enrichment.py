@@ -20,6 +20,7 @@ class NutritionEnrichmentRunRead(BaseModel):
     source_version: str
     cache_refreshed: bool
     applied_count: int
+    unit_conversion_count: int
     review_count: int
     unmatched_count: int
     recalculated_recipe_count: int
