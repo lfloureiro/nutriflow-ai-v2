@@ -20,10 +20,16 @@ class FakeUberAdapter:
         return ()
 
 
+def _disable_delivery_apify(monkeypatch) -> None:
+    monkeypatch.delenv("NUTRIFLOW_APIFY_API_TOKEN", raising=False)
+    monkeypatch.setattr(settings, "nutriflow_apify_api_token", None)
+    monkeypatch.setattr(settings, "meal_delivery_apify_enabled", False)
+
+
 def test_capabilities_report_recipes_restaurants_and_delivery_integrations(monkeypatch) -> None:
     clear_meal_delivery_adapters()
+    _disable_delivery_apify(monkeypatch)
     secret_names = (
-        "NUTRIFLOW_APIFY_API_TOKEN",
         "NUTRIFLOW_GOOGLE_PLACES_API_KEY",
         "NUTRIFLOW_UBER_CLIENT_ID",
         "NUTRIFLOW_UBER_CLIENT_SECRET",
@@ -106,6 +112,7 @@ def test_restaurant_capability_prefers_google_when_key_is_configured(monkeypatch
 
 def test_uber_capability_requires_credentials_enable_and_registered_adapter(monkeypatch) -> None:
     clear_meal_delivery_adapters()
+    _disable_delivery_apify(monkeypatch)
     monkeypatch.setenv("NUTRIFLOW_UBER_CLIENT_ID", "test-client")
     monkeypatch.setenv("NUTRIFLOW_UBER_CLIENT_SECRET", "test-secret")
     monkeypatch.setattr(settings, "uber_consumer_delivery_enabled", True)
