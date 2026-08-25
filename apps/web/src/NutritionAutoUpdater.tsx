@@ -14,6 +14,7 @@ export default function NutritionAutoUpdater({ familyId }: { familyId: string })
         window.dispatchEvent(
           new CustomEvent(NUTRITION_ENRICHED_EVENT, {
             detail: {
+              family_id: familyId,
               appliedCount: result.applied_count,
               unitConversionCount: result.unit_conversion_count,
               recalculatedRecipeCount: result.recalculated_recipe_count,
