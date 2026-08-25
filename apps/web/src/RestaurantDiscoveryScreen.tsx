@@ -1,10 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
 
 import { ApiError } from "./api/client";
-import { discoverRestaurants } from "./api/restaurantDiscoveryClient";
+import { syncRestaurantMenus } from "./api/restaurantDiscoveryClient";
 import type {
-  RestaurantDiscovery,
-  RestaurantDiscoveryPlace,
+  RestaurantMenuItem,
+  RestaurantMenuSync,
 } from "./api/restaurantDiscoveryTypes";
 import { getMealDiscoveryCapabilities } from "./api/setupClient";
 import type { MealDiscoveryCapability } from "./api/setupTypes";
@@ -14,85 +14,65 @@ import "./restaurant-discovery.css";
 const COPY = {
   "pt-PT": {
     eyebrow: "Casa · Restaurantes",
-    title: "Restaurantes na área",
-    help: "Descobre restaurantes e ordena-os com sinais de qualidade quando estão disponíveis. A nutrição continua a ser avaliada ao nível do prato concreto, não do restaurante inteiro.",
+    title: "Restaurantes e ementas",
+    help: "Descobre restaurantes, lê as ementas publicadas nos respetivos sites oficiais e guarda os pratos que podem entrar nas recomendações.",
     area: "Área",
     areaPlaceholder: "Ex.: Benfica, Lisboa",
     areaHelp: "Deixa vazio para usar a área definida na família.",
-    search: "Procurar restaurantes",
-    searching: "A procurar…",
-    results: "restaurantes encontrados",
-    cached: "cache",
-    live: "pesquisa live",
-    cuisine: "Cozinha",
-    opening: "Horário",
-    website: "Site / menu",
-    source: "Fonte",
+    search: "Atualizar restaurantes e ementas",
+    searching: "A procurar restaurantes e ementas…",
     sourceGoogle: "Google Places",
     sourceOsm: "OpenStreetMap",
-    sourceOsmFallback: "OpenStreetMap · fallback",
-    empty: "Não foram encontrados restaurantes nesta área.",
-    error: "Não foi possível pesquisar restaurantes",
-    providerUnavailable: "Os serviços externos de descoberta não responderam. Tenta novamente mais tarde.",
-    capabilityGoogle: "Google Places ativo · ranking por qualidade · OpenStreetMap como fallback",
-    capabilityFallback: "OpenStreetMap ativo como fallback · falta configurar Google Places para melhorar o ranking",
+    restaurants: "restaurantes analisados",
+    dishes: "pratos encontrados",
+    ready: "pratos com nutrição utilizável",
+    noMenu: "Não foi possível obter uma ementa estruturada deste restaurante.",
+    noItems: "Não foram encontrados pratos utilizáveis na ementa.",
+    error: "Não foi possível atualizar restaurantes e ementas",
+    providerUnavailable: "A descoberta ou leitura das ementas não respondeu. Tenta novamente mais tarde.",
+    capabilityGoogle: "Google Places ativo · os mesmos restaurantes alimentam a sincronização das ementas e as recomendações",
+    capabilityFallback: "Google Places não está configurado · OpenStreetMap é usado como fonte de descoberta desta instalação",
     capabilityNeedsArea: "Falta definir a área padrão da família. Podes configurá-la em Mais ou escrever uma área nesta pesquisa.",
-    capabilityDisabled: "A pesquisa live de restaurantes está desativada nesta instalação.",
-    capabilityUnknown: "Não foi possível confirmar agora o estado da integração. A pesquisa continua disponível para teste.",
-    nutritionNote: "Nutrição pendente do prato/menu",
-    ratings: "avaliações",
-    lunch: "Almoço",
-    dinner: "Jantar",
-    delivery: "Entrega",
-    takeout: "Take-away",
-    dineIn: "No local",
-    vegetarian: "Opções vegetarianas",
-    priceFree: "Grátis",
-    priceInexpensive: "€",
-    priceModerate: "€€",
-    priceExpensive: "€€€",
-    priceVeryExpensive: "€€€€",
+    capabilityDisabled: "A pesquisa de restaurantes está desativada nesta instalação.",
+    capabilityUnknown: "Não foi possível confirmar agora o estado da integração.",
+    official: "kcal publicadas",
+    estimated: "estimativa NutriFlow",
+    provider: "nutrição do fornecedor",
+    nutritionMissing: "sem dados nutricionais suficientes",
+    rankable: "pode entrar na recomendação",
+    notRankable: "ainda não entra no ranking nutricional",
+    menuSource: "Ver fonte da ementa",
   },
   en: {
     eyebrow: "Home base · Restaurants",
-    title: "Restaurants in the area",
-    help: "Discover restaurants and rank them with quality signals when available. Nutrition is still evaluated for a concrete dish, not for an entire restaurant.",
+    title: "Restaurants and menus",
+    help: "Discover restaurants, read menus published on their official websites and retain dishes that can enter meal recommendations.",
     area: "Area",
     areaPlaceholder: "E.g. Benfica, Lisbon",
     areaHelp: "Leave empty to use the Family's configured area.",
-    search: "Find restaurants",
-    searching: "Searching…",
-    results: "restaurants found",
-    cached: "cache",
-    live: "live search",
-    cuisine: "Cuisine",
-    opening: "Opening hours",
-    website: "Website / menu",
-    source: "Source",
+    search: "Refresh restaurants and menus",
+    searching: "Finding restaurants and menus…",
     sourceGoogle: "Google Places",
     sourceOsm: "OpenStreetMap",
-    sourceOsmFallback: "OpenStreetMap · fallback",
-    empty: "No restaurants were found in this area.",
-    error: "Restaurant search failed",
-    providerUnavailable: "External restaurant-discovery services did not respond. Try again later.",
-    capabilityGoogle: "Google Places active · quality ranking · OpenStreetMap fallback",
-    capabilityFallback: "OpenStreetMap fallback active · configure Google Places to improve ranking",
-    capabilityNeedsArea: "The Family has no default restaurant area. Configure it in More or enter an area for this search.",
-    capabilityDisabled: "Live restaurant discovery is disabled in this installation.",
-    capabilityUnknown: "The integration status could not be confirmed right now. Search remains available for testing.",
-    nutritionNote: "Nutrition pending concrete dish/menu evidence",
-    ratings: "ratings",
-    lunch: "Lunch",
-    dinner: "Dinner",
-    delivery: "Delivery",
-    takeout: "Take-away",
-    dineIn: "Dine-in",
-    vegetarian: "Vegetarian options",
-    priceFree: "Free",
-    priceInexpensive: "$",
-    priceModerate: "$$",
-    priceExpensive: "$$$",
-    priceVeryExpensive: "$$$$",
+    restaurants: "restaurants analysed",
+    dishes: "dishes found",
+    ready: "dishes with usable nutrition",
+    noMenu: "A structured menu could not be obtained for this restaurant.",
+    noItems: "No usable dishes were found in this menu.",
+    error: "Restaurants and menus could not be refreshed",
+    providerUnavailable: "Restaurant discovery or menu reading did not respond. Try again later.",
+    capabilityGoogle: "Google Places active · the same restaurant catalogue feeds menu synchronization and recommendations",
+    capabilityFallback: "Google Places is not configured · OpenStreetMap is this installation's discovery source",
+    capabilityNeedsArea: "The Family has no default restaurant area. Configure it in More or enter an area here.",
+    capabilityDisabled: "Restaurant discovery is disabled in this installation.",
+    capabilityUnknown: "The integration status could not be confirmed right now.",
+    official: "published kcal",
+    estimated: "NutriFlow estimate",
+    provider: "provider nutrition",
+    nutritionMissing: "insufficient nutrition data",
+    rankable: "eligible for recommendation",
+    notRankable: "not yet nutrition-rankable",
+    menuSource: "Open menu source",
   },
 } as const;
 
@@ -116,45 +96,29 @@ export function restaurantCapabilityMessage(
 }
 
 function providerLabel(provider: string, locale: "pt-PT" | "en"): string {
-  const copy = COPY[locale];
-  if (provider === "google_places") return copy.sourceGoogle;
-  if (provider === "openstreetmap_fallback") return copy.sourceOsmFallback;
-  return copy.sourceOsm;
+  return provider === "google_places" ? COPY[locale].sourceGoogle : COPY[locale].sourceOsm;
 }
 
-function priceLabel(priceLevel: string | null, locale: "pt-PT" | "en"): string | null {
+function evidenceLabel(item: RestaurantMenuItem, locale: "pt-PT" | "en"): string {
   const copy = COPY[locale];
-  const labels: Record<string, string> = {
-    PRICE_LEVEL_FREE: copy.priceFree,
-    PRICE_LEVEL_INEXPENSIVE: copy.priceInexpensive,
-    PRICE_LEVEL_MODERATE: copy.priceModerate,
-    PRICE_LEVEL_EXPENSIVE: copy.priceExpensive,
-    PRICE_LEVEL_VERY_EXPENSIVE: copy.priceVeryExpensive,
-  };
-  return priceLevel ? labels[priceLevel] ?? null : null;
+  if (item.nutrition_evidence_level === "official") return copy.official;
+  if (item.nutrition_evidence_level === "provider") return copy.provider;
+  if (item.nutrition_evidence_level === "estimated") return copy.estimated;
+  return copy.nutritionMissing;
 }
 
-function serviceLabels(
-  restaurant: RestaurantDiscoveryPlace,
-  locale: "pt-PT" | "en",
-): string[] {
-  const copy = COPY[locale];
-  const labels: Array<string | null> = [
-    restaurant.serves_lunch ? copy.lunch : null,
-    restaurant.serves_dinner ? copy.dinner : null,
-    restaurant.delivery ? copy.delivery : null,
-    restaurant.takeout ? copy.takeout : null,
-    restaurant.dine_in ? copy.dineIn : null,
-    restaurant.serves_vegetarian_food ? copy.vegetarian : null,
-  ];
-  return labels.filter((value): value is string => value !== null);
+function formatMoney(value: string | null, currency: string, locale: "pt-PT" | "en") {
+  if (value === null) return null;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return `${value} ${currency}`;
+  return new Intl.NumberFormat(locale, { style: "currency", currency }).format(numeric);
 }
 
 export default function RestaurantDiscoveryScreen({ familyId }: { familyId: string }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
   const [area, setArea] = useState("");
-  const [discovery, setDiscovery] = useState<RestaurantDiscovery | null>(null);
+  const [result, setResult] = useState<RestaurantMenuSync | null>(null);
   const [capability, setCapability] = useState<MealDiscoveryCapability | null>(null);
   const [capabilityLoaded, setCapabilityLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -164,11 +128,9 @@ export default function RestaurantDiscoveryScreen({ familyId }: { familyId: stri
     let cancelled = false;
     setCapabilityLoaded(false);
     void getMealDiscoveryCapabilities(familyId)
-      .then((result) => {
+      .then((loaded) => {
         if (cancelled) return;
-        setCapability(
-          result.capabilities.find((item) => item.source === "restaurants") ?? null,
-        );
+        setCapability(loaded.capabilities.find((item) => item.source === "restaurants") ?? null);
       })
       .catch(() => {
         if (!cancelled) setCapability(null);
@@ -186,9 +148,15 @@ export default function RestaurantDiscoveryScreen({ familyId }: { familyId: stri
     setBusy(true);
     setError(null);
     try {
-      setDiscovery(await discoverRestaurants(familyId, area));
+      setResult(
+        await syncRestaurantMenus(familyId, {
+          area: area.trim() || null,
+          restaurant_limit: 8,
+          item_limit_per_restaurant: 60,
+        }),
+      );
     } catch (caught: unknown) {
-      setDiscovery(null);
+      setResult(null);
       setError(errorText(caught, locale));
     } finally {
       setBusy(false);
@@ -196,7 +164,7 @@ export default function RestaurantDiscoveryScreen({ familyId }: { familyId: stri
   }
 
   const searchDisabled = busy || (capabilityLoaded && capability?.status === "disabled");
-  const capabilityState = capability?.status === "ready" ? "ready" : capability?.status ?? "unknown";
+  const totalItems = result?.menus.reduce((sum, menu) => sum + menu.items.length, 0) ?? 0;
 
   return (
     <div className="restaurant-discovery-screen">
@@ -209,7 +177,7 @@ export default function RestaurantDiscoveryScreen({ familyId }: { familyId: stri
       </header>
 
       {capabilityLoaded ? (
-        <div className={`restaurant-capability status-${capabilityState}`}>
+        <div className={`restaurant-capability status-${capability?.status ?? "unknown"}`}>
           <span aria-hidden="true" className="restaurant-capability__dot" />
           <span>{restaurantCapabilityMessage(capability, locale)}</span>
         </div>
@@ -239,75 +207,69 @@ export default function RestaurantDiscoveryScreen({ familyId }: { familyId: stri
         </div>
       ) : null}
 
-      {discovery ? (
+      {result ? (
         <section className="restaurant-results">
           <div className="restaurant-results__heading">
             <div>
-              <h2>{discovery.area}</h2>
+              <h2>{result.area}</h2>
               <p>
-                {discovery.restaurants.length} {copy.results} · {discovery.cached ? copy.cached : copy.live}
-                {" · "}{providerLabel(discovery.provider, locale)}
+                {providerLabel(result.provider, locale)} · {result.menus.length} {copy.restaurants}
+                {" · "}{totalItems} {copy.dishes}
+                {" · "}{result.nutrition_ready_item_count} {copy.ready}
               </p>
             </div>
-            <small>{discovery.attribution}</small>
           </div>
-          {discovery.restaurants.length === 0 ? (
-            <div className="empty-state compact-empty-state"><p>{copy.empty}</p></div>
-          ) : (
-            <div className="restaurant-grid">
-              {discovery.restaurants.map((restaurant) => {
-                const services = serviceLabels(restaurant, locale);
-                const price = priceLabel(restaurant.price_level, locale);
-                return (
-                  <article className="restaurant-card" key={restaurant.provider_place_id}>
-                    <div className="restaurant-card__heading">
-                      <div>
-                        <h3>{restaurant.name}</h3>
-                        <span>{copy.nutritionNote}</span>
-                      </div>
-                      <span className="restaurant-kind">
-                        {(restaurant.primary_type ?? restaurant.amenity).replaceAll("_", " ")}
+
+          <div className="restaurant-grid">
+            {result.menus.map((menu) => (
+              <article className="restaurant-card" key={menu.restaurant.provider_place_id}>
+                <div className="restaurant-card__heading">
+                  <div>
+                    <h3>{menu.restaurant.name}</h3>
+                    {menu.restaurant.rating ? (
+                      <span>
+                        ★ {Number(menu.restaurant.rating).toLocaleString(locale, {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}
+                        {menu.restaurant.rating_count !== null
+                          ? ` · ${new Intl.NumberFormat(locale).format(menu.restaurant.rating_count)}`
+                          : ""}
                       </span>
-                    </div>
-                    <div className="restaurant-quality-row">
-                      {restaurant.rating ? (
-                        <strong>
-                          ★ {Number(restaurant.rating).toLocaleString(locale, {
-                            maximumFractionDigits: 1,
-                            minimumFractionDigits: 1,
-                          })}
-                        </strong>
-                      ) : null}
-                      {restaurant.rating_count !== null ? (
-                        <span>
-                          {new Intl.NumberFormat(locale).format(restaurant.rating_count)} {copy.ratings}
-                        </span>
-                      ) : null}
-                      {price ? <span className="restaurant-price">{price}</span> : null}
-                    </div>
-                    {restaurant.address ? <p>{restaurant.address}</p> : null}
-                    {restaurant.cuisine.length > 0 ? (
-                      <p><strong>{copy.cuisine}:</strong> {restaurant.cuisine.join(" · ")}</p>
                     ) : null}
-                    {services.length > 0 ? (
-                      <div className="restaurant-service-row">
-                        {services.map((service) => <span key={service}>{service}</span>)}
+                  </div>
+                </div>
+                {menu.restaurant.address ? <p>{menu.restaurant.address}</p> : null}
+                {menu.error ? <p className="muted">{menu.error || copy.noMenu}</p> : null}
+                {!menu.error && menu.items.length === 0 ? <p className="muted">{copy.noItems}</p> : null}
+                {menu.items.length > 0 ? (
+                  <div className="restaurant-menu-list">
+                    {menu.items.map((item) => (
+                      <div
+                        className={`restaurant-menu-item ${item.eligible_for_nutrition_ranking ? "is-ready" : ""}`}
+                        key={`${item.source_reference}:${item.item_name}:${item.item_price ?? "-"}`}
+                      >
+                        <div>
+                          <strong>{item.item_name}</strong>
+                          {item.description ? <small>{item.description}</small> : null}
+                          <small>
+                            {evidenceLabel(item, locale)} · {item.eligible_for_nutrition_ranking ? copy.rankable : copy.notRankable}
+                          </small>
+                        </div>
+                        <div className="restaurant-menu-item__numbers">
+                          {item.energy_kcal !== null ? <strong>{Math.round(Number(item.energy_kcal))} kcal</strong> : null}
+                          {item.item_price !== null ? <span>{formatMoney(item.item_price, item.currency, locale)}</span> : null}
+                        </div>
+                        <a href={item.source_reference} rel="noreferrer" target="_blank">
+                          {copy.menuSource}
+                        </a>
                       </div>
-                    ) : null}
-                    {restaurant.opening_hours ? (
-                      <p><strong>{copy.opening}:</strong> {restaurant.opening_hours}</p>
-                    ) : null}
-                    <div className="restaurant-links">
-                      {restaurant.website ? (
-                        <a href={restaurant.website} rel="noreferrer" target="_blank">{copy.website}</a>
-                      ) : null}
-                      <a href={restaurant.source_reference} rel="noreferrer" target="_blank">{copy.source}</a>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
+                    ))}
+                  </div>
+                ) : null}
+              </article>
+            ))}
+          </div>
         </section>
       ) : null}
     </div>
