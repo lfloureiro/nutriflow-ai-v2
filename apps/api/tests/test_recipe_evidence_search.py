@@ -70,5 +70,6 @@ def test_search_recipe_nutrition_evidence_parses_apify_organic_results(
     payload = observed["payload"]
     assert isinstance(payload, dict)
     assert payload["countryCode"] == "pt"
-    assert payload["languageCode"] == "pt"
+    assert payload["languageCode"] == "pt-PT"
     assert payload["maxPagesPerQuery"] == 1
+    assert "resultsPerPage" not in payload
