@@ -67,7 +67,7 @@ describe("recommendation planning helpers", () => {
         "bolt_food",
         "restaurant",
       ]),
-    ).toEqual(["home", "restaurant", "delivery"]);
+    ).toEqual(["home", "delivery", "restaurant"]);
     expect(
       recommendationDeliveryProviderKeys(["uber_eats", "glovo", "bolt_food"]),
     ).toEqual(["uber_eats", "glovo", "bolt_food"]);
