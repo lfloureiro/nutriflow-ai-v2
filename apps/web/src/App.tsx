@@ -9,6 +9,7 @@ import FamilyMealsScreen, { type FamilyMealsMode } from "./FamilyMeals";
 import FamilySettings from "./FamilySettings";
 import HomeBase from "./HomeBase";
 import { useI18n, type Locale } from "./i18n";
+import NutritionAutoUpdater from "./NutritionAutoUpdater";
 import PersonOverview from "./PersonOverview";
 import PersonSetupForm from "./PersonSetupForm";
 import { useTheme, type Appearance } from "./theme";
@@ -176,6 +177,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      <NutritionAutoUpdater familyId={activeFamilyId} />
       <aside className="side-nav">
         <button className="side-brand" onClick={() => openPrimaryView("home")} type="button">
           <span className="brand-mark" aria-hidden="true">
