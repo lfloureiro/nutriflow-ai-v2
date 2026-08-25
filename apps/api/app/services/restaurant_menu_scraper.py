@@ -155,6 +155,7 @@ def _json_ld_nodes(value: object):
     if graph is not None:
         yield from _json_ld_nodes(graph)
     for key in (
+        "hasMenu",
         "hasMenuSection",
         "hasMenuItem",
         "itemListElement",
