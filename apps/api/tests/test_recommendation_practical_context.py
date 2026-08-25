@@ -4,9 +4,15 @@ from decimal import Decimal
 import pytest
 
 from app.models.daily_nutrition_state import DailyNutritionState
-from app.models.food_catalog import FoodCompositionSnapshot, FoodItem
+from app.models.food_catalog import (
+    FoodCompositionSnapshot,
+    FoodItem,
+    Recipe,
+    RecipeCompositionSnapshot,
+    RecipeIngredient,
+)
 from app.models.schedule_entry import ScheduleEntry
-from app.services.meal_recommendation import build_food_candidate
+from app.services.meal_recommendation import build_food_candidate, build_recipe_candidate
 from app.services.recommendation_practical_context import (
     CandidatePracticalProfile,
     PracticalMealContext,
@@ -48,6 +54,42 @@ def _candidate(key: str, name: str):
         composition,
         quantity=Decimal("100.0000"),
         quantity_unit="g",
+    )
+
+
+def _recipe_candidate(
+    key: str,
+    name: str,
+    ingredients: list[tuple[str, Decimal, str]],
+):
+    recipe = Recipe(recipe_key=key, name=name, source="test")
+    for index, (ingredient_name, quantity, unit) in enumerate(ingredients):
+        food = FoodItem(
+            catalog_key=f"{key}:ingredient:{index}",
+            name=ingredient_name,
+            food_kind="ingredient",
+            source="test",
+        )
+        recipe.ingredients.append(
+            RecipeIngredient(
+                food_item=food,
+                quantity=quantity,
+                unit=unit,
+                sort_order=index,
+            )
+        )
+    composition = RecipeCompositionSnapshot(
+        recipe=recipe,
+        reference_quantity=Decimal(1),
+        reference_unit="serving",
+        energy_kcal=Decimal(500),
+        composition_version=f"test-{key}",
+        calculation_version="test-v1",
+    )
+    return build_recipe_candidate(
+        composition,
+        quantity=Decimal(1),
+        quantity_unit="serving",
     )
 
 
@@ -194,6 +236,45 @@ def test_preparation_window_and_kitchen_requirements_filter_candidates() -> None
         "kitchen_required",
         "preparation_time_exceeds_available_window",
     )
+
+
+def test_recipe_structure_is_used_as_small_practical_ranking_signal() -> None:
+    balanced = _recipe_candidate(
+        "recipe:balanced",
+        "Arroz de bacalhau",
+        [
+            ("Bacalhau", Decimal(400), "g"),
+            ("Arroz", Decimal(280), "g"),
+            ("Cebola", Decimal(1), "un"),
+            ("Tomate", Decimal(400), "g"),
+            ("Azeite", Decimal(30), "ml"),
+        ],
+    )
+    rich = _recipe_candidate(
+        "recipe:rich",
+        "Bifanas com natas",
+        [
+            ("Bifanas", Decimal(800), "g"),
+            ("Margarina", Decimal(100), "g"),
+            ("Natas", Decimal(3), "emb"),
+        ],
+    )
+
+    result = _recommend(
+        candidates=[rich, balanced],
+        context=PracticalMealContext(
+            scheduled_at=datetime(2026, 8, 21, 12, 30, tzinfo=UTC),
+        ),
+    )
+
+    assert result.eligible[0].candidate.key == "recipe:balanced"
+    assert result.eligible[0].score_breakdown["meal_structure"] > Decimal(0)
+    rich_result = next(
+        item for item in result.eligible if item.candidate.key == "recipe:rich"
+    )
+    assert rich_result.score_breakdown["meal_structure"] < Decimal(0)
+    assert "meal_structure:balanced" in result.eligible[0].explanation
+    assert "meal_structure:high_energy_load" in rich_result.explanation
 
 
 def test_unsupported_recurrence_rule_is_not_silently_ignored() -> None:
