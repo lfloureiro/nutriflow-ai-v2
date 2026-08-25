@@ -2,6 +2,7 @@ export type RecipeMealType = "breakfast" | "lunch" | "snack" | "dinner";
 
 export type RecipeNutritionEvidence =
   | "ingredient_calculated"
+  | "ingredient_estimated"
   | "synthetic_development"
   | "imported"
   | "unknown";
