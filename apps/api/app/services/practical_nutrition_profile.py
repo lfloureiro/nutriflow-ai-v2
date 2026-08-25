@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from app.models.food_catalog import Recipe
 from app.services.nutrition_learning import normalize_food_text
@@ -154,7 +154,7 @@ def _carbohydrate_load(item: IngredientStructure) -> int:
         return 0
     try:
         quantity = Decimal(item.quantity)
-    except ArithmeticError:
+    except (InvalidOperation, ValueError):
         return 0
     if unit in PACKAGE_UNITS:
         return 2 if quantity >= 2 else 1
@@ -247,20 +247,25 @@ def _balance_signals(
 def build_practical_nutrition_profile(recipe: Recipe) -> PracticalNutritionProfile:
     structure = build_recipe_structure_profile(recipe)
     by_name = {item.name: item for item in structure.ingredients}
-    modifiers = tuple(
-        PracticalModifier(
-            name=name,
-            kind=_modifier_kind(name),
-            quantity=by_name[name].quantity,
-            unit=by_name[name].unit,
-            load=_numeric_load(
-                kind=_modifier_kind(name),
-                quantity=Decimal(by_name[name].quantity),
-                unit=by_name[name].unit,
-            ),
+    modifiers: list[PracticalModifier] = []
+    for name in structure.energy_modifiers:
+        item = by_name[name]
+        kind = _modifier_kind(name)
+        modifiers.append(
+            PracticalModifier(
+                name=name,
+                kind=kind,
+                quantity=item.quantity,
+                unit=item.unit,
+                load=_numeric_load(
+                    kind=kind,
+                    quantity=Decimal(item.quantity),
+                    unit=item.unit,
+                ),
+            )
         )
-        for name in structure.energy_modifiers
-    )
+    modifier_tuple = tuple(modifiers)
+
     protein_pattern = _pattern(
         structure.primary_protein,
         structure.secondary_proteins,
@@ -270,7 +275,7 @@ def build_practical_nutrition_profile(recipe: Recipe) -> PracticalNutritionProfi
         structure.other_carbohydrates,
     )
     vegetable_level = _vegetable_level(structure.vegetables)
-    energy_load_signal = _energy_load_signal(structure, modifiers)
+    energy_load_signal = _energy_load_signal(structure, modifier_tuple)
 
     return PracticalNutritionProfile(
         recipe_name=recipe.name,
@@ -283,14 +288,14 @@ def build_practical_nutrition_profile(recipe: Recipe) -> PracticalNutritionProfi
         carbohydrate_pattern=carbohydrate_pattern,
         vegetables=structure.vegetables,
         vegetable_level=vegetable_level,
-        modifiers=modifiers,
+        modifiers=modifier_tuple,
         energy_load_signal=energy_load_signal,
         balance_signals=_balance_signals(
             structure=structure,
             protein_pattern=protein_pattern,
             carbohydrate_pattern=carbohydrate_pattern,
             vegetable_level=vegetable_level,
-            modifiers=modifiers,
+            modifiers=modifier_tuple,
             energy_load_signal=energy_load_signal,
         ),
         calorie_drivers=structure.major_calorie_drivers,
