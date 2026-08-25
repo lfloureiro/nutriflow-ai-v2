@@ -19,7 +19,7 @@ import type {
 import { useI18n, type Locale } from "./i18n";
 
 const MEAL_TYPES: RecipeMealType[] = ["breakfast", "lunch", "snack", "dinner"];
-type NutritionFilter = "all" | "ingredient_calculated" | "incomplete" | "synthetic_development";
+type MealTypeFilter = "all" | RecipeMealType;
 
 const COPY = {
   "pt-PT": {
@@ -29,11 +29,8 @@ const COPY = {
     search: "Procurar receitas",
     placeholder: "Ex.: bolonhesa, salmão…",
     showInactive: "Mostrar inativas",
-    nutritionFilter: "Qualidade nutricional",
-    filterAll: "Todas",
-    filterCalculated: "Calculadas pelos ingredientes",
-    filterIncomplete: "Incompletas",
-    filterSynthetic: "Estimativas de desenvolvimento",
+    mealTypeFilter: "Tipo de refeição",
+    filterAllMeals: "Todas",
     newRecipe: "Nova receita",
     loading: "A carregar receitas…",
     empty: "Ainda não existem receitas.",
@@ -79,14 +76,15 @@ const COPY = {
     noNutrition: "Ainda sem cálculo nutricional utilizável.",
     nutritionIncomplete: "Nutrição incompleta",
     evidenceCalculated: "Calculada pelos ingredientes",
+    evidenceEstimated: "Estimativa nutricional",
     evidenceSynthetic: "Estimativa de desenvolvimento",
     evidenceImported: "Nutrição importada",
     evidenceUnknown: "Origem nutricional desconhecida",
     syntheticHelp: "Este valor existe apenas para desenvolvimento/testes e não deve ser interpretado como nutrição real da receita. Será substituído quando os ingredientes tiverem dados nutricionais suficientes.",
     missingComposition: "Sem composição nutricional",
     missingEnergy: "Sem dados de energia",
-    missingNutritionIngredients: "Ingredientes que bloqueiam o cálculo",
-    nutritionBlockedHelp: "O total energético só é calculado quando todos os ingredientes têm composição, energia e unidades compatíveis.",
+    missingNutritionIngredients: "Ingredientes sem composição detalhada",
+    nutritionBlockedHelp: "O valor energético pode ser estimado mesmo quando faltam composições detalhadas; estes ingredientes reduzem a precisão.",
     total: "Receita total",
     perServing: "Por dose",
     issues: "Dados em falta",
@@ -105,11 +103,8 @@ const COPY = {
     search: "Search recipes",
     placeholder: "E.g. bolognese, salmon…",
     showInactive: "Show inactive",
-    nutritionFilter: "Nutrition quality",
-    filterAll: "All",
-    filterCalculated: "Calculated from ingredients",
-    filterIncomplete: "Incomplete",
-    filterSynthetic: "Development estimates",
+    mealTypeFilter: "Meal type",
+    filterAllMeals: "All",
     newRecipe: "New recipe",
     loading: "Loading recipes…",
     empty: "There are no recipes yet.",
@@ -155,14 +150,15 @@ const COPY = {
     noNutrition: "No usable nutrition calculation yet.",
     nutritionIncomplete: "Incomplete nutrition",
     evidenceCalculated: "Calculated from ingredients",
+    evidenceEstimated: "Nutrition estimate",
     evidenceSynthetic: "Development estimate",
     evidenceImported: "Imported nutrition",
     evidenceUnknown: "Unknown nutrition origin",
     syntheticHelp: "This value exists only for development/testing and must not be interpreted as real recipe nutrition. It will be replaced when ingredient evidence is sufficient.",
     missingComposition: "No nutrition composition",
     missingEnergy: "No energy data",
-    missingNutritionIngredients: "Ingredients blocking calculation",
-    nutritionBlockedHelp: "Energy totals are only calculated when every ingredient has composition, energy and compatible units.",
+    missingNutritionIngredients: "Ingredients without detailed nutrition",
+    nutritionBlockedHelp: "Energy can still be estimated when detailed compositions are missing; these ingredients reduce precision.",
     total: "Whole recipe",
     perServing: "Per serving",
     issues: "Missing evidence",
@@ -259,8 +255,14 @@ export function recipeNutritionSummary(recipe: Recipe, locale: Locale): string {
 
 function evidenceCopyKey(
   evidence: RecipeNutritionEvidence,
-): "evidenceCalculated" | "evidenceSynthetic" | "evidenceImported" | "evidenceUnknown" {
+):
+  | "evidenceCalculated"
+  | "evidenceEstimated"
+  | "evidenceSynthetic"
+  | "evidenceImported"
+  | "evidenceUnknown" {
   if (evidence === "ingredient_calculated") return "evidenceCalculated";
+  if (evidence === "ingredient_estimated") return "evidenceEstimated";
   if (evidence === "synthetic_development") return "evidenceSynthetic";
   if (evidence === "imported") return "evidenceImported";
   return "evidenceUnknown";
@@ -744,14 +746,8 @@ function RecipeEditor({
   );
 }
 
-function matchesNutritionFilter(recipe: Recipe, filter: NutritionFilter): boolean {
-  if (filter === "all") return true;
-  const composition = recipe.latest_composition;
-  if (filter === "incomplete") return composition === null || composition.energy_kcal === null;
-  if (filter === "synthetic_development") {
-    return composition?.evidence === "synthetic_development";
-  }
-  return composition?.energy_kcal !== null && composition?.evidence === "ingredient_calculated";
+export function matchesMealTypeFilter(recipe: Recipe, filter: MealTypeFilter): boolean {
+  return filter === "all" || recipe.suitable_meal_types.includes(filter);
 }
 
 export default function RecipeCatalogue({ familyId }: { familyId: string }) {
@@ -759,7 +755,7 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
   const copy = COPY[locale];
   const [query, setQuery] = useState("");
   const [includeInactive, setIncludeInactive] = useState(false);
-  const [nutritionFilter, setNutritionFilter] = useState<NutritionFilter>("all");
+  const [mealTypeFilter, setMealTypeFilter] = useState<MealTypeFilter>("all");
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [selected, setSelected] = useState<Recipe | null | undefined>(undefined);
@@ -802,10 +798,13 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
     };
   }, [familyId, includeInactive, query, revision, selected]);
 
-  const hasSearch = useMemo(() => query.trim().length > 0 || nutritionFilter !== "all", [query, nutritionFilter]);
+  const hasSearch = useMemo(
+    () => query.trim().length > 0 || mealTypeFilter !== "all",
+    [query, mealTypeFilter],
+  );
   const filteredRecipes = useMemo(
-    () => recipes.filter((recipe) => matchesNutritionFilter(recipe, nutritionFilter)),
-    [recipes, nutritionFilter],
+    () => recipes.filter((recipe) => matchesMealTypeFilter(recipe, mealTypeFilter)),
+    [recipes, mealTypeFilter],
   );
 
   if (selected !== undefined) {
@@ -848,15 +847,17 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
           />
         </label>
         <label className="field recipe-quality-filter">
-          <span>{copy.nutritionFilter}</span>
+          <span>{copy.mealTypeFilter}</span>
           <select
-            value={nutritionFilter}
-            onChange={(event) => setNutritionFilter(event.target.value as NutritionFilter)}
+            value={mealTypeFilter}
+            onChange={(event) => setMealTypeFilter(event.target.value as MealTypeFilter)}
           >
-            <option value="all">{copy.filterAll}</option>
-            <option value="ingredient_calculated">{copy.filterCalculated}</option>
-            <option value="incomplete">{copy.filterIncomplete}</option>
-            <option value="synthetic_development">{copy.filterSynthetic}</option>
+            <option value="all">{copy.filterAllMeals}</option>
+            {MEAL_TYPES.map((mealType) => (
+              <option key={mealType} value={mealType}>
+                {copy[mealType]}
+              </option>
+            ))}
           </select>
         </label>
         <label className="ingredient-check">
