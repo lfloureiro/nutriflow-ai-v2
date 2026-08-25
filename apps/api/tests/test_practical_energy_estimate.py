@@ -40,7 +40,7 @@ def test_estimate_focuses_on_main_calorie_drivers_and_defaults_to_four_servings(
 
     assert estimate is not None
     assert estimate.serving_count == Decimal(4)
-    assert estimate.serving_count_source == "practical-default"
+    assert estimate.serving_count_source == "practical-portion-inference"
     assert estimate.driver_count == 3
     assert estimate.covered_driver_count == 3
     assert estimate.total_energy_kcal > Decimal(1500)
@@ -67,6 +67,7 @@ def test_known_catalogue_energy_is_preferred_to_heuristic_for_same_ingredient() 
     assert turkey.energy_kcal == Decimal(1000)
     assert turkey.source == "catalogue"
     assert margarine.source == "practical-heuristic"
+    assert estimate.serving_count == Decimal(5)
 
 
 def test_large_added_fat_is_reflected_in_numeric_energy_estimate() -> None:
@@ -86,6 +87,60 @@ def test_large_added_fat_is_reflected_in_numeric_energy_estimate() -> None:
     oil = next(item for item in estimate.components if item.name == "Azeite")
     assert oil.energy_kcal > Decimal(2000)
     assert estimate.energy_per_serving_kcal > Decimal(800)
+
+
+def test_half_chicken_unit_is_treated_as_a_whole_animal_fraction() -> None:
+    recipe = _recipe(
+        "Frango com cebolinhas",
+        [
+            ("Frango em pedaços", Decimal("0.5"), "un"),
+            ("Azeite", Decimal(30), "ml"),
+        ],
+    )
+
+    estimate = estimate_practical_recipe_energy(recipe)
+
+    assert estimate is not None
+    chicken = next(item for item in estimate.components if item.name == "Frango em pedaços")
+    assert chicken.energy_kcal == Decimal(900)
+    assert estimate.energy_per_serving_kcal > Decimal(250)
+
+
+def test_dry_pasta_package_infers_more_than_four_servings() -> None:
+    recipe = _recipe(
+        "Frango frito na actifry com fetucine",
+        [
+            ("Frango em pedaços", Decimal("0.5"), "un"),
+            ("Fettuccine", Decimal(1), "emb"),
+            ("Azeite", Decimal(30), "ml"),
+        ],
+    )
+
+    estimate = estimate_practical_recipe_energy(recipe)
+
+    assert estimate is not None
+    assert estimate.serving_count == Decimal(7)
+    assert estimate.serving_count_source == "practical-portion-inference"
+    assert estimate.energy_per_serving_kcal > Decimal(350)
+
+
+def test_piece_based_fish_and_sausages_receive_material_energy_estimates() -> None:
+    fish = _recipe(
+        "Perca do nilo no forno",
+        [("Perca do nilo", Decimal(4), "un")],
+    )
+    sausages = _recipe(
+        "Salsichas com couve lombarda",
+        [("Salsichas frescas", Decimal(12), "un")],
+    )
+
+    fish_estimate = estimate_practical_recipe_energy(fish)
+    sausage_estimate = estimate_practical_recipe_energy(sausages)
+
+    assert fish_estimate is not None
+    assert sausage_estimate is not None
+    assert fish_estimate.total_energy_kcal == Decimal(640)
+    assert sausage_estimate.total_energy_kcal == Decimal(1440)
 
 
 def test_recipe_without_ingredients_does_not_invent_an_energy_value() -> None:
