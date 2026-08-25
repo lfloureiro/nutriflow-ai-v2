@@ -161,10 +161,9 @@ def _estimated_serving_count(recipe: Recipe, structure) -> tuple[Decimal, str]:
         for item in structure.ingredients
         if (hint := _serving_hint(item)) is not None and hint > 0
     ]
-    if not hints:
+    if not hints or max(hints) <= default:
         return default, "practical-default"
-    inferred = max([default, *hints])
-    return inferred, "practical-portion-inference"
+    return max(hints), "practical-portion-inference"
 
 
 def _density_kcal_per_g(item: IngredientStructure) -> Decimal | None:
