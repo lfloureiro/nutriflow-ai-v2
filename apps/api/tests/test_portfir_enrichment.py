@@ -3,7 +3,12 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app.models.food_catalog import FoodItem, Recipe, RecipeIngredient
+from app.models.food_catalog import (
+    FoodCompositionSnapshot,
+    FoodItem,
+    Recipe,
+    RecipeIngredient,
+)
 from app.services.portfir import PortfirFoodNutrition, PortfirNutrient
 from app.services.portfir_enrichment import auto_enrich_shared_ingredients_from_portfir
 
@@ -112,6 +117,78 @@ def test_portfir_volume_reference_recalculates_recipe_without_density_guess(
     assert item.status == "applied"
     assert wine.compositions[-1].reference_unit == "ml"
     assert recipe.compositions[-1].energy_kcal == Decimal("108.0000")
+
+
+def test_auto_portfir_enrichment_refreshes_stale_portfir_reference_unit(
+    db_session: Session,
+) -> None:
+    wine = FoodItem(
+        catalog_key="legacy-v1:ingredient:white-wine-stale",
+        name="Vinho branco",
+        food_kind="ingredient",
+        source="legacy-v1",
+    )
+    wine.compositions.append(
+        FoodCompositionSnapshot(
+            reference_quantity=Decimal(100),
+            reference_unit="g",
+            energy_kcal=Decimal(72),
+            data_version="portfir-7.1-2026-301",
+            source="portfir",
+            source_reference="https://example.test/old-portfir",
+            effective_at=NOW,
+        )
+    )
+    db_session.add(wine)
+    db_session.flush()
+
+    result = auto_enrich_shared_ingredients_from_portfir(
+        db_session,
+        foods=(_food("301", "Vinho branco", "72", reference_unit="ml"),),
+        apply=True,
+    )
+    db_session.flush()
+
+    item = next(entry for entry in result if entry.catalog_key == wine.catalog_key)
+    assert item.status == "applied"
+    assert item.composition_created is True
+    assert len(wine.compositions) == 2
+    assert wine.compositions[-1].reference_unit == "ml"
+    assert wine.compositions[-1].data_version.endswith("-ml")
+
+
+def test_auto_portfir_enrichment_does_not_override_manual_energy(
+    db_session: Session,
+) -> None:
+    onion = FoodItem(
+        catalog_key="legacy-v1:ingredient:manual-onion",
+        name="Cebola picada congelada",
+        food_kind="ingredient",
+        source="legacy-v1",
+    )
+    onion.compositions.append(
+        FoodCompositionSnapshot(
+            reference_quantity=Decimal(100),
+            reference_unit="g",
+            energy_kcal=Decimal(31),
+            data_version="manual-v1",
+            source="user",
+            source_reference=None,
+            effective_at=NOW,
+        )
+    )
+    db_session.add(onion)
+    db_session.flush()
+
+    result = auto_enrich_shared_ingredients_from_portfir(
+        db_session,
+        foods=(_food("101", "Cebola, crua", "29"),),
+        apply=True,
+    )
+
+    assert result == ()
+    assert len(onion.compositions) == 1
+    assert onion.compositions[-1].source == "user"
 
 
 def test_auto_portfir_enrichment_leaves_ambiguous_match_for_review(
