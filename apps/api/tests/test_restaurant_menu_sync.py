@@ -25,7 +25,7 @@ def _family(db_session: Session) -> Family:
     return family
 
 
-def _restaurant() -> RestaurantDiscoveryPlaceRead:
+def _restaurant(*, menu_url: str | None = None) -> RestaurantDiscoveryPlaceRead:
     return RestaurantDiscoveryPlaceRead(
         provider_place_id="google:place-1",
         name="Boa Mesa",
@@ -34,7 +34,8 @@ def _restaurant() -> RestaurantDiscoveryPlaceRead:
         address="Estrada de Benfica 100, Lisboa",
         latitude=Decimal("38.7500"),
         longitude=Decimal("-9.1900"),
-        website="https://boa-mesa.example/menu",
+        website="https://boa-mesa.example/",
+        menu_url=menu_url,
         phone=None,
         opening_hours=None,
         source_reference="https://www.google.com/maps/search/?api=1&query_place_id=place-1",
@@ -45,14 +46,19 @@ def _restaurant() -> RestaurantDiscoveryPlaceRead:
     )
 
 
-def _discovery(provider: str) -> RestaurantDiscoveryRead:
+def _discovery(
+    provider: str,
+    *,
+    restaurant: RestaurantDiscoveryPlaceRead | None = None,
+) -> RestaurantDiscoveryRead:
+    google_provider = provider in {"google_places", "google_maps_apify"}
     return RestaurantDiscoveryRead(
         provider=provider,
         area="Benfica, Lisboa",
         observed_at=datetime(2026, 8, 25, 11, 0, tzinfo=UTC),
         cached=False,
-        attribution="Google Maps" if provider == "google_places" else "OpenStreetMap",
-        restaurants=[_restaurant()],
+        attribution="Google Maps" if google_provider else "OpenStreetMap",
+        restaurants=[restaurant or _restaurant()],
     )
 
 
@@ -61,7 +67,11 @@ def test_menu_sync_refuses_osm_fallback_when_google_is_configured(
     monkeypatch,
 ) -> None:
     family = _family(db_session)
-    monkeypatch.setattr(restaurant_menu_sync, "google_places_configured", lambda: True)
+    monkeypatch.setattr(
+        restaurant_menu_sync,
+        "google_restaurant_discovery_configured",
+        lambda: True,
+    )
     monkeypatch.setattr(
         restaurant_menu_sync,
         "discover_restaurants",
@@ -84,19 +94,27 @@ def test_google_menu_sync_ingests_real_dish_offer_for_recommendations(
     monkeypatch,
 ) -> None:
     family = _family(db_session)
-    restaurant = _restaurant()
-    monkeypatch.setattr(restaurant_menu_sync, "google_places_configured", lambda: True)
+    restaurant = _restaurant(menu_url="https://boa-mesa.example/ementa.pdf")
     monkeypatch.setattr(
         restaurant_menu_sync,
-        "discover_restaurants",
-        lambda area, *, limit: _discovery("google_places"),
+        "google_restaurant_discovery_configured",
+        lambda: True,
     )
     monkeypatch.setattr(
         restaurant_menu_sync,
-        "scrape_restaurant_menu",
-        lambda website, *, max_items: ScrapedRestaurantMenu(
-            website=website,
-            pages_scanned=(website,),
+        "discover_restaurants",
+        lambda area, *, limit: _discovery(
+            "google_maps_apify",
+            restaurant=restaurant,
+        ),
+    )
+    scraped_sources: list[str] = []
+
+    def scrape(source: str, *, max_items: int) -> ScrapedRestaurantMenu:
+        scraped_sources.append(source)
+        return ScrapedRestaurantMenu(
+            website=source,
+            pages_scanned=(source,),
             items=(
                 ScrapedMenuItem(
                     name="Frango grelhado com arroz",
@@ -104,11 +122,12 @@ def test_google_menu_sync_ingests_real_dish_offer_for_recommendations(
                     price=Decimal("12.90"),
                     currency="EUR",
                     energy_kcal=Decimal(610),
-                    source_url=website,
+                    source_url=source,
                 ),
             ),
-        ),
-    )
+        )
+
+    monkeypatch.setattr(restaurant_menu_sync, "scrape_restaurant_menu", scrape)
 
     result = restaurant_menu_sync.sync_restaurant_menus(
         db_session,
@@ -116,7 +135,8 @@ def test_google_menu_sync_ingests_real_dish_offer_for_recommendations(
         data=RestaurantMenuSyncCreate(),
     )
 
-    assert result.provider == "google_places"
+    assert result.provider == "google_maps_apify"
+    assert scraped_sources == ["https://boa-mesa.example/ementa.pdf"]
     assert result.ingested_item_count == 1
     assert result.nutrition_ready_item_count == 1
     assert result.menus[0].restaurant == restaurant
