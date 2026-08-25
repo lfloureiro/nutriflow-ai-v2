@@ -3,7 +3,9 @@ from decimal import Decimal
 
 from app.services.nutrition_learning import normalize_food_text
 from app.services.recipe_evidence_search import (
+    CalorieMention,
     RecipeEvidenceSearchError,
+    RecipeEvidenceSearchHit,
     nutrition_web_evidence_configured,
     search_named_food_nutrition_evidence,
 )
@@ -93,7 +95,9 @@ def _generic_web_reference(recipe_name: str) -> NamedRecipeReference | None:
     except RecipeEvidenceSearchError:
         return None
 
-    candidates: list[tuple[float, object, object]] = []
+    candidates: list[
+        tuple[float, RecipeEvidenceSearchHit, CalorieMention]
+    ] = []
     for hit in result.hits:
         overlap = _title_overlap(recipe_name, hit.title)
         if overlap < 0.5:
@@ -115,11 +119,15 @@ def _generic_web_reference(recipe_name: str) -> NamedRecipeReference | None:
         serving_description = "dose publicada pela fonte externa"
 
     normalized = _normalized(recipe_name)
-    if any(root in normalized for root in ("carne", "frango", "peru", "peixe", "pesc", "salmao")):
+    protein_roots = ("carne", "frango", "peru", "peixe", "pesc", "salmao")
+    if any(root in normalized for root in protein_roots):
         primary_protein: str | None = recipe_name
     else:
         primary_protein = None
-    cooking_method = "baked" if any(root in normalized for root in ("rolo", "forno", "assad")) else "unknown"
+    baked_roots = ("rolo", "forno", "assad")
+    cooking_method = (
+        "baked" if any(root in normalized for root in baked_roots) else "unknown"
+    )
 
     return NamedRecipeReference(
         energy_per_serving_kcal=energy,
