@@ -296,6 +296,7 @@ def test_google_provider_failure_falls_back_to_osm(monkeypatch) -> None:
 
     monkeypatch.setattr(restaurant_discovery, "apify_google_maps_configured", lambda: False)
     monkeypatch.setattr(restaurant_discovery, "google_places_configured", lambda: True)
+    monkeypatch.setattr(restaurant_discovery.settings, "restaurant_google_places_enabled", True)
     monkeypatch.setattr(restaurant_discovery, "_fetch_google_restaurants", fail_google)
     monkeypatch.setattr(restaurant_discovery, "_fetch_restaurants", osm)
 
