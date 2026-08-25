@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import DeliveryMenuScreen from "./DeliveryMenuScreen";
 import IngredientCatalogue from "./IngredientCatalogue";
 import MealDiscoverySettings from "./MealDiscoverySettings";
+import { NUTRITION_ENRICHED_EVENT } from "./NutritionAutoUpdater";
 import PantryScreen from "./PantryScreen";
 import RecipeCatalogue from "./RecipeCatalogue";
 import RecipePreferences from "./RecipePreferences";
@@ -20,9 +21,29 @@ type HomeBaseView =
   | "restaurants"
   | "delivery";
 
+type NutritionEnrichedDetail = {
+  family_id?: string;
+};
+
 export default function HomeBase({ familyId }: { familyId: string }) {
   const { locale } = useI18n();
   const [view, setView] = useState<HomeBaseView>("recipes");
+  const [nutritionRevision, setNutritionRevision] = useState(0);
+
+  useEffect(() => {
+    function handleNutritionEnriched(event: Event) {
+      const detail = (event as CustomEvent<NutritionEnrichedDetail>).detail;
+      if (detail?.family_id === familyId) {
+        setNutritionRevision((current) => current + 1);
+      }
+    }
+
+    window.addEventListener(NUTRITION_ENRICHED_EVENT, handleNutritionEnriched);
+    return () => {
+      window.removeEventListener(NUTRITION_ENRICHED_EVENT, handleNutritionEnriched);
+    };
+  }, [familyId]);
+
   const copy =
     locale === "pt-PT"
       ? {
@@ -116,8 +137,12 @@ export default function HomeBase({ familyId }: { familyId: string }) {
           {copy.delivery}
         </button>
       </nav>
-      {view === "recipes" ? <RecipeCatalogue familyId={familyId} /> : null}
-      {view === "ingredients" ? <IngredientCatalogue familyId={familyId} /> : null}
+      {view === "recipes" ? (
+        <RecipeCatalogue familyId={familyId} key={`recipes-${nutritionRevision}`} />
+      ) : null}
+      {view === "ingredients" ? (
+        <IngredientCatalogue familyId={familyId} key={`ingredients-${nutritionRevision}`} />
+      ) : null}
       {view === "pantry" ? <PantryScreen familyId={familyId} /> : null}
       {view === "shopping" ? <ShoppingListScreen familyId={familyId} /> : null}
       {view === "preferences" ? <RecipePreferences familyId={familyId} /> : null}
