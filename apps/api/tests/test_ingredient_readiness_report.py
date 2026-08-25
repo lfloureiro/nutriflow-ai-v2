@@ -1,7 +1,12 @@
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from app.models.food_catalog import FoodCompositionSnapshot, FoodItem, Recipe, RecipeIngredient
+from app.models.food_catalog import (
+    FoodCompositionSnapshot,
+    FoodItem,
+    Recipe,
+    RecipeIngredient,
+)
 from app.services.ingredient_readiness_report import (
     BLOCKER_MISSING_COMPOSITION,
     BLOCKER_MISSING_CONVERSION,
@@ -25,17 +30,16 @@ def _food(
         food_kind="ingredient",
         source="test",
     )
-    if energy is not None or reference_unit:
-        item.compositions.append(
-            FoodCompositionSnapshot(
-                reference_quantity=Decimal(100),
-                reference_unit=reference_unit,
-                energy_kcal=energy,
-                data_version=f"test-{key}",
-                source="test",
-                effective_at=datetime.now(UTC),
-            )
+    item.compositions.append(
+        FoodCompositionSnapshot(
+            reference_quantity=Decimal(100),
+            reference_unit=reference_unit,
+            energy_kcal=energy,
+            data_version=f"test-{key}",
+            source="test",
+            effective_at=datetime.now(UTC),
         )
+    )
     return item
 
 
@@ -48,7 +52,11 @@ def _missing_food(key: str, name: str) -> FoodItem:
     )
 
 
-def _recipe(key: str, name: str, rows: list[tuple[FoodItem, Decimal, str]]) -> Recipe:
+def _recipe(
+    key: str,
+    name: str,
+    rows: list[tuple[FoodItem, Decimal, str]],
+) -> Recipe:
     recipe = Recipe(recipe_key=key, name=name, source="test")
     for index, (food, quantity, unit) in enumerate(rows):
         recipe.ingredients.append(
@@ -141,7 +149,9 @@ def test_priority_counts_affected_recipes_and_solo_unlocks() -> None:
     )
 
     report = analyze_ingredient_readiness([recipe_one, recipe_two])
-    azeite = next(item for item in report.priorities if item.ingredient_name == "Azeite")
+    azeite = next(
+        item for item in report.priorities if item.ingredient_name == "Azeite"
+    )
     ovos = next(item for item in report.priorities if item.ingredient_name == "Ovos")
 
     assert azeite.blocker_type == BLOCKER_MISSING_COMPOSITION
