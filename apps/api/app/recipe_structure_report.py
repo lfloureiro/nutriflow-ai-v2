@@ -11,6 +11,15 @@ def _names(values: tuple[str, ...]) -> str:
     return " | ".join(values) if values else "-"
 
 
+def _driver_text(profile: RecipeStructureProfile) -> str:
+    values = [
+        f"{item.name}={item.quantity} {item.unit}"
+        for item in profile.ingredients
+        if item.major_calorie_driver
+    ]
+    return " | ".join(values) if values else "-"
+
+
 def _print_profile(profile: RecipeStructureProfile) -> None:
     print(profile.recipe_name)
     print(f"  cooking={profile.cooking_method}")
@@ -22,7 +31,7 @@ def _print_profile(profile: RecipeStructureProfile) -> None:
     print(f"  energy_modifiers={_names(profile.energy_modifiers)}")
     print(f"  accessories={_names(profile.accessories)}")
     print(f"  other={_names(profile.other_ingredients)}")
-    print(f"  calorie_drivers={_names(profile.major_calorie_drivers)}")
+    print(f"  calorie_drivers={_driver_text(profile)}")
     print()
 
 
@@ -55,16 +64,16 @@ def main() -> None:
 
     print("SUMMARY")
     print(f"recipes={len(profiles)}")
-    print(f"protein_identified={sum(item.primary_protein is not None for item in profiles)}")
-    print(
-        "carbohydrate_identified="
-        f"{sum(item.primary_carbohydrate is not None for item in profiles)}"
+    protein_count = sum(item.primary_protein is not None for item in profiles)
+    carbohydrate_count = sum(
+        item.primary_carbohydrate is not None for item in profiles
     )
-    print(
-        "cooking_method_identified="
-        f"{sum(item.cooking_method != 'unknown' for item in profiles)}"
-    )
-    print(f"with_energy_modifiers={sum(bool(item.energy_modifiers) for item in profiles)}")
+    cooking_count = sum(item.cooking_method != "unknown" for item in profiles)
+    modifier_count = sum(bool(item.energy_modifiers) for item in profiles)
+    print(f"protein_identified={protein_count}")
+    print(f"carbohydrate_identified={carbohydrate_count}")
+    print(f"cooking_method_identified={cooking_count}")
+    print(f"with_energy_modifiers={modifier_count}")
 
 
 if __name__ == "__main__":
