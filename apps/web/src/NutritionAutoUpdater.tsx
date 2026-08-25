@@ -9,11 +9,13 @@ export default function NutritionAutoUpdater({ familyId }: { familyId: string })
     let cancelled = false;
     void autoEnrichNutrition(familyId)
       .then((result) => {
-        if (cancelled || result.applied_count === 0) return;
+        const changeCount = result.applied_count + result.unit_conversion_count;
+        if (cancelled || changeCount === 0) return;
         window.dispatchEvent(
           new CustomEvent(NUTRITION_ENRICHED_EVENT, {
             detail: {
               appliedCount: result.applied_count,
+              unitConversionCount: result.unit_conversion_count,
               recalculatedRecipeCount: result.recalculated_recipe_count,
               source: result.source,
               sourceVersion: result.source_version,
