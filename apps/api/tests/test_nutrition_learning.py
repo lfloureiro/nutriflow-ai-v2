@@ -39,6 +39,60 @@ def test_recipe_similarity_uses_name_and_ingredient_overlap() -> None:
     assert unrelated < Decimal("0.30")
 
 
+def test_recipe_similarity_handles_units_preparation_and_plural_forms() -> None:
+    evidence = RecipeEvidence(
+        source="test",
+        source_reference="https://example.test/bacalhau",
+        recipe_name="Bacalhau com Grão com bacalhau fresco",
+        energy_kcal_per_serving=Decimal(241),
+        ingredient_names=(
+            "gr Grão de Bico Cozido",
+            "unid Cebola Branca",
+            "a gosto Alho Seco",
+            "a gosto Coentros",
+            "gr Bacalhau Lombos",
+            "c. sopa Azeite",
+            "a gosto Vinagre Vinho Branco",
+            "a gosto Sal Marinho",
+        ),
+    )
+
+    similarity = recipe_similarity(
+        recipe_name="Bacalhau com grão",
+        ingredient_names=(
+            "Alho",
+            "Azeite",
+            "Bacalhau desfiado",
+            "Cebolas",
+            "Lata de grão",
+            "Ovos",
+            "Salsa",
+            "Vinagre",
+        ),
+        evidence=evidence,
+    )
+
+    assert similarity >= Decimal("0.60")
+
+
+def test_recipe_similarity_does_not_match_ovos_to_polvo() -> None:
+    evidence = RecipeEvidence(
+        source="test",
+        source_reference="https://example.test/polvo",
+        recipe_name="Polvo cru",
+        energy_kcal_per_serving=Decimal(100),
+        ingredient_names=("Polvo cru",),
+    )
+
+    similarity = recipe_similarity(
+        recipe_name="Ovos",
+        ingredient_names=("Ovos",),
+        evidence=evidence,
+    )
+
+    assert similarity < Decimal("0.45")
+
+
 def test_robust_energy_estimate_discards_large_outlier() -> None:
     values = (350, 370, 390, 410, 420, 430, 450, 470, 500, 950)
     evidence = [
