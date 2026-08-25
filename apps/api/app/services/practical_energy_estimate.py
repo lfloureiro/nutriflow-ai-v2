@@ -161,9 +161,12 @@ def _estimated_serving_count(recipe: Recipe, structure) -> tuple[Decimal, str]:
         for item in structure.ingredients
         if (hint := _serving_hint(item)) is not None and hint > 0
     ]
-    if not hints or max(hints) <= default:
+    if not hints:
         return default, "practical-default"
-    return max(hints), "practical-portion-inference"
+    max_hint = max(hints)
+    if default == _LIGHT_MEAL_DEFAULT_SERVING_COUNT and max_hint <= default:
+        return default, "practical-default"
+    return max(default, max_hint), "practical-portion-inference"
 
 
 def _density_kcal_per_g(item: IngredientStructure) -> Decimal | None:
@@ -182,7 +185,7 @@ def _density_kcal_per_g(item: IngredientStructure) -> Decimal | None:
         return Decimal("4.5")
     if _contains(name, "bolacha"):
         return Decimal("4.4")
-    if _contains(name, "cereal", "muesli", "cerelac", "nestum"):
+    if _contains(name, "cere", "muesli", "cerelac", "nestum"):
         return Decimal("3.8")
     if _contains(name, "salsicha"):
         return Decimal("2.8")
@@ -282,7 +285,7 @@ def _package_energy(item: IngredientStructure, quantity: Decimal) -> Decimal | N
         return quantity * Decimal(200) * Decimal("2.0")
     if _is_legume(item):
         return quantity * Decimal(240) * Decimal("1.2")
-    if _contains(name, "cereal", "muesli", "granola", "cerelac", "nestum"):
+    if _contains(name, "cere", "muesli", "granola", "cerelac", "nestum"):
         return quantity * Decimal(375) * Decimal("3.8")
     if _contains(
         name,
