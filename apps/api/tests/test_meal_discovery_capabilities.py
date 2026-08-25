@@ -22,7 +22,8 @@ class FakeUberAdapter:
 
 def test_capabilities_report_recipes_restaurants_and_delivery_integrations(monkeypatch) -> None:
     clear_meal_delivery_adapters()
-    for name in (
+    secret_names = (
+        "NUTRIFLOW_APIFY_API_TOKEN",
         "NUTRIFLOW_GOOGLE_PLACES_API_KEY",
         "NUTRIFLOW_UBER_CLIENT_ID",
         "NUTRIFLOW_UBER_CLIENT_SECRET",
@@ -30,9 +31,12 @@ def test_capabilities_report_recipes_restaurants_and_delivery_integrations(monke
         "NUTRIFLOW_GLOVO_CLIENT_SECRET",
         "NUTRIFLOW_BOLT_FOOD_INTEGRATOR_ID",
         "NUTRIFLOW_BOLT_FOOD_SECRET_KEY",
-    ):
+    )
+    for name in secret_names:
         monkeypatch.delenv(name, raising=False)
+        monkeypatch.setattr(settings, name.casefold(), None)
     monkeypatch.setattr(settings, "restaurant_discovery_enabled", True)
+    monkeypatch.setattr(settings, "restaurant_apify_google_enabled", True)
     monkeypatch.setattr(settings, "restaurant_google_places_enabled", True)
     monkeypatch.setattr(settings, "uber_consumer_delivery_enabled", False)
     monkeypatch.setattr(settings, "glovo_consumer_discovery_enabled", False)
