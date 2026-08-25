@@ -19,6 +19,10 @@ _PROTEIN_GRAMS_PER_SERVING = Decimal(180)
 _FISH_GRAMS_PER_SERVING = Decimal(160)
 _DRY_STAPLE_GRAMS_PER_SERVING = Decimal(80)
 _POTATO_GRAMS_PER_SERVING = Decimal(250)
+_QUALITATIVE_POTATO_GRAMS_PER_SERVING = Decimal(200)
+_QUALITATIVE_DRY_STAPLE_GRAMS_PER_SERVING = Decimal(70)
+_QUALITATIVE_LEGUME_GRAMS_PER_SERVING = Decimal(150)
+_QUALITATIVE_PROTEIN_GRAMS_PER_SERVING = Decimal(150)
 
 
 @dataclass(frozen=True)
@@ -89,6 +93,19 @@ def _is_dry_staple(item: IngredientStructure) -> bool:
 
 def _is_thickener(item: IngredientStructure) -> bool:
     return _contains(item.name, "farinha", "maisena", "amido")
+
+
+def _is_legume(item: IngredientStructure) -> bool:
+    return _contains(item.name, "grao", "feijao", "lentilha", "ervilha")
+
+
+def _is_qualitative_structural_driver(item: IngredientStructure) -> bool:
+    unit = item.unit.strip().casefold()
+    if unit not in QUALITATIVE_UNITS:
+        return False
+    if DIM_PROTEIN in item.dimensions:
+        return True
+    return DIM_CARBOHYDRATE in item.dimensions and not _is_thickener(item)
 
 
 def _ceil_ratio(quantity: Decimal, per_serving: Decimal) -> Decimal:
@@ -197,7 +214,7 @@ def _density_kcal_per_g(item: IngredientStructure) -> Decimal | None:
         "lula",
     ):
         return Decimal("1.1")
-    if _contains(name, "grao", "feijao", "lentilha", "ervilha"):
+    if _is_legume(item):
         return Decimal("1.2")
     if _contains(name, "batata"):
         return Decimal("0.8")
@@ -229,7 +246,7 @@ def _package_energy(item: IngredientStructure, quantity: Decimal) -> Decimal | N
     name = item.name
     if _contains(name, "natas"):
         return quantity * Decimal(200) * Decimal("2.0")
-    if _contains(name, "grao", "feijao", "lentilha", "ervilha"):
+    if _is_legume(item):
         return quantity * Decimal(240) * Decimal("1.2")
     if _contains(
         name,
@@ -305,6 +322,32 @@ def _heuristic_energy(item: IngredientStructure) -> Decimal | None:
     return None
 
 
+def _qualitative_structural_energy(
+    item: IngredientStructure,
+    serving_count: Decimal,
+) -> Decimal | None:
+    if not _is_qualitative_structural_driver(item):
+        return None
+
+    density = _density_kcal_per_g(item)
+    if density is None:
+        return None
+
+    if DIM_CARBOHYDRATE in item.dimensions:
+        if _contains(item.name, "batata"):
+            grams_per_serving = _QUALITATIVE_POTATO_GRAMS_PER_SERVING
+        elif _is_dry_staple(item):
+            grams_per_serving = _QUALITATIVE_DRY_STAPLE_GRAMS_PER_SERVING
+        elif _is_legume(item):
+            grams_per_serving = _QUALITATIVE_LEGUME_GRAMS_PER_SERVING
+        else:
+            grams_per_serving = Decimal(150)
+    else:
+        grams_per_serving = _QUALITATIVE_PROTEIN_GRAMS_PER_SERVING
+
+    return serving_count * grams_per_serving * density
+
+
 def estimate_practical_recipe_energy(
     recipe: Recipe,
     *,
@@ -314,11 +357,20 @@ def estimate_practical_recipe_energy(
     if not structure.ingredients:
         return None
 
+    if recipe.serving_count is not None:
+        serving_count = recipe.serving_count
+        serving_count_source = "catalogue"
+    else:
+        serving_count, serving_count_source = _estimated_serving_count(structure)
+
     known = known_energy_by_index or {}
     components: list[PracticalEnergyComponent] = []
     known_total = Decimal(0)
     heuristic_total = Decimal(0)
-    driver_count = sum(item.major_calorie_driver for item in structure.ingredients)
+    driver_count = sum(
+        item.major_calorie_driver or _is_qualitative_structural_driver(item)
+        for item in structure.ingredients
+    )
     covered_driver_count = 0
     heuristic_driver_count = 0
 
@@ -334,14 +386,19 @@ def estimate_practical_recipe_energy(
                     confidence="high",
                 )
             )
-            if item.major_calorie_driver:
+            if item.major_calorie_driver or _is_qualitative_structural_driver(item):
                 covered_driver_count += 1
             continue
 
-        if not item.major_calorie_driver:
+        if item.major_calorie_driver:
+            heuristic = _heuristic_energy(item)
+            source = "practical-heuristic"
+        elif _is_qualitative_structural_driver(item):
+            heuristic = _qualitative_structural_energy(item, serving_count)
+            source = "practical-qualitative-default"
+        else:
             continue
 
-        heuristic = _heuristic_energy(item)
         if heuristic is None or heuristic <= 0:
             continue
         heuristic_total += heuristic
@@ -351,7 +408,7 @@ def estimate_practical_recipe_energy(
             PracticalEnergyComponent(
                 name=item.name,
                 energy_kcal=_q(heuristic),
-                source="practical-heuristic",
+                source=source,
                 confidence="low",
             )
         )
@@ -364,11 +421,6 @@ def estimate_practical_recipe_energy(
     if coverage < Decimal("0.75"):
         return None
 
-    if recipe.serving_count is not None:
-        serving_count = recipe.serving_count
-        serving_count_source = "catalogue"
-    else:
-        serving_count, serving_count_source = _estimated_serving_count(structure)
     per_serving = total / serving_count
 
     if covered_driver_count == driver_count and heuristic_driver_count == 0:
