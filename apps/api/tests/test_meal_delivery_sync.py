@@ -54,9 +54,18 @@ def _family(db_session: Session) -> Family:
     return family
 
 
+def _disable_apify(monkeypatch) -> None:
+    monkeypatch.delenv("NUTRIFLOW_APIFY_API_TOKEN", raising=False)
+    monkeypatch.setattr(settings, "nutriflow_apify_api_token", None)
+    monkeypatch.setattr(settings, "meal_delivery_apify_enabled", False)
+
+
 def test_sync_refuses_provider_that_is_not_live(db_session: Session, monkeypatch) -> None:
+    _disable_apify(monkeypatch)
     monkeypatch.delenv("NUTRIFLOW_UBER_CLIENT_ID", raising=False)
     monkeypatch.delenv("NUTRIFLOW_UBER_CLIENT_SECRET", raising=False)
+    monkeypatch.setattr(settings, "nutriflow_uber_client_id", None)
+    monkeypatch.setattr(settings, "nutriflow_uber_client_secret", None)
     monkeypatch.setattr(settings, "uber_consumer_delivery_enabled", False)
 
     with pytest.raises(MealDeliveryProviderUnavailable):
@@ -70,6 +79,7 @@ def test_sync_refuses_provider_that_is_not_live(db_session: Session, monkeypatch
 
 
 def test_sync_normalizes_provider_observations_into_domain(db_session: Session, monkeypatch) -> None:
+    _disable_apify(monkeypatch)
     monkeypatch.setenv("NUTRIFLOW_UBER_CLIENT_ID", "test-client")
     monkeypatch.setenv("NUTRIFLOW_UBER_CLIENT_SECRET", "test-secret")
     monkeypatch.setattr(settings, "uber_consumer_delivery_enabled", True)
