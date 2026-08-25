@@ -19,6 +19,8 @@ from app.schemas.restaurant_discovery import (
 
 OSM_ATTRIBUTION = "© OpenStreetMap contributors (ODbL)"
 GOOGLE_ATTRIBUTION = "Google Maps"
+APIFY_GOOGLE_ATTRIBUTION = "Google Maps via Apify"
+APIFY_API_TOKEN_SECRET = "NUTRIFLOW_APIFY_API_TOKEN"
 GOOGLE_PLACES_API_KEY_SECRET = "NUTRIFLOW_GOOGLE_PLACES_API_KEY"
 _GOOGLE_FIELD_MASK = (
     "places.id,"
@@ -61,8 +63,20 @@ class RestaurantDiscoveryError(ValueError):
     pass
 
 
+def apify_google_maps_configured() -> bool:
+    return get_provider_secret_store().get(APIFY_API_TOKEN_SECRET) is not None
+
+
 def google_places_configured() -> bool:
     return get_provider_secret_store().get(GOOGLE_PLACES_API_KEY_SECRET) is not None
+
+
+def google_restaurant_discovery_configured() -> bool:
+    apify_ready = (
+        settings.restaurant_apify_google_enabled and apify_google_maps_configured()
+    )
+    places_ready = settings.restaurant_google_places_enabled and google_places_configured()
+    return apify_ready or places_ready
 
 
 def _normalized_area(area: str) -> str:
@@ -78,6 +92,7 @@ def _request_json(
     data: bytes | None = None,
     content_type: str | None = None,
     extra_headers: dict[str, str] | None = None,
+    timeout_seconds: float | None = None,
 ) -> Any:
     headers = {
         "Accept": "application/json",
@@ -91,7 +106,7 @@ def _request_json(
     try:
         with urlopen(
             request,
-            timeout=settings.restaurant_discovery_timeout_seconds,
+            timeout=timeout_seconds or settings.restaurant_discovery_timeout_seconds,
         ) as response:
             return json.loads(response.read().decode("utf-8"))
     except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
@@ -156,7 +171,9 @@ def _geocode_area(area: str) -> tuple[Decimal, Decimal, Decimal, Decimal]:
         raise RestaurantDiscoveryError(f"Could not locate restaurant area {area!r}.")
     bounding_box = payload[0].get("boundingbox")
     if not isinstance(bounding_box, list) or len(bounding_box) != 4:
-        raise RestaurantDiscoveryError("Geocoding result does not contain a usable bounding box.")
+        raise RestaurantDiscoveryError(
+            "Geocoding result does not contain a usable bounding box."
+        )
     south, north, west, east = (
         _decimal(value, field="bounding box") for value in bounding_box
     )
@@ -410,6 +427,180 @@ def _google_place(place: object) -> RestaurantDiscoveryPlaceRead | None:
     )
 
 
+def _apify_opening_hours(value: object) -> str | None:
+    if isinstance(value, dict):
+        parts = [f"{day}: {hours}" for day, hours in value.items() if hours]
+        return " · ".join(parts) or None
+    if isinstance(value, list):
+        parts: list[str] = []
+        for item in value:
+            if isinstance(item, str) and item.strip():
+                parts.append(item.strip())
+            elif isinstance(item, dict):
+                day = str(item.get("day") or "").strip()
+                hours = str(item.get("hours") or "").strip()
+                text = ": ".join(part for part in (day, hours) if part)
+                if text:
+                    parts.append(text)
+        return " · ".join(parts) or None
+    return str(value).strip() or None if value is not None else None
+
+
+def _apify_info_flag(place: dict[str, object], *labels: str) -> bool | None:
+    additional = place.get("additionalInfo")
+    if not isinstance(additional, dict):
+        return None
+    wanted = {label.casefold() for label in labels}
+    for entries in additional.values():
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            for key, value in entry.items():
+                if key.casefold() in wanted and isinstance(value, bool):
+                    return value
+    return None
+
+
+def _apify_primary_type(category_name: str) -> str:
+    normalized = category_name.strip().casefold()
+    if "fast food" in normalized:
+        return "fast_food_restaurant"
+    if normalized.endswith(" restaurant"):
+        return normalized.replace(" ", "_")
+    return "restaurant"
+
+
+def _apify_cuisine(place: dict[str, object]) -> list[str]:
+    raw_categories = place.get("categories")
+    categories = raw_categories if isinstance(raw_categories, list) else []
+    category_name = str(place.get("categoryName") or "").strip()
+    if category_name:
+        categories = [category_name, *categories]
+
+    cuisines: list[str] = []
+    seen: set[str] = set()
+    excluded = {"restaurant", "fast food restaurant", "delivery restaurant"}
+    for raw in categories:
+        if not isinstance(raw, str):
+            continue
+        normalized = raw.strip().casefold()
+        if normalized in excluded or not normalized.endswith(" restaurant"):
+            continue
+        cuisine = normalized.removesuffix(" restaurant")
+        if cuisine and cuisine not in seen:
+            seen.add(cuisine)
+            cuisines.append(cuisine)
+    return cuisines
+
+
+def _apify_place(place: object) -> RestaurantDiscoveryPlaceRead | None:
+    if not isinstance(place, dict):
+        return None
+    if place.get("permanentlyClosed") is True or place.get("temporarilyClosed") is True:
+        return None
+
+    place_id = str(place.get("placeId") or "").strip()
+    name = str(place.get("title") or "").strip()
+    location = place.get("location")
+    if not place_id or not name or not isinstance(location, dict):
+        return None
+    latitude = _optional_decimal(location.get("lat"))
+    longitude = _optional_decimal(location.get("lng"))
+    if latitude is None or longitude is None:
+        return None
+
+    category_name = str(place.get("categoryName") or "Restaurant").strip()
+    primary_type = _apify_primary_type(category_name)
+    rating = _optional_decimal(place.get("totalScore"))
+    rating_count = _optional_int(place.get("reviewsCount"))
+    source_reference = str(place.get("url") or "").strip()
+    if not source_reference:
+        source_reference = (
+            "https://www.google.com/maps/search/?api=1&query_place_id=" + place_id
+        )
+    return RestaurantDiscoveryPlaceRead(
+        provider_place_id=f"google:{place_id}",
+        name=name,
+        cuisine=_apify_cuisine(place),
+        amenity=(
+            "fast_food" if primary_type == "fast_food_restaurant" else "restaurant"
+        ),
+        address=str(place.get("address") or "").strip() or None,
+        latitude=latitude,
+        longitude=longitude,
+        website=str(place.get("website") or "").strip() or None,
+        menu_url=str(place.get("menu") or "").strip() or None,
+        phone=str(place.get("phone") or "").strip() or None,
+        opening_hours=_apify_opening_hours(place.get("openingHours")),
+        source_reference=source_reference,
+        primary_type=primary_type,
+        rating=rating,
+        rating_count=rating_count,
+        price_level=str(place.get("price") or place.get("priceLevel") or "").strip()
+        or None,
+        delivery=_apify_info_flag(place, "Delivery"),
+        takeout=_apify_info_flag(place, "Takeout", "Takeaway"),
+        dine_in=_apify_info_flag(place, "Dine-in", "Dine in"),
+        serves_lunch=_apify_info_flag(place, "Lunch"),
+        serves_dinner=_apify_info_flag(place, "Dinner"),
+        quality_score=_quality_score(
+            rating,
+            rating_count,
+            primary_type=primary_type,
+        ),
+    )
+
+
+def _fetch_apify_google_restaurants(
+    area: str,
+    *,
+    limit: int,
+) -> RestaurantDiscoveryRead:
+    token = get_provider_secret_store().get(APIFY_API_TOKEN_SECRET)
+    if token is None:
+        raise RestaurantDiscoveryError(
+            "Apify Google Maps restaurant discovery is not configured."
+        )
+    payload = {
+        "searchStringsArray": ["restaurant"],
+        "locationQuery": area,
+        "maxCrawledPlacesPerSearch": limit,
+        "language": "en",
+        "scrapeSocialMediaProfiles": {
+            "facebooks": False,
+            "instagrams": False,
+            "youtubes": False,
+            "tiktoks": False,
+            "twitters": False,
+        },
+        "maximumLeadsEnrichmentRecords": 0,
+        "maxImages": 0,
+    }
+    response = _request_json(
+        settings.restaurant_apify_google_url,
+        data=json.dumps(payload).encode("utf-8"),
+        content_type="application/json",
+        extra_headers={"Authorization": f"Bearer {token}"},
+        timeout_seconds=settings.restaurant_apify_timeout_seconds,
+    )
+    if not isinstance(response, list):
+        raise RestaurantDiscoveryError("Apify Google Maps returned invalid restaurant data.")
+    places = [
+        parsed for raw in response if (parsed := _apify_place(raw)) is not None
+    ]
+    ranked = _rank_and_dedupe(places)
+    return RestaurantDiscoveryRead(
+        provider="google_maps_apify",
+        area=area,
+        observed_at=datetime.now(UTC),
+        cached=False,
+        attribution=APIFY_GOOGLE_ATTRIBUTION,
+        restaurants=ranked[:limit],
+    )
+
+
 def _fetch_google_restaurants(
     area: str,
     *,
@@ -500,6 +691,8 @@ def _fetch_restaurants(
 
 
 def _live_provider_key() -> str:
+    if settings.restaurant_apify_google_enabled and apify_google_maps_configured():
+        return "google_maps_apify"
     if settings.restaurant_google_places_enabled and google_places_configured():
         return "google_places"
     return "openstreetmap"
@@ -509,6 +702,21 @@ def _cache_ttl(result: RestaurantDiscoveryRead) -> int:
     if result.provider == "openstreetmap_fallback":
         return min(settings.restaurant_discovery_cache_seconds, 300)
     return settings.restaurant_discovery_cache_seconds
+
+
+def _google_fallback_or_osm(area: str) -> RestaurantDiscoveryRead:
+    if settings.restaurant_google_places_enabled and google_places_configured():
+        try:
+            return _fetch_google_restaurants(
+                area,
+                limit=settings.restaurant_discovery_max_results,
+            )
+        except RestaurantDiscoveryError:
+            pass
+    return _fetch_restaurants(
+        area,
+        limit=settings.restaurant_discovery_max_results,
+    ).model_copy(update={"provider": "openstreetmap_fallback"})
 
 
 def discover_restaurants(
@@ -535,7 +743,15 @@ def discover_restaurants(
             )
 
     result: RestaurantDiscoveryRead
-    if provider_key == "google_places":
+    if provider_key == "google_maps_apify":
+        try:
+            result = _fetch_apify_google_restaurants(
+                normalized,
+                limit=settings.restaurant_discovery_max_results,
+            )
+        except RestaurantDiscoveryError:
+            result = _google_fallback_or_osm(normalized)
+    elif provider_key == "google_places":
         try:
             result = _fetch_google_restaurants(
                 normalized,
