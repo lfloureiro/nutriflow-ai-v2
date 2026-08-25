@@ -188,6 +188,18 @@ export type RecommendationNutrient = {
   unit: string;
 };
 
+export type HumanPortionComponent = {
+  name: string;
+  quantity: string | null;
+  unit: string;
+  qualitative: boolean;
+};
+
+export type HumanPortionGuidance = {
+  kind: "recipe_components" | "single_item";
+  components: HumanPortionComponent[];
+};
+
 export type RecommendationOption = {
   id: string;
   candidate_key: string;
@@ -195,6 +207,7 @@ export type RecommendationOption = {
   candidate_kind: string;
   quantity: string;
   quantity_unit: string;
+  portion_guidance: HumanPortionGuidance | null;
   eligible: boolean;
   rank: number | null;
   score: string | null;
