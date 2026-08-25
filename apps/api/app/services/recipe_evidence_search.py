@@ -215,7 +215,7 @@ def search_recipe_nutrition_evidence(
         20,
     )
     search_name = recipe_search_name(normalized_name) or normalized_name
-    query = f'"{search_name}" receita'
+    query = f'"{search_name}" calorias kcal receita'
     payload = json.dumps(
         {
             "queries": query,
