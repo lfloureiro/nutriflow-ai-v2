@@ -9,7 +9,10 @@ export default function NutritionAutoUpdater({ familyId }: { familyId: string })
     let cancelled = false;
     void autoEnrichNutrition(familyId)
       .then((result) => {
-        const changeCount = result.applied_count + result.unit_conversion_count;
+        const changeCount =
+          result.applied_count +
+          result.unit_conversion_count +
+          result.legacy_recipe_rebuilt_count;
         if (cancelled || changeCount === 0) return;
         window.dispatchEvent(
           new CustomEvent(NUTRITION_ENRICHED_EVENT, {
@@ -18,6 +21,9 @@ export default function NutritionAutoUpdater({ familyId }: { familyId: string })
               appliedCount: result.applied_count,
               unitConversionCount: result.unit_conversion_count,
               recalculatedRecipeCount: result.recalculated_recipe_count,
+              legacyRecipeCalculatedCount: result.legacy_recipe_calculated_count,
+              legacyRecipeEstimatedCount: result.legacy_recipe_estimated_count,
+              legacyRecipeBlockedCount: result.legacy_recipe_blocked_count,
               source: result.source,
               sourceVersion: result.source_version,
             },
