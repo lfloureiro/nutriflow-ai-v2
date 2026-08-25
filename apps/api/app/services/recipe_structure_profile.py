@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -21,6 +22,14 @@ COOKING_STEWED = "stewed"
 COOKING_BOILED = "boiled"
 COOKING_SAUTEED = "sauteed"
 COOKING_UNKNOWN = "unknown"
+
+_MAJOR_DIMENSIONS = frozenset(
+    {
+        DIM_PROTEIN,
+        DIM_CARBOHYDRATE,
+        DIM_ENERGY_MODIFIER,
+    }
+)
 
 _PROTEIN_ROOTS = (
     "frang",
@@ -61,6 +70,9 @@ _CARB_ROOTS = (
     "quinoa",
     "tortilha",
     "noodle",
+    "farinha",
+    "aveia",
+    "milho",
 )
 _VEGETABLE_ROOTS = (
     "cebola",
@@ -95,6 +107,11 @@ _ENERGY_MODIFIER_ROOTS = (
     "farinheira",
     "leite",
     "molho",
+    "coco",
+    "chocolate",
+    "amendoim",
+    "amendoa",
+    "noz",
 )
 _SECONDARY_PROTEIN_MODIFIER_ROOTS = (
     "queijo",
@@ -104,25 +121,22 @@ _SECONDARY_PROTEIN_MODIFIER_ROOTS = (
     "alheira",
     "farinheira",
 )
-_ACCESSORY_PHRASES = (
-    "sal",
-    "sal grosso",
-    "pimenta",
-    "pimenta preta",
-    "pimenta branca",
-    "alho",
-    "alho em po",
-    "louro",
-    "salsa",
-    "coentros",
-    "colorau",
-    "paprica",
-    "noz moscada",
-    "vinagre",
-    "limao",
-    "caldo",
-    "vinho branco",
-    "vinho tinto",
+_ACCESSORY_FIRST_TOKENS = frozenset(
+    {
+        "sal",
+        "pimenta",
+        "alho",
+        "louro",
+        "salsa",
+        "coentros",
+        "coentro",
+        "colorau",
+        "paprica",
+        "vinagre",
+        "limao",
+        "caldo",
+        "vinho",
+    }
 )
 
 
@@ -159,13 +173,19 @@ def _has_root(tokens: tuple[str, ...], roots: tuple[str, ...]) -> bool:
     return any(token.startswith(root) for token in tokens for root in roots)
 
 
-def _has_phrase(value: str, phrases: tuple[str, ...]) -> bool:
-    normalized = f" {normalize_food_text(value)} "
-    return any(f" {normalize_food_text(phrase)} " in normalized for phrase in phrases)
+def _is_accessory(tokens: tuple[str, ...]) -> bool:
+    if not tokens:
+        return False
+    if tokens[0] in _ACCESSORY_FIRST_TOKENS:
+        return True
+    return len(tokens) >= 2 and tokens[:2] == ("noz", "moscada")
 
 
 def classify_ingredient_dimensions(name: str) -> tuple[str, ...]:
     tokens = _tokens(name)
+    if _is_accessory(tokens):
+        return (DIM_ACCESSORY,)
+
     dimensions: list[str] = []
 
     if _has_root(tokens, _PROTEIN_ROOTS) or _has_root(
@@ -185,13 +205,7 @@ def classify_ingredient_dimensions(name: str) -> tuple[str, ...]:
     if _has_root(tokens, _ENERGY_MODIFIER_ROOTS):
         dimensions.append(DIM_ENERGY_MODIFIER)
 
-    if not dimensions and _has_phrase(name, _ACCESSORY_PHRASES):
-        dimensions.append(DIM_ACCESSORY)
-
-    if not dimensions:
-        dimensions.append(DIM_OTHER)
-
-    return tuple(dimensions)
+    return tuple(dimensions) if dimensions else (DIM_OTHER,)
 
 
 def _infer_cooking_method(recipe: Recipe) -> str:
@@ -212,7 +226,11 @@ def _infer_cooking_method(recipe: Recipe) -> str:
         return COOKING_GRILLED
     if "forno" in normalized or "assad" in normalized:
         return COOKING_BAKED
-    if "guisad" in normalized or "estufad" in normalized or "strogonoff" in normalized:
+    if (
+        "guisad" in normalized
+        or "estufad" in normalized
+        or "strogonoff" in normalized
+    ):
         return COOKING_STEWED
     if "cozid" in normalized:
         return COOKING_BOILED
@@ -247,24 +265,26 @@ def _select_primary(
     return max(candidates, key=rank)
 
 
-def build_recipe_structure_profile(recipe: Recipe) -> RecipeStructureProfile:
-    ingredients = tuple(
-        IngredientStructure(
-            name=ingredient.food_item.name,
-            quantity=str(ingredient.quantity),
-            unit=ingredient.unit,
-            dimensions=classify_ingredient_dimensions(ingredient.food_item.name),
-            major_calorie_driver=bool(
-                {
-                    DIM_PROTEIN,
-                    DIM_CARBOHYDRATE,
-                    DIM_ENERGY_MODIFIER,
-                }
-                & set(classify_ingredient_dimensions(ingredient.food_item.name))
-            ),
-        )
-        for ingredient in recipe.ingredients
+def _decimal_text(value: Decimal) -> str:
+    text = format(value, "f")
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    return text
+
+
+def _ingredient_structure(ingredient: RecipeIngredient) -> IngredientStructure:
+    dimensions = classify_ingredient_dimensions(ingredient.food_item.name)
+    return IngredientStructure(
+        name=ingredient.food_item.name,
+        quantity=_decimal_text(ingredient.quantity),
+        unit=ingredient.unit,
+        dimensions=dimensions,
+        major_calorie_driver=bool(_MAJOR_DIMENSIONS & set(dimensions)),
     )
+
+
+def build_recipe_structure_profile(recipe: Recipe) -> RecipeStructureProfile:
+    ingredients = tuple(_ingredient_structure(item) for item in recipe.ingredients)
 
     proteins = [item for item in ingredients if DIM_PROTEIN in item.dimensions]
     carbs = [item for item in ingredients if DIM_CARBOHYDRATE in item.dimensions]
@@ -298,7 +318,9 @@ def build_recipe_structure_profile(recipe: Recipe) -> RecipeStructureProfile:
             item.name for item in proteins if item is not primary_protein
         ),
         primary_carbohydrate=primary_carb.name if primary_carb else None,
-        other_carbohydrates=tuple(item.name for item in carbs if item is not primary_carb),
+        other_carbohydrates=tuple(
+            item.name for item in carbs if item is not primary_carb
+        ),
         vegetables=vegetables,
         energy_modifiers=modifiers,
         accessories=accessories,
