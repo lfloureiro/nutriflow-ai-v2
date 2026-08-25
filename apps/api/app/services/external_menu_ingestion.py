@@ -50,6 +50,7 @@ def _nutrition_version(data: ExternalMenuItemObservationWrite) -> str:
         "energy_kcal": str(nutrition.energy_kcal),
         "evidence_level": nutrition.evidence_level,
         "confidence": None if nutrition.confidence is None else str(nutrition.confidence),
+        "basis_reference": nutrition.basis_reference,
         "reference_quantity": str(nutrition.reference_quantity),
         "reference_unit": nutrition.reference_unit,
         "nutrients": [
@@ -111,6 +112,7 @@ def ingest_external_menu_item(
                     if data.nutrition.confidence is None
                     else str(data.nutrition.confidence)
                 ),
+                "basis_reference": data.nutrition.basis_reference,
                 "provider_key": data.provider_key,
                 "merchant_key": data.merchant_key,
                 "item_key": data.item_key,
