@@ -9,6 +9,7 @@ from app.schemas.meal_type import MealType
 
 RecipeNutritionEvidence = Literal[
     "ingredient_calculated",
+    "ingredient_estimated",
     "synthetic_development",
     "imported",
     "unknown",
