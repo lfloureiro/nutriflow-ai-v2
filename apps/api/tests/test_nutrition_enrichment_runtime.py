@@ -4,6 +4,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.services import nutrition_enrichment_runtime
+from app.services.automatic_unit_conversions import AutomaticUnitConversionResult
 from app.services.portfir import PortfirFoodNutrition
 from app.services.portfir_enrichment import PortfirAutoEnrichmentItem
 
@@ -100,6 +101,17 @@ def test_runtime_summarizes_safe_auto_enrichment(
             recalculated_recipe_count=0,
         ),
     )
+    conversions = (
+        AutomaticUnitConversionResult(
+            catalog_key="legacy-v1:ingredient:olive-oil",
+            ingredient_name="Azeite",
+            recipe_unit="ml",
+            fdc_id=123,
+            portion_id=456,
+            created=True,
+            recalculated_recipe_count=2,
+        ),
+    )
     monkeypatch.setattr(
         nutrition_enrichment_runtime,
         "load_portfir_foods",
@@ -110,6 +122,11 @@ def test_runtime_summarizes_safe_auto_enrichment(
         "auto_enrich_shared_ingredients_from_portfir",
         lambda _db, *, foods, apply, limit: enrichment,
     )
+    monkeypatch.setattr(
+        nutrition_enrichment_runtime,
+        "auto_enrich_shared_unit_conversions",
+        lambda _db: conversions,
+    )
 
     result = nutrition_enrichment_runtime.run_automatic_nutrition_enrichment(
         db_session,
@@ -118,7 +135,8 @@ def test_runtime_summarizes_safe_auto_enrichment(
 
     assert result.source == "portfir"
     assert result.applied_count == 1
+    assert result.unit_conversion_count == 1
     assert result.review_count == 1
     assert result.unmatched_count == 0
-    assert result.recalculated_recipe_count == 3
+    assert result.recalculated_recipe_count == 5
     assert result.items[0].composition_created is True
