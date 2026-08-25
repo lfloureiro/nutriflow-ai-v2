@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.food_catalog import Recipe, RecipeIngredient
 from app.services.nutrition_learning import normalize_food_text
-from app.services.recipe_nutrition import QUALITATIVE_UNITS
+from app.services.recipe_units import QUALITATIVE_UNITS
 
 DIM_PROTEIN = "protein"
 DIM_CARBOHYDRATE = "carbohydrate"
