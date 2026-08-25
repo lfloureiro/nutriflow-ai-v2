@@ -32,6 +32,18 @@ class RecommendationNutritionRead(BaseModel):
     nutrients: dict[str, RecommendationNutrientRead]
 
 
+class HumanPortionComponentRead(BaseModel):
+    name: str
+    quantity: Decimal | None
+    unit: str
+    qualitative: bool
+
+
+class HumanPortionGuidanceRead(BaseModel):
+    kind: Literal["recipe_components", "single_item"]
+    components: list[HumanPortionComponentRead]
+
+
 class MealRecommendationOptionRead(BaseModel):
     id: uuid.UUID
     candidate_key: str
@@ -39,6 +51,7 @@ class MealRecommendationOptionRead(BaseModel):
     candidate_kind: str
     quantity: Decimal
     quantity_unit: str
+    portion_guidance: HumanPortionGuidanceRead | None = None
     eligible: bool
     rank: int | None
     score: Decimal | None
