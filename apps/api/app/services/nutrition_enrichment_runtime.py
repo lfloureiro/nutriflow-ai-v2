@@ -8,6 +8,7 @@ from app.schemas.nutrition_enrichment import (
     NutritionEnrichmentItemRead,
     NutritionEnrichmentRunRead,
 )
+from app.services.automatic_unit_conversions import auto_enrich_shared_unit_conversions
 from app.services.portfir import (
     PORTFIR_VERSION,
     download_portfir_workbook,
@@ -71,6 +72,7 @@ def run_automatic_nutrition_enrichment(
             apply=True,
             limit=limit,
         )
+        conversions = auto_enrich_shared_unit_conversions(db)
         items = [
             NutritionEnrichmentItemRead(
                 catalog_key=item.catalog_key,
@@ -90,10 +92,12 @@ def run_automatic_nutrition_enrichment(
             source_version=PORTFIR_VERSION,
             cache_refreshed=cache_refreshed,
             applied_count=sum(item.status == "applied" for item in enrichment),
+            unit_conversion_count=sum(item.created for item in conversions),
             review_count=sum(item.status == "review" for item in enrichment),
             unmatched_count=sum(item.status == "unmatched" for item in enrichment),
-            recalculated_recipe_count=sum(
-                item.recalculated_recipe_count for item in enrichment
+            recalculated_recipe_count=(
+                sum(item.recalculated_recipe_count for item in enrichment)
+                + sum(item.recalculated_recipe_count for item in conversions)
             ),
             items=items,
         )
