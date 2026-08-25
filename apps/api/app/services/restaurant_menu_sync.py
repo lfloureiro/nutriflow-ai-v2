@@ -13,7 +13,10 @@ from app.schemas.restaurant_menu_sync import (
     RestaurantMenuSyncRead,
 )
 from app.services.external_menu_ingestion import ingest_external_menu_item
-from app.services.restaurant_discovery import discover_restaurants, google_places_configured
+from app.services.restaurant_discovery import (
+    discover_restaurants,
+    google_restaurant_discovery_configured,
+)
 from app.services.restaurant_dish_nutrition import estimate_restaurant_dish_nutrition
 from app.services.restaurant_menu_scraper import (
     RestaurantMenuScraperError,
@@ -23,6 +26,7 @@ from app.services.restaurant_menu_scraper import (
 
 RESTAURANT_WEBSITE_PROVIDER_KEY = "restaurant_website"
 MENU_VALIDITY = timedelta(days=15)
+_GOOGLE_PROVIDERS = frozenset({"google_maps_apify", "google_places"})
 
 
 class RestaurantMenuSyncError(ValueError):
@@ -65,10 +69,13 @@ def sync_restaurant_menus(
 ) -> RestaurantMenuSyncRead:
     area = _area(family, data.area)
     discovery = discover_restaurants(area, limit=data.restaurant_limit)
-    if google_places_configured() and discovery.provider != "google_places":
+    if (
+        google_restaurant_discovery_configured()
+        and discovery.provider not in _GOOGLE_PROVIDERS
+    ):
         raise RestaurantMenuSyncError(
-            "Google Places is configured but unavailable. Restaurant menu sync will not mix "
-            "OpenStreetMap fallback results into recommendations."
+            "Google restaurant discovery is configured but unavailable. Restaurant menu sync "
+            "will not mix OpenStreetMap fallback results into recommendations."
         )
 
     observed_at = datetime.now(UTC)
@@ -77,19 +84,23 @@ def sync_restaurant_menus(
     nutrition_ready_count = 0
 
     for restaurant in discovery.restaurants:
-        if not restaurant.website:
+        menu_source = restaurant.menu_url or restaurant.website
+        if not menu_source:
             menus.append(
                 RestaurantMenuRead(
                     restaurant=restaurant,
                     pages_scanned=[],
                     items=[],
-                    error="O restaurante não publica um website oficial utilizável.",
+                    error=(
+                        "O restaurante não publica um website ou URL de ementa "
+                        "utilizável no Google."
+                    ),
                 )
             )
             continue
         try:
             scraped = scrape_restaurant_menu(
-                restaurant.website,
+                menu_source,
                 max_items=data.item_limit_per_restaurant,
             )
         except RestaurantMenuScraperError as exc:
