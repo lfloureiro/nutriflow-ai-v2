@@ -4,7 +4,10 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
-from app.schemas.meal_recommendation import MealRecommendationCandidateInput
+from app.schemas.meal_recommendation import (
+    HumanPortionGuidanceRead,
+    MealRecommendationCandidateInput,
+)
 from app.schemas.meal_type import MealType
 from app.schemas.practical_recommendation import (
     CommercialOfferRead,
@@ -37,6 +40,7 @@ class SharedParticipantEvaluationRead(BaseModel):
     score: Decimal | None
     quantity: Decimal
     quantity_unit: str
+    portion_guidance: HumanPortionGuidanceRead | None = None
     energy_kcal: Decimal | None
     explanation: list[str]
 
