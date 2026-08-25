@@ -5,7 +5,7 @@ from app.schemas.meal_discovery_capability import (
     MealDiscoveryCapabilityRead,
 )
 from app.services.meal_delivery_provider import list_meal_delivery_provider_integrations
-from app.services.restaurant_discovery import google_places_configured
+from app.services.restaurant_discovery import google_restaurant_discovery_configured
 
 
 def _provider_capability(
@@ -63,8 +63,10 @@ def build_meal_discovery_capabilities(family: Family) -> MealDiscoveryCapabiliti
     )
 
     restaurants_selected = "restaurants" in selected
-    google_configured = (
-        settings.restaurant_google_places_enabled and google_places_configured()
+    google_configured = google_restaurant_discovery_configured()
+    google_access_enabled = (
+        settings.restaurant_apify_google_enabled
+        or settings.restaurant_google_places_enabled
     )
     if not settings.restaurant_discovery_enabled:
         restaurant_status = "disabled"
@@ -77,15 +79,15 @@ def build_meal_discovery_capabilities(family: Family) -> MealDiscoveryCapabiliti
     elif google_configured:
         restaurant_status = "ready"
         restaurant_detail = (
-            "Google Places quality-ranked restaurant discovery is available, with "
-            "OpenStreetMap fallback."
+            "Google restaurant discovery is available through Apify Google Maps or direct "
+            "Google Places, with OpenStreetMap reserved as fallback."
         )
         restaurant_live = True
     else:
         restaurant_status = "ready"
         restaurant_detail = (
-            "OpenStreetMap fallback discovery is available. Configure a Google Places API key "
-            "to enable quality-ranked restaurant results."
+            "OpenStreetMap fallback discovery is available. Configure an Apify Google Maps "
+            "token or Google Places API key to enable quality-ranked Google results."
         )
         restaurant_live = True
     restaurants = MealDiscoveryCapabilityRead(
@@ -96,7 +98,7 @@ def build_meal_discovery_capabilities(family: Family) -> MealDiscoveryCapabiliti
         status=restaurant_status,
         detail=restaurant_detail,
         credentials_configured=google_configured,
-        access_enabled=settings.restaurant_google_places_enabled,
+        access_enabled=google_access_enabled,
         adapter_available=True,
     )
 
