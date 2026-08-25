@@ -7,6 +7,7 @@ export type RestaurantDiscoveryPlace = {
   latitude: string;
   longitude: string;
   website: string | null;
+  menu_url: string | null;
   phone: string | null;
   opening_hours: string | null;
   source_reference: string;
