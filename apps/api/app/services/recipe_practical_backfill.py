@@ -69,6 +69,7 @@ def _result(recipe: Recipe) -> RecipePracticalBackfillResult:
     inputs = _dict(composition.calculation_inputs)
     practical = _dict(inputs.get("practical_profile"))
     practical_energy = _dict(inputs.get("practical_energy"))
+    named_reference = _dict(inputs.get("external_named_reference"))
 
     divisor: Decimal | None = recipe.serving_count
     if divisor is None and composition.reference_unit == "serving":
@@ -79,7 +80,11 @@ def _result(recipe: Recipe) -> RecipePracticalBackfillResult:
         else None
     )
 
-    if inputs.get("practical_energy_used") is True:
+    if inputs.get("nutrition_source") == "external-product-reference":
+        evidence = "external_reference"
+        raw_confidence = named_reference.get("confidence")
+        confidence = raw_confidence if isinstance(raw_confidence, str) else "low"
+    elif inputs.get("practical_energy_used") is True:
         evidence = "practical_estimate"
         raw_confidence = practical_energy.get("confidence")
         confidence = raw_confidence if isinstance(raw_confidence, str) else "low"
