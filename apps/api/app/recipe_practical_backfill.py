@@ -36,13 +36,18 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
             "Rebuild recipe composition snapshots with practical nutrition classification "
-            "and planning energy estimates. This command writes new immutable snapshots."
+            "and planning energy estimates. Use --dry-run to preview without DB changes."
         )
     )
     parser.add_argument(
         "--prefix",
         default="legacy-v1:",
         help="Recipe key prefix to process. Defaults to the imported legacy recipe set.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview classifications and estimates, then roll back all snapshot writes.",
     )
     args = parser.parse_args()
 
@@ -51,9 +56,14 @@ def main() -> None:
         results = backfill_recipe_practical_nutrition(
             db,
             recipe_key_prefix=args.prefix,
+            commit=not args.dry_run,
         )
     finally:
         db.close()
+
+    if args.dry_run:
+        print("DRY RUN - no database changes persisted")
+        print()
 
     for item in results:
         _print_result(item)
