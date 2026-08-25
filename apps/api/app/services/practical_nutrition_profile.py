@@ -3,7 +3,6 @@ from decimal import Decimal, InvalidOperation
 
 from app.models.food_catalog import Recipe
 from app.services.nutrition_learning import normalize_food_text
-from app.services.recipe_nutrition import QUALITATIVE_UNITS
 from app.services.recipe_structure_profile import (
     COOKING_AIR_FRIED,
     COOKING_FRIED,
@@ -12,6 +11,7 @@ from app.services.recipe_structure_profile import (
     RecipeStructureProfile,
     build_recipe_structure_profile,
 )
+from app.services.recipe_units import QUALITATIVE_UNITS
 from app.services.retail_quantity_estimates import PACKAGE_UNITS
 
 LOAD_NONE = "none"
@@ -311,6 +311,33 @@ def build_practical_nutrition_profile(recipe: Recipe) -> PracticalNutritionProfi
         ),
         calorie_drivers=structure.major_calorie_drivers,
     )
+
+
+def practical_profile_payload(profile: PracticalNutritionProfile) -> dict[str, object]:
+    return {
+        "cooking_method": profile.cooking_method,
+        "primary_protein": profile.primary_protein,
+        "secondary_proteins": list(profile.secondary_proteins),
+        "protein_pattern": profile.protein_pattern,
+        "primary_carbohydrate": profile.primary_carbohydrate,
+        "other_carbohydrates": list(profile.other_carbohydrates),
+        "carbohydrate_pattern": profile.carbohydrate_pattern,
+        "vegetables": list(profile.vegetables),
+        "vegetable_level": profile.vegetable_level,
+        "modifiers": [
+            {
+                "name": item.name,
+                "kind": item.kind,
+                "quantity": item.quantity,
+                "unit": item.unit,
+                "load": item.load,
+            }
+            for item in profile.modifiers
+        ],
+        "energy_load_signal": profile.energy_load_signal,
+        "balance_signals": list(profile.balance_signals),
+        "calorie_drivers": list(profile.calorie_drivers),
+    }
 
 
 def score_practical_nutrition_profile(
