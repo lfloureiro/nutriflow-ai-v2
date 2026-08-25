@@ -105,6 +105,42 @@ def test_google_parser_exposes_quality_and_service_signals() -> None:
     assert parsed.quality_score is not None
 
 
+def test_apify_google_parser_preserves_menu_and_google_identity() -> None:
+    parsed = restaurant_discovery._apify_place(
+        {
+            "title": "Boa Mesa",
+            "categoryName": "Portuguese restaurant",
+            "categories": ["Portuguese restaurant", "Restaurant"],
+            "address": "Estrada de Benfica 100, Lisboa",
+            "website": "https://boa-mesa.example/",
+            "menu": "https://boa-mesa.example/ementa.pdf",
+            "phone": "+351 210 000 000",
+            "location": {"lat": 38.75, "lng": -9.19},
+            "totalScore": 4.7,
+            "reviewsCount": 842,
+            "placeId": "place-123",
+            "url": "https://www.google.com/maps/place/example",
+            "price": "€10–20",
+            "additionalInfo": {
+                "Service options": [{"Delivery": False}, {"Takeout": True}],
+                "Popular for": [{"Lunch": True}, {"Dinner": True}],
+            },
+        }
+    )
+
+    assert parsed is not None
+    assert parsed.provider_place_id == "google:place-123"
+    assert parsed.cuisine == ["portuguese"]
+    assert parsed.menu_url == "https://boa-mesa.example/ementa.pdf"
+    assert parsed.rating == Decimal("4.7")
+    assert parsed.rating_count == 842
+    assert parsed.delivery is False
+    assert parsed.takeout is True
+    assert parsed.serves_lunch is True
+    assert parsed.serves_dinner is True
+    assert parsed.quality_score is not None
+
+
 def test_quality_score_values_review_confidence() -> None:
     established = restaurant_discovery._quality_score(
         Decimal("4.7"),
@@ -202,6 +238,7 @@ def test_restaurant_discovery_caches_area_results(monkeypatch) -> None:
             ],
         )
 
+    monkeypatch.setattr(restaurant_discovery, "apify_google_maps_configured", lambda: False)
     monkeypatch.setattr(restaurant_discovery, "google_places_configured", lambda: False)
     monkeypatch.setattr(restaurant_discovery, "_fetch_restaurants", fake_fetch)
 
@@ -213,6 +250,32 @@ def test_restaurant_discovery_caches_area_results(monkeypatch) -> None:
     assert second.cached
     assert len(first.restaurants) == 2
     assert [place.name for place in second.restaurants] == ["A"]
+
+
+def test_apify_google_provider_is_preferred(monkeypatch) -> None:
+    restaurant_discovery._CACHE.clear()
+    calls: list[str] = []
+
+    def apify(area: str, *, limit: int) -> RestaurantDiscoveryRead:
+        calls.append(area)
+        return RestaurantDiscoveryRead(
+            provider="google_maps_apify",
+            area=area,
+            observed_at=datetime(2026, 8, 25, 12, 0, tzinfo=UTC),
+            cached=False,
+            attribution=restaurant_discovery.APIFY_GOOGLE_ATTRIBUTION,
+            restaurants=[_place(place_id="google:1", name="Boa Mesa")],
+        )
+
+    monkeypatch.setattr(restaurant_discovery, "apify_google_maps_configured", lambda: True)
+    monkeypatch.setattr(restaurant_discovery, "google_places_configured", lambda: True)
+    monkeypatch.setattr(restaurant_discovery, "_fetch_apify_google_restaurants", apify)
+
+    result = restaurant_discovery.discover_restaurants("Benfica, Lisboa", limit=1)
+
+    assert calls == ["Benfica, Lisboa"]
+    assert result.provider == "google_maps_apify"
+    assert result.restaurants[0].provider_place_id == "google:1"
 
 
 def test_google_provider_failure_falls_back_to_osm(monkeypatch) -> None:
@@ -231,6 +294,7 @@ def test_google_provider_failure_falls_back_to_osm(monkeypatch) -> None:
             restaurants=[_place(place_id="osm:node:1", name="Fallback")],
         )
 
+    monkeypatch.setattr(restaurant_discovery, "apify_google_maps_configured", lambda: False)
     monkeypatch.setattr(restaurant_discovery, "google_places_configured", lambda: True)
     monkeypatch.setattr(restaurant_discovery, "_fetch_google_restaurants", fail_google)
     monkeypatch.setattr(restaurant_discovery, "_fetch_restaurants", osm)
