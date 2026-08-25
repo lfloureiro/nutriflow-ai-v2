@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     meal_delivery_apify_timeout_seconds: float = 120.0
     meal_delivery_apify_max_stores: int = 8
     uber_eats_apify_url: str = (
-        "https://api.apify.com/v2/acts/scraper-engine~uber-eats-scraper/"
+        "https://api.apify.com/v2/acts/borderline~uber-eats-scraper-ppr/"
         "run-sync-get-dataset-items?maxTotalChargeUsd=0.05"
     )
     glovo_apify_url: str = (
