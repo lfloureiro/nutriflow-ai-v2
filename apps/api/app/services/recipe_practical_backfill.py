@@ -127,9 +127,15 @@ def backfill_recipe_practical_nutrition(
     db: Session,
     *,
     recipe_key_prefix: str = "legacy-v1:",
+    commit: bool = True,
 ) -> tuple[RecipePracticalBackfillResult, ...]:
     recipes = _recipes(db, recipe_key_prefix=recipe_key_prefix)
     for recipe in recipes:
         build_recipe_composition(recipe)
-    db.commit()
-    return tuple(_result(recipe) for recipe in recipes)
+    db.flush()
+    results = tuple(_result(recipe) for recipe in recipes)
+    if commit:
+        db.commit()
+    else:
+        db.rollback()
+    return results
