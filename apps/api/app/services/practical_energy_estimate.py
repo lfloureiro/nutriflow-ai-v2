@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
 
 from app.models.food_catalog import Recipe
 from app.services.nutrition_learning import normalize_food_text
@@ -15,6 +15,10 @@ from app.services.retail_quantity_estimates import PACKAGE_UNITS
 
 _DEFAULT_SERVING_COUNT = Decimal(4)
 _ENERGY_QUANTUM = Decimal(1)
+_PROTEIN_GRAMS_PER_SERVING = Decimal(180)
+_FISH_GRAMS_PER_SERVING = Decimal(160)
+_DRY_STAPLE_GRAMS_PER_SERVING = Decimal(80)
+_POTATO_GRAMS_PER_SERVING = Decimal(250)
 
 
 @dataclass(frozen=True)
@@ -51,6 +55,90 @@ def _contains(name: str, *roots: str) -> bool:
     return any(root in normalized for root in roots)
 
 
+def _is_fish(item: IngredientStructure) -> bool:
+    return _contains(
+        item.name,
+        "bacalhau",
+        "salmao",
+        "pescad",
+        "peixe",
+        "perca",
+        "atum",
+        "sardinha",
+        "polvo",
+        "lula",
+    )
+
+
+def _is_dry_staple(item: IngredientStructure) -> bool:
+    return _contains(
+        item.name,
+        "arroz",
+        "massa",
+        "macarronete",
+        "esparguete",
+        "fettuccine",
+        "fetucine",
+        "tagliatelle",
+        "noodle",
+        "cuscuz",
+        "couscous",
+        "quinoa",
+    )
+
+
+def _is_thickener(item: IngredientStructure) -> bool:
+    return _contains(item.name, "farinha", "maisena", "amido")
+
+
+def _ceil_ratio(quantity: Decimal, per_serving: Decimal) -> Decimal:
+    return (quantity / per_serving).to_integral_value(rounding=ROUND_CEILING)
+
+
+def _serving_hint(item: IngredientStructure) -> Decimal | None:
+    unit = item.unit.strip().casefold()
+    if unit in QUALITATIVE_UNITS:
+        return None
+    quantity = Decimal(item.quantity)
+
+    if DIM_CARBOHYDRATE in item.dimensions and not _is_thickener(item):
+        if unit == "g":
+            if _is_dry_staple(item):
+                return _ceil_ratio(quantity, _DRY_STAPLE_GRAMS_PER_SERVING)
+            if _contains(item.name, "batata"):
+                return _ceil_ratio(quantity, _POTATO_GRAMS_PER_SERVING)
+        if unit == "kg":
+            grams = quantity * Decimal(1000)
+            if _is_dry_staple(item):
+                return _ceil_ratio(grams, _DRY_STAPLE_GRAMS_PER_SERVING)
+            if _contains(item.name, "batata"):
+                return _ceil_ratio(grams, _POTATO_GRAMS_PER_SERVING)
+        if unit in PACKAGE_UNITS and _is_dry_staple(item):
+            return _ceil_ratio(
+                quantity * Decimal(500),
+                _DRY_STAPLE_GRAMS_PER_SERVING,
+            )
+
+    if DIM_PROTEIN in item.dimensions and unit in {"g", "kg"}:
+        grams = quantity if unit == "g" else quantity * Decimal(1000)
+        target = _FISH_GRAMS_PER_SERVING if _is_fish(item) else _PROTEIN_GRAMS_PER_SERVING
+        return _ceil_ratio(grams, target)
+
+    return None
+
+
+def _estimated_serving_count(structure) -> tuple[Decimal, str]:
+    hints = [
+        hint
+        for item in structure.ingredients
+        if (hint := _serving_hint(item)) is not None and hint > 0
+    ]
+    if not hints:
+        return _DEFAULT_SERVING_COUNT, "practical-default"
+    inferred = max([_DEFAULT_SERVING_COUNT, *hints])
+    return inferred, "practical-portion-inference"
+
+
 def _density_kcal_per_g(item: IngredientStructure) -> Decimal | None:
     name = item.name
     if _contains(name, "azeite", "oleo"):
@@ -61,16 +149,34 @@ def _density_kcal_per_g(item: IngredientStructure) -> Decimal | None:
         return Decimal("5.2")
     if _contains(name, "bacon", "chourico", "linguica", "alheira", "farinheira"):
         return Decimal("4.5")
+    if _contains(name, "salsicha"):
+        return Decimal("2.8")
+    if _contains(name, "fiambre"):
+        return Decimal("1.5")
     if _contains(name, "queijo"):
         return Decimal("4.0")
-    if _contains(name, "arroz", "massa", "macarronete", "esparguete", "farinha", "aveia"):
+    if _contains(
+        name,
+        "arroz",
+        "massa",
+        "macarronete",
+        "esparguete",
+        "fettuccine",
+        "fetucine",
+        "farinha",
+        "aveia",
+    ):
         return Decimal("3.5")
     if _contains(name, "natas"):
         return Decimal("2.0")
     if _contains(name, "salmao"):
         return Decimal("2.1")
+    if _contains(name, "entrecosto"):
+        return Decimal("2.6")
     if _contains(name, "carne picada", "porco", "rojoes", "bifana"):
         return Decimal("2.0")
+    if _contains(name, "vitela"):
+        return Decimal("1.7")
     if _contains(name, "vaca", "carne"):
         return Decimal("1.9")
     if _contains(name, "almondeg", "hamburg"):
@@ -79,7 +185,17 @@ def _density_kcal_per_g(item: IngredientStructure) -> Decimal | None:
         return Decimal("1.5")
     if _contains(name, "ovo"):
         return Decimal("1.45")
-    if _contains(name, "bacalhau", "pescada", "peixe", "atum", "sardinha", "polvo", "lula"):
+    if _contains(
+        name,
+        "bacalhau",
+        "pescada",
+        "peixe",
+        "perca",
+        "atum",
+        "sardinha",
+        "polvo",
+        "lula",
+    ):
         return Decimal("1.1")
     if _contains(name, "grao", "feijao", "lentilha", "ervilha"):
         return Decimal("1.2")
@@ -115,8 +231,18 @@ def _package_energy(item: IngredientStructure, quantity: Decimal) -> Decimal | N
         return quantity * Decimal(200) * Decimal("2.0")
     if _contains(name, "grao", "feijao", "lentilha", "ervilha"):
         return quantity * Decimal(240) * Decimal("1.2")
-    if _contains(name, "massa", "macarronete", "esparguete", "arroz"):
+    if _contains(
+        name,
+        "massa",
+        "macarronete",
+        "esparguete",
+        "arroz",
+        "fettuccine",
+        "fetucine",
+    ):
         return quantity * Decimal(500) * Decimal("3.5")
+    if _contains(name, "fiambre"):
+        return quantity * Decimal(200) * Decimal("1.5")
     if _contains(name, "queijo"):
         return quantity * Decimal(200) * Decimal("4.0")
     if DIM_CARBOHYDRATE in item.dimensions:
@@ -136,6 +262,16 @@ def _unit_energy(item: IngredientStructure, quantity: Decimal) -> Decimal | None
         return quantity * Decimal(70)
     if _contains(name, "hamburg"):
         return quantity * Decimal(180)
+    if _contains(name, "salsicha"):
+        return quantity * Decimal(120)
+    if _contains(name, "chourico", "linguica"):
+        return quantity * Decimal(700)
+    if _contains(name, "frango em pedacos"):
+        return quantity * Decimal(1800)
+    if _contains(name, "pescada fresca", "peixe para assar"):
+        return quantity * Decimal(900)
+    if _contains(name, "perca"):
+        return quantity * Decimal(160)
     if _contains(name, "coelho"):
         return quantity * Decimal(1400)
     if DIM_PROTEIN in item.dimensions:
@@ -228,8 +364,11 @@ def estimate_practical_recipe_energy(
     if coverage < Decimal("0.75"):
         return None
 
-    serving_count = recipe.serving_count or _DEFAULT_SERVING_COUNT
-    serving_count_source = "catalogue" if recipe.serving_count is not None else "practical-default"
+    if recipe.serving_count is not None:
+        serving_count = recipe.serving_count
+        serving_count_source = "catalogue"
+    else:
+        serving_count, serving_count_source = _estimated_serving_count(structure)
     per_serving = total / serving_count
 
     if covered_driver_count == driver_count and heuristic_driver_count == 0:
