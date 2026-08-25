@@ -6,8 +6,15 @@ from app.services.meal_delivery_provider import (
 )
 
 
+def _disable_apify(monkeypatch) -> None:
+    monkeypatch.delenv("NUTRIFLOW_APIFY_API_TOKEN", raising=False)
+    monkeypatch.setattr(settings, "nutriflow_apify_api_token", None)
+    monkeypatch.setattr(settings, "meal_delivery_apify_enabled", False)
+
+
 def test_delivery_provider_registry_is_safe_without_secrets(monkeypatch) -> None:
     clear_meal_delivery_adapters()
+    _disable_apify(monkeypatch)
     for name in (
         "NUTRIFLOW_UBER_CLIENT_ID",
         "NUTRIFLOW_UBER_CLIENT_SECRET",
@@ -17,6 +24,7 @@ def test_delivery_provider_registry_is_safe_without_secrets(monkeypatch) -> None
         "NUTRIFLOW_BOLT_FOOD_SECRET_KEY",
     ):
         monkeypatch.delenv(name, raising=False)
+        monkeypatch.setattr(settings, name.casefold(), None)
 
     providers = list_meal_delivery_provider_integrations()
 
@@ -32,6 +40,7 @@ def test_delivery_provider_registry_is_safe_without_secrets(monkeypatch) -> None
 
 def test_uber_needs_secrets_enable_and_executable_adapter(monkeypatch) -> None:
     clear_meal_delivery_adapters()
+    _disable_apify(monkeypatch)
     monkeypatch.setenv("NUTRIFLOW_UBER_CLIENT_ID", "test-client")
     monkeypatch.setenv("NUTRIFLOW_UBER_CLIENT_SECRET", "test-secret")
     monkeypatch.setattr(settings, "uber_consumer_delivery_enabled", False)
@@ -62,8 +71,35 @@ def test_uber_needs_secrets_enable_and_executable_adapter(monkeypatch) -> None:
     assert ready.consumer_discovery_publicly_supported
 
 
+def test_apify_can_make_uber_and_glovo_live_without_official_credentials(
+    monkeypatch,
+) -> None:
+    clear_meal_delivery_adapters()
+    for name in (
+        "NUTRIFLOW_UBER_CLIENT_ID",
+        "NUTRIFLOW_UBER_CLIENT_SECRET",
+        "NUTRIFLOW_GLOVO_CLIENT_ID",
+        "NUTRIFLOW_GLOVO_CLIENT_SECRET",
+    ):
+        monkeypatch.delenv(name, raising=False)
+        monkeypatch.setattr(settings, name.casefold(), None)
+    monkeypatch.setenv("NUTRIFLOW_APIFY_API_TOKEN", "test-apify-token")
+    monkeypatch.setattr(settings, "meal_delivery_apify_enabled", True)
+
+    for provider_key in ("uber_eats", "glovo"):
+        integration = get_meal_delivery_provider_integration(
+            provider_key,
+            adapter_available=True,
+        )
+        assert not integration.credentials_present
+        assert integration.public_web_discovery_configured
+        assert integration.configured
+        assert integration.live
+
+
 def test_bolt_credentials_do_not_claim_public_consumer_discovery(monkeypatch) -> None:
     clear_meal_delivery_adapters()
+    _disable_apify(monkeypatch)
     monkeypatch.setenv("NUTRIFLOW_BOLT_FOOD_INTEGRATOR_ID", "test-integrator")
     monkeypatch.setenv("NUTRIFLOW_BOLT_FOOD_SECRET_KEY", "test-secret")
     monkeypatch.setattr(settings, "bolt_food_consumer_discovery_enabled", False)
