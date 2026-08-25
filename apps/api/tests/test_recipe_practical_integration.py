@@ -66,12 +66,15 @@ def test_incomplete_exact_composition_falls_back_to_practical_energy_for_plannin
 
     assert composition.calculation_version == CALCULATION_VERSION
     assert composition.energy_kcal is not None
-    assert composition.reference_quantity == Decimal(4)
+    assert composition.reference_quantity == Decimal(5)
     assert composition.reference_unit == "serving"
     assert isinstance(inputs, dict)
     assert inputs["practical_energy_used"] is True
     assert inputs["energy_estimated"] is True
     assert inputs["serving_count_estimated"] is True
+    practical_energy = inputs["practical_energy"]
+    assert isinstance(practical_energy, dict)
+    assert practical_energy["serving_count_source"] == "practical-portion-inference"
     profile = inputs["practical_profile"]
     assert isinstance(profile, dict)
     assert profile["primary_protein"] == "Bifes de peru"
