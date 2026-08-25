@@ -127,6 +127,19 @@ def _source_reference(url: str, item_key: str) -> str:
     return f"{url}#item-{item_key}"[:255]
 
 
+def _uber_store_is_portuguese(raw_store: dict[str, object]) -> bool:
+    currency = (_text(raw_store.get("currencyCode")) or "").upper()
+    location = raw_store.get("location")
+    country = None
+    if isinstance(location, dict):
+        country = (_text(location.get("country")) or "").upper()
+    if country and country != "PT":
+        return False
+    if currency and currency != "EUR":
+        return False
+    return True
+
+
 def _uber_rows(
     payload: list[object],
     *,
@@ -135,7 +148,7 @@ def _uber_rows(
     observed_at = datetime.now(UTC)
     results: list[ExternalMenuItemObservationWrite] = []
     for raw_store in payload:
-        if not isinstance(raw_store, dict):
+        if not isinstance(raw_store, dict) or not _uber_store_is_portuguese(raw_store):
             continue
         merchant_name = _text(raw_store.get("title") or raw_store.get("sanitizedTitle"))
         url = _text(raw_store.get("url"))
@@ -147,6 +160,7 @@ def _uber_rows(
             raw_store.get("deliveryFee")
             or raw_store.get("deliveryFeeValue")
             or raw_store.get("deliveryFeeTagline")
+            or raw_store.get("fareBadge")
         )
         menu = raw_store.get("menu")
         if not isinstance(menu, list):
@@ -282,9 +296,6 @@ class UberEatsApifyAdapter:
                 "maxRows": max_stores,
                 "urls": [],
                 "getMenuCustomizations": False,
-                "concurrency": 3,
-                "maxRetries": 3,
-                "proxyConfiguration": {"useApifyProxy": True},
             },
         )
         return _uber_rows(payload, request=request)
