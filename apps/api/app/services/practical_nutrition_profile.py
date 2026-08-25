@@ -52,6 +52,8 @@ _PROCESSED_MEAT_ROOTS = (
     "bacon",
     "chouric",
     "linguic",
+    "salsich",
+    "fiambre",
     "alheira",
     "farinheira",
 )
