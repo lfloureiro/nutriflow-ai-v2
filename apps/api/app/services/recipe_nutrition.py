@@ -32,6 +32,9 @@ from app.services.serving_nutrition import (
 
 CALCULATION_VERSION = "recipe-nutrition-v3"
 EVIDENCE_POLICY_VERSION = "practical-recipe-nutrition-v1"
+_REUSABLE_SHARED_REFERENCE_SOURCES = frozenset(
+    {"development-breakfast", "development-snack"}
+)
 
 
 @dataclass(frozen=True)
@@ -234,6 +237,35 @@ def _aggregate_nutrients(
     return components
 
 
+def _reusable_shared_recipe_reference(
+    recipe: Recipe,
+) -> RecipeCompositionSnapshot | None:
+    if recipe.source not in _REUSABLE_SHARED_REFERENCE_SOURCES:
+        return None
+    return next(
+        (
+            composition
+            for composition in reversed(recipe.compositions)
+            if composition.energy_kcal is not None
+            and composition.calculation_version.startswith("development-")
+        ),
+        None,
+    )
+
+
+def _copy_reference_nutrients(
+    composition: RecipeCompositionSnapshot,
+) -> list[RecipeNutrientComponent]:
+    return [
+        RecipeNutrientComponent(
+            nutrient_key=item.nutrient_key,
+            value=item.value,
+            unit=item.unit,
+        )
+        for item in composition.nutrients
+    ]
+
+
 def _named_recipe_profile_payload(recipe_name: str) -> dict[str, object] | None:
     reference = known_named_recipe_reference(recipe_name)
     if reference is None:
@@ -317,8 +349,9 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
     Exact catalogue nutrition remains preferred. When exact energy cannot be completed because
     a material ingredient lacks composition or a safe unit conversion, a conservative practical
     estimate is allowed for the main calorie drivers. Accessories never block that estimate.
-    Ingredient-less prepared foods may use a narrow named-product reference with explicit
-    provenance and confidence rather than disappearing from planning altogether.
+    Existing shared breakfast/snack references are preserved ahead of a heuristic estimate so
+    curated light-meal energy and nutrients are not lost during reclassification. Ingredient-less
+    prepared foods may use a narrow named-product reference with explicit provenance/confidence.
     """
 
     named_result = _build_named_recipe_reference(recipe)
@@ -433,17 +466,34 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
         recipe,
         known_energy_by_index=known_energy_by_index,
     )
-
-    practical_energy_used = exact_energy_kcal is None and practical_energy is not None
-    energy_kcal = (
-        practical_energy.total_energy_kcal if practical_energy_used else exact_energy_kcal
+    shared_reference = _reusable_shared_recipe_reference(recipe)
+    shared_reference_used = exact_energy_kcal is None and shared_reference is not None
+    practical_energy_used = (
+        exact_energy_kcal is None
+        and shared_reference is None
+        and practical_energy is not None
     )
-    if practical_energy_used:
+
+    if exact_energy_kcal is not None:
+        energy_kcal = exact_energy_kcal
+    elif shared_reference_used:
+        assert shared_reference is not None
+        energy_kcal = shared_reference.energy_kcal
+        nutrients = _copy_reference_nutrients(shared_reference)
+        issues.append(
+            "Ingredient composition is incomplete; the existing shared light-meal nutrition "
+            "reference is preserved for planning."
+        )
+    elif practical_energy_used:
+        assert practical_energy is not None
+        energy_kcal = practical_energy.total_energy_kcal
         nutrients = []
         issues.append(
             "Exact recipe energy is incomplete; a practical estimate based on the main "
             "calorie drivers is being used for planning."
         )
+    else:
+        energy_kcal = None
 
     practical_serving_count = (
         practical_energy.serving_count if practical_energy is not None else None
@@ -458,17 +508,30 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
         and reference_unit == "serving"
     )
     energy_estimated = energy_kcal is not None and (
-        practical_energy_used
+        shared_reference_used
+        or practical_energy_used
         or qualitative_count > 0
         or estimated_portion_conversion_count > 0
         or serving_count_estimated
     )
-    if practical_energy_used:
+    if shared_reference_used:
+        nutrition_source = "shared-recipe-reference"
+    elif practical_energy_used:
         nutrition_source = "practical-estimate"
     elif energy_kcal is not None:
         nutrition_source = "ingredient-calculated"
     else:
         nutrition_source = "missing"
+
+    reference_payload: dict[str, object] | None = None
+    if shared_reference_used:
+        assert shared_reference is not None
+        reference_payload = {
+            "composition_snapshot_id": str(shared_reference.id),
+            "composition_version": shared_reference.composition_version,
+            "calculation_version": shared_reference.calculation_version,
+            "energy_kcal": str(shared_reference.energy_kcal),
+        }
 
     composition = RecipeCompositionSnapshot(
         reference_quantity=reference_quantity,
@@ -482,6 +545,8 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
             "nutrition_source": nutrition_source,
             "energy_estimated": energy_estimated,
             "practical_energy_used": practical_energy_used,
+            "shared_recipe_reference_used": shared_reference_used,
+            "shared_recipe_reference": reference_payload,
             "qualitative_ingredient_count": qualitative_count,
             "estimated_portion_conversion_count": estimated_portion_conversion_count,
             "policy_version": EVIDENCE_POLICY_VERSION,
