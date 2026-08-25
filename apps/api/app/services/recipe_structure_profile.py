@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.food_catalog import Recipe, RecipeIngredient
 from app.services.nutrition_learning import normalize_food_text
+from app.services.recipe_nutrition import QUALITATIVE_UNITS
 
 DIM_PROTEIN = "protein"
 DIM_CARBOHYDRATE = "carbohydrate"
@@ -44,6 +45,7 @@ _PROTEIN_ROOTS = (
     "vaca",
     "porco",
     "porc",
+    "rojo",
     "bife",
     "bifana",
     "almondeg",
@@ -61,6 +63,7 @@ _LEGUME_ROOTS = ("grao", "feijao", "lentilh", "ervilh")
 _CARB_ROOTS = (
     "arroz",
     "massa",
+    "macarronete",
     "esparguet",
     "tagliatelle",
     "batata",
@@ -136,8 +139,18 @@ _ACCESSORY_FIRST_TOKENS = frozenset(
         "limao",
         "caldo",
         "vinho",
+        "manjericao",
+        "mangericao",
+        "oregaos",
+        "alecrim",
+        "piripiri",
+        "tabasco",
+        "cravo",
+        "azeitonas",
+        "pickles",
     }
 )
+_LOW_IMPACT_FALSE_CARBS = frozenset({"massa de pimentao"})
 
 
 @dataclass(frozen=True)
@@ -176,6 +189,11 @@ def _has_root(tokens: tuple[str, ...], roots: tuple[str, ...]) -> bool:
 def _is_accessory(tokens: tuple[str, ...]) -> bool:
     if not tokens:
         return False
+    normalized = " ".join(tokens)
+    if normalized in _LOW_IMPACT_FALSE_CARBS:
+        return True
+    if tokens[:2] == ("alho", "frances"):
+        return False
     if tokens[0] in _ACCESSORY_FIRST_TOKENS:
         return True
     return len(tokens) >= 2 and tokens[:2] == ("noz", "moscada")
@@ -199,7 +217,7 @@ def classify_ingredient_dimensions(name: str) -> tuple[str, ...]:
     if _has_root(tokens, _LEGUME_ROOTS) and DIM_PROTEIN not in dimensions:
         dimensions.append(DIM_PROTEIN)
 
-    if _has_root(tokens, _VEGETABLE_ROOTS):
+    if _has_root(tokens, _VEGETABLE_ROOTS) or tokens[:2] == ("alho", "frances"):
         dimensions.append(DIM_VEGETABLE)
 
     if _has_root(tokens, _ENERGY_MODIFIER_ROOTS):
@@ -230,9 +248,11 @@ def _infer_cooking_method(recipe: Recipe) -> str:
         "guisad" in normalized
         or "estufad" in normalized
         or "strogonoff" in normalized
+        or "bolonhesa" in normalized
+        or "chili" in normalized
     ):
         return COOKING_STEWED
-    if "cozid" in normalized:
+    if "cozid" in normalized or "arroz de " in normalized:
         return COOKING_BOILED
     if "saltead" in normalized:
         return COOKING_SAUTEED
@@ -274,12 +294,15 @@ def _decimal_text(value: Decimal) -> str:
 
 def _ingredient_structure(ingredient: RecipeIngredient) -> IngredientStructure:
     dimensions = classify_ingredient_dimensions(ingredient.food_item.name)
+    qualitative = ingredient.unit.strip().casefold() in QUALITATIVE_UNITS
     return IngredientStructure(
         name=ingredient.food_item.name,
         quantity=_decimal_text(ingredient.quantity),
         unit=ingredient.unit,
         dimensions=dimensions,
-        major_calorie_driver=bool(_MAJOR_DIMENSIONS & set(dimensions)),
+        major_calorie_driver=(
+            not qualitative and bool(_MAJOR_DIMENSIONS & set(dimensions))
+        ),
     )
 
 
