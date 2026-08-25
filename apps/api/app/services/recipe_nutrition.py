@@ -30,6 +30,7 @@ from app.services.serving_nutrition import (
 )
 
 CALCULATION_VERSION = "recipe-nutrition-v3"
+EVIDENCE_POLICY_VERSION = "practical-recipe-nutrition-v1"
 
 
 @dataclass(frozen=True)
@@ -400,7 +401,7 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
             "practical_energy_used": practical_energy_used,
             "qualitative_ingredient_count": qualitative_count,
             "estimated_portion_conversion_count": estimated_portion_conversion_count,
-            "policy_version": "practical-recipe-nutrition-v1",
+            "policy_version": EVIDENCE_POLICY_VERSION,
             "serving_count": (
                 str(recipe.serving_count) if recipe.serving_count is not None else None
             ),
