@@ -121,12 +121,12 @@ class RecipeCompositionRead(BaseModel):
     reference_unit: str
     energy_kcal: Decimal | None
     energy_per_serving_kcal: Decimal | None
-    energy_confidence: str | None
-    serving_count_estimated: bool
+    energy_confidence: str | None = None
+    serving_count_estimated: bool = False
     composition_version: str
     calculation_version: str
     evidence: RecipeNutritionEvidence
-    practical_profile: RecipePracticalProfileRead | None
+    practical_profile: RecipePracticalProfileRead | None = None
     computed_at: datetime
     nutrients: list[RecipeNutrientRead]
 
