@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import select
@@ -7,6 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.models.family import Family
 from app.models.meal_candidate_availability import MealCandidateAvailability, MealCommercialOffer
+from app.providers.meal_delivery import MealDeliveryDiscoveryRequest
+from app.schemas.external_menu import ExternalMenuItemObservationWrite
 from app.schemas.restaurant_discovery import RestaurantDiscoveryPlaceRead, RestaurantDiscoveryRead
 from app.schemas.restaurant_menu_sync import RestaurantMenuSyncCreate
 from app.services import restaurant_menu_sync
@@ -60,6 +63,34 @@ def _discovery(
         attribution="Google Maps" if google_provider else "OpenStreetMap",
         restaurants=[restaurant or _restaurant()],
     )
+
+
+class FakeUberMenuAdapter:
+    provider_key = "uber_eats"
+
+    def discover_menu_items(
+        self,
+        request: MealDeliveryDiscoveryRequest,
+    ) -> tuple[ExternalMenuItemObservationWrite, ...]:
+        assert request.query == "Boa Mesa"
+        assert request.delivery_address == "Benfica, Lisboa"
+        return (
+            ExternalMenuItemObservationWrite(
+                provider_key="uber_eats",
+                provider_name="Uber Eats",
+                merchant_key="boa-mesa",
+                merchant_name="Restaurante Boa Mesa",
+                item_key="dish-1",
+                item_name="Frango grelhado com arroz",
+                description="Frango, arroz e legumes",
+                source_kind="delivery",
+                location=request.delivery_address,
+                item_price=Decimal("12.90"),
+                currency="EUR",
+                observed_at=datetime(2026, 8, 25, 11, 0, tzinfo=UTC),
+                source_reference="https://www.ubereats.com/store/boa-mesa#dish-1",
+            ),
+        )
 
 
 def test_menu_sync_refuses_osm_fallback_when_google_is_configured(
@@ -152,3 +183,59 @@ def test_google_menu_sync_ingests_real_dish_offer_for_recommendations(
     assert availability is not None
     assert availability.source_kind == "restaurant"
     assert availability.location == "Benfica, Lisboa"
+
+
+def test_google_menu_sync_falls_back_to_delivery_marketplace_menu(
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    family = _family(db_session)
+    family.meal_discovery_sources = ["shared_recipes", "restaurants", "uber_eats"]
+    family.delivery_address = "Benfica, Lisboa"
+    restaurant = _restaurant().model_copy(update={"website": None, "menu_url": None})
+
+    monkeypatch.setattr(
+        restaurant_menu_sync,
+        "google_restaurant_discovery_configured",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        restaurant_menu_sync,
+        "discover_restaurants",
+        lambda area, *, limit: _discovery(
+            "google_maps_apify",
+            restaurant=restaurant,
+        ),
+    )
+    monkeypatch.setattr(
+        restaurant_menu_sync,
+        "get_registered_meal_delivery_adapter",
+        lambda provider_key: (
+            FakeUberMenuAdapter() if provider_key == "uber_eats" else None
+        ),
+    )
+    monkeypatch.setattr(
+        restaurant_menu_sync,
+        "get_meal_delivery_provider_integration",
+        lambda provider_key, *, adapter_available: SimpleNamespace(live=True),
+    )
+
+    result = restaurant_menu_sync.sync_restaurant_menus(
+        db_session,
+        family=family,
+        data=RestaurantMenuSyncCreate(),
+    )
+
+    assert result.ingested_item_count == 1
+    assert result.menus[0].error is None
+    assert result.menus[0].pages_scanned[0] == "delivery:uber_eats"
+    item = result.menus[0].items[0]
+    assert item.restaurant_name == "Boa Mesa"
+    assert item.item_name == "Frango grelhado com arroz"
+    assert item.item_price == Decimal("12.90")
+    assert "ubereats.com" in item.source_reference
+
+    offer = db_session.scalar(select(MealCommercialOffer))
+    assert offer is not None
+    assert offer.provider_key == "uber_eats"
+    assert offer.provider_name == "Uber Eats"
