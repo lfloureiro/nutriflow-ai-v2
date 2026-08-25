@@ -71,6 +71,24 @@ def test_classification_focuses_on_nutritionally_relevant_dimensions() -> None:
         DIM_PROTEIN,
         DIM_CARBOHYDRATE,
     }
+    assert set(classify_ingredient_dimensions("Iogurte natural")) == {
+        DIM_PROTEIN,
+        DIM_ENERGY_MODIFIER,
+    }
+    assert set(classify_ingredient_dimensions("Leite meio-gordo")) == {
+        DIM_PROTEIN,
+        DIM_ENERGY_MODIFIER,
+    }
+    assert set(classify_ingredient_dimensions("Frutos secos")) == {
+        DIM_PROTEIN,
+        DIM_ENERGY_MODIFIER,
+    }
+    assert classify_ingredient_dimensions("Banana") == (DIM_CARBOHYDRATE,)
+    assert classify_ingredient_dimensions("Muesli") == (DIM_CARBOHYDRATE,)
+    assert classify_ingredient_dimensions("Cereais de pequeno-almoço") == (
+        DIM_CARBOHYDRATE,
+    )
+    assert classify_ingredient_dimensions("Frutos vermelhos") == (DIM_CARBOHYDRATE,)
     assert classify_ingredient_dimensions("Massa") == (DIM_CARBOHYDRATE,)
     assert classify_ingredient_dimensions("Macarronete") == (DIM_CARBOHYDRATE,)
     assert classify_ingredient_dimensions("Fettuccine") == (DIM_CARBOHYDRATE,)
@@ -117,6 +135,27 @@ def test_profile_identifies_primary_structure_and_ignores_accessories_as_drivers
     assert "Azeite" in profile.major_calorie_drivers
     assert "Pimenta branca" not in profile.major_calorie_drivers
     assert profile.cooking_method == COOKING_UNKNOWN
+
+
+def test_breakfast_and_snack_profiles_identify_main_components() -> None:
+    breakfast = _recipe(
+        "Cereais, leite e banana",
+        ["Cereais de pequeno-almoço", "Leite meio-gordo", "Banana"],
+    )
+    snack = _recipe(
+        "Banana e frutos secos",
+        ["Banana", "Frutos secos"],
+    )
+
+    breakfast_profile = build_recipe_structure_profile(breakfast)
+    snack_profile = build_recipe_structure_profile(snack)
+
+    assert breakfast_profile.primary_protein == "Leite meio-gordo"
+    assert breakfast_profile.primary_carbohydrate == "Cereais de pequeno-almoço"
+    assert "Banana" in breakfast_profile.other_carbohydrates
+    assert snack_profile.primary_protein == "Frutos secos"
+    assert snack_profile.primary_carbohydrate == "Banana"
+    assert "Frutos secos" in snack_profile.energy_modifiers
 
 
 def test_small_flour_thickener_does_not_become_main_carbohydrate() -> None:
