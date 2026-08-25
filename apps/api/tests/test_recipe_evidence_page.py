@@ -90,6 +90,39 @@ def test_parse_structured_recipe_page_rejects_calories_inconsistent_with_macros(
     assert pages[0].as_recipe_evidence() is None
 
 
+def test_parse_structured_recipe_page_uses_visible_macros_as_sanity_check() -> None:
+    html = """
+    <html><body>
+      <script type="application/ld+json">
+      {
+        "@type": "Recipe",
+        "name": "Almôndegas fit",
+        "recipeYield": "4 pessoas",
+        "recipeIngredient": ["400 g carne moída", "1 cebola"],
+        "nutrition": {"calories": "24 kcal"}
+      }
+      </script>
+      <section>
+        <h2>Valor nutricional</h2>
+        <p>por pessoa</p>
+        <p>Calorias: 24 kcal</p>
+        <p>Proteínas: 2 g</p>
+        <p>Gorduras: 16 g</p>
+        <p>Carboidratos: 6 g</p>
+      </section>
+    </body></html>
+    """
+
+    pages = parse_structured_recipe_pages(
+        html,
+        source_reference="https://example.test/almondegas",
+    )
+
+    assert len(pages) == 1
+    assert pages[0].energy_kcal_per_serving is None
+    assert pages[0].as_recipe_evidence() is None
+
+
 def test_parse_structured_recipe_page_rejects_probable_whole_recipe_nutrition() -> None:
     html = """
     <script type="application/ld+json">
