@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 
 from app.core.config import settings
-from app.core.provider_secrets import secrets_present
+from app.core.provider_secrets import get_provider_secret_store, secrets_present
 from app.providers.registry import has_registered_meal_delivery_adapter
+
+APIFY_API_TOKEN_SECRET = "NUTRIFLOW_APIFY_API_TOKEN"
 
 
 @dataclass(frozen=True)
@@ -14,10 +16,12 @@ class MealDeliveryProviderIntegration:
     adapter_available: bool
     consumer_discovery_publicly_supported: bool
     detail: str
+    public_web_discovery_configured: bool = False
 
     @property
     def configured(self) -> bool:
-        return self.credentials_present and self.consumer_discovery_enabled
+        official = self.credentials_present and self.consumer_discovery_enabled
+        return official or self.public_web_discovery_configured
 
     @property
     def live(self) -> bool:
@@ -31,6 +35,15 @@ _PROVIDER_SECRETS = {
 }
 
 
+def _public_web_discovery(provider_key: str) -> bool:
+    if provider_key not in {"uber_eats", "glovo"}:
+        return False
+    return (
+        settings.meal_delivery_apify_enabled
+        and get_provider_secret_store().get(APIFY_API_TOKEN_SECRET) is not None
+    )
+
+
 def _integration(
     *,
     provider_key: str,
@@ -40,6 +53,12 @@ def _integration(
     detail: str,
     adapter_available: bool | None,
 ) -> MealDeliveryProviderIntegration:
+    public_web = _public_web_discovery(provider_key)
+    if public_web:
+        detail = (
+            f"{display_name} public marketplace discovery is available through the "
+            "configured Apify adapter. Official provider access remains optional."
+        )
     return MealDeliveryProviderIntegration(
         key=provider_key,
         display_name=display_name,
@@ -52,6 +71,7 @@ def _integration(
         ),
         consumer_discovery_publicly_supported=consumer_discovery_publicly_supported,
         detail=detail,
+        public_web_discovery_configured=public_web,
     )
 
 
