@@ -13,6 +13,20 @@ PORTFIR_WORKBOOK_URL = (
     "https://portfir.insa.min-saude.pt/wp-content/uploads/2025/11/insa_tca.xlsx"
 )
 PORTFIR_TIMEOUT_SECONDS = 20.0
+_ALCOHOLIC_BEVERAGE_TERMS = frozenset(
+    {
+        "aguardente",
+        "cerveja",
+        "espumante",
+        "gin",
+        "licor",
+        "rum",
+        "sidra",
+        "vodka",
+        "whisky",
+        "vinho",
+    }
+)
 
 
 class PortfirError(ValueError):
@@ -32,6 +46,7 @@ class PortfirFoodNutrition:
     name: str
     energy_kcal: Decimal
     nutrients: tuple[PortfirNutrient, ...]
+    reference_unit: str = "g"
     version: str = PORTFIR_VERSION
 
     @property
@@ -65,7 +80,9 @@ def _text(value: object) -> str:
 
 def _normalized_header(value: object) -> str:
     text = unicodedata.normalize("NFKD", _text(value).casefold())
-    text = "".join(character for character in text if not unicodedata.combining(character))
+    text = "".join(
+        character for character in text if not unicodedata.combining(character)
+    )
     return re.sub(r"[^a-z0-9]+", " ", text).strip()
 
 
@@ -142,11 +159,22 @@ def _decimal(value: object) -> Decimal | None:
         return None
 
 
-def _value(row: tuple[object, ...], mapping: dict[str, int], key: str) -> object | None:
+def _value(
+    row: tuple[object, ...],
+    mapping: dict[str, int],
+    key: str,
+) -> object | None:
     index = mapping.get(key)
     if index is None or index >= len(row):
         return None
     return row[index]
+
+
+def _reference_unit(name: str) -> str:
+    words = set(_normalized_header(name).split())
+    if words & _ALCOHOLIC_BEVERAGE_TERMS:
+        return "ml"
+    return "g"
 
 
 def _parse_row(
@@ -177,6 +205,7 @@ def _parse_row(
         name=name,
         energy_kcal=energy,
         nutrients=tuple(nutrients),
+        reference_unit=_reference_unit(name),
     )
 
 
