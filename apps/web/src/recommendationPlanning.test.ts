@@ -57,7 +57,7 @@ describe("recommendation planning helpers", () => {
     ]);
   });
 
-  it("only sends menu-backed sources into nutritional ranking", () => {
+  it("sends restaurant menu and delivery sources into practical ranking", () => {
     expect(
       recommendationSourceKinds([
         "cooked",
@@ -66,13 +66,13 @@ describe("recommendation planning helpers", () => {
         "bolt_food",
         "restaurant",
       ]),
-    ).toEqual(["home", "delivery"]);
+    ).toEqual(["home", "restaurant", "delivery"]);
     expect(
       recommendationDeliveryProviderKeys(["uber_eats", "glovo", "bolt_food"]),
     ).toEqual(["uber_eats", "glovo", "bolt_food"]);
   });
 
-  it("does not pretend a discovered restaurant is a nutrition-ranked menu dish", () => {
+  it("allows menu-backed restaurant dishes into nutritional ranking", () => {
     const candidates = [
       candidate("recipe", "recipe", "recipe-1"),
       candidate("food_item", "dish", "dish-1"),
@@ -83,7 +83,7 @@ describe("recommendation planning helpers", () => {
       recommendationCandidates(candidates, ["cooked", "restaurant"], "lunch").map(
         (item) => item.composition_id,
       ),
-    ).toEqual(["recipe-1"]);
+    ).toEqual(["recipe-1", "dish-1"]);
     expect(
       recommendationCandidates(candidates, ["bolt_food"], "lunch").map(
         (item) => item.composition_id,
@@ -96,7 +96,7 @@ describe("recommendation planning helpers", () => {
       candidate("recipe", "recipe", "breakfast", ["breakfast"]),
       candidate("recipe", "recipe", "snack", ["snack"]),
       candidate("recipe", "recipe", "main", ["lunch", "dinner"]),
-      candidate("food_item", "dish", "delivery-main", ["lunch", "dinner"]),
+      candidate("food_item", "dish", "commercial-main", ["lunch", "dinner"]),
     ];
 
     expect(
@@ -113,11 +113,11 @@ describe("recommendation planning helpers", () => {
       recommendationCandidates(candidates, ["cooked", "restaurant"], "lunch").map(
         (item) => item.composition_id,
       ),
-    ).toEqual(["main"]);
+    ).toEqual(["main", "commercial-main"]);
     expect(
       recommendationCandidates(candidates, ["cooked", "bolt_food"], "dinner").map(
         (item) => item.composition_id,
       ),
-    ).toEqual(["main", "delivery-main"]);
+    ).toEqual(["main", "commercial-main"]);
   });
 });
