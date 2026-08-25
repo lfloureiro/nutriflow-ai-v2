@@ -143,6 +143,30 @@ def test_piece_based_fish_and_sausages_receive_material_energy_estimates() -> No
     assert sausage_estimate.total_energy_kcal == Decimal(1440)
 
 
+def test_qualitative_structural_carb_gets_low_confidence_per_serving_default() -> None:
+    recipe = _recipe(
+        "Perca do nilo no forno",
+        [
+            ("Perca do nilo", Decimal(4), "un"),
+            ("Batatas lavadas e embaladas", Decimal(1), "qb"),
+        ],
+    )
+
+    estimate = estimate_practical_recipe_energy(recipe)
+
+    assert estimate is not None
+    potato = next(
+        item for item in estimate.components if item.name == "Batatas lavadas e embaladas"
+    )
+    assert potato.source == "practical-qualitative-default"
+    assert potato.energy_kcal == Decimal(640)
+    assert estimate.total_energy_kcal == Decimal(1280)
+    assert estimate.energy_per_serving_kcal == Decimal(320)
+    assert estimate.driver_count == 2
+    assert estimate.covered_driver_count == 2
+    assert estimate.confidence == "low"
+
+
 def test_recipe_without_ingredients_does_not_invent_an_energy_value() -> None:
     recipe = Recipe(recipe_key="test:empty", name="Douradinhos", source="test")
 
