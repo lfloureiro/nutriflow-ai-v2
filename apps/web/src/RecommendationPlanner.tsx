@@ -7,8 +7,8 @@ import {
   submitRecommendationDecision,
 } from "./api/client";
 import { getRecommendationBootstrap } from "./api/recommendationClient";
-import { discoverRestaurants } from "./api/restaurantDiscoveryClient";
-import type { RestaurantDiscovery } from "./api/restaurantDiscoveryTypes";
+import { syncRestaurantMenus } from "./api/restaurantDiscoveryClient";
+import type { RestaurantMenuSync } from "./api/restaurantDiscoveryTypes";
 import {
   planSharedPracticalRecommendation,
   requestSharedPracticalRecommendation,
@@ -23,6 +23,7 @@ import { getPersonMealDiscovery } from "./api/setupClient";
 import type { PersonMealDiscovery } from "./api/setupTypes";
 import type {
   CommercialOffer,
+  HumanPortionGuidance,
   Person,
   PracticalRecommendationRequest,
   PracticalRecommendationRun,
@@ -52,13 +53,13 @@ import {
 } from "./recommendationPlanning";
 
 const MAX_VISIBLE_RESULTS = 3;
-const RESTAURANT_LIMIT = 12;
+const RESTAURANT_LIMIT = 8;
 const MAIN_MEAL_TYPES = new Set<RecommendationMealType>(["lunch", "dinner"]);
 
 const COPY = {
   "pt-PT": {
     title: "Recomendar refeições",
-    help: "Escolhe quem vai comer, quando e onde procurar. As receitas e pratos são avaliados pelas necessidades nutricionais e preferências; os restaurantes usam descoberta live ordenada por sinais de qualidade quando disponíveis.",
+    help: "Escolhe quem vai comer, quando e onde procurar. Para restaurantes, o NutriFlow descobre o estabelecimento, lê a ementa oficial e recomenda o prato concreto — não apenas o nome do restaurante.",
     people: "Pessoas",
     peopleLower: "pessoas",
     allPeople: "Todos",
@@ -71,7 +72,7 @@ const COPY = {
     mealType: "Tipo de refeição",
     sources: "Onde procurar",
     cooked: "Receitas",
-    cookedHelp: "Receitas partilhadas e receitas próprias da família, filtradas para esta refeição",
+    cookedHelp: "Receitas partilhadas e da família, avaliadas pelas quantidades reais dos ingredientes",
     uber_eats: "Uber Eats",
     uber_eatsHelp: "Pratos sincronizados quando a integração consumer oficial estiver operacional",
     glovo: "Glovo",
@@ -79,19 +80,19 @@ const COPY = {
     bolt_food: "Bolt Food",
     bolt_foodHelp: "Pratos sincronizados quando existir acesso autorizado ao catálogo",
     restaurant: "Restaurantes",
-    restaurantHelp: "Restaurantes live na área configurada; usado apenas em almoço e jantar",
+    restaurantHelp: "Google Places/OSM → site oficial → ementa → prato com nutrição utilizável",
     sourceUnavailable: "Não está disponível para esta refeição ou para todas as pessoas selecionadas",
     more: "Mais opções",
     time: "Hora",
     location: "Área / local (override opcional)",
     minutes: "Tempo disponível (min)",
     recommend: "Obter recomendações",
-    recommending: "A calcular recomendações…",
+    recommending: "A atualizar fontes e calcular recomendações…",
     noPeople: "Não existem pessoas nesta família.",
     peopleRequired: "Escolhe pelo menos uma pessoa.",
     sourceRequired: "Escolhe pelo menos uma origem disponível.",
     noCandidates: "Não existem receitas ou pratos com dados suficientes para esta refeição.",
-    noResults: "Não foram encontradas receitas ou pratos adequados para este dia.",
+    noResults: "Não foram encontradas refeições adequadas para este dia.",
     stateUnavailable: "Não foi possível preparar o orçamento nutricional para",
     error: "Não foi possível obter a recomendação",
     results: "Recomendações",
@@ -104,25 +105,27 @@ const COPY = {
     lunch: "Almoço",
     snack: "Lanche",
     dinner: "Jantar",
-    from: "Origem",
+    from: "Onde obter",
     deliverySource: "Entrega",
+    restaurantSource: "Restaurante",
     groupFit: "Adequação do grupo",
-    portion: "Porção",
-    restaurants: "Restaurantes na área",
-    restaurantLiveNote: "Descoberta live ordenada por qualidade/reputação quando o Google Places está configurado. A adequação nutricional continua a depender de um prato/menu concreto.",
+    suggestedAmounts: "Quantidades sugeridas",
+    restaurantsUpdated: "Ementas atualizadas",
+    restaurantsAnalysed: "restaurantes",
+    menuDishes: "pratos encontrados",
+    nutritionReady: "com nutrição utilizável",
     restaurantAreaRequired: "Configura uma área de restaurantes em Casa → Fontes ou indica uma área em Mais opções.",
     restaurantAreaMismatch: "As pessoas selecionadas têm áreas de restaurantes diferentes. Indica uma área comum em Mais opções.",
-    restaurantUnavailable: "Não foi possível pesquisar restaurantes nesta área.",
-    cuisine: "Cozinha",
-    address: "Morada",
-    openingHours: "Horário",
-    website: "Site",
-    ratings: "avaliações",
-    price: "Preço",
+    restaurantUnavailable: "Não foi possível atualizar as ementas. As restantes fontes continuam disponíveis.",
+    restaurantOnlyUnavailable: "Não foi possível atualizar as ementas e não foi selecionada outra fonte utilizável.",
+    sourceGoogle: "Google Places",
+    sourceOsm: "OpenStreetMap",
+    dose: "dose",
+    doses: "doses",
   },
   en: {
     title: "Meal recommendations",
-    help: "Choose who will eat, when and where to search. Recipes and dishes are evaluated against nutrition needs and preferences; restaurants use live discovery ranked by quality signals when available.",
+    help: "Choose who will eat, when and where to search. For restaurants, NutriFlow discovers the venue, reads its official menu and recommends the concrete dish — not just the restaurant name.",
     people: "People",
     peopleLower: "people",
     allPeople: "Everyone",
@@ -135,7 +138,7 @@ const COPY = {
     mealType: "Meal type",
     sources: "Where to search",
     cooked: "Recipes",
-    cookedHelp: "Shared and Family recipes filtered for this meal",
+    cookedHelp: "Shared and Family recipes evaluated from real ingredient quantities",
     uber_eats: "Uber Eats",
     uber_eatsHelp: "Synchronized dishes when the official consumer integration is operational",
     glovo: "Glovo",
@@ -143,19 +146,19 @@ const COPY = {
     bolt_food: "Bolt Food",
     bolt_foodHelp: "Synchronized dishes when authorized catalogue access is available",
     restaurant: "Restaurants",
-    restaurantHelp: "Live restaurants in the configured area; lunch and dinner only",
+    restaurantHelp: "Google Places/OSM → official website → menu → nutritionally usable dish",
     sourceUnavailable: "Not available for this meal or every selected person",
     more: "More options",
     time: "Time",
     location: "Area / location (optional override)",
     minutes: "Available time (min)",
     recommend: "Get recommendations",
-    recommending: "Calculating recommendations…",
+    recommending: "Refreshing sources and calculating recommendations…",
     noPeople: "There are no people in this Family.",
     peopleRequired: "Choose at least one person.",
     sourceRequired: "Choose at least one available source.",
     noCandidates: "There are no recipes or dishes with enough data for this meal.",
-    noResults: "No suitable recipes or dishes were found for this day.",
+    noResults: "No suitable meals were found for this day.",
     stateUnavailable: "Could not prepare the nutrition budget for",
     error: "The recommendation could not be created",
     results: "Recommendations",
@@ -168,21 +171,23 @@ const COPY = {
     lunch: "Lunch",
     snack: "Snack",
     dinner: "Dinner",
-    from: "Source",
+    from: "Where to get it",
     deliverySource: "Delivery",
+    restaurantSource: "Restaurant",
     groupFit: "Group fit",
-    portion: "Portion",
-    restaurants: "Restaurants in the area",
-    restaurantLiveNote: "Live discovery is ranked by quality/reputation when Google Places is configured. Nutritional suitability still requires a concrete dish/menu item.",
+    suggestedAmounts: "Suggested amounts",
+    restaurantsUpdated: "Menus refreshed",
+    restaurantsAnalysed: "restaurants",
+    menuDishes: "dishes found",
+    nutritionReady: "with usable nutrition",
     restaurantAreaRequired: "Configure a restaurant area under Home base → Sources or enter an area in More options.",
     restaurantAreaMismatch: "The selected people have different restaurant areas. Enter one common area in More options.",
-    restaurantUnavailable: "Restaurants could not be searched in this area.",
-    cuisine: "Cuisine",
-    address: "Address",
-    openingHours: "Opening hours",
-    website: "Website",
-    ratings: "ratings",
-    price: "Price",
+    restaurantUnavailable: "Menus could not be refreshed. Other selected sources remain available.",
+    restaurantOnlyUnavailable: "Menus could not be refreshed and no other usable source was selected.",
+    sourceGoogle: "Google Places",
+    sourceOsm: "OpenStreetMap",
+    dose: "serving",
+    doses: "servings",
   },
 } as const;
 
@@ -192,8 +197,6 @@ type DayResultBase = {
   personIds: string[];
   sources: RecommendationSource[];
   nutritionBudgets: RecommendationNutritionBudget[];
-  restaurants: RestaurantDiscovery | null;
-  restaurantError: string | null;
   error: string | null;
 };
 
@@ -293,7 +296,6 @@ function sourceSupportsMeal(
   source: RecommendationSource,
   mealType: RecommendationMealType,
 ): boolean {
-  if (source === "restaurant") return MAIN_MEAL_TYPES.has(mealType);
   if (source !== "cooked") return MAIN_MEAL_TYPES.has(mealType);
   return true;
 }
@@ -321,7 +323,9 @@ function matchingOffers(
   sources: RecommendationSource[],
 ): OfferLike[] {
   return offers.filter((offer) => {
-    if (offer.candidate_key !== candidateKey || offer.source_kind !== "delivery") return false;
+    if (offer.candidate_key !== candidateKey) return false;
+    if (offer.source_kind === "restaurant") return sources.includes("restaurant");
+    if (offer.source_kind !== "delivery") return false;
     if (offer.provider_key === "uber_eats") return sources.includes("uber_eats");
     if (offer.provider_key === "glovo") return sources.includes("glovo");
     if (offer.provider_key === "bolt_food") return sources.includes("bolt_food");
@@ -335,7 +339,7 @@ function visibleSingleOptions(
 ): RecommendationOption[] {
   return run.options.filter((option) => {
     if (!option.eligible) return false;
-    if (option.candidate_kind === "recipe" && sources.includes("cooked")) return true;
+    if (option.candidate_kind === "recipe") return sources.includes("cooked");
     return matchingOffers(run.commercial_offers, option.candidate_key, sources).length > 0;
   });
 }
@@ -346,7 +350,7 @@ function visibleSharedOptions(
 ): SharedRecommendationOption[] {
   return run.options.filter((option) => {
     if (!option.eligible) return false;
-    if (option.candidate_kind === "recipe" && sources.includes("cooked")) return true;
+    if (option.candidate_kind === "recipe") return sources.includes("cooked");
     return matchingOffers(run.commercial_offers, option.candidate_key, sources).length > 0;
   });
 }
@@ -358,6 +362,62 @@ function topCandidateKey(day: DayResult): string | null {
       ? visibleSingleOptions(day.run, day.sources)
       : visibleSharedOptions(day.run, day.sources);
   return options.at(0)?.candidate_key ?? null;
+}
+
+function humanUnit(unit: string, quantity: string | null, locale: Locale): string {
+  const normalized = unit.trim().toLocaleLowerCase();
+  if (["serving", "portion", "dose"].includes(normalized)) {
+    const numeric = quantity === null ? 1 : Number(quantity);
+    return numeric === 1 ? COPY[locale].dose : COPY[locale].doses;
+  }
+  if (["qb", "q.b.", "q.b", "quanto baste"].includes(normalized)) return "q.b.";
+  return unit;
+}
+
+function PortionGuidance({
+  guidance,
+  fallbackQuantity,
+  fallbackUnit,
+}: {
+  guidance: HumanPortionGuidance | null;
+  fallbackQuantity: string;
+  fallbackUnit: string;
+}) {
+  const { locale } = useI18n();
+  const copy = COPY[locale];
+  if (!guidance || guidance.components.length === 0) {
+    return (
+      <p className="muted compact">
+        {formatNumber(fallbackQuantity, locale)} {humanUnit(fallbackUnit, fallbackQuantity, locale)}
+      </p>
+    );
+  }
+
+  if (guidance.kind === "single_item") {
+    const component = guidance.components[0]!;
+    return (
+      <p className="muted compact">
+        {component.quantity === null ? "" : `${formatNumber(component.quantity, locale)} `}
+        {humanUnit(component.unit, component.quantity, locale)}
+      </p>
+    );
+  }
+
+  return (
+    <details className="portion-guidance">
+      <summary>{copy.suggestedAmounts}</summary>
+      <ul className="compact-list">
+        {guidance.components.map((component, index) => (
+          <li key={`${component.name}:${component.unit}:${index}`}>
+            <strong>{component.name}</strong>{" "}
+            {component.qualitative || component.quantity === null
+              ? humanUnit(component.unit, null, locale)
+              : `${formatNumber(component.quantity, locale, 2)} ${humanUnit(component.unit, component.quantity, locale)}`}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
 }
 
 function SourceChoice({
@@ -403,7 +463,8 @@ function OfferList({ offers }: { offers: OfferLike[] }) {
             <div>
               <strong>{offer.provider_name ?? offer.provider_key}</strong>
               <span className="muted">
-                {copy.deliverySource}{offer.location ? ` · ${offer.location}` : ""}
+                {offer.source_kind === "restaurant" ? copy.restaurantSource : copy.deliverySource}
+                {offer.location ? ` · ${offer.location}` : ""}
               </span>
             </div>
             <strong>{formatMoney(offer.total_known_price, offer.currency, locale)}</strong>
@@ -443,10 +504,17 @@ function SingleResultCard({
         <div>
           <ResultEyebrow rank={option.rank} />
           <h3>{option.candidate_name}</h3>
-          <p className="muted compact">{formatNumber(option.quantity, locale)} {option.quantity_unit}</p>
+          <PortionGuidance
+            fallbackQuantity={option.quantity}
+            fallbackUnit={option.quantity_unit}
+            guidance={option.portion_guidance}
+          />
         </div>
         {option.nutrition.energy_kcal !== null ? (
-          <div className="energy-pill"><strong>{formatNumber(option.nutrition.energy_kcal, locale, 0)}</strong><span>kcal</span></div>
+          <div className="energy-pill">
+            <strong>{formatNumber(option.nutrition.energy_kcal, locale, 0)}</strong>
+            <span>kcal</span>
+          </div>
         ) : null}
       </div>
       <OfferList offers={offers} />
@@ -458,11 +526,27 @@ function SingleResultCard({
         </div>
       ) : null}
       {decision ? (
-        <div className="decision-result" role="status"><strong>{decision.action === "accepted" ? copy.planned : copy.reject}</strong></div>
+        <div className="decision-result" role="status">
+          <strong>{decision.action === "accepted" ? copy.planned : copy.reject}</strong>
+        </div>
       ) : (
         <div className="button-row">
-          <button className="button primary" disabled={busy} onClick={() => onDecision(option, "accepted")} type="button">{copy.accept}</button>
-          <button className="button ghost" disabled={busy} onClick={() => onDecision(option, "rejected")} type="button">{copy.reject}</button>
+          <button
+            className="button primary"
+            disabled={busy}
+            onClick={() => onDecision(option, "accepted")}
+            type="button"
+          >
+            {copy.accept}
+          </button>
+          <button
+            className="button ghost"
+            disabled={busy}
+            onClick={() => onDecision(option, "rejected")}
+            type="button"
+          >
+            {copy.reject}
+          </button>
         </div>
       )}
     </article>
@@ -497,7 +581,9 @@ function SharedResultCard({
           <h3>{option.candidate_name}</h3>
           <p className="muted compact">
             {option.participants.length} {copy.peopleLower}
-            {option.average_score !== null ? ` · ${copy.groupFit}: ${formatNumber(option.average_score, locale, 2)}` : ""}
+            {option.average_score !== null
+              ? ` · ${copy.groupFit}: ${formatNumber(option.average_score, locale, 2)}`
+              : ""}
           </p>
         </div>
       </div>
@@ -506,11 +592,17 @@ function SharedResultCard({
           const person = peopleById.get(participant.person_id);
           return (
             <div className="shared-participant-row" key={participant.person_id}>
-              <strong>{person ? displayName(person) : participant.person_id}</strong>
-              <span>
-                {copy.portion}: {formatNumber(participant.quantity, locale)} {participant.quantity_unit}
-                {participant.energy_kcal !== null ? ` · ${formatNumber(participant.energy_kcal, locale, 0)} kcal` : ""}
-              </span>
+              <div>
+                <strong>{person ? displayName(person) : participant.person_id}</strong>
+                <PortionGuidance
+                  fallbackQuantity={participant.quantity}
+                  fallbackUnit={participant.quantity_unit}
+                  guidance={participant.portion_guidance}
+                />
+              </div>
+              {participant.energy_kcal !== null ? (
+                <span>{formatNumber(participant.energy_kcal, locale, 0)} kcal</span>
+              ) : null}
             </div>
           );
         })}
@@ -520,53 +612,30 @@ function SharedResultCard({
         <div className="decision-result" role="status"><strong>{copy.planned}</strong></div>
       ) : (
         <div className="button-row">
-          <button className="button primary" disabled={busy} onClick={() => onPlan(option)} type="button">{copy.accept}</button>
+          <button className="button primary" disabled={busy} onClick={() => onPlan(option)} type="button">
+            {copy.accept}
+          </button>
         </div>
       )}
     </article>
   );
 }
 
-function RestaurantResults({ result }: { result: RestaurantDiscovery }) {
+function RestaurantSyncSummary({ result }: { result: RestaurantMenuSync }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
+  const totalItems = result.menus.reduce((sum, menu) => sum + menu.items.length, 0);
   return (
-    <section className="restaurant-results">
-      <div className="section-heading">
-        <div>
-          <h3>{copy.restaurants}</h3>
-          <p>{result.area} · {copy.restaurantLiveNote}</p>
-        </div>
-      </div>
-      <div className="recommendation-grid">
-        {result.restaurants.map((restaurant) => (
-          <article className="recommendation-card eligible" key={restaurant.provider_place_id}>
-            <div className="recommendation-card__header">
-              <div>
-                <span className="eyebrow">Live · {result.provider}</span>
-                <h3>{restaurant.name}</h3>
-                {restaurant.rating ? (
-                  <p className="muted compact">
-                    ★ {Number(restaurant.rating).toLocaleString(locale, {
-                      minimumFractionDigits: 1,
-                      maximumFractionDigits: 1,
-                    })}
-                    {restaurant.rating_count !== null
-                      ? ` · ${new Intl.NumberFormat(locale).format(restaurant.rating_count)} ${copy.ratings}`
-                      : ""}
-                    {restaurant.price_level ? ` · ${copy.price}: ${restaurant.price_level}` : ""}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-            {restaurant.cuisine.length > 0 ? <p><strong>{copy.cuisine}:</strong> {restaurant.cuisine.join(", ")}</p> : null}
-            {restaurant.address ? <p><strong>{copy.address}:</strong> {restaurant.address}</p> : null}
-            {restaurant.opening_hours ? <p><strong>{copy.openingHours}:</strong> {restaurant.opening_hours}</p> : null}
-            {restaurant.website ? <a href={restaurant.website} rel="noreferrer" target="_blank">{copy.website} ↗</a> : null}
-          </article>
-        ))}
-      </div>
-    </section>
+    <div className="restaurant-capability status-ready">
+      <span aria-hidden="true" className="restaurant-capability__dot" />
+      <span>
+        <strong>{copy.restaurantsUpdated}:</strong>{" "}
+        {result.provider === "google_places" ? copy.sourceGoogle : copy.sourceOsm}
+        {" · "}{result.menus.length} {copy.restaurantsAnalysed}
+        {" · "}{totalItems} {copy.menuDishes}
+        {" · "}{result.nutrition_ready_item_count} {copy.nutritionReady}
+      </span>
+    </div>
   );
 }
 
@@ -588,6 +657,8 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
   const [results, setResults] = useState<DayResult[]>([]);
   const [decisions, setDecisions] = useState<Record<string, RecommendationDecision>>({});
   const [sharedPlans, setSharedPlans] = useState<Record<string, SharedPracticalPlan>>({});
+  const [menuSync, setMenuSync] = useState<RestaurantMenuSync | null>(null);
+  const [menuSyncWarning, setMenuSyncWarning] = useState<string | null>(null);
   const [busy, setBusy] = useState<BusyState>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -660,6 +731,8 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
     setMealType(value);
     setLocalTime(DEFAULT_MEAL_TIMES[value]);
     setResults([]);
+    setMenuSync(null);
+    setMenuSyncWarning(null);
   }
 
   function parsedAvailableMinutes(): number | null {
@@ -668,34 +741,33 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
     return Number.isFinite(value) ? value : null;
   }
 
-  async function discoverRestaurantOptions(personIds: string[]): Promise<{
-    result: RestaurantDiscovery | null;
-    error: string | null;
-  }> {
-    if (!sources.includes("restaurant")) return { result: null, error: null };
-    const area = restaurantAreaForPeople(personIds, discoveryByPersonId, location);
-    if (area === null) return { result: null, error: copy.restaurantAreaRequired };
-    if (area === "mismatch") return { result: null, error: copy.restaurantAreaMismatch };
-    try {
-      return { result: await discoverRestaurants(familyId, area, RESTAURANT_LIMIT), error: null };
-    } catch (caught: unknown) {
-      return { result: null, error: `${copy.restaurantUnavailable} ${errorText(caught)}` };
-    }
-  }
-
   async function recommendDay(
     date: string,
     provisionalHistory: RecommendationHistoryHint[],
+    activeSources: RecommendationSource[],
+    resolvedRestaurantArea: string | null,
   ): Promise<DayResult> {
     const personIds = selectedPeople.map((person) => person.id);
     const mode = personIds.length === 1 ? "single" : "shared";
     const scheduledLocal = recommendationScheduledLocal(date, mealType, localTime);
     const scheduledAt = scheduledIso(scheduledLocal);
     const firstPerson = selectedPeople.at(0);
-    if (!firstPerson) throw new Error(copy.peopleRequired);
+    const nutritionBudgets: RecommendationNutritionBudget[] = [];
 
-    let nutritionBudgets: RecommendationNutritionBudget[] = [];
-    const restaurantPromise = discoverRestaurantOptions(personIds);
+    if (!firstPerson) {
+      const base: DayResultBase = {
+        date,
+        scheduledLocal,
+        personIds,
+        sources: [...activeSources],
+        nutritionBudgets,
+        error: copy.peopleRequired,
+      };
+      return mode === "single"
+        ? { ...base, mode, run: null, request: null }
+        : { ...base, mode, run: null, request: null };
+    }
+
     try {
       const personBootstraps = await Promise.all(
         selectedPeople.map(async (person) => ({
@@ -707,44 +779,49 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
       if (!firstPair) throw new Error(copy.peopleRequired);
       const firstBootstrap = firstPair.bootstrap;
 
-      nutritionBudgets = personBootstraps.map(({ person, bootstrap }) => {
-        if (!bootstrap.daily_nutrition_state) {
-          throw new Error(`${copy.stateUnavailable} ${displayName(person)}.`);
-        }
-        return recommendationNutritionBudget(person, bootstrap.daily_nutrition_state);
-      });
+      nutritionBudgets.push(
+        ...personBootstraps.map(({ person, bootstrap }) => {
+          if (!bootstrap.daily_nutrition_state) {
+            throw new Error(`${copy.stateUnavailable} ${displayName(person)}.`);
+          }
+          return recommendationNutritionBudget(person, bootstrap.daily_nutrition_state);
+        }),
+      );
 
       const firstState = firstBootstrap.daily_nutrition_state;
       if (!firstState) throw new Error(`${copy.stateUnavailable} ${displayName(firstPerson)}.`);
-      const candidates = recommendationCandidates(firstBootstrap.candidates, sources, mealType);
-      const restaurants = await restaurantPromise;
+      const candidates = recommendationCandidates(
+        firstBootstrap.candidates,
+        activeSources,
+        mealType,
+      );
 
       if (candidates.length === 0) {
         const base: DayResultBase = {
           date,
           scheduledLocal,
           personIds,
-          sources: [...sources],
+          sources: [...activeSources],
           nutritionBudgets,
-          restaurants: restaurants.result,
-          restaurantError: restaurants.error,
-          error: sources.includes("restaurant") ? null : copy.noCandidates,
+          error: copy.noCandidates,
         };
         return mode === "single"
           ? { ...base, mode, run: null, request: null }
           : { ...base, mode, run: null, request: null };
       }
 
+      const recommendationLocation =
+        location.trim() || (activeSources.includes("restaurant") ? resolvedRestaurantArea : null);
       const common = {
         planning_date: firstBootstrap.planning_date,
         scheduled_at: scheduledAt,
         meal_type: mealType,
         candidates,
-        location: location.trim() || null,
+        location: recommendationLocation,
         available_minutes: parsedAvailableMinutes(),
-        has_kitchen: sources.includes("cooked") ? true : null,
-        source_kinds: recommendationSourceKinds(sources),
-        delivery_provider_keys: recommendationDeliveryProviderKeys(sources),
+        has_kitchen: activeSources.includes("cooked") ? true : null,
+        source_kinds: recommendationSourceKinds(activeSources),
+        delivery_provider_keys: recommendationDeliveryProviderKeys(activeSources),
         provisional_history: [...provisionalHistory],
         auto_size_portions: true,
         max_results: MAX_VISIBLE_RESULTS,
@@ -761,10 +838,8 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
           date,
           scheduledLocal,
           personIds,
-          sources: [...sources],
+          sources: [...activeSources],
           nutritionBudgets,
-          restaurants: restaurants.result,
-          restaurantError: restaurants.error,
           run,
           request,
           error: null,
@@ -781,24 +856,19 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
         date,
         scheduledLocal,
         personIds,
-        sources: [...sources],
+        sources: [...activeSources],
         nutritionBudgets,
-        restaurants: restaurants.result,
-        restaurantError: restaurants.error,
         run,
         request,
         error: null,
       };
     } catch (caught: unknown) {
-      const restaurants = await restaurantPromise;
       const base: DayResultBase = {
         date,
         scheduledLocal,
         personIds,
-        sources: [...sources],
+        sources: [...activeSources],
         nutritionBudgets,
-        restaurants: restaurants.result,
-        restaurantError: restaurants.error,
         error: errorText(caught),
       };
       return mode === "single"
@@ -810,6 +880,8 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+    setMenuSync(null);
+    setMenuSyncWarning(null);
     setDecisions({});
     setSharedPlans({});
     setResults([]);
@@ -836,10 +908,51 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
 
     setBusy({ kind: "recommend" });
     try {
+      let activeSources = [...sources];
+      let resolvedRestaurantArea: string | null = null;
+      if (sources.includes("restaurant")) {
+        const area = restaurantAreaForPeople(
+          selectedPeople.map((person) => person.id),
+          discoveryByPersonId,
+          location,
+        );
+        if (area === null) {
+          setError(copy.restaurantAreaRequired);
+          return;
+        }
+        if (area === "mismatch") {
+          setError(copy.restaurantAreaMismatch);
+          return;
+        }
+        resolvedRestaurantArea = area;
+        try {
+          const synced = await syncRestaurantMenus(familyId, {
+            area,
+            restaurant_limit: RESTAURANT_LIMIT,
+            item_limit_per_restaurant: 60,
+          });
+          setMenuSync(synced);
+        } catch (caught: unknown) {
+          activeSources = activeSources.filter((source) => source !== "restaurant");
+          const detail = errorText(caught);
+          setMenuSyncWarning(
+            activeSources.length === 0
+              ? `${copy.restaurantOnlyUnavailable} ${detail}`
+              : `${copy.restaurantUnavailable} ${detail}`,
+          );
+          if (activeSources.length === 0) return;
+        }
+      }
+
       const nextResults: DayResult[] = [];
       let provisionalHistory: RecommendationHistoryHint[] = [];
       for (const date of dates) {
-        const day = await recommendDay(date, provisionalHistory);
+        const day = await recommendDay(
+          date,
+          provisionalHistory,
+          activeSources,
+          resolvedRestaurantArea,
+        );
         nextResults.push(day);
         setResults([...nextResults]);
         const topKey = topCandidateKey(day);
@@ -871,7 +984,7 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
               scheduled_at: scheduledIso(day.scheduledLocal),
               timezone: person.timezone,
               meal_type: mealType,
-              location: location.trim() || null,
+              location: day.request?.location ?? null,
               feedback_metadata: { entrypoint: "web-v2-smart-recommendation" },
             }
           : { action, feedback_metadata: { entrypoint: "web-v2-smart-recommendation" } },
@@ -914,7 +1027,9 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
           </div>
         </header>
         {error ? (
-          <div className="error-banner" role="alert"><strong>{copy.error}</strong><span>{error}</span></div>
+          <div className="error-banner" role="alert">
+            <strong>{copy.error}</strong><span>{error}</span>
+          </div>
         ) : null}
         <form className="stack" onSubmit={submit}>
           <div className="field-group recommend-people-group">
@@ -940,25 +1055,44 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
             <div className="field-group">
               <span className="field-group__label">{copy.period}</span>
               <div className="segmented-control">
-                <button className={periodMode === "single" ? "active" : ""} onClick={() => setPeriodMode("single")} type="button">{copy.single}</button>
-                <button className={periodMode === "range" ? "active" : ""} onClick={() => setPeriodMode("range")} type="button">{copy.range}</button>
+                <button className={periodMode === "single" ? "active" : ""} onClick={() => setPeriodMode("single")} type="button">
+                  {copy.single}
+                </button>
+                <button className={periodMode === "range" ? "active" : ""} onClick={() => setPeriodMode("range")} type="button">
+                  {copy.range}
+                </button>
               </div>
             </div>
             {periodMode === "single" ? (
               <label className="field">
                 <span>{copy.date}</span>
-                <input type="date" value={startDate} onChange={(event) => { setStartDate(event.target.value); setEndDate(event.target.value); }} />
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(event) => {
+                    setStartDate(event.target.value);
+                    setEndDate(event.target.value);
+                  }}
+                />
               </label>
             ) : (
               <div className="recommend-date-range">
-                <label className="field"><span>{copy.startDate}</span><input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label>
-                <label className="field"><span>{copy.endDate}</span><input min={startDate} type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label>
+                <label className="field">
+                  <span>{copy.startDate}</span>
+                  <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+                </label>
+                <label className="field">
+                  <span>{copy.endDate}</span>
+                  <input min={startDate} type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+                </label>
               </div>
             )}
             <label className="field">
               <span>{copy.mealType}</span>
               <select value={mealType} onChange={(event) => changeMealType(event.target.value as RecommendationMealType)}>
-                {RECOMMENDATION_MEAL_TYPES.map((type) => <option key={type} value={type}>{copy[type]}</option>)}
+                {RECOMMENDATION_MEAL_TYPES.map((type) => (
+                  <option key={type} value={type}>{copy[type]}</option>
+                ))}
               </select>
             </label>
           </div>
@@ -981,17 +1115,33 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
           <details className="recommend-more">
             <summary>{copy.more}</summary>
             <div className="form-grid three">
-              <label className="field"><span>{copy.time}</span><input type="time" value={localTime} onChange={(event) => setLocalTime(event.target.value)} /></label>
-              <label className="field"><span>{copy.location}</span><input value={location} onChange={(event) => setLocation(event.target.value)} /></label>
-              <label className="field"><span>{copy.minutes}</span><input min="0" type="number" value={availableMinutes} onChange={(event) => setAvailableMinutes(event.target.value)} /></label>
+              <label className="field">
+                <span>{copy.time}</span>
+                <input type="time" value={localTime} onChange={(event) => setLocalTime(event.target.value)} />
+              </label>
+              <label className="field">
+                <span>{copy.location}</span>
+                <input value={location} onChange={(event) => setLocation(event.target.value)} />
+              </label>
+              <label className="field">
+                <span>{copy.minutes}</span>
+                <input min="0" type="number" value={availableMinutes} onChange={(event) => setAvailableMinutes(event.target.value)} />
+              </label>
             </div>
           </details>
 
-          <button className="button primary large" disabled={busy?.kind === "recommend" || selectedPeople.length === 0} type="submit">
+          <button
+            className="button primary large"
+            disabled={busy?.kind === "recommend" || selectedPeople.length === 0}
+            type="submit"
+          >
             {busy?.kind === "recommend" ? copy.recommending : copy.recommend}
           </button>
         </form>
       </section>
+
+      {menuSync ? <RestaurantSyncSummary result={menuSync} /> : null}
+      {menuSyncWarning ? <div className="error-banner"><span>{menuSyncWarning}</span></div> : null}
 
       {results.length > 0 ? (
         <section className="recommend-results">
@@ -1048,8 +1198,6 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
                       })}
                     </div>
                   ) : null}
-                  {day.restaurantError ? <div className="error-banner"><span>{day.restaurantError}</span></div> : null}
-                  {day.restaurants ? <RestaurantResults result={day.restaurants} /> : null}
                 </section>
               );
             })}
