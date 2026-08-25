@@ -10,7 +10,6 @@ from app.schemas.nutrition_enrichment import (
 )
 from app.services.portfir import (
     PORTFIR_VERSION,
-    PortfirError,
     download_portfir_workbook,
     load_portfir_foods,
 )
@@ -64,10 +63,7 @@ def run_automatic_nutrition_enrichment(
             path=cache_path,
             refresh=refresh,
         )
-        try:
-            foods = load_portfir_foods(path)
-        except PortfirError:
-            raise
+        foods = load_portfir_foods(path)
 
         enrichment = auto_enrich_shared_ingredients_from_portfir(
             db,
