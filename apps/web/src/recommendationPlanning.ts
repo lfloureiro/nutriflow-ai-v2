@@ -13,8 +13,6 @@ export type RecommendationSource =
   | "restaurant";
 export type RecommendationMealType = "breakfast" | "lunch" | "snack" | "dinner";
 
-// Every user-selectable source is exposed here. Availability/configuration is
-// resolved per Person/Family; providers without an approved live adapter stay disabled.
 export const RECOMMENDATION_SOURCES = [
   "cooked",
   "uber_eats",
@@ -96,22 +94,31 @@ export function recommendationDeliveryProviderKeys(
   return providers;
 }
 
+function commercialDishMatchesSource(
+  candidate: PlanningCandidate,
+  sources: RecommendationSource[],
+): boolean {
+  const key = candidate.catalog_key.casefold();
+  if (sources.includes("restaurant") && key.startsWith("external:restaurant_website:")) {
+    return true;
+  }
+  if (sources.includes("uber_eats") && key.startsWith("external:uber_eats:")) return true;
+  if (sources.includes("glovo") && key.startsWith("external:glovo:")) return true;
+  if (sources.includes("bolt_food") && key.startsWith("external:bolt_food:")) return true;
+  return false;
+}
+
 export function recommendationCandidates(
   candidates: PlanningCandidate[],
   sources: RecommendationSource[],
   mealType: RecommendationMealType,
 ): RecommendationCandidateInput[] {
   const allowCooked = sources.includes("cooked");
-  const allowCommercialDish =
-    sources.includes("restaurant") ||
-    sources.includes("uber_eats") ||
-    sources.includes("glovo") ||
-    sources.includes("bolt_food");
   return candidates
     .filter((candidate) => {
       if (!candidate.suitable_meal_types.includes(mealType)) return false;
       if (candidate.candidate_kind === "recipe") return allowCooked;
-      return allowCommercialDish && candidate.category === "dish";
+      return candidate.category === "dish" && commercialDishMatchesSource(candidate, sources);
     })
     .slice(0, 100)
     .map((candidate) => ({
