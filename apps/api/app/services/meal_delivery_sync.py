@@ -14,6 +14,8 @@ from app.schemas.external_menu import (
 )
 from app.services.external_menu_ingestion import ingest_external_menu_item
 from app.services.meal_delivery_provider import get_meal_delivery_provider_integration
+from app.services.restaurant_dish_nutrition import estimate_restaurant_dish_nutrition
+from app.services.restaurant_menu_scraper import ScrapedMenuItem
 
 
 class MealDeliveryProviderUnavailable(RuntimeError):
@@ -26,6 +28,31 @@ class MealDeliverySyncResult:
     observed_count: int
     observations: tuple[ExternalMenuItemObservationWrite, ...]
     ingested: tuple[ExternalMenuItemIngestedRead, ...]
+
+
+def _with_estimated_nutrition(
+    db: Session,
+    *,
+    family: Family,
+    observation: ExternalMenuItemObservationWrite,
+) -> ExternalMenuItemObservationWrite:
+    if observation.nutrition is not None:
+        return observation
+    estimate = estimate_restaurant_dish_nutrition(
+        db,
+        family_id=family.id,
+        item=ScrapedMenuItem(
+            name=observation.item_name,
+            description=observation.description,
+            price=observation.item_price,
+            currency=observation.currency,
+            energy_kcal=None,
+            source_url=observation.source_reference,
+        ),
+    )
+    if estimate is None:
+        return observation
+    return observation.model_copy(update={"nutrition": estimate.nutrition})
 
 
 def sync_meal_delivery_provider(
@@ -66,6 +93,7 @@ def sync_meal_delivery_provider(
     if len(observations) > limit:
         observations = observations[:limit]
 
+    enriched_observations: list[ExternalMenuItemObservationWrite] = []
     ingested: list[ExternalMenuItemIngestedRead] = []
     for observation in observations:
         if observation.provider_key != provider_key:
@@ -74,18 +102,24 @@ def sync_meal_delivery_provider(
             )
         if observation.source_kind != "delivery":
             raise ValueError("Delivery provider adapters must return delivery observations.")
+        enriched = _with_estimated_nutrition(
+            db,
+            family=family,
+            observation=observation,
+        )
+        enriched_observations.append(enriched)
         ingested.append(
             ingest_external_menu_item(
                 db,
                 family=family,
-                data=observation,
+                data=enriched,
             )
         )
 
     return MealDeliverySyncResult(
         provider_key=provider_key,
-        observed_count=len(observations),
-        observations=tuple(observations),
+        observed_count=len(enriched_observations),
+        observations=tuple(enriched_observations),
         ingested=tuple(ingested),
     )
 
