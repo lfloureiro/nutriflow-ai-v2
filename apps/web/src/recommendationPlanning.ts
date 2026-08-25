@@ -75,6 +75,7 @@ export function recommendationSourceKinds(
 ): PracticalSourceKind[] {
   const result: PracticalSourceKind[] = [];
   if (sources.includes("cooked")) result.push("home");
+  if (sources.includes("restaurant")) result.push("restaurant");
   if (
     sources.includes("uber_eats") ||
     sources.includes("glovo") ||
@@ -101,7 +102,8 @@ export function recommendationCandidates(
   mealType: RecommendationMealType,
 ): RecommendationCandidateInput[] {
   const allowCooked = sources.includes("cooked");
-  const allowDelivery =
+  const allowCommercialDish =
+    sources.includes("restaurant") ||
     sources.includes("uber_eats") ||
     sources.includes("glovo") ||
     sources.includes("bolt_food");
@@ -109,7 +111,7 @@ export function recommendationCandidates(
     .filter((candidate) => {
       if (!candidate.suitable_meal_types.includes(mealType)) return false;
       if (candidate.candidate_kind === "recipe") return allowCooked;
-      return allowDelivery && candidate.category === "dish";
+      return allowCommercialDish && candidate.category === "dish";
     })
     .slice(0, 100)
     .map((candidate) => ({
