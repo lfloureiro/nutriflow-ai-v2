@@ -94,3 +94,50 @@ def test_recipe_keeps_unit_conversion_blocker_without_approved_portion() -> None
     assert result.issues == (
         "Ingredient 'Almôndega' cannot be safely converted from 'un' to 'g'.",
     )
+
+
+def test_recipe_estimates_unknown_package_for_four_servings() -> None:
+    item = FoodItem(
+        catalog_key="shared:ingredient:package-test",
+        name="Ingrediente embalado desconhecido",
+        food_kind="ingredient",
+        source="test",
+    )
+    item.compositions.append(
+        FoodCompositionSnapshot(
+            reference_quantity=Decimal(100),
+            reference_unit="g",
+            energy_kcal=Decimal(50),
+            data_version="package-test",
+            source="portfir",
+            source_reference="https://portfir.example/item",
+            effective_at=NOW,
+        )
+    )
+    recipe = Recipe(
+        recipe_key="recipe:test:package",
+        name="Receita embalagem",
+        serving_count=Decimal(4),
+        source="test",
+    )
+    recipe.ingredients.append(
+        RecipeIngredient(
+            food_item=item,
+            quantity=Decimal(1),
+            unit="emb",
+            sort_order=0,
+        )
+    )
+
+    result = build_recipe_composition(recipe)
+
+    assert result.composition.energy_kcal == Decimal(200)
+    assert result.composition.calculation_inputs is not None
+    assert result.composition.calculation_inputs["energy_estimated"] is True
+    ingredient_input = result.composition.calculation_inputs["ingredients"][0]
+    conversion = ingredient_input["portion_conversion"]
+    assert conversion["reference_unit"] == "g"
+    assert conversion["quantity_in_reference_unit"] == "400"
+    assert conversion["source"] == "retail-heuristic"
+    assert conversion["confidence"] == "low"
+    assert conversion["estimated"] is True
