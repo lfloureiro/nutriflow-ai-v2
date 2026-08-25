@@ -20,7 +20,13 @@ def _provider_capability(
     )
     if integration.live:
         status = "ready"
-        detail = f"{integration.display_name} live provider adapter is configured."
+        detail = integration.detail
+    elif integration.public_web_discovery_configured and not integration.adapter_available:
+        status = "integration_required"
+        detail = (
+            f"{integration.display_name} public marketplace discovery is configured, but no "
+            "executable adapter is registered in this installation."
+        )
     elif not integration.credentials_present:
         status = "integration_required"
         detail = (
@@ -45,8 +51,13 @@ def _provider_capability(
         live=integration.live,
         status=status,
         detail=detail,
-        credentials_configured=integration.credentials_present,
-        access_enabled=integration.consumer_discovery_enabled,
+        credentials_configured=(
+            integration.credentials_present or integration.public_web_discovery_configured
+        ),
+        access_enabled=(
+            integration.consumer_discovery_enabled
+            or integration.public_web_discovery_configured
+        ),
         adapter_available=integration.adapter_available,
     )
 
