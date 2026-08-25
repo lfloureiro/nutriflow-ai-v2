@@ -10,6 +10,7 @@ from app.services.practical_nutrition_profile import (
     MODIFIER_ADDED_FAT,
     MODIFIER_RICH_SAUCE,
     PATTERN_MIXED,
+    VEGETABLE_LOW,
     VEGETABLE_MODERATE,
     build_practical_nutrition_profile,
 )
@@ -52,7 +53,7 @@ def test_profile_highlights_large_added_fat_without_caring_about_accessories() -
     profile = build_practical_nutrition_profile(recipe)
 
     assert profile.protein_pattern == PATTERN_MIXED
-    assert profile.vegetable_level != VEGETABLE_MODERATE
+    assert profile.vegetable_level == VEGETABLE_LOW
     assert profile.modifiers[0].kind == MODIFIER_ADDED_FAT
     assert profile.modifiers[0].load == LOAD_HIGH
     assert profile.energy_load_signal == ENERGY_SIGNAL_HIGH
