@@ -167,6 +167,42 @@ def test_qualitative_structural_carb_gets_low_confidence_per_serving_default() -
     assert estimate.confidence == "low"
 
 
+def test_snack_recipe_defaults_to_one_serving_and_covers_banana_and_nuts() -> None:
+    recipe = _recipe(
+        "Banana e frutos secos",
+        [
+            ("Banana", Decimal(120), "g"),
+            ("Frutos secos", Decimal(25), "g"),
+        ],
+    )
+    recipe.suitable_meal_types = ["snack"]
+
+    estimate = estimate_practical_recipe_energy(recipe)
+
+    assert estimate is not None
+    assert estimate.serving_count == Decimal(1)
+    assert estimate.serving_count_source == "practical-default"
+    assert Decimal(240) <= estimate.energy_per_serving_kcal <= Decimal(270)
+
+
+def test_breakfast_recipe_covers_cereal_milk_and_banana() -> None:
+    recipe = _recipe(
+        "Cereais, leite e banana",
+        [
+            ("Cereais de pequeno-almoço", Decimal(40), "g"),
+            ("Leite meio-gordo", Decimal(200), "ml"),
+            ("Banana", Decimal(100), "g"),
+        ],
+    )
+    recipe.suitable_meal_types = ["breakfast"]
+
+    estimate = estimate_practical_recipe_energy(recipe)
+
+    assert estimate is not None
+    assert estimate.serving_count == Decimal(1)
+    assert Decimal(330) <= estimate.energy_per_serving_kcal <= Decimal(355)
+
+
 def test_recipe_without_ingredients_does_not_invent_an_energy_value() -> None:
     recipe = Recipe(recipe_key="test:empty", name="Douradinhos", source="test")
 
