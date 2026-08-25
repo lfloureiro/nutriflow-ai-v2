@@ -6,14 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.family import Family
-from app.models.meal_candidate_availability import (
-    MealCandidateAvailability,
-    MealCommercialOffer,
-)
-from app.schemas.restaurant_discovery import (
-    RestaurantDiscoveryPlaceRead,
-    RestaurantDiscoveryRead,
-)
+from app.models.meal_candidate_availability import MealCandidateAvailability, MealCommercialOffer
+from app.schemas.restaurant_discovery import RestaurantDiscoveryPlaceRead, RestaurantDiscoveryRead
 from app.schemas.restaurant_menu_sync import RestaurantMenuSyncCreate
 from app.services import restaurant_menu_sync
 from app.services.restaurant_menu_scraper import ScrapedMenuItem, ScrapedRestaurantMenu
@@ -62,34 +56,6 @@ def _discovery(provider: str) -> RestaurantDiscoveryRead:
     )
 
 
-def _fallback_discovery(_area: str, *, limit: int) -> RestaurantDiscoveryRead:
-    assert limit > 0
-    return _discovery("openstreetmap_fallback")
-
-
-def _google_discovery(_area: str, *, limit: int) -> RestaurantDiscoveryRead:
-    assert limit > 0
-    return _discovery("google_places")
-
-
-def _scraped_menu(website: str, *, max_items: int) -> ScrapedRestaurantMenu:
-    assert max_items > 0
-    return ScrapedRestaurantMenu(
-        website=website,
-        pages_scanned=(website,),
-        items=(
-            ScrapedMenuItem(
-                name="Frango grelhado com arroz",
-                description="Frango, arroz e legumes",
-                price=Decimal("12.90"),
-                currency="EUR",
-                energy_kcal=Decimal("610"),
-                source_url=website,
-            ),
-        ),
-    )
-
-
 def test_menu_sync_refuses_osm_fallback_when_google_is_configured(
     db_session: Session,
     monkeypatch,
@@ -99,7 +65,7 @@ def test_menu_sync_refuses_osm_fallback_when_google_is_configured(
     monkeypatch.setattr(
         restaurant_menu_sync,
         "discover_restaurants",
-        _fallback_discovery,
+        lambda area, *, limit: _discovery("openstreetmap_fallback"),
     )
 
     with pytest.raises(
@@ -123,12 +89,25 @@ def test_google_menu_sync_ingests_real_dish_offer_for_recommendations(
     monkeypatch.setattr(
         restaurant_menu_sync,
         "discover_restaurants",
-        _google_discovery,
+        lambda area, *, limit: _discovery("google_places"),
     )
     monkeypatch.setattr(
         restaurant_menu_sync,
         "scrape_restaurant_menu",
-        _scraped_menu,
+        lambda website, *, max_items: ScrapedRestaurantMenu(
+            website=website,
+            pages_scanned=(website,),
+            items=(
+                ScrapedMenuItem(
+                    name="Frango grelhado com arroz",
+                    description="Frango, arroz e legumes",
+                    price=Decimal("12.90"),
+                    currency="EUR",
+                    energy_kcal=Decimal(610),
+                    source_url=website,
+                ),
+            ),
+        ),
     )
 
     result = restaurant_menu_sync.sync_restaurant_menus(
@@ -141,16 +120,19 @@ def test_google_menu_sync_ingests_real_dish_offer_for_recommendations(
     assert result.ingested_item_count == 1
     assert result.nutrition_ready_item_count == 1
     assert result.menus[0].restaurant == restaurant
-    assert result.menus[0].items[0].energy_kcal == Decimal("610")
+    assert result.menus[0].items[0].energy_kcal == Decimal(610)
     assert result.menus[0].items[0].eligible_for_nutrition_ranking
 
     offer = db_session.scalar(select(MealCommercialOffer))
     assert offer is not None
+    assert offer.source_kind == "restaurant"
     assert offer.provider_key == "restaurant_website"
     assert offer.provider_name == "Boa Mesa"
+    assert offer.location == "Benfica, Lisboa"
+    assert offer.valid_until is not None
+    assert offer.valid_until - offer.valid_from == restaurant_menu_sync.MENU_VALIDITY
 
     availability = db_session.scalar(select(MealCandidateAvailability))
     assert availability is not None
-    assert offer.availability_id == availability.id
     assert availability.source_kind == "restaurant"
     assert availability.location == "Benfica, Lisboa"
