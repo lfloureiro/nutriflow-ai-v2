@@ -151,6 +151,7 @@ def _uber_rows(
 ) -> tuple[ExternalMenuItemObservationWrite, ...]:
     observed_at = datetime.now(UTC)
     results: list[ExternalMenuItemObservationWrite] = []
+    seen: set[tuple[str, str]] = set()
     for raw_store in payload:
         if not isinstance(raw_store, dict) or not _uber_store_is_portuguese(raw_store):
             continue
@@ -188,6 +189,10 @@ def _uber_rows(
                     merchant_key,
                     item_name,
                 )
+                dedupe_key = (merchant_key, item_key)
+                if dedupe_key in seen:
+                    continue
+                seen.add(dedupe_key)
                 results.append(
                     ExternalMenuItemObservationWrite(
                         provider_key="uber_eats",
@@ -240,6 +245,7 @@ def _glovo_rows(
     query = (request.query or "").strip().casefold()
     observed_at = datetime.now(UTC)
     results: list[ExternalMenuItemObservationWrite] = []
+    seen: set[tuple[str, str]] = set()
     for row in payload:
         if not isinstance(row, dict) or row.get("recordType") != "product":
             continue
@@ -256,6 +262,10 @@ def _glovo_rows(
             f"https://glovoapp.com/pt/pt/lisboa/stores/{slug}"
         )
         item_key = _text(row.get("productId")) or _stable_key(slug, item_name)
+        dedupe_key = (slug, item_key)
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
         results.append(
             ExternalMenuItemObservationWrite(
                 provider_key="glovo",
