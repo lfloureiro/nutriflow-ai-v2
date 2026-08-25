@@ -28,7 +28,12 @@ def test_parse_structured_recipe_page_reads_json_ld_recipe() -> None:
           "1 lata de grão",
           "4 ovos"
         ],
-        "nutrition": {"calories": "480 kcal"}
+        "nutrition": {
+          "calories": "480 kcal",
+          "proteinContent": "38 g",
+          "carbohydrateContent": "42 g",
+          "fatContent": "18 g"
+        }
       }
       </script>
     </head></html>
@@ -55,6 +60,62 @@ def test_parse_structured_recipe_page_reads_json_ld_recipe() -> None:
     assert evidence is not None
     assert evidence.source == "example.test"
     assert evidence.total_energy_kcal == Decimal(1920)
+
+
+def test_parse_structured_recipe_page_rejects_calories_inconsistent_with_macros() -> None:
+    html = """
+    <script type="application/ld+json">
+    {
+      "@type": "Recipe",
+      "name": "Arroz de bacalhau",
+      "recipeYield": "4 pessoas",
+      "recipeIngredient": ["400 g bacalhau", "500 g arroz cozido"],
+      "nutrition": {
+        "calories": "45 kcal",
+        "proteinContent": "3 g",
+        "carbohydrateContent": "65 g",
+        "fatContent": "1 g"
+      }
+    }
+    </script>
+    """
+
+    pages = parse_structured_recipe_pages(
+        html,
+        source_reference="https://example.test/arroz",
+    )
+
+    assert len(pages) == 1
+    assert pages[0].energy_kcal_per_serving is None
+    assert pages[0].as_recipe_evidence() is None
+
+
+def test_parse_structured_recipe_page_rejects_probable_whole_recipe_nutrition() -> None:
+    html = """
+    <script type="application/ld+json">
+    {
+      "@type": "Recipe",
+      "name": "Bifanas à moda do Porto",
+      "recipeYield": "5 pessoas",
+      "recipeIngredient": ["1500 g bifanas"],
+      "nutrition": {
+        "calories": "3451 kcal",
+        "proteinContent": "352 g",
+        "carbohydrateContent": "79 g",
+        "fatContent": "108 g"
+      }
+    }
+    </script>
+    """
+
+    pages = parse_structured_recipe_pages(
+        html,
+        source_reference="https://example.test/bifanas",
+    )
+
+    assert len(pages) == 1
+    assert pages[0].serving_count == Decimal(5)
+    assert pages[0].energy_kcal_per_serving is None
 
 
 def test_parse_structured_recipe_page_handles_graph_and_missing_nutrition() -> None:
