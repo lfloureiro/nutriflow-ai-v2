@@ -81,7 +81,7 @@ _CARB_ROOTS = (
     "fetucine",
     "batata",
     "pao",
-    "cereal",
+    "cere",
     "muesli",
     "granola",
     "cerelac",
