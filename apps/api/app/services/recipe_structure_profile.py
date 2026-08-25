@@ -65,6 +65,8 @@ _PROTEIN_ROOTS = (
     "ovo",
     "salsich",
     "fiambre",
+    "iogurt",
+    "leite",
     "tofu",
     "seitan",
 )
@@ -79,6 +81,20 @@ _CARB_ROOTS = (
     "fetucine",
     "batata",
     "pao",
+    "cereal",
+    "muesli",
+    "granola",
+    "cerelac",
+    "nestum",
+    "banana",
+    "maca",
+    "pera",
+    "morango",
+    "mirtil",
+    "framboes",
+    "laranja",
+    "kiwi",
+    "bolacha",
     "cuscuz",
     "couscous",
     "quinoa",
@@ -125,11 +141,16 @@ _ENERGY_MODIFIER_ROOTS = (
     "alheira",
     "farinheira",
     "leite",
+    "iogurt",
     "molho",
     "coco",
     "chocolate",
     "amendoim",
     "amendoa",
+    "caju",
+    "avel",
+    "pistach",
+    "castanh",
     "noz",
 )
 _SECONDARY_PROTEIN_MODIFIER_ROOTS = (
@@ -217,19 +238,34 @@ def _is_accessory(tokens: tuple[str, ...]) -> bool:
     return len(tokens) >= 2 and tokens[:2] == ("noz", "moscada")
 
 
+def _is_mixed_nuts(tokens: tuple[str, ...]) -> bool:
+    return tokens[:2] == ("frutos", "secos")
+
+
+def _is_red_berries(tokens: tuple[str, ...]) -> bool:
+    return tokens[:2] == ("frutos", "vermelhos")
+
+
 def classify_ingredient_dimensions(name: str) -> tuple[str, ...]:
     tokens = _tokens(name)
     if _is_accessory(tokens):
         return (DIM_ACCESSORY,)
 
     dimensions: list[str] = []
+    mixed_nuts = _is_mixed_nuts(tokens)
 
-    if _has_root(tokens, _PROTEIN_ROOTS) or _has_root(
-        tokens, _SECONDARY_PROTEIN_MODIFIER_ROOTS
+    if (
+        _has_root(tokens, _PROTEIN_ROOTS)
+        or _has_root(tokens, _SECONDARY_PROTEIN_MODIFIER_ROOTS)
+        or mixed_nuts
     ):
         dimensions.append(DIM_PROTEIN)
 
-    if _has_root(tokens, _CARB_ROOTS) or _has_root(tokens, _LEGUME_ROOTS):
+    if (
+        _has_root(tokens, _CARB_ROOTS)
+        or _has_root(tokens, _LEGUME_ROOTS)
+        or _is_red_berries(tokens)
+    ):
         dimensions.append(DIM_CARBOHYDRATE)
 
     if _has_root(tokens, _LEGUME_ROOTS) and DIM_PROTEIN not in dimensions:
@@ -238,7 +274,7 @@ def classify_ingredient_dimensions(name: str) -> tuple[str, ...]:
     if _has_root(tokens, _VEGETABLE_ROOTS) or tokens[:2] == ("alho", "frances"):
         dimensions.append(DIM_VEGETABLE)
 
-    if _has_root(tokens, _ENERGY_MODIFIER_ROOTS):
+    if _has_root(tokens, _ENERGY_MODIFIER_ROOTS) or mixed_nuts:
         dimensions.append(DIM_ENERGY_MODIFIER)
 
     return tuple(dimensions) if dimensions else (DIM_OTHER,)
