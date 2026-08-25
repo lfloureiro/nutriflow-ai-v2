@@ -21,6 +21,7 @@ _SERVING_AFTER = re.compile(
     r"^\s*(?:por\s+(?:dose|porção|porcao|pessoa)|per\s+serving|/\s*dose)\b",
     re.IGNORECASE,
 )
+_PARENTHETICAL_NOTE = re.compile(r"\s*[\(\[][^\)\]]+[\)\]]\s*")
 
 
 class RecipeEvidenceSearchError(ValueError):
@@ -187,6 +188,11 @@ def _organic_results(payload: object) -> list[object]:
     return results
 
 
+def recipe_search_name(recipe_name: str) -> str:
+    without_notes = _PARENTHETICAL_NOTE.sub(" ", recipe_name)
+    return " ".join(without_notes.strip().split())
+
+
 def search_recipe_nutrition_evidence(
     recipe_name: str,
     *,
@@ -208,7 +214,8 @@ def search_recipe_nutrition_evidence(
         max(max_results or settings.nutrition_web_evidence_max_results, 1),
         20,
     )
-    query = f'"{normalized_name}" calorias kcal receita'
+    search_name = recipe_search_name(normalized_name) or normalized_name
+    query = f'"{search_name}" receita'
     payload = json.dumps(
         {
             "queries": query,
