@@ -91,7 +91,7 @@ def test_fdc_enrichment_versions_shared_ingredient_and_recalculates_recipe(
 
     recipe_composition = recipe.compositions[-1]
     assert recipe_composition.energy_kcal == Decimal("149.0000")
-    assert recipe_composition.calculation_version == "recipe-nutrition-v2"
+    assert recipe_composition.calculation_version == "recipe-nutrition-v3"
 
 
 def test_fdc_enrichment_is_idempotent_for_same_source_version(
