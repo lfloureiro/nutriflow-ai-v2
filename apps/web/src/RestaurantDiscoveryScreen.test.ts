@@ -21,15 +21,18 @@ function capability(
 }
 
 describe("restaurant capability messaging", () => {
-  it("explains Google quality-ranked discovery", () => {
+  it("explains canonical Google discovery and recommendation flow", () => {
     expect(restaurantCapabilityMessage(capability("ready", true), "pt-PT")).toContain(
       "Google Places ativo",
     );
+    expect(restaurantCapabilityMessage(capability("ready", true), "pt-PT")).toContain(
+      "recomendações",
+    );
   });
 
-  it("explains OpenStreetMap fallback when Google is not configured", () => {
+  it("explains OpenStreetMap when Google is not configured", () => {
     expect(restaurantCapabilityMessage(capability("ready", false), "pt-PT")).toContain(
-      "OpenStreetMap ativo como fallback",
+      "OpenStreetMap",
     );
   });
 
@@ -41,7 +44,7 @@ describe("restaurant capability messaging", () => {
 
   it("explains disabled discovery without exposing an HTTP error", () => {
     expect(restaurantCapabilityMessage(capability("disabled"), "pt-PT")).toBe(
-      "A pesquisa live de restaurantes está desativada nesta instalação.",
+      "A pesquisa de restaurantes está desativada nesta instalação.",
     );
   });
 });
