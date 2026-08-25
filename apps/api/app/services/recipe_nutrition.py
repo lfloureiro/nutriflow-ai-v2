@@ -17,6 +17,7 @@ from app.services.serving_nutrition import (
 )
 
 CALCULATION_VERSION = "recipe-nutrition-v1"
+QUALITATIVE_UNITS = frozenset({"qb", "q.b.", "q.b", "quanto baste"})
 
 
 @dataclass(frozen=True)
@@ -177,20 +178,25 @@ def _aggregate_nutrients(
 def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
     """Create a new immutable composition snapshot from current Recipe ingredients.
 
-    Missing or unsafe ingredient evidence is preserved as explicit issues. A snapshot is
-    still created so the latest composition always corresponds to the current Recipe
-    definition instead of silently falling back to stale nutrition.
+    Missing or unsafe quantitative evidence remains fail-closed. Qualitative amounts such as
+    ``q.b.`` are excluded from the energy total and make that total explicitly estimated;
+    nutrient totals are withheld because an unknown salt/spice amount must not be treated as
+    complete evidence for mandatory nutrient constraints.
     """
 
     issues: list[str] = []
     scaled: list[NutritionSnapshot] = []
     inputs: list[dict[str, object]] = []
+    qualitative_count = 0
+    quantitative_count = 0
 
     if not recipe.ingredients:
         issues.append("Recipe has no ingredients.")
 
     for index, ingredient in enumerate(recipe.ingredients):
         composition = _latest_food_composition(ingredient)
+        normalized_unit = ingredient.unit.strip().casefold()
+        qualitative = normalized_unit in QUALITATIVE_UNITS
         input_row: dict[str, object] = {
             "sort_order": index,
             "recipe_ingredient_id": str(ingredient.id) if ingredient.id else None,
@@ -202,8 +208,20 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
             "unit": ingredient.unit,
             "composition_snapshot_id": str(composition.id) if composition else None,
             "composition_data_version": composition.data_version if composition else None,
+            "qualitative_amount": qualitative,
         }
         inputs.append(input_row)
+
+        if qualitative:
+            qualitative_count += 1
+            input_row["excluded_from_energy"] = True
+            issues.append(
+                f"Ingredient {ingredient.food_item.name!r} uses qualitative amount "
+                f"{ingredient.unit!r}; its unknown contribution is excluded from energy."
+            )
+            continue
+
+        quantitative_count += 1
         if composition is None:
             issues.append(
                 f"Ingredient {ingredient.food_item.name!r} has no nutrition composition."
@@ -232,19 +250,25 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
                 f"from {ingredient.unit!r} to {composition.reference_unit!r}."
             )
 
-    all_ingredients_scaled = len(scaled) == len(recipe.ingredients) and bool(recipe.ingredients)
+    all_quantitative_scaled = len(scaled) == quantitative_count and quantitative_count > 0
     energy_kcal: Decimal | None = None
     nutrients: list[RecipeNutrientComponent] = []
 
-    if all_ingredients_scaled:
+    if all_quantitative_scaled:
         if all(snapshot.energy_kcal is not None for snapshot in scaled):
             energy_kcal = sum(
                 (snapshot.energy_kcal for snapshot in scaled if snapshot.energy_kcal is not None),
                 start=Decimal(0),
             )
         else:
-            issues.append("At least one ingredient is missing energy data.")
-        nutrients = _aggregate_nutrients(scaled, issues)
+            issues.append("At least one quantitative ingredient is missing energy data.")
+        if qualitative_count == 0:
+            nutrients = _aggregate_nutrients(scaled, issues)
+        else:
+            issues.append(
+                "Nutrient totals are withheld because at least one ingredient has an "
+                "unquantified qualitative amount."
+            )
 
     reference_quantity, reference_unit = _reference(recipe)
     composition = RecipeCompositionSnapshot(
@@ -256,6 +280,9 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
         calculation_inputs={
             "ingredients": inputs,
             "issues": issues,
+            "energy_estimated": qualitative_count > 0 and energy_kcal is not None,
+            "qualitative_ingredient_count": qualitative_count,
+            "policy_version": "recipe-qualitative-amount-v1",
             "serving_count": (
                 str(recipe.serving_count) if recipe.serving_count is not None else None
             ),
