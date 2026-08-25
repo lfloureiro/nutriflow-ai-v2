@@ -12,11 +12,15 @@ from urllib.robotparser import RobotFileParser
 
 from bs4 import BeautifulSoup
 from pypdf import PdfReader
+from pypdf.errors import PdfReadError
 
 MENU_USER_AGENT = "NutriFlowAI/0.1 menu-discovery"
 MENU_TIMEOUT_SECONDS = 10.0
 MENU_LINK_TERMS = ("menu", "ementa", "carta", "cardapio", "food", "comida")
-_PRICE_PATTERN = re.compile(r"(?P<price>\d{1,3}(?:[.,]\d{2}))\s*(?P<currency>€|eur)\b?", re.I)
+_PRICE_PATTERN = re.compile(
+    r"(?P<price>\d{1,3}(?:[.,]\d{2}))\s*(?P<currency>€|eur)",
+    re.I,
+)
 _KCAL_PATTERN = re.compile(r"(?P<kcal>\d{2,4}(?:[.,]\d+)?)\s*kcal\b", re.I)
 
 
@@ -61,8 +65,7 @@ def _price(text: str) -> tuple[Decimal | None, str]:
     match = _PRICE_PATTERN.search(text)
     if match is None:
         return None, "EUR"
-    value = _decimal(match.group("price"))
-    return value, "EUR"
+    return _decimal(match.group("price")), "EUR"
 
 
 def _energy(text: str) -> Decimal | None:
@@ -89,21 +92,32 @@ def _validate_public_url(url: str) -> None:
         literal = ipaddress.ip_address(hostname)
     except ValueError:
         try:
-            addresses = socket.getaddrinfo(hostname, parsed.port or 443, type=socket.SOCK_STREAM)
+            addresses = socket.getaddrinfo(
+                hostname,
+                parsed.port or (443 if parsed.scheme == "https" else 80),
+                type=socket.SOCK_STREAM,
+            )
         except OSError as exc:
             raise RestaurantMenuScraperError("Restaurant website could not be resolved.") from exc
         if not addresses or any(not _is_public_address(item[4][0]) for item in addresses):
-            raise RestaurantMenuScraperError("Restaurant website resolved to a non-public address.")
+            raise RestaurantMenuScraperError(
+                "Restaurant website resolved to a non-public address."
+            )
     else:
         if not literal.is_global:
-            raise RestaurantMenuScraperError("Restaurant menu URL cannot target a private address.")
+            raise RestaurantMenuScraperError(
+                "Restaurant menu URL cannot target a private address."
+            )
 
 
 def _fetch_bytes(url: str) -> tuple[bytes, str]:
     _validate_public_url(url)
     request = Request(
         url,
-        headers={"Accept": "text/html,application/pdf;q=0.9,*/*;q=0.5", "User-Agent": MENU_USER_AGENT},
+        headers={
+            "Accept": "text/html,application/pdf;q=0.9,*/*;q=0.5",
+            "User-Agent": MENU_USER_AGENT,
+        },
     )
     try:
         with urlopen(request, timeout=MENU_TIMEOUT_SECONDS) as response:
@@ -137,7 +151,13 @@ def _json_ld_nodes(value: object):
     graph = value.get("@graph")
     if graph is not None:
         yield from _json_ld_nodes(graph)
-    for key in ("hasMenuSection", "hasMenuItem", "itemListElement", "mainEntity", "item"):
+    for key in (
+        "hasMenuSection",
+        "hasMenuItem",
+        "itemListElement",
+        "mainEntity",
+        "item",
+    ):
         child = value.get(key)
         if child is not None:
             yield from _json_ld_nodes(child)
@@ -220,8 +240,12 @@ def _parse_html_blocks(soup: BeautifulSoup, source_url: str) -> list[ScrapedMenu
             if identity in seen_blocks:
                 continue
             seen_blocks.add(identity)
-            name_node = block.select_one("[itemprop='name'], h2, h3, h4, .name, .title")
-            name = _clean_text(name_node.get_text(" ") if name_node is not None else None)
+            name_node = block.select_one(
+                "[itemprop='name'], h2, h3, h4, .name, .title"
+            )
+            name = _clean_text(
+                name_node.get_text(" ") if name_node is not None else None
+            )
             if name is None or len(name) > 160:
                 continue
             block_text = " ".join(block.stripped_strings)
@@ -230,7 +254,9 @@ def _parse_html_blocks(soup: BeautifulSoup, source_url: str) -> list[ScrapedMenu
             currency = "EUR"
             if price is None:
                 price, currency = _price(block_text)
-            description_node = block.select_one("[itemprop='description'], .description, p")
+            description_node = block.select_one(
+                "[itemprop='description'], .description, p"
+            )
             description = _clean_text(
                 description_node.get_text(" ") if description_node is not None else None
             )
@@ -247,6 +273,18 @@ def _parse_html_blocks(soup: BeautifulSoup, source_url: str) -> list[ScrapedMenu
     return result
 
 
+def _dedupe_items(items: list[ScrapedMenuItem]) -> tuple[ScrapedMenuItem, ...]:
+    result: list[ScrapedMenuItem] = []
+    seen: set[tuple[str, Decimal | None]] = set()
+    for item in items:
+        key = (item.name.casefold(), item.price)
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(item)
+    return tuple(result)
+
+
 def parse_html_menu(html: str, *, source_url: str) -> tuple[ScrapedMenuItem, ...]:
     soup = BeautifulSoup(html, "html.parser")
     items = _parse_json_ld(soup, source_url) + _parse_html_blocks(soup, source_url)
@@ -257,7 +295,7 @@ def parse_pdf_menu(data: bytes, *, source_url: str) -> tuple[ScrapedMenuItem, ..
     try:
         reader = PdfReader(BytesIO(data), strict=False)
         text = "\n".join(page.extract_text() or "" for page in reader.pages)
-    except Exception as exc:
+    except (PdfReadError, OSError, ValueError) as exc:
         raise RestaurantMenuScraperError("Restaurant PDF menu could not be read.") from exc
     items: list[ScrapedMenuItem] = []
     for line in text.splitlines():
@@ -282,18 +320,6 @@ def parse_pdf_menu(data: bytes, *, source_url: str) -> tuple[ScrapedMenuItem, ..
     return _dedupe_items(items)
 
 
-def _dedupe_items(items: list[ScrapedMenuItem]) -> tuple[ScrapedMenuItem, ...]:
-    result: list[ScrapedMenuItem] = []
-    seen: set[tuple[str, Decimal | None]] = set()
-    for item in items:
-        key = (item.name.casefold(), item.price)
-        if key in seen:
-            continue
-        seen.add(key)
-        result.append(item)
-    return tuple(result)
-
-
 def _menu_links(html: str, *, page_url: str, website_host: str) -> tuple[str, ...]:
     soup = BeautifulSoup(html, "html.parser")
     result: list[str] = []
@@ -301,9 +327,8 @@ def _menu_links(html: str, *, page_url: str, website_host: str) -> tuple[str, ..
         href = str(anchor.get("href") or "").strip()
         text = " ".join(anchor.stripped_strings).casefold()
         combined = f"{href.casefold()} {text}"
-        if not any(term in combined for term in MENU_LINK_TERMS) and not href.casefold().endswith(
-            ".pdf"
-        ):
+        is_pdf = href.casefold().endswith(".pdf")
+        if not any(term in combined for term in MENU_LINK_TERMS) and not is_pdf:
             continue
         absolute = urljoin(page_url, href)
         parsed = urlparse(absolute)
@@ -333,7 +358,9 @@ def scrape_restaurant_menu(
             continue
         data, content_type = _fetch_bytes(url)
         scanned.append(url)
-        if content_type == "application/pdf" or urlparse(url).path.casefold().endswith(".pdf"):
+        if content_type == "application/pdf" or urlparse(url).path.casefold().endswith(
+            ".pdf"
+        ):
             collected.extend(parse_pdf_menu(data, source_url=url))
             continue
         html = data.decode("utf-8", errors="ignore")
