@@ -57,6 +57,28 @@ def nutrition_web_evidence_configured() -> bool:
     )
 
 
+def _http_error_detail(exc: HTTPError) -> str | None:
+    try:
+        raw = exc.read().decode("utf-8", errors="replace")
+    except (OSError, AttributeError):
+        return None
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    error = payload.get("error")
+    if not isinstance(error, dict):
+        return None
+    error_type = str(error.get("type") or "").strip()
+    message = " ".join(str(error.get("message") or "").split())
+    parts = [part for part in (error_type, message) if part]
+    if not parts:
+        return None
+    return ": ".join(parts)[:400]
+
+
 def _request_json(url: str, *, data: bytes) -> object:
     request = Request(
         url,
@@ -75,8 +97,10 @@ def _request_json(url: str, *, data: bytes) -> object:
         ) as response:
             return json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
+        detail = _http_error_detail(exc)
+        suffix = f" ({detail})" if detail else ""
         raise RecipeEvidenceSearchError(
-            f"Nutrition evidence search provider returned HTTP {exc.code}."
+            f"Nutrition evidence search provider returned HTTP {exc.code}{suffix}."
         ) from exc
     except (URLError, TimeoutError, json.JSONDecodeError) as exc:
         raise RecipeEvidenceSearchError(
@@ -190,6 +214,7 @@ def search_recipe_nutrition_evidence(
             "queries": query,
             "maxPagesPerQuery": 1,
             "countryCode": "pt",
+            "searchLanguage": "pt",
             "languageCode": "pt-PT",
             "includeUnfilteredResults": False,
             "saveHtml": False,
