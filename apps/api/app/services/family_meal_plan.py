@@ -226,6 +226,9 @@ def _default_recipe_portion(recipe: Recipe) -> tuple[Decimal, str]:
         return recipe.yield_quantity / recipe.serving_count, recipe.yield_unit
     if recipe.serving_count is not None:
         return Decimal(1), "serving"
+    composition = _latest_recipe_composition(recipe)
+    if composition is not None and composition.reference_unit == "serving":
+        return Decimal(1), "serving"
     if recipe.yield_quantity is not None and recipe.yield_unit is not None:
         return recipe.yield_quantity, recipe.yield_unit
     return Decimal(1), "recipe"
