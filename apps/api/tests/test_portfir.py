@@ -25,6 +25,7 @@ def _workbook(path: Path) -> None:
     )
     sheet.append([101, "Azeite", 899, 0, 99.9, 0, 0, 0])
     sheet.append([102, "Cebola, crua", 29, 1.2, 0.2, 5.2, 1.4, 9])
+    sheet.append([103, "Vinho branco", 72, 0.1, 0, 1.4, 0, 5])
     workbook.save(path)
 
 
@@ -34,11 +35,12 @@ def test_portfir_loader_finds_food_table_and_nutrients(tmp_path: Path) -> None:
 
     foods = load_portfir_foods(path)
 
-    assert len(foods) == 2
+    assert len(foods) == 3
     olive_oil = foods[0]
     assert olive_oil.code == "101"
     assert olive_oil.name == "Azeite"
     assert olive_oil.energy_kcal == Decimal(899)
+    assert olive_oil.reference_unit == "g"
     by_key = {nutrient.key: nutrient for nutrient in olive_oil.nutrients}
     assert by_key["fat"].value == Decimal("99.9")
     assert by_key["fat"].unit == "g"
@@ -46,7 +48,13 @@ def test_portfir_loader_finds_food_table_and_nutrients(tmp_path: Path) -> None:
     onion = foods[1]
     assert onion.name == "Cebola, crua"
     assert onion.energy_kcal == Decimal(29)
+    assert onion.reference_unit == "g"
     onion_nutrients = {nutrient.key: nutrient for nutrient in onion.nutrients}
     assert onion_nutrients["protein"].value == Decimal("1.2")
     assert onion_nutrients["sodium"].value == Decimal(9)
     assert onion_nutrients["sodium"].unit == "mg"
+
+    wine = foods[2]
+    assert wine.name == "Vinho branco"
+    assert wine.energy_kcal == Decimal(72)
+    assert wine.reference_unit == "ml"
