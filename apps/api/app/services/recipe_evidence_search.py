@@ -11,6 +11,16 @@ from app.core.provider_secrets import get_provider_secret_store
 
 APIFY_API_TOKEN_SECRET = "NUTRIFLOW_APIFY_API_TOKEN"
 _KCAL_PATTERN = re.compile(r"(?<!\d)(\d{2,4}(?:[.,]\d+)?)\s*kcal\b", re.IGNORECASE)
+_PER_100G_BEFORE = re.compile(r"(?:por|/)\s*100\s*g\s*:?\s*$", re.IGNORECASE)
+_PER_100G_AFTER = re.compile(r"^\s*(?:por|/)\s*100\s*g\b", re.IGNORECASE)
+_SERVING_BEFORE = re.compile(
+    r"(?:por\s+(?:dose|porção|porcao|pessoa)|per\s+serving)\s*:?\s*$",
+    re.IGNORECASE,
+)
+_SERVING_AFTER = re.compile(
+    r"^\s*(?:por\s+(?:dose|porção|porcao|pessoa)|per\s+serving|/\s*dose)\b",
+    re.IGNORECASE,
+)
 
 
 class RecipeEvidenceSearchError(ValueError):
@@ -70,33 +80,12 @@ def _request_json(url: str, *, data: bytes) -> object:
         ) from exc
 
 
-def _normalized_text(value: str) -> str:
-    return " ".join(value.casefold().replace("\xa0", " ").split())
-
-
-def _basis_for_context(context: str) -> str:
-    normalized = _normalized_text(context)
-    compact = normalized.replace(" ", "")
-    if (
-        "100 g" in normalized
-        or "100g" in compact
-        or "por 100" in normalized
-        or "/100 g" in normalized
-        or "/100g" in compact
-    ):
+def _basis_for_match(text: str, start: int, end: int) -> str:
+    before = text[max(0, start - 45) : start]
+    after = text[end : min(len(text), end + 45)]
+    if _PER_100G_BEFORE.search(before) or _PER_100G_AFTER.search(after):
         return "per_100g"
-    serving_markers = (
-        "por dose",
-        "por porção",
-        "por porcao",
-        "por pessoa",
-        "por serving",
-        "per serving",
-        "kcal/dose",
-        "kcal / dose",
-        "kcal por dose",
-    )
-    if any(marker in normalized for marker in serving_markers):
+    if _SERVING_BEFORE.search(before) or _SERVING_AFTER.search(after):
         return "per_serving"
     return "unknown"
 
@@ -111,13 +100,13 @@ def extract_calorie_mentions(text: str) -> tuple[CalorieMention, ...]:
             continue
         if energy <= 0 or energy > Decimal(5000):
             continue
-        start = max(0, match.start() - 90)
-        end = min(len(text), match.end() + 90)
-        context = " ".join(text[start:end].split())
+        context_start = max(0, match.start() - 90)
+        context_end = min(len(text), match.end() + 90)
+        context = " ".join(text[context_start:context_end].split())
         mentions.append(
             CalorieMention(
                 energy_kcal=energy,
-                basis=_basis_for_context(context),
+                basis=_basis_for_match(text, match.start(), match.end()),
                 context=context,
             )
         )
