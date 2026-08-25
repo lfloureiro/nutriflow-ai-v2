@@ -100,7 +100,7 @@ function commercialDishMatchesSource(
   candidate: PlanningCandidate,
   sources: RecommendationSource[],
 ): boolean {
-  const key = candidate.catalog_key.toLocaleLowerCase();
+  const key = candidate.catalog_key.toLowerCase();
   if (sources.includes("restaurant") && key.startsWith("external:restaurant_website:")) {
     return true;
   }
