@@ -181,8 +181,8 @@ def apply_portfir_nutrition_to_shared_ingredient(
     )
 
 
-def _missing_shared_ingredients(db: Session, *, limit: int) -> list[FoodItem]:
-    items = list(
+def _shared_ingredients(db: Session) -> list[FoodItem]:
+    return list(
         db.scalars(
             select(FoodItem)
             .options(selectinload(FoodItem.compositions))
@@ -194,14 +194,24 @@ def _missing_shared_ingredients(db: Session, *, limit: int) -> list[FoodItem]:
             .order_by(FoodItem.name, FoodItem.id)
         ).all()
     )
-    missing: list[FoodItem] = []
-    for item in items:
-        if any(composition.energy_kcal is not None for composition in item.compositions):
-            continue
-        missing.append(item)
-        if len(missing) >= limit:
-            break
-    return missing
+
+
+def _needs_portfir_enrichment(
+    item: FoodItem,
+    food: PortfirFoodNutrition,
+) -> bool:
+    target_version = _data_version(food)
+    if any(
+        composition.data_version == target_version
+        and composition.energy_kcal is not None
+        for composition in item.compositions
+    ):
+        return False
+
+    latest = item.compositions[-1] if item.compositions else None
+    if latest is None or latest.energy_kcal is None:
+        return True
+    return latest.source == "portfir"
 
 
 def auto_enrich_shared_ingredients_from_portfir(
@@ -212,8 +222,16 @@ def auto_enrich_shared_ingredients_from_portfir(
     limit: int = 200,
 ) -> tuple[PortfirAutoEnrichmentItem, ...]:
     result: list[PortfirAutoEnrichmentItem] = []
-    for item in _missing_shared_ingredients(db, limit=limit):
+    for item in _shared_ingredients(db):
+        latest = item.compositions[-1] if item.compositions else None
+        has_energy = latest is not None and latest.energy_kcal is not None
         automatic = automatic_portfir_match(item.name, foods)
+
+        if automatic is not None and not _needs_portfir_enrichment(item, automatic.food):
+            continue
+        if automatic is None and has_energy:
+            continue
+
         if automatic is None:
             ranked = rank_portfir_matches(item.name, foods, limit=1)
             suggestion = ranked[0] if ranked else None
@@ -230,31 +248,35 @@ def auto_enrich_shared_ingredients_from_portfir(
                     recalculated_recipe_count=0,
                 )
             )
-            continue
+        else:
+            enrichment: PortfirEnrichmentResult | None = None
+            if apply:
+                enrichment = apply_portfir_nutrition_to_shared_ingredient(
+                    db,
+                    catalog_key=item.catalog_key,
+                    food=automatic.food,
+                    match=automatic,
+                )
+            result.append(
+                PortfirAutoEnrichmentItem(
+                    catalog_key=item.catalog_key,
+                    name=item.name,
+                    status="applied" if apply else "auto_match",
+                    matched_code=automatic.food.code,
+                    matched_name=automatic.food.name,
+                    confidence=automatic.score,
+                    reason=automatic.reason,
+                    composition_created=(
+                        enrichment.created if enrichment is not None else False
+                    ),
+                    recalculated_recipe_count=(
+                        len(enrichment.recalculated_recipe_ids)
+                        if enrichment is not None
+                        else 0
+                    ),
+                )
+            )
 
-        enrichment: PortfirEnrichmentResult | None = None
-        if apply:
-            enrichment = apply_portfir_nutrition_to_shared_ingredient(
-                db,
-                catalog_key=item.catalog_key,
-                food=automatic.food,
-                match=automatic,
-            )
-        result.append(
-            PortfirAutoEnrichmentItem(
-                catalog_key=item.catalog_key,
-                name=item.name,
-                status="applied" if apply else "auto_match",
-                matched_code=automatic.food.code,
-                matched_name=automatic.food.name,
-                confidence=automatic.score,
-                reason=automatic.reason,
-                composition_created=enrichment.created if enrichment is not None else False,
-                recalculated_recipe_count=(
-                    len(enrichment.recalculated_recipe_ids)
-                    if enrichment is not None
-                    else 0
-                ),
-            )
-        )
+        if len(result) >= limit:
+            break
     return tuple(result)
