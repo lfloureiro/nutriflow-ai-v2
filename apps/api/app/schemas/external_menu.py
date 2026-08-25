@@ -18,6 +18,7 @@ class ExternalMenuNutrientWrite(BaseModel):
 class ExternalMenuNutritionWrite(BaseModel):
     evidence_level: NutritionEvidenceLevel
     confidence: Decimal | None = Field(default=None, ge=0, le=1)
+    basis_reference: str | None = Field(default=None, max_length=255)
     reference_quantity: Decimal = Field(default=Decimal(1), gt=0)
     reference_unit: str = Field(default="serving", min_length=1, max_length=24)
     energy_kcal: Decimal = Field(ge=0)
@@ -38,6 +39,8 @@ class ExternalMenuNutritionWrite(BaseModel):
     def validate_estimated_confidence(self) -> "ExternalMenuNutritionWrite":
         if self.evidence_level == "estimated" and self.confidence is None:
             raise ValueError("confidence is required for estimated nutrition evidence.")
+        if self.evidence_level == "estimated" and not self.basis_reference:
+            raise ValueError("basis_reference is required for estimated nutrition evidence.")
         return self
 
 
