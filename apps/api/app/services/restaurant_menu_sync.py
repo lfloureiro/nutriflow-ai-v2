@@ -22,7 +22,7 @@ from app.services.restaurant_menu_scraper import (
 )
 
 RESTAURANT_WEBSITE_PROVIDER_KEY = "restaurant_website"
-MENU_VALIDITY = timedelta(hours=24)
+MENU_VALIDITY = timedelta(days=15)
 
 
 class RestaurantMenuSyncError(ValueError):
