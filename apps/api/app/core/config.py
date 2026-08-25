@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     nutrition_web_evidence_enabled: bool = True
     nutrition_apify_google_search_url: str = (
         "https://api.apify.com/v2/actors/apify~google-search-scraper/"
-        "run-sync-get-dataset-items?maxItems=1&maxTotalChargeUsd=0.03"
+        "run-sync-get-dataset-items"
     )
     nutrition_web_evidence_timeout_seconds: float = 120.0
     nutrition_web_evidence_max_results: int = 10
