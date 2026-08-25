@@ -60,10 +60,16 @@ def _latest_composition(recipe: Recipe) -> RecipeCompositionSnapshot | None:
     return recipe.compositions[-1] if recipe.compositions else None
 
 
-def _composition_issues(composition: RecipeCompositionSnapshot | None) -> list[str]:
+def _calculation_inputs(
+    composition: RecipeCompositionSnapshot | None,
+) -> dict[str, object]:
     if composition is None or not isinstance(composition.calculation_inputs, dict):
-        return []
-    raw = composition.calculation_inputs.get("issues")
+        return {}
+    return composition.calculation_inputs
+
+
+def _composition_issues(composition: RecipeCompositionSnapshot | None) -> list[str]:
+    raw = _calculation_inputs(composition).get("issues")
     if not isinstance(raw, list):
         return []
     return [str(item) for item in raw]
@@ -72,16 +78,47 @@ def _composition_issues(composition: RecipeCompositionSnapshot | None) -> list[s
 def _composition_evidence(
     composition: RecipeCompositionSnapshot,
 ) -> RecipeNutritionEvidence:
-    inputs = composition.calculation_inputs
-    if isinstance(inputs, dict) and inputs.get("nutrition_source") == "synthetic-development-fixture":
+    inputs = _calculation_inputs(composition)
+    if inputs.get("nutrition_source") == "synthetic-development-fixture":
         return "synthetic_development"
     if composition.calculation_version.startswith("legacy-v1-demo-synthetic-nutrition"):
         return "synthetic_development"
     if composition.calculation_version == RECIPE_CALCULATION_VERSION:
+        if inputs.get("energy_estimated") is True:
+            return "ingredient_estimated"
         return "ingredient_calculated"
     if composition.energy_kcal is not None:
         return "imported"
     return "unknown"
+
+
+def _practical_profile_payload(
+    composition: RecipeCompositionSnapshot,
+) -> dict[str, object] | None:
+    raw = _calculation_inputs(composition).get("practical_profile")
+    return raw if isinstance(raw, dict) else None
+
+
+def _energy_confidence(composition: RecipeCompositionSnapshot) -> str | None:
+    if composition.energy_kcal is None:
+        return None
+    inputs = _calculation_inputs(composition)
+    raw_energy = inputs.get("practical_energy")
+    if inputs.get("practical_energy_used") is True and isinstance(raw_energy, dict):
+        confidence = raw_energy.get("confidence")
+        return confidence if isinstance(confidence, str) else "low"
+    return "high"
+
+
+def _serving_divisor(
+    recipe: Recipe,
+    composition: RecipeCompositionSnapshot,
+) -> Decimal | None:
+    if recipe.serving_count is not None:
+        return recipe.serving_count
+    if composition.reference_unit == "serving" and composition.reference_quantity > 0:
+        return composition.reference_quantity
+    return None
 
 
 def _composition_read(
@@ -90,10 +127,11 @@ def _composition_read(
 ) -> RecipeCompositionRead | None:
     if composition is None:
         return None
-    serving_count = recipe.serving_count
+    inputs = _calculation_inputs(composition)
+    serving_divisor = _serving_divisor(recipe, composition)
     energy_per_serving = (
-        composition.energy_kcal / serving_count
-        if composition.energy_kcal is not None and serving_count is not None
+        composition.energy_kcal / serving_divisor
+        if composition.energy_kcal is not None and serving_divisor is not None
         else None
     )
     return RecipeCompositionRead(
@@ -102,9 +140,12 @@ def _composition_read(
         reference_unit=composition.reference_unit,
         energy_kcal=composition.energy_kcal,
         energy_per_serving_kcal=energy_per_serving,
+        energy_confidence=_energy_confidence(composition),
+        serving_count_estimated=inputs.get("serving_count_estimated") is True,
         composition_version=composition.composition_version,
         calculation_version=composition.calculation_version,
         evidence=_composition_evidence(composition),
+        practical_profile=_practical_profile_payload(composition),
         computed_at=composition.computed_at,
         nutrients=[
             RecipeNutrientRead(
@@ -112,7 +153,9 @@ def _composition_read(
                 total_value=nutrient.value,
                 unit=nutrient.unit,
                 per_serving_value=(
-                    nutrient.value / serving_count if serving_count is not None else None
+                    nutrient.value / serving_divisor
+                    if serving_divisor is not None
+                    else None
                 ),
             )
             for nutrient in composition.nutrients
@@ -355,7 +398,9 @@ def update_family_recipe(
         recipe.ingredients[:] = _build_ingredients(db, family_id, data.ingredients)
 
     nutrition_changed = bool(
-        fields.intersection({"yield_quantity", "yield_unit", "serving_count", "ingredients"})
+        fields.intersection(
+            {"name", "yield_quantity", "yield_unit", "serving_count", "ingredients"}
+        )
     )
     if nutrition_changed:
         db.flush()
