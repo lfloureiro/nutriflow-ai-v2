@@ -19,6 +19,11 @@ async function responseJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
+function canonicalGoogleProvider<T extends { provider: string }>(result: T): T {
+  if (result.provider !== "google_maps_apify") return result;
+  return { ...result, provider: "google_places" };
+}
+
 export async function discoverRestaurants(
   familyId: string,
   area?: string,
@@ -32,7 +37,7 @@ export async function discoverRestaurants(
     ),
     { headers: { Accept: "application/json" } },
   );
-  return responseJson<RestaurantDiscovery>(response);
+  return canonicalGoogleProvider(await responseJson<RestaurantDiscovery>(response));
 }
 
 export async function syncRestaurantMenus(
@@ -54,5 +59,5 @@ export async function syncRestaurantMenus(
       }),
     },
   );
-  return responseJson<RestaurantMenuSync>(response);
+  return canonicalGoogleProvider(await responseJson<RestaurantMenuSync>(response));
 }
