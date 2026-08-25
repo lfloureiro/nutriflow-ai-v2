@@ -1,4 +1,5 @@
 import type {
+  HumanPortionGuidance,
   PracticalSourceKind,
   RecommendationCandidateInput,
   RecommendationHistoryHint,
@@ -25,6 +26,7 @@ export type SharedParticipantEvaluation = {
   score: string | null;
   quantity: string;
   quantity_unit: string;
+  portion_guidance: HumanPortionGuidance | null;
   energy_kcal: string | null;
   explanation: string[];
 };
