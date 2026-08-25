@@ -13,8 +13,8 @@ from app.schemas.restaurant_menu_sync import (
     RestaurantMenuSyncRead,
 )
 from app.services.external_menu_ingestion import ingest_external_menu_item
-from app.services.restaurant_dish_nutrition import estimate_restaurant_dish_nutrition
 from app.services.restaurant_discovery import discover_restaurants
+from app.services.restaurant_dish_nutrition import estimate_restaurant_dish_nutrition
 from app.services.restaurant_menu_scraper import (
     RestaurantMenuScraperError,
     ScrapedMenuItem,

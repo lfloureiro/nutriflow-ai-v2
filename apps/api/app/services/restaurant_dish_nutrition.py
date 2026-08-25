@@ -1,8 +1,8 @@
 import re
 import unicodedata
 from dataclasses import dataclass
-from difflib import SequenceMatcher
 from decimal import Decimal
+from difflib import SequenceMatcher
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
@@ -48,7 +48,10 @@ def _similarity(item: ScrapedMenuItem, recipe: Recipe) -> Decimal:
                 ).ratio()
             )
         )
-        name_score = max(name_score, name_score * Decimal("0.8") + description_score * Decimal("0.2"))
+        name_score = max(
+            name_score,
+            name_score * Decimal("0.8") + description_score * Decimal("0.2"),
+        )
     return name_score.quantize(Decimal("0.001"))
 
 
@@ -56,12 +59,13 @@ def _trusted_composition(composition: RecipeCompositionSnapshot) -> bool:
     if composition.energy_kcal is None or composition.calculation_version != CALCULATION_VERSION:
         return False
     inputs = composition.calculation_inputs
-    if isinstance(inputs, dict) and inputs.get("energy_estimated") is True:
-        return False
-    return True
+    return not (isinstance(inputs, dict) and inputs.get("energy_estimated") is True)
 
 
-def _latest_trusted_recipes(db: Session, family_id) -> list[tuple[Recipe, RecipeCompositionSnapshot]]:
+def _latest_trusted_recipes(
+    db: Session,
+    family_id,
+) -> list[tuple[Recipe, RecipeCompositionSnapshot]]:
     recipes = db.scalars(
         select(Recipe)
         .options(
@@ -75,7 +79,11 @@ def _latest_trusted_recipes(db: Session, family_id) -> list[tuple[Recipe, Recipe
     ).all()
     result: list[tuple[Recipe, RecipeCompositionSnapshot]] = []
     for recipe in recipes:
-        trusted = [composition for composition in recipe.compositions if _trusted_composition(composition)]
+        trusted = [
+            composition
+            for composition in recipe.compositions
+            if _trusted_composition(composition)
+        ]
         if not trusted or recipe.serving_count is None or recipe.serving_count <= 0:
             continue
         result.append((recipe, trusted[-1]))

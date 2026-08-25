@@ -19,9 +19,12 @@ MENU_TIMEOUT_SECONDS = 10.0
 MENU_LINK_TERMS = ("menu", "ementa", "carta", "cardapio", "food", "comida")
 _PRICE_PATTERN = re.compile(
     r"(?P<price>\d{1,3}(?:[.,]\d{2}))\s*(?P<currency>€|eur)",
-    re.I,
+    re.IGNORECASE,
 )
-_KCAL_PATTERN = re.compile(r"(?P<kcal>\d{2,4}(?:[.,]\d+)?)\s*kcal\b", re.I)
+_KCAL_PATTERN = re.compile(
+    r"(?P<kcal>\d{2,4}(?:[.,]\d+)?)\s*kcal\b",
+    re.IGNORECASE,
+)
 
 
 class RestaurantMenuScraperError(ValueError):

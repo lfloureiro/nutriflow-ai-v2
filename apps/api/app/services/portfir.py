@@ -81,12 +81,19 @@ def _header_key(value: object) -> str | None:
         return "energy"
     if "proteina" in header and "g" in header:
         return "protein"
-    if ("lipidos" in header or "gordura" in header) and "g" in header:
-        if "satur" not in header:
-            return "fat"
-    if "hidratos" in header and "carbono" in header and "g" in header:
-        if "acucar" not in header:
-            return "carbohydrate"
+    if (
+        ("lipidos" in header or "gordura" in header)
+        and "g" in header
+        and "satur" not in header
+    ):
+        return "fat"
+    if (
+        "hidratos" in header
+        and "carbono" in header
+        and "g" in header
+        and "acucar" not in header
+    ):
+        return "carbohydrate"
     if "fibra" in header and "g" in header:
         return "fiber"
     if "sodio" in header and "mg" in header:

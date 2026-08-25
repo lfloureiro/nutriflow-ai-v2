@@ -1,8 +1,8 @@
 import re
 import unicodedata
 from dataclasses import dataclass
-from difflib import SequenceMatcher
 from decimal import Decimal
+from difflib import SequenceMatcher
 
 from app.services.portfir import PortfirFoodNutrition
 
