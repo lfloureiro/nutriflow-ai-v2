@@ -19,17 +19,19 @@ class Settings(BaseSettings):
     restaurant_apify_google_enabled: bool = True
     restaurant_apify_google_url: str = (
         "https://api.apify.com/v2/actors/compass~crawler-google-places/"
-        "run-sync-get-dataset-items"
+        "run-sync-get-dataset-items?maxItems=20&maxTotalChargeUsd=0.05"
     )
     restaurant_apify_timeout_seconds: float = 120.0
-    restaurant_google_places_enabled: bool = True
+    # Direct Google Places is intentionally disabled by default: NutriFlow must not require
+    # billing-enabled APIs for normal operation.
+    restaurant_google_places_enabled: bool = False
     restaurant_google_places_url: str = "https://places.googleapis.com/v1/places:searchText"
     restaurant_discovery_nominatim_url: str = "https://nominatim.openstreetmap.org"
     restaurant_discovery_overpass_url: str = "https://overpass-api.de/api/interpreter"
     restaurant_discovery_user_agent: str = "NutriFlowAI/0.1 restaurant-discovery"
     restaurant_discovery_timeout_seconds: float = 8.0
     restaurant_discovery_cache_seconds: int = 21600
-    restaurant_discovery_max_results: int = 40
+    restaurant_discovery_max_results: int = 20
 
     provider_secret_backend: str = "environment"
     nutriflow_apify_api_token: str | None = None
