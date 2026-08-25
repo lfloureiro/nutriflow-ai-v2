@@ -85,15 +85,18 @@ def test_recipe_uses_explicit_portion_conversion_for_unit_counts() -> None:
     assert conversion["description"] == "1 meatball"
 
 
-def test_recipe_keeps_unit_conversion_blocker_without_approved_portion() -> None:
+def test_recipe_uses_explicitly_estimated_energy_when_safe_unit_conversion_is_missing() -> None:
     result = build_recipe_composition(
         _recipe(_ingredient(with_portion_conversion=False))
     )
 
-    assert result.composition.energy_kcal is None
-    assert result.issues == (
-        "Ingredient 'Almôndega' cannot be safely converted from 'un' to 'g'.",
-    )
+    assert result.composition.energy_kcal == Decimal(280)
+    assert result.composition.calculation_inputs is not None
+    inputs = result.composition.calculation_inputs
+    assert inputs["practical_energy_used"] is True
+    assert inputs["energy_estimated"] is True
+    assert any("cannot be safely converted" in issue for issue in result.issues)
+    assert any("practical estimate" in issue for issue in result.issues)
 
 
 def test_recipe_estimates_unknown_package_for_four_servings() -> None:
