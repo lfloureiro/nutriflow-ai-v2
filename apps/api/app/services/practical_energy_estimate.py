@@ -14,7 +14,7 @@ from app.services.recipe_units import QUALITATIVE_UNITS
 from app.services.retail_quantity_estimates import PACKAGE_UNITS
 
 _DEFAULT_SERVING_COUNT = Decimal(4)
-_ENERGY_QUANTUM = Decimal("1")
+_ENERGY_QUANTUM = Decimal(1)
 
 
 @dataclass(frozen=True)
