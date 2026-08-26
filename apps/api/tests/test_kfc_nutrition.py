@@ -91,6 +91,21 @@ def test_kfc_configurable_bundles_are_not_meal_candidates() -> None:
         description="15 Asas + 2 Acompanhamentos + 2 Bebidas",
         merchant_name="KFC (Colombo)",
     )
+    assert is_non_meal_menu_item(
+        "Doritos Tex-Mex + Bebida",
+        description="Doritos, milho, guacamole e 3 Tenders + 1 Bebida",
+        merchant_name="KFC (Colombo)",
+    )
+    assert is_non_meal_menu_item(
+        "Doritos Picantes + Bebida + Acompanhamento",
+        description="Doritos e 3 Tenders + 1 Bebida + 1 Acompanhamento",
+        merchant_name="KFC (Colombo)",
+    )
+    assert not is_non_meal_menu_item(
+        "Doritos Tex-Mex",
+        description="Doritos, milho, guacamole e 3 Tenders",
+        merchant_name="KFC (Colombo)",
+    )
 
 
 def test_kfc_sides_and_unspecified_piece_mixes_are_not_meal_candidates() -> None:
