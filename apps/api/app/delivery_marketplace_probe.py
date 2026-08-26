@@ -32,6 +32,11 @@ def main() -> None:
     parser.add_argument("--query", default=None)
     parser.add_argument("--limit", type=int, default=20)
     parser.add_argument("--family", default="Família Loureiro")
+    parser.add_argument(
+        "--details",
+        action="store_true",
+        help="Print item descriptions and source references for diagnostics.",
+    )
     args = parser.parse_args()
 
     if not apify_delivery_configured():
@@ -67,6 +72,9 @@ def main() -> None:
             f"{item.merchant_name} | {item.item_name} | "
             f"{item.item_price} {item.currency}{delivery}"
         )
+        if args.details:
+            print(f"  description={item.description or '-'}")
+            print(f"  source={item.source_reference}")
 
 
 if __name__ == "__main__":
