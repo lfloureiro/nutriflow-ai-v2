@@ -70,6 +70,26 @@ def test_kfc_double_krunch_bbq_uses_official_nutrition() -> None:
     assert _nutrient_value(nutrition, "protein") == Decimal("30.1")
 
 
+def test_kfc_golden_burgers_use_current_official_glazed_burger_nutrition() -> None:
+    single = estimate_kfc_nutrition(
+        merchant_name="KFC (Colombo)",
+        item=_item("Golden Single"),
+    )
+    double = estimate_kfc_nutrition(
+        merchant_name="KFC (Colombo)",
+        item=_item("Golden Double"),
+    )
+
+    assert single is not None
+    assert single.evidence_level == "official"
+    assert single.energy_kcal == Decimal(584)
+    assert _nutrient_value(single, "protein") == Decimal("32.1")
+    assert double is not None
+    assert double.evidence_level == "official"
+    assert double.energy_kcal == Decimal(804)
+    assert _nutrient_value(double, "protein") == Decimal("54.3")
+
+
 def test_kfc_configurable_bundles_are_not_meal_candidates() -> None:
     assert is_non_meal_menu_item(
         "Menu Wrap BoxMaster",
