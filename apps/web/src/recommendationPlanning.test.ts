@@ -34,13 +34,10 @@ function candidate(
 }
 
 describe("recommendation planning helpers", () => {
-  it("exposes recipes, delivery providers and restaurant discovery", () => {
+  it("currently exposes recipes and Uber Eats only", () => {
     expect(RECOMMENDATION_SOURCES).toEqual([
       "cooked",
       "uber_eats",
-      "glovo",
-      "bolt_food",
-      "restaurant",
     ]);
   });
 
@@ -58,7 +55,7 @@ describe("recommendation planning helpers", () => {
     ]);
   });
 
-  it("sends restaurant menu and delivery sources into practical ranking", () => {
+  it("sends restaurant menu and delivery sources into practical ranking when requested internally", () => {
     expect(
       recommendationSourceKinds([
         "cooked",
@@ -133,6 +130,17 @@ describe("recommendation planning helpers", () => {
         (item) => item.composition_id,
       ),
     ).toEqual(["recipe-1", "uber-dish"]);
+  });
+
+  it("starts a legacy recipe serving from one portion instead of the whole inferred recipe yield", () => {
+    const legacyRecipe = candidate("recipe", "recipe", "legacy-recipe");
+    legacyRecipe.reference_quantity = "4";
+    legacyRecipe.reference_unit = "serving";
+
+    const [result] = recommendationCandidates([legacyRecipe], ["cooked"], "lunch");
+
+    expect(result.quantity).toBe("1");
+    expect(result.quantity_unit).toBe("serving");
   });
 
   it("keeps breakfast, snack and main-meal candidates in their own slots", () => {
