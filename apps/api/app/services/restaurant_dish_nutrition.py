@@ -367,10 +367,10 @@ def _structural_values(item: ScrapedMenuItem) -> _DishEstimateValues | None:
     confidence = min(confidence, Decimal("0.72"))
 
     return _DishEstimateValues(
-        energy.quantize(Decimal("1")),
+        energy.quantize(Decimal(1)),
         protein.quantize(Decimal("0.1")),
         fiber.quantize(Decimal("0.1")),
-        sodium.quantize(Decimal("1")),
+        sodium.quantize(Decimal(1)),
         confidence,
         tuple(dict.fromkeys(signals)),
     )
