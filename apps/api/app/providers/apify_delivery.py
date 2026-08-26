@@ -175,6 +175,58 @@ def _uber_store_is_portuguese(raw_store: dict[str, object]) -> bool:
     return not (currency and currency != "EUR")
 
 
+def _uber_distance_km(raw_store: dict[str, object]) -> Decimal | None:
+    distance = raw_store.get("distance")
+    if isinstance(distance, dict):
+        value = distance.get("text") or distance.get("accessibilityText")
+    else:
+        value = distance
+    text = _text(value)
+    if text is None:
+        return None
+    normalized = unicodedata.normalize("NFKD", text.casefold())
+    ascii_text = "".join(
+        character for character in normalized if not unicodedata.combining(character)
+    ).replace("\xa0", " ")
+    match = re.search(
+        r"(?P<value>\d+(?:[.,]\d+)?)\s*(?P<unit>km|quilometros?|m|metros?)\b",
+        ascii_text,
+    )
+    if match is None:
+        return None
+    parsed = _decimal(match.group("value"))
+    if parsed is None:
+        return None
+    return parsed if match.group("unit") in {"km", "quilometro", "quilometros"} else parsed / Decimal(1000)
+
+
+def _uber_candidate_stores(
+    payload: list[object],
+    *,
+    request: MealDeliveryDiscoveryRequest,
+) -> tuple[dict[str, object], ...]:
+    candidates: list[dict[str, object]] = []
+    for raw_store in payload:
+        if not isinstance(raw_store, dict) or not _uber_store_is_portuguese(raw_store):
+            continue
+        merchant_name = _text(raw_store.get("title") or raw_store.get("sanitizedTitle"))
+        if merchant_name is None:
+            continue
+        if request.query and not _merchant_matches(request.query, merchant_name):
+            continue
+        candidates.append(raw_store)
+
+    if request.query:
+        with_distance = [
+            (distance, store)
+            for store in candidates
+            if (distance := _uber_distance_km(store)) is not None
+        ]
+        if with_distance:
+            return (min(with_distance, key=lambda item: item[0])[1],)
+    return tuple(candidates)
+
+
 def _uber_rows(
     payload: list[object],
     *,
@@ -183,14 +235,10 @@ def _uber_rows(
     observed_at = datetime.now(UTC)
     results: list[ExternalMenuItemObservationWrite] = []
     seen_items: set[tuple[str, str]] = set()
-    for raw_store in payload:
-        if not isinstance(raw_store, dict) or not _uber_store_is_portuguese(raw_store):
-            continue
+    for raw_store in _uber_candidate_stores(payload, request=request):
         merchant_name = _text(raw_store.get("title") or raw_store.get("sanitizedTitle"))
         url = _text(raw_store.get("url"))
         if merchant_name is None or url is None:
-            continue
-        if request.query and not _merchant_matches(request.query, merchant_name):
             continue
         merchant_key = _text(raw_store.get("uuid")) or _stable_key(url, merchant_name)
         currency = (_text(raw_store.get("currencyCode")) or "EUR").upper()[:3]
