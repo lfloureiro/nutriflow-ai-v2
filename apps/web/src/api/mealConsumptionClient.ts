@@ -29,6 +29,35 @@ export function mealConsumptionPath(
   );
 }
 
+export function mealParticipantConsumptionPath(
+  familyId: string,
+  mealEventId: string,
+  personId: string,
+): string {
+  return (
+    `/api/families/${encodeURIComponent(familyId)}/meal-plan/` +
+    `${encodeURIComponent(mealEventId)}/participants/${encodeURIComponent(personId)}/consumption`
+  );
+}
+
+async function patchConsumption(
+  path: string,
+  payload: MealConsumptionUpdate,
+): Promise<MealConsumptionResult> {
+  const response = await fetch(buildApiUrl(path), {
+    method: "PATCH",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new ApiError(await errorMessage(response), response.status);
+  }
+  return (await response.json()) as MealConsumptionResult;
+}
+
 export async function recordMealConsumption(
   familyId: string,
   mealEventId: string,
@@ -36,19 +65,20 @@ export async function recordMealConsumption(
   servingId: string,
   payload: MealConsumptionUpdate,
 ): Promise<MealConsumptionResult> {
-  const response = await fetch(
-    buildApiUrl(mealConsumptionPath(familyId, mealEventId, personId, servingId)),
-    {
-      method: "PATCH",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    },
+  return patchConsumption(
+    mealConsumptionPath(familyId, mealEventId, personId, servingId),
+    payload,
   );
-  if (!response.ok) {
-    throw new ApiError(await errorMessage(response), response.status);
-  }
-  return (await response.json()) as MealConsumptionResult;
+}
+
+export async function recordMealParticipantConsumption(
+  familyId: string,
+  mealEventId: string,
+  personId: string,
+  payload: MealConsumptionUpdate,
+): Promise<MealConsumptionResult> {
+  return patchConsumption(
+    mealParticipantConsumptionPath(familyId, mealEventId, personId),
+    payload,
+  );
 }
