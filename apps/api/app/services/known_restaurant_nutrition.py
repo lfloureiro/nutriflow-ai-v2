@@ -1,7 +1,7 @@
 import re
 import unicodedata
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from app.schemas.external_menu import ExternalMenuNutrientWrite, ExternalMenuNutritionWrite
 from app.services.restaurant_menu_scraper import ScrapedMenuItem
@@ -96,7 +96,7 @@ def _tomatino_dish_key(name: str) -> str | None:
 
 
 def _sodium_mg_from_salt_g(salt_g: Decimal) -> Decimal:
-    return (salt_g * Decimal(400)).quantize(Decimal(1))
+    return (salt_g * Decimal(400)).quantize(Decimal(1), rounding=ROUND_HALF_UP)
 
 
 def _nutrition(
@@ -155,16 +155,16 @@ def estimate_known_restaurant_nutrition(
     return _nutrition(
         energy_kcal=(
             serving.energy_kcal + extra_factor * _EXTRA_PASTA_ENERGY_PER_100G
-        ).quantize(Decimal(1)),
+        ).quantize(Decimal(1), rounding=ROUND_HALF_UP),
         protein_g=(
             serving.protein_g + extra_factor * _EXTRA_PASTA_PROTEIN_PER_100G
-        ).quantize(Decimal("0.1")),
+        ).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP),
         fiber_g=(
             serving.fiber_g + extra_factor * _EXTRA_PASTA_FIBER_PER_100G
-        ).quantize(Decimal("0.1")),
+        ).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP),
         sodium_mg=(
             sodium_mg + extra_factor * _EXTRA_PASTA_SODIUM_MG_PER_100G
-        ).quantize(Decimal(1)),
+        ).quantize(Decimal(1), rounding=ROUND_HALF_UP),
         evidence_level="estimated",
         confidence=Decimal("0.88"),
         basis_reference=(
