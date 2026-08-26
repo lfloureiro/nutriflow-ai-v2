@@ -117,19 +117,19 @@ def test_complete_snapshots_preserve_catalogue_and_reconcile_current_menu(
     assert not dish_b_availability.is_available
     assert not dish_b_offer.is_available
 
-    third_ingested = tuple(
+    third_observation = _observation("dish-b", "Prato B", third_day)
+    third_ingested = (
         ingest_external_menu_item(
             db_session,
             family=family,
-            data=item,
-        )
-        for item in (_observation("dish-b", "Prato B", third_day),)
+            data=third_observation,
+        ),
     )
     record_menu_snapshots(
         db_session,
         family=family,
         provider_key="uber_eats",
-        observations=(_observation("dish-b", "Prato B", third_day),),
+        observations=(third_observation,),
         ingested=third_ingested,
         query="Restaurante Rotativo",
         limit=80,
@@ -141,7 +141,10 @@ def test_complete_snapshots_preserve_catalogue_and_reconcile_current_menu(
     db_session.refresh(dish_b_offer)
     assert dish_b_availability.is_available
     assert dish_b_offer.is_available
-    assert db_session.scalar(select(MealMenuSnapshot).where(MealMenuSnapshot.family_id == family.id).count()) is None
+    snapshots = db_session.scalars(
+        select(MealMenuSnapshot).where(MealMenuSnapshot.family_id == family.id)
+    ).all()
+    assert len(snapshots) == 3
 
 
 def test_incomplete_snapshot_does_not_mark_unseen_dishes_unavailable(
