@@ -6,6 +6,8 @@ import {
   requestPracticalRecommendation,
   submitRecommendationDecision,
 } from "./api/client";
+import { syncMealDeliveryProvider } from "./api/mealDeliveryClient";
+import type { MealDeliverySync } from "./api/mealDeliveryTypes";
 import { getRecommendationBootstrap } from "./api/recommendationClient";
 import { syncRestaurantMenus } from "./api/restaurantDiscoveryClient";
 import type { RestaurantMenuSync } from "./api/restaurantDiscoveryTypes";
@@ -59,7 +61,7 @@ const MAIN_MEAL_TYPES = new Set<RecommendationMealType>(["lunch", "dinner"]);
 const COPY = {
   "pt-PT": {
     title: "Recomendar refeições",
-    help: "Escolhe quem vai comer, quando e onde procurar. Para restaurantes, o NutriFlow descobre o estabelecimento, lê a ementa oficial e recomenda o prato concreto — não apenas o nome do restaurante.",
+    help: "Escolhe quem vai comer, quando e onde procurar. As receitas e os pratos disponíveis nas fontes selecionadas são avaliados em conjunto.",
     people: "Pessoas",
     peopleLower: "pessoas",
     allPeople: "Todos",
@@ -74,7 +76,7 @@ const COPY = {
     cooked: "Receitas",
     cookedHelp: "Receitas partilhadas e da família, avaliadas pelas quantidades reais dos ingredientes",
     uber_eats: "Uber Eats",
-    uber_eatsHelp: "Pratos sincronizados quando a integração consumer oficial estiver operacional",
+    uber_eatsHelp: "Pratos disponíveis na Uber Eats, atualizados antes de calcular as recomendações",
     glovo: "Glovo",
     glovoHelp: "Pratos sincronizados quando existir acesso autorizado ao catálogo",
     bolt_food: "Bolt Food",
@@ -110,6 +112,10 @@ const COPY = {
     restaurantSource: "Restaurante",
     groupFit: "Adequação do grupo",
     suggestedAmounts: "Quantidades sugeridas",
+    uberUpdated: "Uber Eats atualizada",
+    uberDishes: "pratos observados",
+    uberNutritionReady: "com nutrição utilizável",
+    uberUnavailable: "Não foi possível atualizar a Uber Eats. Dados ainda válidos já guardados continuam a poder ser usados.",
     restaurantsUpdated: "Ementas atualizadas",
     restaurantsAnalysed: "restaurantes",
     menuDishes: "pratos encontrados",
@@ -125,7 +131,7 @@ const COPY = {
   },
   en: {
     title: "Meal recommendations",
-    help: "Choose who will eat, when and where to search. For restaurants, NutriFlow discovers the venue, reads its official menu and recommends the concrete dish — not just the restaurant name.",
+    help: "Choose who will eat, when and where to search. Recipes and dishes from the selected sources are evaluated together.",
     people: "People",
     peopleLower: "people",
     allPeople: "Everyone",
@@ -140,7 +146,7 @@ const COPY = {
     cooked: "Recipes",
     cookedHelp: "Shared and Family recipes evaluated from real ingredient quantities",
     uber_eats: "Uber Eats",
-    uber_eatsHelp: "Synchronized dishes when the official consumer integration is operational",
+    uber_eatsHelp: "Available Uber Eats dishes refreshed before recommendations are calculated",
     glovo: "Glovo",
     glovoHelp: "Synchronized dishes when authorized catalogue access is available",
     bolt_food: "Bolt Food",
@@ -176,6 +182,10 @@ const COPY = {
     restaurantSource: "Restaurant",
     groupFit: "Group fit",
     suggestedAmounts: "Suggested amounts",
+    uberUpdated: "Uber Eats refreshed",
+    uberDishes: "dishes observed",
+    uberNutritionReady: "with usable nutrition",
+    uberUnavailable: "Uber Eats could not be refreshed. Previously stored data that is still valid can still be used.",
     restaurantsUpdated: "Menus refreshed",
     restaurantsAnalysed: "restaurants",
     menuDishes: "dishes found",
@@ -621,6 +631,22 @@ function SharedResultCard({
   );
 }
 
+function DeliverySyncSummary({ result }: { result: MealDeliverySync }) {
+  const { locale } = useI18n();
+  const copy = COPY[locale];
+  const nutritionReady = result.items.filter((item) => item.eligible_for_nutrition_ranking).length;
+  return (
+    <div className="restaurant-capability status-ready">
+      <span aria-hidden="true" className="restaurant-capability__dot" />
+      <span>
+        <strong>{copy.uberUpdated}:</strong>{" "}
+        {result.observed_count} {copy.uberDishes}
+        {" · "}{nutritionReady} {copy.uberNutritionReady}
+      </span>
+    </div>
+  );
+}
+
 function RestaurantSyncSummary({ result }: { result: RestaurantMenuSync }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
@@ -657,6 +683,8 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
   const [results, setResults] = useState<DayResult[]>([]);
   const [decisions, setDecisions] = useState<Record<string, RecommendationDecision>>({});
   const [sharedPlans, setSharedPlans] = useState<Record<string, SharedPracticalPlan>>({});
+  const [deliverySync, setDeliverySync] = useState<MealDeliverySync | null>(null);
+  const [deliverySyncWarning, setDeliverySyncWarning] = useState<string | null>(null);
   const [menuSync, setMenuSync] = useState<RestaurantMenuSync | null>(null);
   const [menuSyncWarning, setMenuSyncWarning] = useState<string | null>(null);
   const [busy, setBusy] = useState<BusyState>(null);
@@ -731,6 +759,8 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
     setMealType(value);
     setLocalTime(DEFAULT_MEAL_TIMES[value]);
     setResults([]);
+    setDeliverySync(null);
+    setDeliverySyncWarning(null);
     setMenuSync(null);
     setMenuSyncWarning(null);
   }
@@ -880,6 +910,8 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+    setDeliverySync(null);
+    setDeliverySyncWarning(null);
     setMenuSync(null);
     setMenuSyncWarning(null);
     setDecisions({});
@@ -910,6 +942,16 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
     try {
       let activeSources = [...sources];
       let resolvedRestaurantArea: string | null = null;
+
+      if (sources.includes("uber_eats")) {
+        try {
+          const synced = await syncMealDeliveryProvider(familyId, "uber_eats", undefined, 100);
+          setDeliverySync(synced);
+        } catch (caught: unknown) {
+          setDeliverySyncWarning(`${copy.uberUnavailable} ${errorText(caught)}`);
+        }
+      }
+
       if (sources.includes("restaurant")) {
         const area = restaurantAreaForPeople(
           selectedPeople.map((person) => person.id),
@@ -1140,6 +1182,8 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
         </form>
       </section>
 
+      {deliverySync ? <DeliverySyncSummary result={deliverySync} /> : null}
+      {deliverySyncWarning ? <div className="error-banner"><span>{deliverySyncWarning}</span></div> : null}
       {menuSync ? <RestaurantSyncSummary result={menuSync} /> : null}
       {menuSyncWarning ? <div className="error-banner"><span>{menuSyncWarning}</span></div> : null}
 
