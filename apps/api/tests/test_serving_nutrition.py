@@ -99,6 +99,69 @@ def test_recipe_serving_nutrition_is_scaled_and_provenance_is_preserved(
     assert serving.nutrition_calculation_version == "serving-nutrition-v1"
 
 
+def test_recalculating_persisted_serving_updates_nutrient_component_in_place(
+    db_session: Session,
+) -> None:
+    family = Family(name="Serving Recalculation Family", timezone="Europe/Lisbon")
+    person = Person(
+        family=family,
+        first_name="Nutrition",
+        last_name="Recalculator",
+        birth_date=date(1990, 1, 1),
+        preferred_locale="pt-PT",
+        timezone="Europe/Lisbon",
+    )
+    recipe = Recipe(
+        family=family,
+        recipe_key="family:recalculation",
+        name="Recalculation recipe",
+        serving_count=Decimal("1.0000"),
+        source="user",
+    )
+    composition = RecipeCompositionSnapshot(
+        recipe=recipe,
+        reference_quantity=Decimal("1.0000"),
+        reference_unit="serving",
+        energy_kcal=Decimal("400.0000"),
+        composition_version="recipe-v1",
+        calculation_version="recipe-calc-v1",
+        nutrients=[
+            RecipeNutrientComponent(
+                nutrient_key="fiber",
+                value=Decimal("5.0000"),
+                unit="g",
+            )
+        ],
+    )
+    serving = Serving(
+        meal_participant=_meal_participant(family, person),
+        recipe=recipe,
+        item_type="recipe",
+        item_key=recipe.recipe_key,
+        item_name=recipe.name,
+        quantity_planned=Decimal("1.0000"),
+        quantity_unit="serving",
+    )
+
+    calculate_serving_nutrition(serving, composition)
+    db_session.add(family)
+    db_session.flush()
+    original_component_id = serving.nutrition_components[0].id
+
+    serving.quantity_served = Decimal("1.0000")
+    serving.quantity_consumed = Decimal("0.5000")
+    calculate_serving_nutrition(serving, composition)
+    db_session.flush()
+
+    assert len(serving.nutrition_components) == 1
+    fiber = serving.nutrition_components[0]
+    assert fiber.id == original_component_id
+    assert fiber.planned_value == Decimal("5.0000")
+    assert fiber.served_value == Decimal("5.0000")
+    assert fiber.consumed_value == Decimal("2.5000")
+    assert serving.energy_consumed_kcal == Decimal("200.00")
+
+
 def test_serving_nutrition_rejects_unsafe_cross_dimension_conversion() -> None:
     food = FoodItem(
         catalog_key="global:milk",
