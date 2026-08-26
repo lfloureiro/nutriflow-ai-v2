@@ -2,6 +2,8 @@ from decimal import Decimal
 
 from app.services.burgerking_nutrition import (
     BURGER_KING_NUTRITION_SOURCE,
+    BURGER_KING_PRINGLES_ESTIMATE_VERSION,
+    BURGER_KING_WEB_REFERENCE_SOURCE,
     estimate_burgerking_nutrition,
 )
 from app.services.external_dish_nutrition import is_non_meal_menu_item
@@ -65,21 +67,53 @@ def test_burgerking_current_classic_names_match_official_table() -> None:
         assert _nutrient_value(nutrition, "sodium") == Decimal(sodium)
 
 
-def test_burgerking_promotional_variant_does_not_inherit_classic_official_value() -> None:
-    assert (
-        estimate_burgerking_nutrition(
+def test_burgerking_current_web_reference_variants_are_explicit_estimates() -> None:
+    expected = {
+        "Double Cheese": ("387", "23.2"),
+        "Double Crispy Chicken": ("742", "27.2"),
+        "Chicken Krispper®": ("800", "36.0"),
+        "Cbk": ("787", "29.6"),
+        "Big King® Frango": ("640", "20.0"),
+        "Whopper® Spicy": ("645", "32.4"),
+        "Double Whopper® Spicy": ("895", "53.8"),
+        "Triple Whopper® Spicy": ("1145", "75.2"),
+        "Spicy Krispper®": ("712", "35.6"),
+        "Long Chicken® Spicy": ("540", "23.4"),
+        "Western Xxl": ("584", "30.6"),
+        "Triple Western Xxl": ("1226", "75.4"),
+    }
+
+    for name, (energy, protein) in expected.items():
+        nutrition = estimate_burgerking_nutrition(
             merchant_name="Burger King (Colombo)",
-            item=_item("Whopper Spicy"),
+            item=_item(name),
         )
-        is None
-    )
-    assert (
-        estimate_burgerking_nutrition(
+        assert nutrition is not None
+        assert nutrition.evidence_level == "estimated"
+        assert nutrition.confidence is not None
+        assert nutrition.energy_kcal == Decimal(energy)
+        assert _nutrient_value(nutrition, "protein") == Decimal(protein)
+        assert nutrition.basis_reference == BURGER_KING_WEB_REFERENCE_SOURCE
+
+
+def test_burgerking_pringles_promotion_uses_chain_specific_structural_estimate() -> None:
+    expected = {
+        "Pringles Sour Creamy": "702",
+        "Pringles Sour Creamy Double": "912",
+        "Pringles Sour Creamy Crispy": "728",
+        "Pringles Sour Cream Double Crispy": "964",
+    }
+
+    for name, energy in expected.items():
+        nutrition = estimate_burgerking_nutrition(
             merchant_name="Burger King (Colombo)",
-            item=_item("Pringles Sour Creamy"),
+            item=_item(name),
         )
-        is None
-    )
+        assert nutrition is not None
+        assert nutrition.evidence_level == "estimated"
+        assert nutrition.confidence is not None
+        assert nutrition.energy_kcal == Decimal(energy)
+        assert nutrition.basis_reference == BURGER_KING_PRINGLES_ESTIMATE_VERSION
 
 
 def test_burgerking_resolver_does_not_apply_to_other_merchants() -> None:
@@ -93,18 +127,18 @@ def test_burgerking_resolver_does_not_apply_to_other_merchants() -> None:
 
 
 def test_burgerking_configurable_bundles_are_not_meal_candidates() -> None:
-    assert is_non_meal_menu_item(
+    for name in (
         "Menu Double Spicy Krispper Grande",
-        merchant_name="Burger King (Colombo)",
-    )
-    assert is_non_meal_menu_item(
         "Hambúrguer À Escolha + Batatas",
-        merchant_name="Burger King (Colombo)",
-    )
-    assert is_non_meal_menu_item(
         "2 Hambúrgueres + Acompanhamento À Escolha + 2 Porções De Batatas Fritas",
-        merchant_name="Burger King (Colombo)",
-    )
+        "King Jr.® Burger",
+        "King Jr.® Cheeseburger",
+        "King Jr.® Chicken Burger",
+    ):
+        assert is_non_meal_menu_item(
+            name,
+            merchant_name="Burger King (Colombo)",
+        )
 
 
 def test_burgerking_sides_and_snacks_are_not_meal_candidates() -> None:
