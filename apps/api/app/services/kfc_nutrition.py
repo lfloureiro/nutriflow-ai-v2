@@ -22,6 +22,11 @@ _TENDER = _KfcServing(Decimal(76), Decimal("8.2"), Decimal("0.7"))
 _KFC_SERVINGS = {
     "double krunch bbq": _KfcServing(Decimal(440), Decimal("30.1"), Decimal("4.8")),
     "o cheddar single": _KfcServing(Decimal(579), Decimal("42.2"), Decimal("4.3")),
+    # The July 2026 KFC Portugal nutrition table calls the current Golden burgers
+    # "Burger Glaceado Original Single/Double". Uber Eats markets the same products
+    # as Golden Single/Double.
+    "golden single": _KfcServing(Decimal(584), Decimal("32.1"), Decimal("4.1")),
+    "golden double": _KfcServing(Decimal(804), Decimal("54.3"), Decimal("6.1")),
 }
 
 
