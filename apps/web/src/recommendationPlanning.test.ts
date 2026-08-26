@@ -25,7 +25,7 @@ function candidate(
     brand: null,
     description: null,
     reference_quantity: "1",
-    reference_unit: kind === "food_item" ? "serving" : "serving",
+    reference_unit: "serving",
     energy_kcal: "200",
     composition_version: "v1",
     composition_at: "2026-08-22T12:00:00Z",
@@ -114,6 +114,25 @@ describe("recommendation planning helpers", () => {
         (item) => item.composition_id,
       ),
     ).toEqual(["bolt-dish"]);
+  });
+
+  it("ranks recipes and Uber Eats dishes in the same candidate pool", () => {
+    const candidates = [
+      candidate("recipe", "recipe", "recipe-1"),
+      candidate(
+        "food_item",
+        "dish",
+        "uber-dish",
+        ["lunch", "dinner"],
+        "external:uber_eats:merchant:item",
+      ),
+    ];
+
+    expect(
+      recommendationCandidates(candidates, ["cooked", "uber_eats"], "lunch").map(
+        (item) => item.composition_id,
+      ),
+    ).toEqual(["recipe-1", "uber-dish"]);
   });
 
   it("keeps breakfast, snack and main-meal candidates in their own slots", () => {
