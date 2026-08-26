@@ -84,11 +84,9 @@ def is_non_meal_menu_item(
             return True
         if "promocao" in normalized:
             return True
-        if "+ bebida" in combined or "+ acompanhamento" in combined:
-            return True
-        if "bucket" in normalized and (
-            "bebida" in combined or "acompanhamento" in combined
-        ):
+        # Normalization strips punctuation such as '+', so detect configurable
+        # components by their words in the combined name/description text.
+        if "bebida" in combined or "acompanhamento" in combined:
             return True
         if "molho dip" in normalized:
             return True
