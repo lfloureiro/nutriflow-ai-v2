@@ -42,6 +42,33 @@ class FakeUberAdapter:
         )
 
 
+class FakeLiYuanAdapter:
+    provider_key = "uber_eats"
+
+    def discover_menu_items(
+        self,
+        request: MealDeliveryDiscoveryRequest,
+    ) -> tuple[ExternalMenuItemObservationWrite, ...]:
+        return (
+            ExternalMenuItemObservationWrite(
+                provider_key="uber_eats",
+                provider_name="Uber Eats",
+                merchant_key="li-yuan-colombo",
+                merchant_name="Restaurante Li Yuan (C. C. Colombo)",
+                item_key="beef-oyster-fried-rice",
+                item_name="4. Vaca com Molho de Ostras e Arroz Chao Chao",
+                source_kind="delivery",
+                location=request.delivery_address,
+                item_price=Decimal("12.40"),
+                currency="EUR",
+                observed_at=NOW,
+                source_reference=(
+                    "https://www.ubereats.com/pt/store/restaurante-li-yuan/example"
+                ),
+            ),
+        )
+
+
 def _family(db_session: Session) -> Family:
     family = Family(
         name="Família Sync",
@@ -58,6 +85,13 @@ def _disable_apify(monkeypatch) -> None:
     monkeypatch.delenv("NUTRIFLOW_APIFY_API_TOKEN", raising=False)
     monkeypatch.setattr(settings, "nutriflow_apify_api_token", None)
     monkeypatch.setattr(settings, "meal_delivery_apify_enabled", False)
+
+
+def _enable_official_test_provider(monkeypatch) -> None:
+    _disable_apify(monkeypatch)
+    monkeypatch.setenv("NUTRIFLOW_UBER_CLIENT_ID", "test-client")
+    monkeypatch.setenv("NUTRIFLOW_UBER_CLIENT_SECRET", "test-secret")
+    monkeypatch.setattr(settings, "uber_consumer_delivery_enabled", True)
 
 
 def test_sync_refuses_provider_that_is_not_live(db_session: Session, monkeypatch) -> None:
@@ -79,10 +113,7 @@ def test_sync_refuses_provider_that_is_not_live(db_session: Session, monkeypatch
 
 
 def test_sync_normalizes_provider_observations_into_domain(db_session: Session, monkeypatch) -> None:
-    _disable_apify(monkeypatch)
-    monkeypatch.setenv("NUTRIFLOW_UBER_CLIENT_ID", "test-client")
-    monkeypatch.setenv("NUTRIFLOW_UBER_CLIENT_SECRET", "test-secret")
-    monkeypatch.setattr(settings, "uber_consumer_delivery_enabled", True)
+    _enable_official_test_provider(monkeypatch)
 
     result = sync_meal_delivery_provider(
         db_session,
@@ -98,3 +129,30 @@ def test_sync_normalizes_provider_observations_into_domain(db_session: Session, 
     assert result.observations[0].item_name == "Prato Teste"
     assert len(result.ingested) == 1
     assert not result.ingested[0].eligible_for_nutrition_ranking
+
+
+def test_sync_estimates_structural_nutrition_for_delivery_dish(
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    _enable_official_test_provider(monkeypatch)
+
+    result = sync_meal_delivery_provider(
+        db_session,
+        family=_family(db_session),
+        provider_key="uber_eats",
+        adapter=FakeLiYuanAdapter(),
+        delivery_address="Rua Teste, Lisboa",
+    )
+
+    observation = result.observations[0]
+    assert observation.nutrition is not None
+    assert observation.nutrition.evidence_level == "estimated"
+    assert Decimal(550) <= observation.nutrition.energy_kcal <= Decimal(850)
+    assert observation.nutrition.confidence is not None
+    assert observation.nutrition.basis_reference is not None
+    assert observation.nutrition.basis_reference.startswith(
+        "nutriflow-structural-dish-estimate-v1"
+    )
+    assert result.ingested[0].eligible_for_nutrition_ranking
+    assert result.ingested[0].composition_id is not None
