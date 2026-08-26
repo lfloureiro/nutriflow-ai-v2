@@ -138,6 +138,7 @@ describe("recommendation planning helpers", () => {
     legacyRecipe.reference_unit = "serving";
 
     const [result] = recommendationCandidates([legacyRecipe], ["cooked"], "lunch");
+    if (!result) throw new Error("Expected one recommendation candidate.");
 
     expect(result.quantity).toBe("1");
     expect(result.quantity_unit).toBe("serving");
