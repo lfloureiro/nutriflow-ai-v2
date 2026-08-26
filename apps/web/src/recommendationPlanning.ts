@@ -13,14 +13,12 @@ export type RecommendationSource =
   | "restaurant";
 export type RecommendationMealType = "breakfast" | "lunch" | "snack" | "dinner";
 
-// Every user-selectable source is exposed here. Availability/configuration is
-// resolved per Person/Family; providers without an approved live adapter stay disabled.
+// Keep the current recommendation surface focused on the two sources that are ready for
+// end-to-end use. The remaining source identifiers stay supported internally so they can be
+// re-enabled without changing the recommendation request model.
 export const RECOMMENDATION_SOURCES = [
   "cooked",
   "uber_eats",
-  "glovo",
-  "bolt_food",
-  "restaurant",
 ] as const satisfies readonly RecommendationSource[];
 
 export const RECOMMENDATION_MEAL_TYPES: RecommendationMealType[] = [
@@ -116,6 +114,20 @@ function commercialDishMatchesSource(
   return false;
 }
 
+function recommendationQuantity(candidate: PlanningCandidate): string {
+  const unit = candidate.reference_unit.trim().toLowerCase();
+  if (
+    candidate.candidate_kind === "recipe" &&
+    ["serving", "portion", "dose"].includes(unit)
+  ) {
+    // Legacy recipes can store total recipe nutrition against an inferred number of servings.
+    // Recommendations start from one serving; the backend portion-sizing step can then adjust
+    // that serving to the individual's meal budget.
+    return "1";
+  }
+  return candidate.reference_quantity;
+}
+
 export function recommendationCandidates(
   candidates: PlanningCandidate[],
   sources: RecommendationSource[],
@@ -132,7 +144,7 @@ export function recommendationCandidates(
     .map((candidate) => ({
       candidate_kind: candidate.candidate_kind,
       composition_id: candidate.composition_id,
-      quantity: candidate.reference_quantity,
+      quantity: recommendationQuantity(candidate),
       quantity_unit: candidate.reference_unit,
     }));
 }
