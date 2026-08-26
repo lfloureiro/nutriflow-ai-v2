@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 
 import { ApiError } from "./api/client";
-import { recordMealConsumption } from "./api/mealConsumptionClient";
+import {
+  recordMealConsumption,
+  recordMealParticipantConsumption,
+} from "./api/mealConsumptionClient";
 import type { MealPlanEntry, MealPlanParticipant } from "./api/mealPlanTypes";
 import { useI18n } from "./i18n";
 
@@ -15,6 +18,7 @@ const COPY = {
     part: "Parte",
     none: "Não comi",
     quantity: "Qtd. comida",
+    portion: "dose",
     savePart: "Guardar",
     kcal: "kcal",
     error: "Não foi possível registar",
@@ -28,6 +32,7 @@ const COPY = {
     part: "Part",
     none: "Did not eat",
     quantity: "Amount eaten",
+    portion: "serving",
     savePart: "Save",
     kcal: "kcal",
     error: "Could not record consumption",
@@ -63,17 +68,21 @@ export default function MealConsumptionControls({
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
+  const legacyBreakfast = !participant.serving_id && entry.meal_type === "breakfast";
+  const initialQuantity =
+    participant.quantity_consumed ?? participant.quantity ?? (legacyBreakfast ? "0.5" : "");
   const [partialOpen, setPartialOpen] = useState(false);
-  const [quantity, setQuantity] = useState(participant.quantity_consumed ?? participant.quantity ?? "");
+  const [quantity, setQuantity] = useState(initialQuantity);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setQuantity(participant.quantity_consumed ?? participant.quantity ?? "");
-  }, [participant.quantity, participant.quantity_consumed]);
+    setQuantity(
+      participant.quantity_consumed ?? participant.quantity ?? (legacyBreakfast ? "0.5" : ""),
+    );
+  }, [legacyBreakfast, participant.quantity, participant.quantity_consumed]);
 
   async function record(status: "consumed" | "partial" | "skipped") {
-    if (!participant.serving_id) return;
     const normalized = quantity.trim().replace(",", ".");
     if (status === "partial" && !normalized) {
       setPartialOpen(true);
@@ -82,16 +91,26 @@ export default function MealConsumptionControls({
     setBusy(true);
     setError(null);
     try {
-      await recordMealConsumption(
-        familyId,
-        entry.id,
-        participant.person_id,
-        participant.serving_id,
-        {
-          status,
-          quantity_consumed: status === "partial" ? normalized : null,
-        },
-      );
+      const payload = {
+        status,
+        quantity_consumed: status === "partial" ? normalized : null,
+      } as const;
+      if (participant.serving_id) {
+        await recordMealConsumption(
+          familyId,
+          entry.id,
+          participant.person_id,
+          participant.serving_id,
+          payload,
+        );
+      } else {
+        await recordMealParticipantConsumption(
+          familyId,
+          entry.id,
+          participant.person_id,
+          payload,
+        );
+      }
       setPartialOpen(false);
       onUpdated();
     } catch (caught: unknown) {
@@ -101,9 +120,10 @@ export default function MealConsumptionControls({
     }
   }
 
-  if (!participant.serving_id) return null;
+  if (!participant.serving_id && !legacyBreakfast) return null;
 
   const realized = ["consumed", "partial", "skipped"].includes(participant.status);
+  const quantityUnit = participant.unit ?? (legacyBreakfast ? copy.portion : null);
   return (
     <div className="meal-consumption-row">
       <div className="meal-consumption-person">
@@ -146,7 +166,7 @@ export default function MealConsumptionControls({
       {partialOpen ? (
         <div className="meal-consumption-partial">
           <label className="field">
-            <span>{copy.quantity}{participant.unit ? ` (${participant.unit})` : ""}</span>
+            <span>{copy.quantity}{quantityUnit ? ` (${quantityUnit})` : ""}</span>
             <input
               autoFocus
               inputMode="decimal"
