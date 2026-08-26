@@ -4,6 +4,7 @@ import unicodedata
 from sqlalchemy.orm import Session
 
 from app.schemas.external_menu import ExternalMenuNutritionWrite
+from app.services.burgerking_nutrition import estimate_burgerking_nutrition
 from app.services.kfc_nutrition import estimate_kfc_nutrition
 from app.services.known_restaurant_nutrition import estimate_known_restaurant_nutrition
 from app.services.mcdonalds_nutrition import estimate_mcdonalds_nutrition
@@ -107,6 +108,29 @@ def is_non_meal_menu_item(
         ):
             return True
 
+    if "burger king" in merchant:
+        # Uber Eats menu bundles are configurable, so their total nutrition cannot be
+        # represented as one fixed serving until the chosen burger, side and drink are
+        # known.
+        if normalized.startswith("menu "):
+            return True
+        if "a escolha" in combined or "acompanhamento" in combined:
+            return True
+        # These are sides/snacks rather than complete lunch/dinner candidates in the
+        # current recommendation model.
+        if any(
+            term in normalized
+            for term in (
+                "chili cheese bites",
+                "chicken fries",
+                "king fries",
+                "batata",
+                "cheddar bombs",
+                "nuggets",
+            )
+        ):
+            return True
+
     return False
 
 
@@ -137,6 +161,13 @@ def resolve_external_dish_nutrition(
     )
     if kfc is not None:
         return kfc
+
+    burger_king = estimate_burgerking_nutrition(
+        merchant_name=merchant_name,
+        item=item,
+    )
+    if burger_king is not None:
+        return burger_king
 
     known = estimate_known_restaurant_nutrition(
         merchant_name=merchant_name,
