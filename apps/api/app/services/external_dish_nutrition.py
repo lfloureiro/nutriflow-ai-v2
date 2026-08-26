@@ -114,6 +114,8 @@ def is_non_meal_menu_item(
         # known.
         if normalized.startswith("menu "):
             return True
+        if normalized.startswith("king jr "):
+            return True
         if "a escolha" in combined or "acompanhamento" in combined:
             return True
         # These are sides/snacks rather than complete lunch/dinner candidates in the
