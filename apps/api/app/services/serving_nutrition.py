@@ -135,6 +135,45 @@ def _bind_composition(
     serving.food_composition_snapshot = None
 
 
+def _sync_nutrition_components(
+    serving: Serving,
+    composition: FoodCompositionSnapshot | RecipeCompositionSnapshot,
+    *,
+    snapshots: dict[str, NutritionSnapshot | None],
+) -> None:
+    existing = {component.nutrient_key: component for component in serving.nutrition_components}
+    target_keys: set[str] = set()
+
+    for nutrient in composition.nutrients:
+        nutrient_key = nutrient.nutrient_key
+        target_keys.add(nutrient_key)
+        component = existing.get(nutrient_key)
+        if component is None:
+            component = ServingNutritionComponent(nutrient_key=nutrient_key)
+            serving.nutrition_components.append(component)
+
+        component.planned_value = (
+            snapshots["planned"].nutrients[nutrient_key].value
+            if snapshots["planned"] is not None
+            else None
+        )
+        component.served_value = (
+            snapshots["served"].nutrients[nutrient_key].value
+            if snapshots["served"] is not None
+            else None
+        )
+        component.consumed_value = (
+            snapshots["consumed"].nutrients[nutrient_key].value
+            if snapshots["consumed"] is not None
+            else None
+        )
+        component.unit = nutrient.unit
+
+    for component in list(serving.nutrition_components):
+        if component.nutrient_key not in target_keys:
+            serving.nutrition_components.remove(component)
+
+
 def calculate_serving_nutrition(
     serving: Serving,
     composition: FoodCompositionSnapshot | RecipeCompositionSnapshot,
@@ -181,28 +220,11 @@ def calculate_serving_nutrition(
         snapshots["consumed"].energy_kcal if snapshots["consumed"] is not None else None
     )
 
-    serving.nutrition_components[:] = [
-        ServingNutritionComponent(
-            nutrient_key=nutrient.nutrient_key,
-            planned_value=(
-                snapshots["planned"].nutrients[nutrient.nutrient_key].value
-                if snapshots["planned"] is not None
-                else None
-            ),
-            served_value=(
-                snapshots["served"].nutrients[nutrient.nutrient_key].value
-                if snapshots["served"] is not None
-                else None
-            ),
-            consumed_value=(
-                snapshots["consumed"].nutrients[nutrient.nutrient_key].value
-                if snapshots["consumed"] is not None
-                else None
-            ),
-            unit=nutrient.unit,
-        )
-        for nutrient in composition.nutrients
-    ]
+    _sync_nutrition_components(
+        serving,
+        composition,
+        snapshots=snapshots,
+    )
 
     serving.nutrition_source = "catalog"
     serving.nutrition_calculation_version = calculation_version
