@@ -4,6 +4,7 @@ import unicodedata
 from sqlalchemy.orm import Session
 
 from app.schemas.external_menu import ExternalMenuNutritionWrite
+from app.services.kfc_nutrition import estimate_kfc_nutrition
 from app.services.known_restaurant_nutrition import estimate_known_restaurant_nutrition
 from app.services.mcdonalds_nutrition import estimate_mcdonalds_nutrition
 from app.services.restaurant_dish_nutrition import estimate_restaurant_dish_nutrition
@@ -18,8 +19,14 @@ def _normalize(value: str) -> str:
     return " ".join(re.findall(r"[a-z0-9]+", ascii_text))
 
 
-def is_non_meal_menu_item(name: str) -> bool:
+def is_non_meal_menu_item(
+    name: str,
+    *,
+    description: str | None = None,
+    merchant_name: str | None = None,
+) -> bool:
     normalized = _normalize(name)
+    combined = _normalize(" ".join(part for part in (name, description) if part))
     beverage_terms = (
         "agua",
         "limonada",
@@ -66,7 +73,43 @@ def is_non_meal_menu_item(name: str) -> bool:
         "mcmenu",
         "share box",
     )
-    return any(term in normalized for term in configurable_bundle_terms)
+    if any(term in normalized for term in configurable_bundle_terms):
+        return True
+
+    merchant = _normalize(merchant_name or "")
+    if "kfc" in merchant:
+        if normalized.startswith("menu "):
+            return True
+        if normalized.startswith("box meal "):
+            return True
+        if "promocao" in normalized:
+            return True
+        if "+ bebida" in combined or "+ acompanhamento" in combined:
+            return True
+        if "bucket" in normalized and (
+            "bebida" in combined or "acompanhamento" in combined
+        ):
+            return True
+        if "molho dip" in normalized:
+            return True
+        # A fixed calorie total cannot be assigned safely because the chicken-part mix
+        # is not specified by the marketplace item.
+        if "pedacos" in normalized:
+            return True
+        # Sides and shakes may have nutrition, but they are not standalone meal
+        # candidates in the current recommendation model.
+        if any(
+            term in normalized
+            for term in (
+                "shake ",
+                "kentucky fries",
+                "super batata",
+                "batata grande",
+            )
+        ):
+            return True
+
+    return False
 
 
 def resolve_external_dish_nutrition(
@@ -76,7 +119,11 @@ def resolve_external_dish_nutrition(
     merchant_name: str | None,
     item: ScrapedMenuItem,
 ) -> ExternalMenuNutritionWrite | None:
-    if is_non_meal_menu_item(item.name):
+    if is_non_meal_menu_item(
+        item.name,
+        description=item.description,
+        merchant_name=merchant_name,
+    ):
         return None
 
     mcdonalds = estimate_mcdonalds_nutrition(
@@ -85,6 +132,13 @@ def resolve_external_dish_nutrition(
     )
     if mcdonalds is not None:
         return mcdonalds
+
+    kfc = estimate_kfc_nutrition(
+        merchant_name=merchant_name,
+        item=item,
+    )
+    if kfc is not None:
+        return kfc
 
     known = estimate_known_restaurant_nutrition(
         merchant_name=merchant_name,
