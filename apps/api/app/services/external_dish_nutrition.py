@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.schemas.external_menu import ExternalMenuNutritionWrite
 from app.services.known_restaurant_nutrition import estimate_known_restaurant_nutrition
+from app.services.mcdonalds_nutrition import estimate_mcdonalds_nutrition
 from app.services.restaurant_dish_nutrition import estimate_restaurant_dish_nutrition
 from app.services.restaurant_menu_scraper import ScrapedMenuItem
 
@@ -46,7 +47,26 @@ def is_non_meal_menu_item(name: str) -> bool:
         "extra queijo",
         "extra bacon",
     )
-    return any(term in normalized for term in accessory_terms)
+    if any(term in normalized for term in accessory_terms):
+        return True
+
+    dessert_terms = (
+        "mcflurry",
+        "gelado",
+        "ice cream",
+        "sundae",
+    )
+    if any(term in normalized for term in dessert_terms):
+        return True
+
+    # These are configurable bundles rather than fixed dishes. Their nutrition depends
+    # on the selected drink, side, sauce, or child-menu configuration.
+    configurable_bundle_terms = (
+        "happy meal",
+        "mcmenu",
+        "share box",
+    )
+    return any(term in normalized for term in configurable_bundle_terms)
 
 
 def resolve_external_dish_nutrition(
@@ -58,6 +78,13 @@ def resolve_external_dish_nutrition(
 ) -> ExternalMenuNutritionWrite | None:
     if is_non_meal_menu_item(item.name):
         return None
+
+    mcdonalds = estimate_mcdonalds_nutrition(
+        merchant_name=merchant_name,
+        item=item,
+    )
+    if mcdonalds is not None:
+        return mcdonalds
 
     known = estimate_known_restaurant_nutrition(
         merchant_name=merchant_name,
