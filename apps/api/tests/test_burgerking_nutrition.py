@@ -37,9 +37,49 @@ def test_burgerking_steakhouse_uses_official_portugal_nutrition() -> None:
     assert nutrition.evidence_level == "official"
     assert nutrition.confidence is None
     assert nutrition.energy_kcal == Decimal("890.5")
-    assert _nutrient_value(nutrition, "protein") == Decimal("48.7")
-    assert _nutrient_value(nutrition, "sodium") == Decimal("2440.0")
+    assert _nutrient_value(nutrition, "protein") == Decimal("37.2")
+    assert _nutrient_value(nutrition, "fiber") == Decimal("6.1")
+    assert _nutrient_value(nutrition, "sodium") == Decimal(1416)
     assert nutrition.basis_reference == BURGER_KING_NUTRITION_SOURCE
+
+
+def test_burgerking_current_classic_names_match_official_table() -> None:
+    expected = {
+        "Whopper®": ("640.3", "26.7", "3.2", "929"),
+        "Long Chicken®": ("605.6", "25.0", "3.9", "1265"),
+        "Crispy Chicken": ("516.0", "16.4", "3.3", "725"),
+        "Cheeseburger": ("289.8", "14.7", "2.1", "712"),
+        "Burger": ("246.4", "12.4", "2.0", "470"),
+        "Chicken Burger": ("393.1", "11.0", "2.6", "718"),
+    }
+
+    for name, (energy, protein, fiber, sodium) in expected.items():
+        nutrition = estimate_burgerking_nutrition(
+            merchant_name="Burger King (Colombo)",
+            item=_item(name),
+        )
+        assert nutrition is not None
+        assert nutrition.energy_kcal == Decimal(energy)
+        assert _nutrient_value(nutrition, "protein") == Decimal(protein)
+        assert _nutrient_value(nutrition, "fiber") == Decimal(fiber)
+        assert _nutrient_value(nutrition, "sodium") == Decimal(sodium)
+
+
+def test_burgerking_promotional_variant_does_not_inherit_classic_official_value() -> None:
+    assert (
+        estimate_burgerking_nutrition(
+            merchant_name="Burger King (Colombo)",
+            item=_item("Whopper Spicy"),
+        )
+        is None
+    )
+    assert (
+        estimate_burgerking_nutrition(
+            merchant_name="Burger King (Colombo)",
+            item=_item("Pringles Sour Creamy"),
+        )
+        is None
+    )
 
 
 def test_burgerking_resolver_does_not_apply_to_other_merchants() -> None:
