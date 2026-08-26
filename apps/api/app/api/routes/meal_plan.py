@@ -28,6 +28,7 @@ from app.services.meal_consumption import (
     MealConsumptionError,
     MealConsumptionNotFoundError,
     record_meal_consumption,
+    record_participant_meal_consumption,
 )
 
 router = APIRouter(prefix="/families/{family_id}/meal-plan", tags=["meal-plan"])
@@ -104,6 +105,32 @@ def record_meal_consumption_endpoint(
             meal_event_id=meal_event_id,
             person_id=person_id,
             serving_id=serving_id,
+            data=data,
+        )
+    except MealConsumptionNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except MealConsumptionError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.patch(
+    "/{meal_event_id}/participants/{person_id}/consumption",
+    response_model=MealConsumptionRead,
+)
+def record_participant_meal_consumption_endpoint(
+    family_id: uuid.UUID,
+    meal_event_id: uuid.UUID,
+    person_id: uuid.UUID,
+    data: MealConsumptionUpdate,
+    db: Annotated[Session, Depends(get_db)],
+) -> MealConsumptionRead:
+    family = _require_family(db, family_id)
+    try:
+        return record_participant_meal_consumption(
+            db,
+            family=family,
+            meal_event_id=meal_event_id,
+            person_id=person_id,
             data=data,
         )
     except MealConsumptionNotFoundError as exc:
