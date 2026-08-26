@@ -113,6 +113,58 @@ def test_uber_rows_deduplicates_same_catalog_item_across_sections() -> None:
     assert result[0].item_name == "Carbonara"
 
 
+def test_uber_rows_prefers_nearest_matching_branch() -> None:
+    rows = [
+        {
+            "uuid": "store-far",
+            "title": "Tomatino (LoureShopping)",
+            "url": "https://www.ubereats.com/pt/store/tomatino-loureshopping/example",
+            "currencyCode": "EUR",
+            "distance": {"text": "10,6 km"},
+            "menu": [
+                {
+                    "title": "Massas",
+                    "catalogItems": [
+                        {
+                            "uuid": "far-carbonara",
+                            "title": "Carbonara",
+                            "priceTagline": "9,50 €",
+                        }
+                    ],
+                }
+            ],
+        },
+        {
+            "uuid": "store-near",
+            "title": "Tomatino (Alegro Alfragide)",
+            "url": "https://www.ubereats.com/pt/store/tomatino-alfragide/example",
+            "currencyCode": "EUR",
+            "distance": {
+                "text": "2,4 km",
+                "accessibilityText": "2,4\u00a0quilómetros",
+            },
+            "menu": [
+                {
+                    "title": "Massas",
+                    "catalogItems": [
+                        {
+                            "uuid": "near-carbonara",
+                            "title": "Carbonara",
+                            "priceTagline": "9,50 €",
+                        }
+                    ],
+                }
+            ],
+        },
+    ]
+
+    result = _uber_rows(rows, request=_request("Tomatino"))
+
+    assert len(result) == 1
+    assert result[0].merchant_name == "Tomatino (Alegro Alfragide)"
+    assert result[0].item_key == "near-carbonara"
+
+
 def test_glovo_rows_extracts_products_and_filters_by_query() -> None:
     rows = [
         {
