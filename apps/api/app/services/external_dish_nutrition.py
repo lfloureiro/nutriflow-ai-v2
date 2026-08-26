@@ -8,6 +8,7 @@ from app.services.burgerking_nutrition import estimate_burgerking_nutrition
 from app.services.kfc_nutrition import estimate_kfc_nutrition
 from app.services.known_restaurant_nutrition import estimate_known_restaurant_nutrition
 from app.services.mcdonalds_nutrition import estimate_mcdonalds_nutrition
+from app.services.pronto_a_comer_nutrition import estimate_pronto_a_comer_nutrition
 from app.services.restaurant_dish_nutrition import estimate_restaurant_dish_nutrition
 from app.services.restaurant_menu_scraper import ScrapedMenuItem
 
@@ -40,6 +41,9 @@ def is_non_meal_menu_item(
         "pepsi",
         "sumo",
         "juice",
+        "guarana",
+        "7up",
+        "compal",
     )
     if any(term in normalized for term in beverage_terms):
         return True
@@ -133,6 +137,49 @@ def is_non_meal_menu_item(
         ):
             return True
 
+    if "pronto a comer de carnaxide" in merchant:
+        # The marketplace mixes complete dishes with side dishes, soups, pastries,
+        # desserts, breads, drinks and whole-family items. Keep only items that can be
+        # ranked as one lunch/dinner candidate in the current planner.
+        if normalized == "frango assado":
+            return True
+        if normalized.startswith("sopa ") or normalized == "canja de galinha":
+            return True
+        if normalized in {
+            "arroz branco",
+            "feijao verde salteado",
+            "esparregado",
+        }:
+            return True
+        if any(
+            term in normalized
+            for term in (
+                "rissol",
+                "chamuca",
+                "croquete",
+                "pastel de massa tenra",
+                "pastel de bacalhau",
+                "empada",
+            )
+        ):
+            return True
+        if normalized in {
+            "arroz doce",
+            "serradura",
+            "pudim de ovos",
+        }:
+            return True
+        if normalized in {
+            "bola de agua",
+            "palito",
+            "bola de centeio",
+            "pao com chourico",
+            "pao de sementes",
+        }:
+            return True
+        if normalized in {"pegoes branco", "mateus rose"}:
+            return True
+
     return False
 
 
@@ -170,6 +217,13 @@ def resolve_external_dish_nutrition(
     )
     if burger_king is not None:
         return burger_king
+
+    pronto_a_comer = estimate_pronto_a_comer_nutrition(
+        merchant_name=merchant_name,
+        item=item,
+    )
+    if pronto_a_comer is not None:
+        return pronto_a_comer
 
     known = estimate_known_restaurant_nutrition(
         merchant_name=merchant_name,
