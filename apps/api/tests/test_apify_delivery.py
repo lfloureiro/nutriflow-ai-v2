@@ -3,6 +3,7 @@ from decimal import Decimal
 from app.providers.apify_delivery import (
     _city_from_address,
     _glovo_rows,
+    _glovo_store_urls_from_google,
     _merchant_matches,
     _uber_rows,
 )
@@ -207,6 +208,56 @@ def test_glovo_rows_extracts_products_and_filters_by_query() -> None:
     assert item.delivery_fee == Decimal("1.99")
     assert item.currency == "EUR"
     assert item.source_reference.startswith("https://glovoapp.com/")
+
+
+def test_glovo_rows_normalizes_restaurant_prefix_in_query() -> None:
+    rows = [
+        {
+            "recordType": "store",
+            "slug": "boi-amigo",
+            "name": "Boi Amigo",
+            "url": "https://glovoapp.com/pt/pt/lisboa/stores/boi-amigo",
+        },
+        {
+            "recordType": "product",
+            "storeSlug": "boi-amigo",
+            "storeName": "Boi Amigo",
+            "productId": "dish-1",
+            "name": "Arroz de Pato",
+            "price": "9.50",
+            "currency": "EUR",
+        },
+    ]
+
+    result = _glovo_rows(rows, request=_request("Restaurante Boi Amigo"))
+
+    assert len(result) == 1
+    assert result[0].merchant_name == "Boi Amigo"
+
+
+def test_glovo_store_urls_from_google_keeps_matching_store_pages_only() -> None:
+    payload = [
+        {
+            "organicResults": [
+                {
+                    "title": "Boi Amigo em Lisboa | Glovo",
+                    "url": "https://glovoapp.com/pt/pt/lisboa/stores/boi-amigo-lis",
+                },
+                {
+                    "title": "Restaurantes em Lisboa | Glovo",
+                    "url": "https://glovoapp.com/pt/pt/lisboa/categories/restaurants_1",
+                },
+                {
+                    "title": "Outro Restaurante | Glovo",
+                    "url": "https://glovoapp.com/pt/pt/lisboa/stores/outro-lis",
+                },
+            ]
+        }
+    ]
+
+    urls = _glovo_store_urls_from_google(payload, query="Restaurante Boi Amigo")
+
+    assert urls == ("https://glovoapp.com/pt/pt/lisboa/stores/boi-amigo-lis",)
 
 
 def test_glovo_city_normalization_uses_lisbon_actor_city() -> None:
