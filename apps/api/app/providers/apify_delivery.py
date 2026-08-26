@@ -369,6 +369,52 @@ def _resolve_uber_store_urls(query: str, delivery_address: str) -> tuple[str, ..
     return _uber_store_urls_from_google(payload, query=query)
 
 
+def _glovo_store_urls_from_google(
+    payload: list[object],
+    *,
+    query: str,
+) -> tuple[str, ...]:
+    candidates: list[tuple[int, str]] = []
+    seen: set[str] = set()
+    normalized_query = _normalize_name(query)
+    for row in _organic_results(payload):
+        url = _text(row.get("url") or row.get("link"))
+        title = _text(row.get("title")) or ""
+        if url is None or url in seen:
+            continue
+        parsed = urlparse(url)
+        if parsed.hostname not in {"www.glovoapp.com", "glovoapp.com"}:
+            continue
+        if "/stores/" not in parsed.path:
+            continue
+        if not _merchant_matches(query, title):
+            continue
+        seen.add(url)
+        normalized_title = _normalize_name(title)
+        score = 2 if normalized_query and normalized_query in normalized_title else 1
+        candidates.append((score, url))
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    return tuple(url for _, url in candidates[:3])
+
+
+def _resolve_glovo_store_urls(query: str, delivery_address: str) -> tuple[str, ...]:
+    city = _city_from_address(delivery_address)
+    payload = _actor_request(
+        settings.nutrition_apify_google_search_url,
+        {
+            "queries": f'site:glovoapp.com "{query}" "{city}" stores',
+            "maxPagesPerQuery": 1,
+            "countryCode": "pt",
+            "searchLanguage": "pt",
+            "languageCode": "pt-PT",
+            "includeUnfilteredResults": False,
+            "saveHtml": False,
+            "saveHtmlToKeyValueStore": False,
+        },
+    )
+    return _glovo_store_urls_from_google(payload, query=query)
+
+
 def _glovo_rows(
     payload: list[object],
     *,
@@ -382,7 +428,7 @@ def _glovo_rows(
         if slug:
             stores[slug] = row
 
-    query = (request.query or "").strip().casefold()
+    query = (request.query or "").strip()
     observed_at = datetime.now(UTC)
     results: list[ExternalMenuItemObservationWrite] = []
     for row in payload:
@@ -393,7 +439,11 @@ def _glovo_rows(
         price = _decimal(row.get("price"))
         if merchant_name is None or item_name is None or price is None:
             continue
-        if query and query not in merchant_name.casefold() and query not in item_name.casefold():
+        if (
+            query
+            and not _merchant_matches(query, merchant_name)
+            and query.casefold() not in item_name.casefold()
+        ):
             continue
         slug = _text(row.get("storeSlug")) or _stable_key(merchant_name)
         store = stores.get(slug, {})
@@ -473,15 +523,40 @@ class GlovoApifyAdapter:
         self,
         request: MealDeliveryDiscoveryRequest,
     ) -> tuple[ExternalMenuItemObservationWrite, ...]:
+        max_stores = max(1, min(settings.meal_delivery_apify_max_stores, 20))
+        city = _city_from_address(request.delivery_address)
+
+        if request.query:
+            store_urls = _resolve_glovo_store_urls(
+                request.query,
+                request.delivery_address,
+            )
+            if store_urls:
+                direct_payload = _actor_request(
+                    settings.glovo_apify_url,
+                    {
+                        "city": city,
+                        "storeCategory": "food",
+                        "categoryFilters": [],
+                        "storeUrls": list(store_urls),
+                        "includeProducts": True,
+                        "maxStores": min(len(store_urls), max_stores),
+                        "language": "pt",
+                    },
+                )
+                observations = _glovo_rows(direct_payload, request=request)
+                if observations:
+                    return observations
+
         payload = _actor_request(
             settings.glovo_apify_url,
             {
-                "city": _city_from_address(request.delivery_address),
+                "city": city,
                 "storeCategory": "food",
                 "categoryFilters": [],
                 "storeUrls": [],
                 "includeProducts": True,
-                "maxStores": max(1, min(settings.meal_delivery_apify_max_stores, 20)),
+                "maxStores": max_stores,
                 "language": "pt",
             },
         )
