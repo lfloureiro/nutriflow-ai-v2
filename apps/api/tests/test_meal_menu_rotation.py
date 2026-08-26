@@ -188,7 +188,7 @@ def test_incomplete_snapshot_does_not_mark_unseen_dishes_unavailable(
     assert dish_b_availability.is_available
 
 
-def test_weekday_pattern_uses_latest_complete_snapshot_per_calendar_day(
+def test_weekday_pattern_uses_union_of_complete_snapshots_per_calendar_day(
     db_session: Session,
 ) -> None:
     family = _family(db_session)
@@ -204,7 +204,8 @@ def test_weekday_pattern_uses_latest_complete_snapshot_per_calendar_day(
             _observation("dish-b", "Prato B", monday_1_morning),
         ),
     )
-    # Same local day: only this later complete snapshot should count for learning.
+    # Same local day, later snapshot after Prato B sold out. Learning must remember
+    # that Prato B was offered on this Monday rather than replacing the day's menu.
     _record(
         db_session,
         family=family,
@@ -232,5 +233,5 @@ def test_weekday_pattern_uses_latest_complete_snapshot_per_calendar_day(
     assert by_name["Prato A"].observed_days == 2
     assert by_name["Prato A"].frequency == Decimal("1.000")
     assert by_name["Prato B"].sampled_days == 2
-    assert by_name["Prato B"].observed_days == 1
-    assert by_name["Prato B"].frequency == Decimal("0.500")
+    assert by_name["Prato B"].observed_days == 2
+    assert by_name["Prato B"].frequency == Decimal("1.000")
