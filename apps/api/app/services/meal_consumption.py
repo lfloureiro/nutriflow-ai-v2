@@ -9,7 +9,10 @@ from app.models.family import Family
 from app.models.food_catalog import FoodCompositionSnapshot, RecipeCompositionSnapshot
 from app.models.meal import MealEvent, MealParticipant, Serving
 from app.schemas.meal_consumption import MealConsumptionRead, MealConsumptionUpdate
-from app.services.planning_bootstrap_api import get_planning_bootstrap
+from app.services.planning_bootstrap_api import (
+    DEFAULT_STANDARD_BREAKFAST_KCAL,
+    get_planning_bootstrap,
+)
 from app.services.serving_nutrition import (
     ServingNutritionCalculationError,
     calculate_serving_nutrition,
@@ -20,6 +23,8 @@ ENERGY_QUANTUM = Decimal("0.01")
 NUTRIENT_QUANTUM = Decimal("0.0001")
 _REALIZED_STATUSES = frozenset({"consumed", "partial", "skipped"})
 _EATEN_STATUSES = frozenset({"consumed", "partial"})
+_LEGACY_BREAKFAST_CALCULATION_VERSION = "standard-breakfast-fallback-v1"
+_LEGACY_BREAKFAST_SOURCE_REFERENCE = "nutriflow:standard-breakfast-fallback"
 
 
 class MealConsumptionError(ValueError):
@@ -62,18 +67,23 @@ def _load_event(
     return event
 
 
-def _participant_and_serving(
-    event: MealEvent,
-    *,
-    person_id: uuid.UUID,
-    serving_id: uuid.UUID,
-) -> tuple[MealParticipant, Serving]:
+def _participant(event: MealEvent, *, person_id: uuid.UUID) -> MealParticipant:
     participant = next(
         (item for item in event.participants if item.person_id == person_id),
         None,
     )
     if participant is None:
         raise MealConsumptionNotFoundError("Person is not a participant in this MealEvent.")
+    return participant
+
+
+def _participant_and_serving(
+    event: MealEvent,
+    *,
+    person_id: uuid.UUID,
+    serving_id: uuid.UUID,
+) -> tuple[MealParticipant, Serving]:
+    participant = _participant(event, person_id=person_id)
     serving = next(
         (item for item in participant.servings if item.id == serving_id),
         None,
@@ -81,6 +91,62 @@ def _participant_and_serving(
     if serving is None:
         raise MealConsumptionNotFoundError("Serving not found for this MealEvent participant.")
     return participant, serving
+
+
+def _standard_breakfast_kcal(participant: MealParticipant) -> Decimal:
+    profile = participant.person.profile
+    configured = (
+        profile.standard_breakfast_kcal
+        if profile is not None and profile.standard_breakfast_kcal is not None
+        else DEFAULT_STANDARD_BREAKFAST_KCAL
+    )
+    return Decimal(configured).quantize(ENERGY_QUANTUM, rounding=ROUND_HALF_UP)
+
+
+def _materialize_legacy_breakfast_serving(
+    event: MealEvent,
+    participant: MealParticipant,
+) -> Serving:
+    if event.meal_type != "breakfast":
+        raise MealConsumptionError(
+            "This MealEvent has no Serving. Only legacy breakfast events can use the estimated "
+            "participant-level consumption fallback."
+        )
+    serving = Serving(
+        meal_participant=participant,
+        item_type="meal",
+        item_key="standard-breakfast",
+        item_name=event.title or "Pequeno-almoço",
+        status="planned",
+        quantity_planned=Decimal(1),
+        quantity_unit="serving",
+        energy_planned_kcal=_standard_breakfast_kcal(participant),
+        nutrition_source="estimated",
+        nutrition_calculation_version=_LEGACY_BREAKFAST_CALCULATION_VERSION,
+        source_reference=_LEGACY_BREAKFAST_SOURCE_REFERENCE,
+        notes=(
+            "Estimated standard breakfast serving materialized for a legacy MealEvent without "
+            "serving detail."
+        ),
+    )
+    participant.servings.append(serving)
+    return serving
+
+
+def _single_participant_serving(
+    event: MealEvent,
+    *,
+    person_id: uuid.UUID,
+) -> tuple[MealParticipant, Serving]:
+    participant = _participant(event, person_id=person_id)
+    if len(participant.servings) == 1:
+        return participant, participant.servings[0]
+    if len(participant.servings) > 1:
+        raise MealConsumptionError(
+            "This MealEvent participant has multiple Servings; record consumption for a specific "
+            "Serving."
+        )
+    return participant, _materialize_legacy_breakfast_serving(event, participant)
 
 
 def _scaled(value: Decimal | None, factor: Decimal, quantum: Decimal) -> Decimal | None:
@@ -189,6 +255,41 @@ def _refresh_event_status(event: MealEvent, *, now: datetime) -> None:
     event.completed_at = None
 
 
+def _consumption_read(
+    session: Session,
+    *,
+    event: MealEvent,
+    person_id: uuid.UUID,
+    serving: Serving,
+    data: MealConsumptionUpdate,
+) -> MealConsumptionRead:
+    session.flush()
+    bootstrap = get_planning_bootstrap(
+        session,
+        person_id=person_id,
+        scheduled_at=event.scheduled_at,
+        ensure_state=True,
+        force_state_refresh=True,
+    )
+    state = bootstrap.daily_nutrition_state
+    if state is None:
+        raise MealConsumptionError("Daily nutrition state could not be refreshed.")
+
+    return MealConsumptionRead(
+        meal_event_id=event.id,
+        person_id=person_id,
+        serving_id=serving.id,
+        status=data.status,
+        quantity_planned=serving.quantity_planned,
+        quantity_consumed=serving.quantity_consumed,
+        quantity_unit=serving.quantity_unit,
+        energy_planned_kcal=serving.energy_planned_kcal,
+        energy_consumed_kcal=serving.energy_consumed_kcal,
+        consumed_at=serving.consumed_at,
+        daily_nutrition_state=state,
+    )
+
+
 def record_meal_consumption(
     session: Session,
     *,
@@ -220,29 +321,45 @@ def record_meal_consumption(
         consumed_at=instant,
     )
     _refresh_event_status(event, now=instant)
-    session.flush()
-
-    bootstrap = get_planning_bootstrap(
+    return _consumption_read(
         session,
+        event=event,
         person_id=person_id,
-        scheduled_at=event.scheduled_at,
-        ensure_state=True,
-        force_state_refresh=True,
+        serving=serving,
+        data=data,
     )
-    state = bootstrap.daily_nutrition_state
-    if state is None:
-        raise MealConsumptionError("Daily nutrition state could not be refreshed.")
 
-    return MealConsumptionRead(
-        meal_event_id=event.id,
+
+def record_participant_meal_consumption(
+    session: Session,
+    *,
+    family: Family,
+    meal_event_id: uuid.UUID,
+    person_id: uuid.UUID,
+    data: MealConsumptionUpdate,
+    now: datetime | None = None,
+) -> MealConsumptionRead:
+    event = _load_event(
+        session,
+        family_id=family.id,
+        meal_event_id=meal_event_id,
+    )
+    if event.status in {"cancelled", "replaced"}:
+        raise MealConsumptionError("Cancelled or replaced MealEvents cannot record consumption.")
+
+    participant, serving = _single_participant_serving(event, person_id=person_id)
+    instant = now or datetime.now(UTC)
+    _apply_consumption(
+        participant,
+        serving,
+        data,
+        consumed_at=instant,
+    )
+    _refresh_event_status(event, now=instant)
+    return _consumption_read(
+        session,
+        event=event,
         person_id=person_id,
-        serving_id=serving.id,
-        status=data.status,
-        quantity_planned=serving.quantity_planned,
-        quantity_consumed=serving.quantity_consumed,
-        quantity_unit=serving.quantity_unit,
-        energy_planned_kcal=serving.energy_planned_kcal,
-        energy_consumed_kcal=serving.energy_consumed_kcal,
-        consumed_at=serving.consumed_at,
-        daily_nutrition_state=state,
+        serving=serving,
+        data=data,
     )
