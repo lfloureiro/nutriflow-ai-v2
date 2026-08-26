@@ -12,9 +12,9 @@ from app.schemas.external_menu import (
     ExternalMenuItemIngestedRead,
     ExternalMenuItemObservationWrite,
 )
+from app.services.external_dish_nutrition import resolve_external_dish_nutrition
 from app.services.external_menu_ingestion import ingest_external_menu_item
 from app.services.meal_delivery_provider import get_meal_delivery_provider_integration
-from app.services.restaurant_dish_nutrition import estimate_restaurant_dish_nutrition
 from app.services.restaurant_menu_scraper import ScrapedMenuItem
 
 
@@ -38,9 +38,10 @@ def _with_estimated_nutrition(
 ) -> ExternalMenuItemObservationWrite:
     if observation.nutrition is not None:
         return observation
-    estimate = estimate_restaurant_dish_nutrition(
+    nutrition = resolve_external_dish_nutrition(
         db,
         family_id=family.id,
+        merchant_name=observation.merchant_name,
         item=ScrapedMenuItem(
             name=observation.item_name,
             description=observation.description,
@@ -50,9 +51,9 @@ def _with_estimated_nutrition(
             source_url=observation.source_reference,
         ),
     )
-    if estimate is None:
+    if nutrition is None:
         return observation
-    return observation.model_copy(update={"nutrition": estimate.nutrition})
+    return observation.model_copy(update={"nutrition": nutrition})
 
 
 def sync_meal_delivery_provider(
