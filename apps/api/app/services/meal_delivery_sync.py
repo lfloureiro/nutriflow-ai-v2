@@ -15,6 +15,7 @@ from app.schemas.external_menu import (
 from app.services.external_dish_nutrition import resolve_external_dish_nutrition
 from app.services.external_menu_ingestion import ingest_external_menu_item
 from app.services.meal_delivery_provider import get_meal_delivery_provider_integration
+from app.services.meal_menu_rotation import record_menu_snapshots
 from app.services.restaurant_menu_scraper import ScrapedMenuItem
 
 
@@ -117,11 +118,23 @@ def sync_meal_delivery_provider(
             )
         )
 
+    enriched_tuple = tuple(enriched_observations)
+    ingested_tuple = tuple(ingested)
+    record_menu_snapshots(
+        db,
+        family=family,
+        provider_key=provider_key,
+        observations=enriched_tuple,
+        ingested=ingested_tuple,
+        query=query,
+        limit=limit,
+    )
+
     return MealDeliverySyncResult(
         provider_key=provider_key,
-        observed_count=len(enriched_observations),
-        observations=tuple(enriched_observations),
-        ingested=tuple(ingested),
+        observed_count=len(enriched_tuple),
+        observations=enriched_tuple,
+        ingested=ingested_tuple,
     )
 
 
