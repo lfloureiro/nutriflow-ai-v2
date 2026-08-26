@@ -9,6 +9,7 @@ class MealDeliveryDiscoveryRequest:
     delivery_address: str
     query: str | None = None
     limit: int = 30
+    store_url: str | None = None
 
 
 class MealDeliveryDiscoveryAdapter(Protocol):
