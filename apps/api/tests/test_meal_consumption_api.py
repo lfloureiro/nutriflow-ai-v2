@@ -10,7 +10,7 @@ from app.db.session import get_db
 from app.main import app
 from app.models.family import Family
 from app.models.food_catalog import FoodCompositionSnapshot, FoodItem
-from app.models.meal import MealEvent, Serving
+from app.models.meal import MealEvent, MealParticipant, Serving
 from app.models.nutrition_target import NutritionTarget
 from app.models.person import Person
 from app.services.planning_bootstrap_api import get_planning_bootstrap
@@ -115,10 +115,54 @@ def _setup(db_session: Session, meal_type: str, local_time: str):
     return family, person, entry, participant
 
 
+def _setup_legacy_without_serving(db_session: Session, meal_type: str):
+    family = Family(name=f"Legacy {meal_type} family", timezone="Europe/Lisbon")
+    person = Person(
+        family=family,
+        first_name="Ana",
+        preferred_locale="pt-PT",
+        timezone="Europe/Lisbon",
+    )
+    target = NutritionTarget(
+        person=person,
+        valid_from=date(2026, 1, 1),
+        energy_min_kcal=Decimal(1800),
+        energy_max_kcal=Decimal(2000),
+        calculation_version="test-target-v1",
+        status="active",
+        source="test",
+    )
+    event = MealEvent(
+        family=family,
+        meal_type=meal_type,
+        title="Pequeno-almoço" if meal_type == "breakfast" else "Almoço legado",
+        scheduled_at=datetime(2026, 8, 23, 8 if meal_type == "breakfast" else 13, 30, tzinfo=ZoneInfo("Europe/Lisbon")),
+        timezone="Europe/Lisbon",
+        status="planned",
+        source="test",
+    )
+    participant = MealParticipant(
+        meal_event=event,
+        person=person,
+        status="planned",
+    )
+    db_session.add_all([family, target, event, participant])
+    db_session.flush()
+    assert participant.servings == []
+    return family, person, event, participant
+
+
 def _consumption_path(family, person, entry, participant) -> str:
     return (
         f"/api/families/{family.id}/meal-plan/{entry['id']}/participants/"
         f"{person.id}/servings/{participant['serving_id']}/consumption"
+    )
+
+
+def _participant_consumption_path(family, person, event) -> str:
+    return (
+        f"/api/families/{family.id}/meal-plan/{event.id}/participants/"
+        f"{person.id}/consumption"
     )
 
 
@@ -217,3 +261,53 @@ def test_skipped_breakfast_is_declared_zero_and_removes_later_assumption(
     assert lunch.daily_nutrition_state.energy_assumed_kcal == Decimal(0)
     assert lunch.daily_nutrition_state.energy_remaining_min_kcal == Decimal("1800.00")
     assert lunch.daily_nutrition_state.energy_remaining_max_kcal == Decimal("2000.00")
+
+
+def test_legacy_breakfast_without_serving_can_be_marked_consumed(
+    db_session: Session,
+) -> None:
+    family, person, event, participant = _setup_legacy_without_serving(db_session, "breakfast")
+
+    response = _request(
+        db_session,
+        "PATCH",
+        _participant_consumption_path(family, person, event),
+        json={"status": "consumed"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "consumed"
+    assert Decimal(body["quantity_planned"]) == Decimal(1)
+    assert Decimal(body["quantity_consumed"]) == Decimal(1)
+    assert body["quantity_unit"] == "serving"
+    assert Decimal(body["energy_planned_kcal"]) == Decimal(350)
+    assert Decimal(body["energy_consumed_kcal"]) == Decimal(350)
+    state = body["daily_nutrition_state"]
+    assert Decimal(state["energy_consumed_kcal"]) == Decimal(350)
+    assert Decimal(state["energy_planned_kcal"]) == Decimal(0)
+    assert Decimal(state["energy_assumed_kcal"]) == Decimal(0)
+
+    db_session.expire_all()
+    serving = db_session.get(Serving, uuid.UUID(body["serving_id"]))
+    assert serving is not None
+    assert serving.meal_participant_id == participant.id
+    assert serving.nutrition_source == "estimated"
+    assert serving.nutrition_calculation_version == "standard-breakfast-fallback-v1"
+    assert serving.source_reference == "nutriflow:standard-breakfast-fallback"
+
+
+def test_non_breakfast_without_serving_requires_explicit_serving(
+    db_session: Session,
+) -> None:
+    family, person, event, _ = _setup_legacy_without_serving(db_session, "lunch")
+
+    response = _request(
+        db_session,
+        "PATCH",
+        _participant_consumption_path(family, person, event),
+        json={"status": "consumed"},
+    )
+
+    assert response.status_code == 422
+    assert "Only legacy breakfast events" in response.json()["detail"]
