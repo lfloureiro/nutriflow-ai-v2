@@ -175,8 +175,10 @@ def learn_weekday_menu_pattern(
 ) -> tuple[WeekdayMenuPattern, ...]:
     """Learn empirical weekday recurrence from complete historical menu snapshots.
 
-    Only the latest complete snapshot on each local calendar date counts. This prevents
-    repeated syncs on the same day from artificially increasing confidence.
+    Each local calendar date counts once. When several complete snapshots exist on the
+    same day, learning uses the union of dishes seen across that day. This avoids a
+    later sync, after dishes have sold out, incorrectly teaching that those dishes were
+    never offered on that weekday.
     """
 
     snapshots = db.scalars(
@@ -194,21 +196,22 @@ def learn_weekday_menu_pattern(
         )
     ).all()
 
-    latest_by_date: dict[object, MealMenuSnapshot] = {}
+    items_by_date: dict[object, set[uuid.UUID]] = defaultdict(set)
+    weekday_by_date: dict[object, int] = {}
+    item_names: dict[uuid.UUID, str] = {}
     for snapshot in snapshots:
-        latest_by_date[snapshot.observed_local_date] = snapshot
+        weekday_by_date[snapshot.observed_local_date] = snapshot.weekday
+        for item in snapshot.items:
+            item_names[item.food_item_id] = item.item_name
+            items_by_date[snapshot.observed_local_date].add(item.food_item_id)
 
     sampled_days: dict[int, int] = defaultdict(int)
     observed_days: dict[tuple[int, uuid.UUID], int] = defaultdict(int)
-    item_names: dict[uuid.UUID, str] = {}
-    for snapshot in latest_by_date.values():
-        sampled_days[snapshot.weekday] += 1
-        present_food_items: set[uuid.UUID] = set()
-        for item in snapshot.items:
-            item_names[item.food_item_id] = item.item_name
-            present_food_items.add(item.food_item_id)
+    for observed_date, present_food_items in items_by_date.items():
+        weekday = weekday_by_date[observed_date]
+        sampled_days[weekday] += 1
         for food_item_id in present_food_items:
-            observed_days[(snapshot.weekday, food_item_id)] += 1
+            observed_days[(weekday, food_item_id)] += 1
 
     patterns: list[WeekdayMenuPattern] = []
     for (weekday, food_item_id), count in observed_days.items():
