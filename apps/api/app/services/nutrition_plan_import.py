@@ -1,6 +1,5 @@
 import re
 import uuid
-from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import func, select
