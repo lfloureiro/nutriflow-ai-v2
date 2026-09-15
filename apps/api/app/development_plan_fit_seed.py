@@ -96,7 +96,7 @@ def seed_development_plan_fit(
         constraint_id=PROTEIN_CONSTRAINT_ID,
         person=person,
         target_key="protein",
-        minimum=Decimal("15.0000"),
+        minimum=Decimal(15),
         mandatory=True,
     )
     fiber = _constraint(
@@ -104,7 +104,7 @@ def seed_development_plan_fit(
         constraint_id=FIBER_CONSTRAINT_ID,
         person=person,
         target_key="fiber",
-        minimum=Decimal("6.0000"),
+        minimum=Decimal(6),
         mandatory=False,
     )
     session.flush()
