@@ -25,6 +25,10 @@ from app.models.meal_candidate_planning_profile import MealCandidatePlanningProf
 from app.models.nutrition_constraint import NutritionConstraint
 from app.models.nutrition_goal import NutritionGoal
 from app.models.nutrition_plan import NutritionPlan, NutritionPlanGuideline, NutritionPlanRule
+from app.models.nutrition_plan_import import (
+    NutritionPlanImportProposal,
+    NutritionPlanImportSession,
+)
 from app.models.nutrition_target import NutritionTarget, NutritionTargetComponent
 from app.models.pantry_stock import PantryStockLot
 from app.models.person import Person
@@ -63,6 +67,8 @@ __all__ = [
     "NutritionGoal",
     "NutritionPlan",
     "NutritionPlanGuideline",
+    "NutritionPlanImportProposal",
+    "NutritionPlanImportSession",
     "NutritionPlanRule",
     "NutritionTarget",
     "NutritionTargetComponent",
