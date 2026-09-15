@@ -4,28 +4,20 @@ This is the authoritative handover entry point for NutriFlow AI v2. Repository c
 
 ## Repository checkpoint
 
-This handover rebaseline started from the following integrated code baseline:
+The Nutrition Plan / Guidance foundation was built from verified `main`:
 
 ```text
-pre-rebaseline main SHA: cbb09ad1d5e079e6b73ada2ebcc25999b80eca9c
-schema head:             a8f2c6d4e1b9
+base main SHA: 9d82a148992a788d484e28d21f595724530ae9d5
+previous schema head: a8f2c6d4e1b9
+new schema head:      b9e3f7c1d4a6
+PR:                   #37
 ```
 
-PR #36 closes the documentation rebaseline and the CI dependency-resolution issue discovered while validating it. Its exact tested head is:
+Do **not** treat the SHA above as permanently current. At every new session resolve `refs/heads/main`, inspect open PRs and confirm CI before creating new work.
 
-```text
-PR #36 tested head: 0043a5782e2a3e929cdbecc53e317a2820bbc7f3
-API CI:             success
-Web CI:             success
-```
+The API test environment currently caps the development/test AnyIO dependency below 4.15 because Starlette 1.6.0's released TestClient still imports a deprecated AnyIO alias and this project intentionally treats warnings as errors. Remove that cap only after validating an upstream Starlette release containing the TestClient fix.
 
-The schema is unchanged by this checkpoint. The API test environment now caps the development/test AnyIO dependency below 4.15 because Starlette 1.6.0's released TestClient still imports a deprecated AnyIO alias and this project intentionally treats warnings as errors. Remove that cap only after validating an upstream Starlette release that contains the TestClient fix.
-
-Do **not** treat either SHA above as the forever-current `main`. At every new session, resolve `refs/heads/main` first and verify open PRs/CI before creating new work.
-
-There is no product feature work intentionally left open at this checkpoint. Historical feature branches remain in the repository, but they must not be treated as active work merely because their refs still exist. `feature/family-catalog-and-profile-editing` is an ancestor of the pre-rebaseline `main` and its work is already integrated.
-
-Do not resume from an old feature branch. New work starts from the exact current `main` after reconfirming the ref.
+Historical feature branches may remain in the repository. A branch ref is not evidence of unfinished work; open PRs plus this handover define active work.
 
 ## Product direction
 
@@ -36,6 +28,7 @@ The implemented operational chain now covers:
 ```text
 Family / Persons
 -> profiles, goals, targets and constraints
+-> versioned Nutrition Plans and meal-context guidance
 -> Ingredients and versioned food composition
 -> Recipes and calculated/versioned recipe nutrition
 -> Family meal planning
@@ -47,11 +40,19 @@ Family / Persons
 -> restaurant / delivery availability and external menu ingestion
 ```
 
-The next product step is to add a first-class **Nutrition Plan / Guidance** layer that turns nutritionist-, clinician- or user-defined plans into structured rules that can evaluate, transform and recommend meals across home cooking, existing recipes, restaurant food and delivery.
+The Nutrition Plan layer is now a first-class domain capability. The next step is to make external/professional plan text ingestible as **proposed structured guidance that must be explicitly reviewed/confirmed before activation**.
 
-The detailed roadmap is authoritative in:
+Authoritative roadmap:
 
 `docs/vision/nutrition-plan-guidance-roadmap.md`
+
+Domain detail:
+
+`docs/domain/nutrition-plan-model.md`
+
+Decision record:
+
+`docs/decisions/ADR-035-nutrition-plan-guidance-foundation.md`
 
 ## Core invariants
 
@@ -61,6 +62,10 @@ Preserve all of the following:
 - one shared MealEvent can have multiple MealParticipants;
 - each participant has Person-specific Servings;
 - normal meal planning uses exactly `breakfast`, `lunch`, `snack` and `dinner`;
+- Nutrition Plan is distinct from Meal Plan;
+- active professional-plan content is immutable; substantive changes create a new version;
+- plan source/provenance and original statements must remain traceable;
+- AI/imported interpretations must never silently become active professional rules;
 - Food/Recipe composition is versioned and historical provenance is preserved;
 - anthropometric history is append-only when a measurement actually changes;
 - hard adverse-reaction and mandatory nutrition rules run before preference, ranking or ML signals;
@@ -68,7 +73,7 @@ Preserve all of the following:
 - unsafe unit conversions are rejected rather than guessed;
 - browser code presents server-authoritative nutrition, planning, shopping and ranking evidence;
 - user preference is separate from algorithmic nutrition/practical score;
-- professional guidance must retain source/provenance and must not be silently overridden;
+- professional guidance must not be silently overridden by lower-authority guidance;
 - shared catalogue entities are visible to Families but remain read-only unless explicitly owned by that Family;
 - demo or synthetic evidence must remain explicitly identified and must never be presented as equivalent to curated/measured nutrition;
 - persisted timezone values must be valid IANA timezone names.
@@ -91,6 +96,39 @@ Implemented:
 - ScheduleEntry context;
 - health-provider connection and normalized health-measurement foundations;
 - DailyHealthState and DailyNutritionState snapshots.
+
+### Nutrition Plan / Guidance
+
+Implemented in PR #37:
+
+- Person-scoped `NutritionPlan` with `lineage_id`, positive version and `supersedes_plan_id`;
+- lifecycle states `draft`, `active`, `inactive`, `superseded`;
+- source categories for nutritionist, clinician, user, system and imported plans;
+- source name/reference and original plan text retention;
+- date validity;
+- draft-only content editing;
+- new-version cloning of rule bindings and guidelines;
+- activation that supersedes the prior active version in the same lineage while preserving historical date applicability;
+- typed `NutritionPlanRule` bindings to existing `NutritionConstraint`, `NutritionTargetComponent` and `NutritionGoal`;
+- meal-type scope, local priority, narrower validity and original source statements on rule bindings;
+- `NutritionPlanGuideline` for qualitative and weekly-frequency guidance;
+- explicit proposed/confirmed/rejected guideline state;
+- deterministic `EffectiveNutritionPlan` compiler for Person + date + meal type;
+- professional/user/system source precedence used for deterministic ordering only;
+- mandatory rules ordered above advisory rules without silently deleting lower-priority guidance;
+- explicit numeric min/max conflict reporting;
+- preservation of plan-bound target/goal snapshot semantics if a later energy-profile recalculation supersedes the global current target/goal;
+- Person-scoped CRUD/version/rule/guideline API plus effective-plan read endpoint;
+- schema head `b9e3f7c1d4a6`.
+
+Not yet implemented:
+
+- document/text parser;
+- proposal-review confirmation UX;
+- Meal Plan-Fit candidate evaluation;
+- Meal Transformation;
+- weekly frequency-progress calculation;
+- frontend Nutrition Plan screens.
 
 ### Food, recipes and household operations
 
@@ -126,7 +164,7 @@ Implemented:
 
 ### Restaurant and delivery foundation
 
-Implemented abstractions already support:
+Implemented abstractions support:
 
 ```text
 home
@@ -138,11 +176,11 @@ store
 
 The platform has persisted source availability, opening windows, commercial offers and external-menu ingestion. External dishes can become normal FoodItems with composition snapshots, availability and offers, allowing the same recommendation engine to score them when nutrition evidence is sufficient.
 
-Provider access remains a separate concern. Uber Eats consumer discovery requires approved access; public Glovo/Bolt Food interfaces do not currently provide a general consumer marketplace discovery contract. Product logic must therefore remain provider-agnostic and must not depend on one delivery API.
+Provider access remains separate from NutriFlow domain logic. Do not build provider-specific nutrition/scoring engines.
 
 ## Frontend information architecture
 
-Keep the current family-first progressive-disclosure approach. Primary navigation remains conceptually:
+Keep the family-first progressive-disclosure approach:
 
 ```text
 Início
@@ -162,73 +200,54 @@ Casa      -> Receitas | Ingredientes | Despensa | Compras | Preferências
 Pessoas   -> Visão geral | Nutrição | Atividade | Saúde | Histórico | Perfil
 ```
 
-The future Nutrition Plan UI belongs under the selected Person, not as a new top-level Family menu. Keep **nutrition plan** distinct from **meal plan**:
+Nutrition Plan belongs under the selected Person and remains distinct from Meal Plan:
 
 ```text
 Pessoas -> <Person> -> Nutrição -> Plano
 Refeições -> Hoje / Semana / Recomendar
 ```
 
-## Closed work / no longer active
-
-The following lines of work are considered integrated/closed for planning purposes:
-
-- core meal-planning foundation;
-- Family-first Home and Person drill-down;
-- preferences and diverse recommendation ranking;
-- family catalogue/profile editing;
-- automatic meal-intelligence refinements present in current `main`;
-- future-planning demo-test stabilization;
-- CI dependency-resolution stabilization recorded in PR #36.
-
-Do not reopen these as standalone roadmap items unless a concrete regression or new requirement appears.
-
-## Next development programme
-
-The next coherent programme is **Nutrition Plan & Guidance**.
-
-Sequence:
+## Nutrition Plan & Guidance roadmap state
 
 ```text
-0. Reconfirm current main / schema / CI baseline
-1. NutritionPlan domain and provenance
-2. EffectiveNutritionPlan compiler per Person/date/meal/context
-3. Plan import/parser with explicit user confirmation
-4. Meal Plan-Fit evaluation and explanations
-5. Structured Meal Transformation proposals
-6. Home/pantry/recipe recommendations using Plan-Fit
-7. Restaurant/delivery recommendations using the same Plan-Fit
-8. Weekly adaptive planning using plan rules + diversity + household constraints
-9. Feedback/learning refinement
+0. Reconfirm current main / schema / CI baseline                         DONE
+1. NutritionPlan domain and provenance                                  DONE
+2. EffectiveNutritionPlan compiler per Person/date/meal context          FOUNDATION DONE
+3. Plan import/parser with explicit user confirmation                    NEXT
+4. Meal Plan-Fit evaluation and explanations                            PENDING
+5. Structured Meal Transformation proposals                             PENDING
+6. Home/pantry/recipe recommendations using Plan-Fit                     PENDING
+7. Restaurant/delivery recommendations using the same Plan-Fit           PENDING
+8. Weekly adaptive planning using plan rules + diversity + constraints   PENDING
+9. Feedback/learning refinement                                          PENDING
 ```
 
-A parallel enabling track is trustworthy catalogue enrichment. Meal evaluation and transformation should not pretend precision where composition evidence is missing or synthetic.
+Phase 2 will be extended later with richer daily-state/weekly-progress context, but the deterministic compiler contract required by downstream work now exists.
 
-Do not build separate scoring engines for recipes, Uber Eats, Glovo or restaurants. All meal candidates should converge on the existing FoodItem/Recipe composition and recommendation abstractions.
+A parallel enabling track is trustworthy catalogue enrichment. Meal evaluation and transformation must not pretend precision where composition evidence is missing or synthetic.
 
-## Immediate next branch
+## Immediate next block
 
-Recommended next branch name:
+Recommended next branch:
 
 ```text
-feature/nutrition-plan-guidance-foundation
+feature/nutrition-plan-import-confirmation
 ```
 
-Its first scope should stop after the domain and compiler are sound. Do not start with the frontend parser or delivery integration.
+Scope only **plan import/parser + explicit confirmation**, not Meal Plan-Fit yet.
 
-Minimum first-block deliverables:
+Minimum next-block deliverables:
 
-- `NutritionPlan` identity/version/source/lifecycle model;
-- explicit association of plan-owned rules/targets/guidelines;
-- distinction between professional prescription, user input and NutriFlow-derived guidance;
-- meal-context rules, including per-meal nutrient targets;
-- weekly-frequency/qualitative guideline representation without forcing every guideline into `NutritionConstraint`;
-- deterministic `EffectiveNutritionPlan` service;
-- tests covering provenance, priority, date validity, mandatory rules and meal context;
-- migration and domain/ADR documentation;
-- no silent conversion of free text into active mandatory rules.
+- ingestion request that preserves original source text/document reference;
+- deterministic parser contract separated from model activation;
+- parsed/proposed rule and guideline representation with confidence/evidence metadata;
+- explicit mapping to existing NutritionConstraint / NutritionTarget / NutritionGoal semantics where appropriate;
+- confirmation/rejection/edit workflow before any proposal becomes effective;
+- no automatic activation from raw text or AI output;
+- parser tests for numeric targets, meal-specific guidance, qualitative guidance, frequency guidance and ambiguous statements;
+- API/domain docs and, only after backend semantics are stable, a focused Person -> Nutrição -> Plano review screen.
 
-See `docs/vision/nutrition-plan-guidance-roadmap.md` before implementation.
+Do not start Meal Transformation, provider integration or a broad frontend redesign in this block.
 
 ## Known broader limitations
 
@@ -238,6 +257,8 @@ See `docs/vision/nutrition-plan-guidance-roadmap.md` before implementation.
 - external commercial meal discovery depends on provider access/configuration;
 - nutrition evidence quality varies by catalogue item and must remain visible;
 - professional-plan document ingestion/parser is not yet implemented;
+- weekly frequency progress is not yet evaluated;
+- Meal Plan-Fit is not yet implemented;
 - meal transformation is not yet implemented;
 - npm lockfile / `npm ci` production hardening remains pending.
 
@@ -252,7 +273,7 @@ For each functional block:
 3. build code, migration, tests and docs together;
 4. run all relevant local gates on the exact final head;
 5. warnings are failures;
-6. open a PR only after local green confirmation;
+6. open a PR only after local green confirmation when a local environment is available;
 7. verify GitHub Actions on the exact PR head;
 8. verify mergeability and unchanged head;
 9. guarded squash merge using the expected head SHA;
@@ -266,7 +287,8 @@ At the start of the next development session:
 
 1. read this file;
 2. read `docs/vision/nutrition-plan-guidance-roadmap.md`;
-3. inspect the exact current `main` ref and open PRs;
-4. run/confirm the current migration and validation baseline;
-5. create `feature/nutrition-plan-guidance-foundation` from verified `main`;
-6. implement Phase 1 domain/compiler only before moving to parser, transformations or delivery UX.
+3. read `docs/domain/nutrition-plan-model.md` and ADR-035;
+4. inspect the exact current `main` ref and open PRs;
+5. confirm schema head and validation baseline;
+6. create `feature/nutrition-plan-import-confirmation` from verified `main`;
+7. implement parser/proposal/confirmation semantics before Plan-Fit, transformations or delivery UX.
