@@ -64,6 +64,31 @@ def test_nutrition_plan_import_api_review_apply_and_activate(db_session: Session
             )
             assert early_apply.status_code == 422
 
+            qualitative = next(
+                proposal
+                for proposal in import_data["proposals"]
+                if proposal["proposal_type"] == "qualitative_guideline"
+            )
+            invalid_edit = client.patch(
+                (
+                    f"/api/persons/{person.id}/nutrition-plan-imports/{import_id}"
+                    f"/proposals/{qualitative['id']}"
+                ),
+                json={"proposal_type": "numeric_rule"},
+            )
+            assert invalid_edit.status_code == 422
+
+            after_invalid_edit = client.get(
+                f"/api/persons/{person.id}/nutrition-plan-imports/{import_id}"
+            )
+            assert after_invalid_edit.status_code == 200
+            persisted_qualitative = next(
+                proposal
+                for proposal in after_invalid_edit.json()["proposals"]
+                if proposal["id"] == qualitative["id"]
+            )
+            assert persisted_qualitative["proposal_type"] == "qualitative_guideline"
+
             for proposal in import_data["proposals"]:
                 patch_response = client.patch(
                     (
