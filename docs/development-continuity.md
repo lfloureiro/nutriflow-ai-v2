@@ -2,18 +2,28 @@
 
 This is the authoritative handover entry point for NutriFlow AI v2. Repository code, migrations, tests, domain docs and ADRs take precedence over conversation history.
 
-## Current repository checkpoint
+## Repository checkpoint
 
-Current verified `main`:
+This handover rebaseline started from the following integrated code baseline:
 
 ```text
-main SHA:    cbb09ad1d5e079e6b73ada2ebcc25999b80eca9c
-schema head: a8f2c6d4e1b9
+pre-rebaseline main SHA: cbb09ad1d5e079e6b73ada2ebcc25999b80eca9c
+schema head:             a8f2c6d4e1b9
 ```
 
-The exact `main` SHA above completed both API CI and Web CI successfully.
+PR #36 closes the documentation rebaseline and the CI dependency-resolution issue discovered while validating it. Its exact tested head is:
 
-There is no open pull request representing unfinished product work at this checkpoint. Historical feature branches remain in the repository, but they must not be treated as active work merely because their refs still exist. `feature/family-catalog-and-profile-editing` is an ancestor of `main`; `main` contains that work plus the subsequent future-planning test stabilization commit.
+```text
+PR #36 tested head: 0043a5782e2a3e929cdbecc53e317a2820bbc7f3
+API CI:             success
+Web CI:             success
+```
+
+The schema is unchanged by this checkpoint. The API test environment now caps the development/test AnyIO dependency below 4.15 because Starlette 1.6.0's released TestClient still imports a deprecated AnyIO alias and this project intentionally treats warnings as errors. Remove that cap only after validating an upstream Starlette release that contains the TestClient fix.
+
+Do **not** treat either SHA above as the forever-current `main`. At every new session, resolve `refs/heads/main` first and verify open PRs/CI before creating new work.
+
+There is no product feature work intentionally left open at this checkpoint. Historical feature branches remain in the repository, but they must not be treated as active work merely because their refs still exist. `feature/family-catalog-and-profile-editing` is an ancestor of the pre-rebaseline `main` and its work is already integrated.
 
 Do not resume from an old feature branch. New work starts from the exact current `main` after reconfirming the ref.
 
@@ -168,7 +178,8 @@ The following lines of work are considered integrated/closed for planning purpos
 - preferences and diverse recommendation ranking;
 - family catalogue/profile editing;
 - automatic meal-intelligence refinements present in current `main`;
-- current future-planning demo-test stabilization.
+- future-planning demo-test stabilization;
+- CI dependency-resolution stabilization recorded in PR #36.
 
 Do not reopen these as standalone roadmap items unless a concrete regression or new requirement appears.
 
