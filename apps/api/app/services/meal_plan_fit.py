@@ -530,9 +530,7 @@ def evaluate_meal_plan_fit(
         status = "conflict"
     elif safety_issues or mandatory_fail:
         status = "fail"
-    elif mandatory_unknown:
-        status = "unknown"
-    elif fit_score is None:
+    elif mandatory_unknown or fit_score is None:
         status = "unknown"
     elif fit_score == ONE and not any(
         result.status in {"fail", "unknown"}
