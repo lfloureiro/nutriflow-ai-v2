@@ -17,6 +17,7 @@ from app.models.meal import MealParticipant
 from app.models.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 from app.models.nutrition_constraint import NutritionConstraint
 from app.models.nutrition_goal import NutritionGoal
+from app.models.nutrition_plan import NutritionPlan
 from app.models.nutrition_target import NutritionTarget
 from app.models.person_profile import PersonProfile
 from app.models.recommendation_feedback import MealRecommendationRun
@@ -77,6 +78,12 @@ class Person(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="person",
         cascade="all, delete-orphan",
         order_by=NutritionConstraint.created_at,
+    )
+
+    nutrition_plans: Mapped[list[NutritionPlan]] = relationship(
+        back_populates="person",
+        cascade="all, delete-orphan",
+        order_by=lambda: (NutritionPlan.lineage_id, NutritionPlan.version),
     )
 
     food_preferences: Mapped[list[FoodPreference]] = relationship(
