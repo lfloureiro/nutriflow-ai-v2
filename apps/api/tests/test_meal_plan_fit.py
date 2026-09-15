@@ -56,9 +56,9 @@ def _dish(db_session: Session, person: Person) -> FoodCompositionSnapshot:
     )
     composition = FoodCompositionSnapshot(
         food_item=food,
-        reference_quantity=Decimal("100"),
+        reference_quantity=Decimal(100),
         reference_unit="g",
-        energy_kcal=Decimal("220"),
+        energy_kcal=Decimal(220),
         data_version="fit-test-v1",
         source="user",
         effective_at=datetime(2026, 9, 15, 12, 0, tzinfo=UTC),
@@ -67,12 +67,12 @@ def _dish(db_session: Session, person: Person) -> FoodCompositionSnapshot:
         [
             FoodNutrientComponent(
                 nutrient_key="protein",
-                value=Decimal("30"),
+                value=Decimal(30),
                 unit="g",
             ),
             FoodNutrientComponent(
                 nutrient_key="sodium",
-                value=Decimal("400"),
+                value=Decimal(400),
                 unit="mg",
             ),
         ]
@@ -100,7 +100,7 @@ def _activate_lunch_protein_plan(db_session: Session, person: Person) -> None:
         target_type="nutrient",
         target_key="protein",
         operator="min",
-        value_min=Decimal("25"),
+        value_min=Decimal(25),
         unit="g",
         severity="required",
         is_mandatory=True,
@@ -134,7 +134,7 @@ def _daily_sodium_limit(db_session: Session, person: Person) -> None:
             target_type="nutrient",
             target_key="sodium",
             operator="max",
-            value_max=Decimal("1000"),
+            value_max=Decimal(1000),
             unit="mg",
             severity="required",
             is_mandatory=True,
@@ -150,17 +150,17 @@ def _daily_state(db_session: Session, person: Person) -> DailyNutritionState:
         person_id=person.id,
         state_date=date(2026, 9, 15),
         timezone="Europe/Lisbon",
-        energy_consumed_kcal=Decimal("500"),
-        energy_planned_kcal=Decimal("0"),
-        energy_assumed_kcal=Decimal("0"),
+        energy_consumed_kcal=Decimal(500),
+        energy_planned_kcal=Decimal(0),
+        energy_assumed_kcal=Decimal(0),
         calculation_version="plan-fit-test-v1",
     )
     state.components.append(
         DailyNutritionStateComponent(
             target_type="nutrient",
             target_key="sodium",
-            consumed_value=Decimal("700"),
-            planned_value=Decimal("0"),
+            consumed_value=Decimal(700),
+            planned_value=Decimal(0),
             unit="mg",
         )
     )
@@ -177,7 +177,7 @@ def _request(composition: FoodCompositionSnapshot, state_id=None) -> MealPlanFit
         candidate=MealRecommendationCandidateInput(
             candidate_kind="food_item",
             composition_id=composition.id,
-            quantity=Decimal("100"),
+            quantity=Decimal(100),
             quantity_unit="g",
         ),
     )
