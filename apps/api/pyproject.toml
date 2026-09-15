@@ -20,6 +20,9 @@ dev = [
     "pytest>=8.0,<10.0",
     "pytest-asyncio>=0.25,<2.0",
     "httpx2>=2.0,<3.0",
+    # Starlette 1.6.0 TestClient still imports the deprecated anyio.abc.BlockingPortal alias.
+    # Keep warnings-as-errors strict and cap the test dependency until Starlette ships the fix.
+    "anyio>=4.10,<4.15",
     "ruff>=0.12,<1.0"
 ]
 
