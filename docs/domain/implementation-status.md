@@ -2,18 +2,20 @@
 
 `docs/development-continuity.md` is the handover entry point. This file summarizes the integrated domain baseline and the next planned capability block.
 
-## Current integrated baseline
+## Integrated baseline at rebaseline
 
-Current verified `main` at the documentation rebaseline point:
+The documentation/CI rebaseline in PR #36 started from:
 
 ```text
-main SHA:    cbb09ad1d5e079e6b73ada2ebcc25999b80eca9c
-schema head: a8f2c6d4e1b9
-API CI:      success on exact main SHA
-Web CI:      success on exact main SHA
+pre-rebaseline main SHA: cbb09ad1d5e079e6b73ada2ebcc25999b80eca9c
+schema head:             a8f2c6d4e1b9
 ```
 
-There is no open pull request representing unfinished product work at this checkpoint. Old feature branches are historical refs unless a new PR explicitly reactivates them.
+The exact PR head that closes the rebaseline dependency fix was validated with both API and Web CI. The schema is unchanged. Resolve the current `main` ref directly at the start of every later session rather than treating the SHA above as permanently current.
+
+Fresh CI exposed a test-environment dependency drift: Starlette 1.6.0's TestClient still imports a deprecated AnyIO alias, while this project treats warnings as errors. The development/test dependency is therefore capped at `anyio>=4.10,<4.15` until an upstream Starlette release containing the TestClient fix is explicitly validated. The warning itself is not suppressed.
+
+There is no product feature work intentionally left open at this checkpoint. Old feature branches are historical refs unless a new PR explicitly reactivates them.
 
 ## Implemented domain capabilities
 
