@@ -8,6 +8,7 @@ from app.development_breakfast_seed import seed_development_breakfast_catalog
 from app.development_legacy_recipe_planning_seed import (
     seed_development_legacy_recipe_planning_catalog,
 )
+from app.development_plan_fit_seed import seed_development_plan_fit
 from app.development_planning_profile_seed import seed_development_planning_profiles
 from app.development_snack_seed import seed_development_snack_catalog
 from app.legacy_v1_loureiro_seed import seed_loureiro_v1_snapshot
@@ -63,6 +64,7 @@ def main() -> None:
             session,
             families=(demo_family, loureiro_family),
         )
+        plan_fit = seed_development_plan_fit(session, person_id=demo.person_id)
         _remove_fake_commercial_browser_data(session)
         planning = seed_development_planning_profiles(session, family=demo_family)
         session.commit()
@@ -83,6 +85,8 @@ def main() -> None:
     print(f"New shared snack ingredients: {snacks.new_ingredient_count}")
     print(f"Demo nutrition targets: {nutrition.target_count}")
     print(f"Demo calorie budget states: {nutrition.state_count}")
+    print(f"Demo Plan-Fit plan: {plan_fit.plan_id}")
+    print(f"Demo Plan-Fit rules: {plan_fit.rule_count}")
     print("Família Loureiro meal sources: shared recipes + live restaurants")
     print("Commercial demo providers: removed/disabled")
     print(f"Planning profiles: {planning.profile_count}")

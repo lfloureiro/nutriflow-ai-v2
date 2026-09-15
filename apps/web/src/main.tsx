@@ -17,6 +17,7 @@ import "./pantry-shopping.css";
 import "./recommendation-planner.css";
 import "./recommendation-nutrition-budget.css";
 import "./recipe-preferences.css";
+import "./meal-plan-fit.css";
 import "./visual-polish.css";
 import { ThemeProvider } from "./theme";
 
