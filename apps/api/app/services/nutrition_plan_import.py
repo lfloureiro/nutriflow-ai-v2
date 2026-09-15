@@ -2,6 +2,7 @@ import re
 import uuid
 from decimal import Decimal
 
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -27,7 +28,16 @@ class NutritionPlanImportError(ValueError):
 
 
 _MEAL_MARKERS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("breakfast", ("breakfast", "pequeno-almoço", "pequeno almoco", "pequeno-almoco")),
+    (
+        "breakfast",
+        (
+            "breakfast",
+            "pequeno-almoço",
+            "pequeno almoço",
+            "pequeno almoco",
+            "pequeno-almoco",
+        ),
+    ),
     ("lunch", ("lunch", "almoço", "almoco")),
     ("snack", ("snack", "lanche")),
     ("dinner", ("dinner", "jantar")),
@@ -469,32 +479,41 @@ def _get_proposal(
     return proposal
 
 
-def _proposal_create_model(proposal: NutritionPlanImportProposal) -> NutritionPlanImportProposalCreate:
-    return NutritionPlanImportProposalCreate(
-        source_statement=proposal.source_statement,
-        proposal_type=proposal.proposal_type,
-        target_type=proposal.target_type,
-        target_key=proposal.target_key,
-        operator=proposal.operator,
-        value_min=proposal.value_min,
-        value_max=proposal.value_max,
-        value_target=proposal.value_target,
-        unit=proposal.unit,
-        description=proposal.description,
-        meal_type=proposal.meal_type,
-        period=proposal.period,
-        minimum_occurrences=proposal.minimum_occurrences,
-        maximum_occurrences=proposal.maximum_occurrences,
-        severity=proposal.severity,
-        is_mandatory=proposal.is_mandatory,
-        priority=proposal.priority,
-        valid_from=proposal.valid_from,
-        valid_until=proposal.valid_until,
-        confidence=proposal.confidence,
-        confirmation_status=proposal.confirmation_status,
-        parser_note=proposal.parser_note,
-        review_notes=proposal.review_notes,
-    )
+def _proposal_payload(proposal: NutritionPlanImportProposal) -> dict[str, object]:
+    return {
+        "source_statement": proposal.source_statement,
+        "proposal_type": proposal.proposal_type,
+        "target_type": proposal.target_type,
+        "target_key": proposal.target_key,
+        "operator": proposal.operator,
+        "value_min": proposal.value_min,
+        "value_max": proposal.value_max,
+        "value_target": proposal.value_target,
+        "unit": proposal.unit,
+        "description": proposal.description,
+        "meal_type": proposal.meal_type,
+        "period": proposal.period,
+        "minimum_occurrences": proposal.minimum_occurrences,
+        "maximum_occurrences": proposal.maximum_occurrences,
+        "severity": proposal.severity,
+        "is_mandatory": proposal.is_mandatory,
+        "priority": proposal.priority,
+        "valid_from": proposal.valid_from,
+        "valid_until": proposal.valid_until,
+        "confidence": proposal.confidence,
+        "confirmation_status": proposal.confirmation_status,
+        "parser_note": proposal.parser_note,
+        "review_notes": proposal.review_notes,
+    }
+
+
+def _validate_proposal_payload(payload: dict[str, object]) -> None:
+    try:
+        NutritionPlanImportProposalCreate(**payload)
+    except ValidationError as exc:
+        first_error = exc.errors()[0]
+        message = str(first_error.get("msg", "Invalid proposal shape"))
+        raise NutritionPlanImportError(f"Invalid nutrition plan import proposal: {message}.") from exc
 
 
 def update_nutrition_plan_import_proposal(
@@ -514,10 +533,13 @@ def update_nutrition_plan_import_proposal(
         raise NutritionPlanImportError("Materialized proposals are immutable.")
 
     changes = data.model_dump(exclude_unset=True)
+    candidate = _proposal_payload(proposal)
+    candidate.update(changes)
+    _validate_proposal_payload(candidate)
+
     for field, value in changes.items():
         setattr(proposal, field, value)
 
-    _proposal_create_model(proposal)
     db.commit()
     db.refresh(proposal)
     return proposal
@@ -528,7 +550,7 @@ def _validate_confirmed_proposal(proposal: NutritionPlanImportProposal) -> None:
         raise NutritionPlanImportError(
             f"Confirmed proposal {proposal.id} is still unclassified; edit or reject it first."
         )
-    _proposal_create_model(proposal)
+    _validate_proposal_payload(_proposal_payload(proposal))
 
 
 def _materialize_numeric_rule(
