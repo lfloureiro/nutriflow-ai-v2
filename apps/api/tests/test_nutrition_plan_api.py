@@ -66,7 +66,7 @@ def test_nutrition_plan_api_lifecycle_and_effective_plan(db_session: Session) ->
                 target_type="nutrient",
                 target_key="protein",
                 operator="min",
-                value_min=Decimal("50"),
+                value_min=Decimal(50),
                 unit="g",
                 severity="required",
                 is_mandatory=True,
