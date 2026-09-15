@@ -65,12 +65,18 @@ class NutritionPlanImportProposalCreate(_ValidityModel):
 
     @model_validator(mode="after")
     def validate_shape(self) -> "NutritionPlanImportProposalCreate":
-        if self.value_min is not None and self.value_max is not None:
-            if self.value_max < self.value_min:
-                raise ValueError("value_max must be >= value_min")
-        if self.minimum_occurrences is not None and self.maximum_occurrences is not None:
-            if self.maximum_occurrences < self.minimum_occurrences:
-                raise ValueError("maximum_occurrences must be >= minimum_occurrences")
+        if (
+            self.value_min is not None
+            and self.value_max is not None
+            and self.value_max < self.value_min
+        ):
+            raise ValueError("value_max must be >= value_min")
+        if (
+            self.minimum_occurrences is not None
+            and self.maximum_occurrences is not None
+            and self.maximum_occurrences < self.minimum_occurrences
+        ):
+            raise ValueError("maximum_occurrences must be >= minimum_occurrences")
         if self.proposal_type == "numeric_rule":
             if not self.target_type or not self.target_key or not self.operator:
                 raise ValueError("numeric_rule requires target_type, target_key and operator")
