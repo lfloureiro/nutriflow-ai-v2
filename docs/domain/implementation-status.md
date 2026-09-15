@@ -1,301 +1,222 @@
 # Domain implementation status
 
-`docs/development-continuity.md` is the handover entry point. This file summarizes the implemented domain baseline and the next planned capability block.
+`docs/development-continuity.md` is the handover entry point. This file summarizes the current domain baseline and the next planned capability.
 
-## Current domain baseline
-
-Nutrition Plan / Guidance has now completed the first three roadmap capabilities:
+## Current Nutrition Plan chain
 
 ```text
-NutritionPlan domain/provenance                     implemented in PR #37
-EffectiveNutritionPlan compiler                    foundation implemented in PR #37
-Plan text import + explicit review/confirmation    implemented in PR #38
+NutritionPlan domain/provenance                    IMPLEMENTED
+EffectiveNutritionPlan compiler                   FOUNDATION IMPLEMENTED
+Plan text import + explicit review/confirmation   IMPLEMENTED
+MealPlanFit candidate evaluation                  IMPLEMENTED v1
+Structured Meal Transformation                    NEXT
 ```
 
-Schema progression:
+Current schema head remains:
 
 ```text
-a8f2c6d4e1b9 -> b9e3f7c1d4a6 -> c1f4a8d2e6b9
+c1f4a8d2e6b9
 ```
 
-PR #37 merged into `main` as `ff53a7b6f3dbb9d9acfbab6ef544ff61b7c71faa`. PR #38 was validated on code head `b283164bcd16bdcffacb47a32e0ca7e7138aa84c` with API and Web CI success; validate the exact final documentation head again before merge.
+MealPlanFit is calculation-only in v1, so Phase 4 adds no database migration.
 
-Resolve the current `main` ref directly at the start of every later session rather than treating any SHA here as permanently current.
-
-The development/test dependency remains capped at `anyio>=4.10,<4.15` until an upstream Starlette TestClient release removes the deprecated AnyIO alias while preserving this project's warnings-as-errors policy.
-
-## Implemented domain capabilities
-
-### Family, Person and profile state
+## Person, Family and health context
 
 Implemented:
 
 - Family and Person;
-- editable Family settings and timezone;
-- PersonProfile and editable energy-profile inputs;
-- historical AnthropometricMeasurement records;
+- editable Person profile and energy inputs;
+- anthropometric history;
 - NutritionGoal history;
-- versioned NutritionTarget snapshots and extensible target components;
-- NutritionConstraint rules with source/provenance, severity, mandatory/advisory semantics and validity dates;
-- FoodPreference records and Person/Recipe preference/rating signals;
-- FoodAdverseReaction records;
-- ScheduleEntry planning context;
-- HealthConnection and HealthMeasurement foundations;
+- versioned NutritionTarget components;
+- NutritionConstraint with provenance/severity/mandatory semantics;
+- FoodPreference and adverse-reaction evidence;
+- ScheduleEntry context;
+- HealthConnection / HealthMeasurement foundations;
 - DailyHealthState and DailyNutritionState snapshots.
 
-### Nutrition Plan / Guidance
-
-Implemented foundation:
-
-- Person-scoped `NutritionPlan` identity;
-- stable lineage plus positive versioning and explicit supersession provenance;
-- lifecycle states `draft`, `active`, `inactive`, `superseded`;
-- source/provenance for nutritionist, clinician, user, imported and NutriFlow/system guidance;
-- original source text/reference retention;
-- plan validity dates;
-- draft-only content mutation and active-plan immutability;
-- version cloning of rule bindings and guidelines;
-- historical applicability when a future version supersedes an older version;
-- typed `NutritionPlanRule` binding to existing `NutritionConstraint`, `NutritionTargetComponent` or `NutritionGoal`;
-- meal-context scope and local rule priority;
-- plan-only vs independently applicable rule semantics;
-- `NutritionPlanGuideline` for qualitative and weekly-frequency guidance;
-- proposed/confirmed/rejected guideline state;
-- deterministic `EffectiveNutritionPlan` compilation for Person + date + meal type;
-- professional/user/imported/system ordering without silent rule deletion;
-- mandatory-before-advisory ordering;
-- explicit numeric-range conflict reporting;
-- preservation of plan-bound target/goal snapshot semantics across later global energy-profile recalculation;
-- Person-scoped plan/version/rule/guideline APIs;
-- effective-plan API contract;
-- migration, model/service/API tests, domain documentation and ADR-035.
-
-### Nutrition Plan import and confirmation
-
-Implemented in PR #38:
-
-- `NutritionPlanImportSession` for one Person and one new draft NutritionPlan;
-- parser name/version, exact source text and import lifecycle `review | applied | cancelled`;
-- `NutritionPlanImportProposal` with verbatim source statement, interpretation fields, confidence, parser note and review notes;
-- proposal types `numeric_rule`, `qualitative_guideline`, `frequency_guideline`, `unclassified`;
-- review states `proposed`, `confirmed`, `rejected`;
-- deterministic conservative parser v1 for common PT/EN nutrient values/ranges, meal scope, weekly frequencies and qualitative directives;
-- explicit fallback to `unclassified` when no safe interpretation exists;
-- manual proposal addition/editing during review;
-- candidate-state validation before ORM mutation so invalid partial edits fail atomically;
-- all proposals must be explicitly confirmed/rejected before apply;
-- confirmed unclassified proposals cannot be applied until edited or rejected;
-- confirmed numeric proposals materialize as `NutritionConstraint + NutritionPlanRule`;
-- confirmed qualitative/frequency proposals materialize as normal confirmed `NutritionPlanGuideline` rows;
-- professional/user provenance and source statement preserved through materialization;
-- imported constraints bound with `applies_outside_plan=False`, preventing double counting in EffectiveNutritionPlan;
-- apply leaves the NutritionPlan draft; activation remains a separate explicit operation;
-- Person-scoped import list/create/read, proposal add/update, apply and cancel APIs;
-- service and API tests covering parser, review gate, atomic invalid edit, materialization, activation and EffectiveNutritionPlan output;
-- ADR-036 and `docs/domain/nutrition-plan-import-review.md`;
-- schema revision `c1f4a8d2e6b9`.
-
-Deferred import adapters:
-
-- PDF/document/photo extraction;
-- LLM-assisted parser implementation;
-- frontend review screen under Person -> Nutrição -> Plano.
-
-All future parser technologies must feed the same staged proposal contract and must not bypass explicit review.
-
-### Catalogue and recipe evidence
+## Nutrition Plan / Guidance
 
 Implemented:
 
-- Family-owned and shared FoodItem catalogue;
-- versioned FoodCompositionSnapshot nutrition evidence;
-- nutrient components and explicit provenance;
-- ingredient nutrition-quality/readiness states;
-- Recipe CRUD/lifecycle;
-- ordered RecipeIngredient editing;
-- deterministic recipe nutrition calculation;
-- versioned RecipeCompositionSnapshot provenance;
-- exact blocking evidence for incomplete recipe nutrition;
-- safe unit conversion only; no invented density;
-- legacy/demo synthetic nutrition explicitly distinguished from ingredient-calculated or imported evidence;
-- FoodData Central/enrichment service foundations.
+- versioned Person-scoped NutritionPlan lineage and lifecycle;
+- source/provenance and original source text/reference;
+- draft-only editing and immutable active plan content;
+- NutritionPlanRule bindings to constraints, target components and goals;
+- meal scope, priority, date validity and source statement;
+- NutritionPlanGuideline for qualitative/frequency guidance;
+- deterministic EffectiveNutritionPlan compilation for Person/date/meal type;
+- source/mandatory ordering without silent rule deletion;
+- numeric conflict reporting;
+- reviewed text import through NutritionPlanImportSession/Proposal;
+- conservative PT/EN deterministic parser v1;
+- explicit proposed/confirmed/rejected review gate;
+- `unclassified` ambiguity preservation;
+- confirmed proposal materialization into draft plan content;
+- separate explicit activation after import apply.
 
-### Meals, portions and planning
+Deferred plan ingestion:
+
+- PDF/photo/document extraction;
+- LLM-assisted parser adapter;
+- focused browser import/review UI.
+
+## Meal Plan-Fit v1
+
+Implemented in PR #39:
+
+- one server-authoritative evaluator for FoodItem and Recipe candidates;
+- input reuses recommendation candidate identity: composition snapshot + quantity/unit;
+- existing versioned composition scaling and safe unit conversion are reused;
+- EffectiveNutritionPlan is the rule source;
+- meal-scoped numeric guidance is compared directly with candidate evidence;
+- candidate-level exclusions are evaluated from normalized candidate subjects;
+- global nutrient guidance is treated as daily context rather than a per-meal target;
+- DailyNutritionState can be supplied explicitly or auto-selected for Person/date;
+- projected daily totals include existing state plus candidate contribution;
+- daily minimum/range rules can return `support` when a meal improves progress without completing the day;
+- mandatory daily rules with missing context/evidence fail closed as `unknown`;
+- mandatory adverse reactions remain independent hard gates;
+- mandatory plan conflicts block eligibility;
+- overall status is independent from numeric score;
+- fit score is 0..1 over scored candidate/meal numeric rules only;
+- qualitative/frequency guidance is returned visibly as `not_evaluated` rather than guessed;
+- source/provenance is preserved in each result;
+- no provider-specific scoring semantics.
+
+API:
+
+```text
+POST /api/persons/{person_id}/meal-plan-fit
+```
+
+Web test surface:
+
+```text
+Pessoas -> <Person> -> Nutrição -> Adequação ao plano
+```
+
+The panel selects meal type, Recipe and portion and renders fit score, eligibility, active plans, rule results, projected daily totals, conflicts, safety blocks and unscored guidance.
+
+Development seed provides an active breakfast plan for the technical demo Person:
+
+```text
+protein >= 15 g  mandatory
+fiber   >= 6 g   advisory
+prefer whole fruit  qualitative/unscored
+```
+
+The development breakfast catalogue provides contrasting recipes so a user can immediately compare a fitting and non-fitting candidate.
+
+Decision record: `docs/decisions/ADR-037-meal-plan-fit-evaluation.md`.
+
+## Catalogue and recipe evidence
 
 Implemented:
 
-- fixed normal meal types: `breakfast`, `lunch`, `snack`, `dinner`;
-- Family-scoped MealEvent;
-- MealParticipant associations;
-- Person-specific Serving records;
-- planned/served/consumed quantities and nutrition;
-- Serving nutrition provenance;
-- Today/Week Family planner;
-- editable/replaced/cancelled planned meals;
-- idempotent planned-meal materialization;
-- immutable historical serving evidence;
-- deterministic DailyNutritionState recalculation from authoritative Serving history.
+- Family/shared FoodItem catalogue;
+- versioned FoodCompositionSnapshot and nutrients;
+- Recipe / RecipeIngredient;
+- deterministic recipe composition calculation;
+- versioned RecipeCompositionSnapshot;
+- explicit nutrition provenance/readiness;
+- safe conversions only; missing evidence remains unknown.
 
-### Pantry and shopping
+## Meals and household operations
 
 Implemented:
 
-- quantity-aware PantryStockLot;
-- expiry and active/inactive stock semantics;
-- Recipe ingredient sufficiency;
+- MealEvent + MealParticipant + Person-specific Serving;
+- fixed meal types breakfast/lunch/snack/dinner;
+- Today/Week family planner;
+- planned-meal replacement/idempotency;
+- immutable historical serving nutrition evidence;
+- deterministic DailyNutritionState recalculation;
+- pantry stock and expiry;
 - aggregate planned ingredient requirements;
-- pantry subtraction after aggregate requirement calculation;
-- durable ShoppingList and ShoppingListItem;
-- automatic shortage items and manual household items;
-- needed/purchased lifecycle;
-- explicit unsafe/incomplete conversion issues.
+- durable shopping lists/items.
 
-### Recommendation engine
+## Recommendation foundation
 
 Implemented:
 
-- deterministic hard-rule-first ranking;
-- fail-closed handling where mandatory nutrient evidence is missing;
-- existing nutrition-fit scoring;
-- Person preferences and Family aggregate preference;
-- practical-context filtering from schedule/location/preparation/kitchen context;
-- shared-family recommendation with per-Person hard-rule evaluation;
-- persisted MealRecommendationRun and MealRecommendationOption;
-- append-only accepted/rejected/modified feedback;
-- materialization of accepted/modified recommendations into normal MealEvent/Serving records;
-- history/diversity scoring;
-- strong recent-repeat penalties;
-- category balance and protein rotation;
-- meal-type suitability and auto-plan eligibility;
-- calorie-aware and feedback-learning refinements;
-- explainable score breakdowns.
+- hard-rule-first recommendation ranking;
+- fail-closed mandatory evidence handling;
+- legacy nutrition-fit score;
+- preferences and Family aggregate preference;
+- practical schedule/location/preparation context;
+- shared-family recommendation with per-Person safety;
+- persisted runs/options/feedback/decisions;
+- diversity/history/repeat penalties;
+- meal suitability and calorie-aware refinements.
 
-Phase 4 must inspect and reuse this existing nutrition/hard-rule logic rather than build a competing evaluator. The target is one EffectiveNutritionPlan-aware MealPlanFit contract that can later feed recommendation ranking.
+Important next integration rule: recommendation ranking must progressively consume MealPlanFit instead of allowing its legacy nutrition-rule evaluation to evolve independently. Preference/practical/diversity scoring remains a distinct layer.
 
-### Restaurant, delivery and external meals
+## Restaurant and delivery foundation
 
-Implemented platform abstractions:
+Implemented abstractions:
 
-- `MealCandidateAvailability` for `home`, `pantry`, `restaurant`, `delivery`, `store`;
+- `MealCandidateAvailability` for home, pantry, restaurant, delivery and store;
 - opening windows;
-- `MealCommercialOffer` with provider, price, delivery fee, minimum order and validity metadata;
-- provider capability/configuration separation;
-- external menu ingestion that normalizes a commercial dish into FoodItem + optional FoodCompositionSnapshot + availability + offer;
-- external items enter nutrition ranking only when composition evidence is present.
+- commercial offers with provider/price/fees/minimum order/validity;
+- external-menu normalization into FoodItem + optional composition + availability/offer.
 
-Provider-specific consumer discovery remains conditional on provider access/contracts. NutriFlow nutrition and Plan-Fit logic remains provider-agnostic.
-
-### Web product baseline
-
-Implemented information architecture direction:
-
-```text
-Início
-Refeições
-Pessoas
-Casa
-Mais
-```
-
-with progressive disclosure and focused screens rather than dashboard-heavy pages.
-
-Key areas include:
-
-```text
-Refeições -> Hoje | Semana | Recomendar
-Casa      -> Receitas | Ingredientes | Despensa | Compras | Preferências
-Pessoas   -> Visão geral | Nutrição | Atividade | Saúde | Histórico | Perfil
-```
-
-Nutrition Plan belongs under:
-
-```text
-Pessoas -> <Person> -> Nutrição -> Plano
-```
+Future restaurant/delivery Plan-Fit must use the same normalized evaluator. Provider access/configuration remains outside nutrition scoring.
 
 ## Safety and correctness invariants
 
 Preserve:
 
-- adverse reactions and mandatory constraints before all ranking/ML;
-- active professional-plan content is immutable;
-- parser/AI output cannot become active guidance without explicit confirmation;
-- imported content remains draft after apply until separately activated;
-- missing mandatory evidence fails closed where required;
-- missing evidence is unknown, never zero-filled;
-- unsafe conversions are rejected rather than guessed;
-- versioned nutrition provenance;
-- historical Servings are never rewritten by catalogue changes;
-- Family isolation;
-- Person-specific portions within shared meals;
-- server-authoritative nutrition/planning calculations;
-- professional guidance source and priority preserved;
-- conflicts surfaced rather than silently resolved;
-- user rating remains distinct from recommendation score;
-- demo/synthetic evidence visibly distinct from trustworthy production evidence;
-- warnings are failures in validation.
-
-## Remaining Nutrition Plan capability chain
-
-```text
-NutritionPlan                                      IMPLEMENTED
--> EffectiveNutritionPlan                         FOUNDATION IMPLEMENTED
--> plan import/parser + confirmation              IMPLEMENTED
--> evaluate candidate meal against plan           NEXT
--> explain gaps                                   NEXT
--> propose safe meal transformations              PENDING
--> use same evaluation for home/restaurant/etc.   PENDING
-```
-
-The compiler returns applicable numeric rules, goals and confirmed guidelines with provenance/conflict information. The import layer now supplies reviewed structured plan content. Neither layer claims a meal satisfies the plan; candidate evidence belongs to Meal Plan-Fit.
+- adverse reactions and mandatory constraints before ranking/ML;
+- active professional-plan immutability;
+- explicit parser review before imported content becomes plan content;
+- separate explicit activation after import;
+- missing evidence is unknown, not zero;
+- unsafe conversion is rejected;
+- mandatory missing evidence/context fails closed when needed;
+- high fit score cannot override a hard failure or conflict;
+- daily targets are not naively treated as per-meal targets;
+- professional provenance is retained;
+- conflicts are surfaced;
+- Family isolation and Person-specific portions;
+- historical Serving evidence remains stable;
+- demo evidence is explicitly synthetic/development-only;
+- warnings are failures.
 
 ## Next development block
 
-Authoritative roadmap:
-
-`docs/vision/nutrition-plan-guidance-roadmap.md`
+After PR #39 is merged and browser-tested, proceed to structured Meal Transformation.
 
 Recommended branch:
 
 ```text
-feature/nutrition-plan-fit-evaluation
+feature/meal-transformation-proposals
 ```
 
-Target flow:
+Target contract:
 
 ```text
-Person + date + meal type
--> EffectiveNutritionPlan
-+ normalized Recipe/FoodItem candidate nutrition evidence
--> mandatory-rule evaluation
--> component comparisons
--> missing-evidence reporting
--> explainable MealPlanFit result
+candidate
+-> baseline MealPlanFit
+-> structured operations
+   ADD / REMOVE / REDUCE / INCREASE / SWAP / CHANGE_COOKING_METHOD / CHANGE_PORTION
+-> recalculated candidate evidence
+-> resulting MealPlanFit
+-> explain eligibility/score delta
 ```
 
-Requirements:
-
-- reuse current hard-rule/nutrition-fit logic where semantics match;
-- one evaluator for recipes, home/pantry items and future restaurant/delivery candidates;
-- mandatory failure must never be hidden by an average score;
-- missing evidence must remain unknown, not zero;
-- score is secondary to explanation;
-- source/provenance should be retained in rule-level explanations;
-- qualitative/frequency rules should only be evaluated when the candidate/context provides appropriate evidence;
-- no provider-specific scoring engine;
-- no meal transformation yet.
-
-Trustworthy catalogue enrichment remains a parallel enabling track because precise Plan-Fit and later transformation calculations require trustworthy composition evidence.
+Before or during that phase, factor recommendation nutrition-rule evaluation onto MealPlanFit so there is one nutrition-plan-aware evaluator rather than parallel scoring logic.
 
 ## Broader deferred limitations
 
 - production authentication / Family authorization;
-- automatic shopping-purchase -> pantry reconciliation;
-- fully trustworthy catalogue coverage;
-- production-grade consumer marketplace adapters where provider access exists;
+- shopping purchase -> pantry reconciliation;
+- trustworthy catalogue coverage is incomplete;
+- production consumer marketplace adapters depend on provider access;
 - PDF/photo/document and LLM plan parser adapters;
 - frontend plan import/review screen;
 - weekly frequency-progress calculation;
-- Meal Plan-Fit evaluator;
-- meal transformation engine;
-- production npm lockfile / `npm ci` hardening.
+- qualitative/frequency Plan-Fit scoring;
+- recommendation engine not yet consuming MealPlanFit directly;
+- Meal Transformation engine;
+- npm lockfile / `npm ci` production hardening.
