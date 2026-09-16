@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.schemas.meal_plan_fit import MealPlanFitRead
 from app.schemas.meal_type import MealType
-from app.services.meal_recommendation import ZERO, MealCandidate
+from app.services.meal_recommendation import ZERO, CandidateEvaluation, MealCandidate
 from app.services.meal_recommendation_plan_fit import (
     MealRecommendationPlanFitError,
     evaluate_candidate_plan_fits,
@@ -22,6 +22,7 @@ from app.services.shared_family_meal import (
     SharedMealCandidateProposal,
     SharedMealParticipantContext,
     SharedMealParticipantEvaluation,
+    SharedMealPortion,
     _build_candidate,
     _participant_exclusions,
     _portion_map,
@@ -31,18 +32,14 @@ from app.services.shared_family_meal import (
 )
 
 
-def _evaluate_participant(
+def _evaluate_participant_candidate(
     participant: SharedMealParticipantContext,
     candidate: MealCandidate,
     *,
     plan_fits: dict[str, MealPlanFitRead],
     planning_date: date,
     engine_version: str,
-) -> SharedMealParticipantEvaluation:
-    person_id = participant.person.id
-    if person_id is None:
-        raise SharedFamilyMealError("Shared-family participant is not persisted.")
-
+) -> CandidateEvaluation:
     if participant.practical_context is not None:
         result = recommend_meals_with_practical_context_and_plan_fit(
             candidates=[candidate],
@@ -68,15 +65,7 @@ def _evaluate_participant(
         raise SharedFamilyMealError(
             "Participant Plan-Fit recommendation must return exactly one candidate evaluation."
         )
-
-    return SharedMealParticipantEvaluation(
-        person=participant.person,
-        portion=next(
-            portion
-            for portion in ()
-        ),
-        evaluation=result.evaluations[0],
-    )
+    return result.evaluations[0]
 
 
 def recommend_shared_family_meals_with_plan_fit(
@@ -100,13 +89,7 @@ def recommend_shared_family_meals_with_plan_fit(
     }
 
     proposal_rows: list[
-        tuple[
-            str,
-            str,
-            str,
-            dict[uuid.UUID, object],
-            SharedMealCandidateProposal,
-        ]
+        tuple[str, str, str, dict[uuid.UUID, SharedMealPortion]]
     ] = []
     candidates_by_person: dict[uuid.UUID, list[MealCandidate]] = {
         person_id: [] for person_id in typed_participant_ids
@@ -129,9 +112,7 @@ def recommend_shared_family_meals_with_plan_fit(
             )
 
         portions = _portion_map(proposal, typed_participant_ids)
-        proposal_rows.append(
-            (candidate_key, candidate_name, candidate_kind, portions, proposal)
-        )
+        proposal_rows.append((candidate_key, candidate_name, candidate_kind, portions))
         for person_id, portion in portions.items():
             candidate = _build_candidate(proposal, portion)
             candidates_by_person[person_id].append(candidate)
@@ -158,44 +139,25 @@ def recommend_shared_family_meals_with_plan_fit(
             raise SharedFamilyMealError(str(exc)) from exc
 
     provisional: list[SharedMealCandidateEvaluation] = []
-    for candidate_key, candidate_name, candidate_kind, portions, _proposal in proposal_rows:
+    for candidate_key, candidate_name, candidate_kind, portions in proposal_rows:
         participant_evaluations: list[SharedMealParticipantEvaluation] = []
         for participant in participants:
             person_id = participant.person.id
             if person_id is None:
                 raise SharedFamilyMealError("Shared-family participant is not persisted.")
             candidate = candidates_by_person_and_key[(person_id, candidate_key)]
-            plan_fits = plan_fits_by_person[person_id]
-
-            if participant.practical_context is not None:
-                result = recommend_meals_with_practical_context_and_plan_fit(
-                    candidates=[candidate],
-                    plan_fits=plan_fits,
-                    preferences=list(participant.preferences),
-                    adverse_reactions=list(participant.adverse_reactions),
-                    planning_date=planning_date,
-                    practical_context=participant.practical_context,
-                    practical_profiles=participant.practical_profiles,
-                    engine_version=engine_version,
-                )
-            else:
-                result = recommend_meals_with_plan_fit(
-                    candidates=[candidate],
-                    plan_fits=plan_fits,
-                    preferences=list(participant.preferences),
-                    adverse_reactions=list(participant.adverse_reactions),
-                    planning_date=planning_date,
-                    engine_version=engine_version,
-                )
-            if len(result.evaluations) != 1:
-                raise SharedFamilyMealError(
-                    "Participant Plan-Fit recommendation must return exactly one candidate evaluation."
-                )
+            evaluation = _evaluate_participant_candidate(
+                participant,
+                candidate,
+                plan_fits=plan_fits_by_person[person_id],
+                planning_date=planning_date,
+                engine_version=engine_version,
+            )
             participant_evaluations.append(
                 SharedMealParticipantEvaluation(
                     person=participant.person,
                     portion=portions[person_id],
-                    evaluation=result.evaluations[0],
+                    evaluation=evaluation,
                 )
             )
 
