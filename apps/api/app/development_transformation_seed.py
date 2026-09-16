@@ -39,22 +39,22 @@ DEFINITIONS = (
     TransformationFoodDefinition(
         catalog_key="breakfast:ingredient:natural-yogurt",
         substitution_group="cultured-dairy-yogurt",
-        typical_quantity=Decimal("170"),
+        typical_quantity=Decimal(170),
         typical_unit="g",
-        energy_kcal=Decimal("105"),
+        energy_kcal=Decimal(105),
         protein_g=Decimal("6.5"),
-        fiber_g=Decimal("0"),
-        sodium_mg=Decimal("85"),
+        fiber_g=Decimal(0),
+        sodium_mg=Decimal(85),
     ),
     TransformationFoodDefinition(
         catalog_key="breakfast:ingredient:greek-yogurt",
         substitution_group="cultured-dairy-yogurt",
-        typical_quantity=Decimal("170"),
+        typical_quantity=Decimal(170),
         typical_unit="g",
-        energy_kcal=Decimal("135"),
-        protein_g=Decimal("17"),
-        fiber_g=Decimal("0"),
-        sodium_mg=Decimal("70"),
+        energy_kcal=Decimal(135),
+        protein_g=Decimal(17),
+        fiber_g=Decimal(0),
+        sodium_mg=Decimal(70),
     ),
 )
 
@@ -123,7 +123,10 @@ def seed_development_transformations(
     *,
     families: tuple[Family, ...],
 ) -> DevelopmentTransformationSeedResult:
-    items = {definition.catalog_key: _food(session, definition.catalog_key) for definition in DEFINITIONS}
+    items = {
+        definition.catalog_key: _food(session, definition.catalog_key)
+        for definition in DEFINITIONS
+    }
     for definition in DEFINITIONS:
         _ensure_composition(session, items[definition.catalog_key], definition)
 
