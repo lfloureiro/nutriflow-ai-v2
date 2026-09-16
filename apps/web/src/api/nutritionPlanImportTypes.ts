@@ -69,3 +69,14 @@ export interface NutritionPlanImportCreate {
   valid_from: string;
   valid_until: string | null;
 }
+
+export interface NutritionPlanDocumentExtraction {
+  filename: string;
+  content_type: string | null;
+  document_type: "pdf" | "docx" | "text";
+  source_text: string;
+  character_count: number;
+  extractor_name: string;
+  extractor_version: string;
+  warnings: string[];
+}

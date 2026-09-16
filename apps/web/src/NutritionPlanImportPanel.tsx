@@ -14,12 +14,13 @@ import type {
 } from "./api/nutritionPlanImportTypes";
 import { useI18n } from "./i18n";
 import { formatPlanFitNumber, planFitTargetLabel } from "./mealPlanFitPresentation";
+import NutritionPlanDocumentPicker from "./NutritionPlanDocumentPicker";
 import "./nutrition-plan-import.css";
 
 const COPY = {
   "pt-PT": {
     title: "Plano do nutricionista",
-    help: "Importa recomendações em texto, revê a interpretação e só depois as adiciona ao plano.",
+    help: "Importa recomendações de um documento ou texto, revê a interpretação e só depois as adiciona ao plano.",
     open: "Importar recomendações",
     close: "Fechar",
     planTitle: "Nome do plano",
@@ -27,7 +28,7 @@ const COPY = {
     reference: "Referência (opcional)",
     validFrom: "Válido desde",
     text: "Recomendações",
-    textHint: "Cola aqui o conteúdo do documento. PDF, Word e fotografia serão ligados a este mesmo fluxo numa etapa seguinte.",
+    textHint: "Podes corrigir o texto extraído antes de o interpretar. A fonte original continua identificada pela referência do ficheiro.",
     ai: "Interpretar com IA",
     deterministic: "Analisar sem IA",
     aiHint: "A IA apenas propõe uma estrutura. Nada é ativado sem a tua confirmação explícita.",
@@ -64,7 +65,7 @@ const COPY = {
   },
   en: {
     title: "Nutritionist plan",
-    help: "Import recommendations as text, review the interpretation, then add them to the plan.",
+    help: "Import recommendations from a document or text, review the interpretation, then add them to the plan.",
     open: "Import recommendations",
     close: "Close",
     planTitle: "Plan name",
@@ -72,7 +73,7 @@ const COPY = {
     reference: "Reference (optional)",
     validFrom: "Valid from",
     text: "Recommendations",
-    textHint: "Paste the document content here. PDF, Word and photo inputs will connect to this same flow next.",
+    textHint: "You can correct extracted text before interpreting it. The source file remains identified by the reference field.",
     ai: "Interpret with AI",
     deterministic: "Analyse without AI",
     aiHint: "AI only proposes structure. Nothing is activated without explicit confirmation.",
@@ -288,6 +289,13 @@ export default function NutritionPlanImportPanel({
               <input type="date" value={validFrom} onChange={(event) => setValidFrom(event.target.value)} />
             </label>
           </div>
+          <NutritionPlanDocumentPicker
+            personId={personId}
+            onExtracted={(extracted) => {
+              setSourceText(extracted.source_text);
+              if (!sourceReference.trim()) setSourceReference(extracted.filename);
+            }}
+          />
           <label className="field">
             <span>{copy.text}</span>
             <textarea value={sourceText} onChange={(event) => setSourceText(event.target.value)} />

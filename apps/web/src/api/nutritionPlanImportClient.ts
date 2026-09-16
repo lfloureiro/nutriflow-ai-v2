@@ -1,5 +1,6 @@
 import { ApiError, buildApiUrl } from "./client";
 import type {
+  NutritionPlanDocumentExtraction,
   NutritionPlanImportConfirmationStatus,
   NutritionPlanImportCreate,
   NutritionPlanImportProposal,
@@ -27,6 +28,26 @@ async function jsonRequest<T>(url: string, init: RequestInit): Promise<T> {
   });
   if (!response.ok) throw new ApiError(await errorMessage(response), response.status);
   return (await response.json()) as T;
+}
+
+export async function extractNutritionPlanDocument(
+  personId: string,
+  file: File,
+): Promise<NutritionPlanDocumentExtraction> {
+  const body = new FormData();
+  body.append("document", file);
+  const response = await fetch(
+    buildApiUrl(
+      `/api/persons/${encodeURIComponent(personId)}/nutrition-plan-imports/extract-document`,
+    ),
+    {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      body,
+    },
+  );
+  if (!response.ok) throw new ApiError(await errorMessage(response), response.status);
+  return (await response.json()) as NutritionPlanDocumentExtraction;
 }
 
 export function createNutritionPlanImport(

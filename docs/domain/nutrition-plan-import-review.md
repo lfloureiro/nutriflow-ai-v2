@@ -2,22 +2,53 @@
 
 ## Purpose
 
-This layer turns pasted nutrition-plan text into reviewable structured proposals without allowing parser output to become active guidance automatically.
+This layer turns pasted or extracted nutrition-plan text into reviewable structured proposals without allowing parser output to become active guidance automatically.
 
 The source plan and NutriFlow interpretation remain separate until the user explicitly confirms each proposal.
+
+Document upload is an input adapter to this same boundary. It does not create professional guidance directly.
 
 ## Flow
 
 ```text
 paste plan text
+or upload PDF / DOCX / TXT / Markdown
+-> extract editable source text when a file is used
 -> create draft NutritionPlan
 -> create NutritionPlanImportSession
--> deterministic parser creates proposals
+-> deterministic or AI parser creates proposals
 -> user edits / confirms / rejects every proposal
 -> apply confirmed proposals
 -> resulting NutritionPlan remains draft
 -> user separately activates NutritionPlan
 ```
+
+## Document extraction
+
+The document adapter currently supports:
+
+```text
+PDF   selectable text only
+DOCX  paragraphs + table cell text
+TXT   UTF-8 text
+MD    UTF-8 Markdown text
+```
+
+Server-side limits are deliberately bounded:
+
+```text
+maximum upload size       10 MB
+maximum PDF pages         60
+maximum extracted text    100,000 characters
+```
+
+Extraction fails closed for unsupported, malformed, encrypted, empty and image-only/scanned documents. A scanned PDF is not silently accepted as an empty plan.
+
+The extraction endpoint returns text and source metadata only. The browser places the extracted text in the same editable source-text field used for pasted content so the user can correct extraction defects before interpretation.
+
+When the source-reference field is empty, the selected filename may be used as that reference.
+
+OCR/photo support is intentionally deferred. Any future OCR/vision adapter must return to this same editable text and review boundary.
 
 ## NutritionPlanImportSession
 
@@ -92,6 +123,12 @@ It currently recognizes common Portuguese/English forms for:
 
 Unknown statements are returned as `unclassified` with low confidence. Missing interpretation is visible; it is never converted to zero or invented data.
 
+## AI parser adapter
+
+AI interpretation is optional and emits the same `NutritionPlanImportProposal` contract as the deterministic parser.
+
+The AI adapter does not activate or materialize guidance. Every AI-generated proposal enters `proposed` state and remains subject to the same explicit review rules.
+
 ## Review rules
 
 While the import is in `review`:
@@ -137,6 +174,8 @@ Person-scoped endpoints:
 ```text
 GET  /api/persons/{person_id}/nutrition-plan-imports
 POST /api/persons/{person_id}/nutrition-plan-imports
+POST /api/persons/{person_id}/nutrition-plan-imports/ai
+POST /api/persons/{person_id}/nutrition-plan-imports/extract-document
 GET  /api/persons/{person_id}/nutrition-plan-imports/{import_id}
 POST /api/persons/{person_id}/nutrition-plan-imports/{import_id}/proposals
 PATCH /api/persons/{person_id}/nutrition-plan-imports/{import_id}/proposals/{proposal_id}
@@ -146,6 +185,6 @@ POST /api/persons/{person_id}/nutrition-plan-imports/{import_id}/cancel
 
 ## Future parser adapters
 
-PDF/document/photo extraction and LLM-assisted interpretation should feed exactly this proposal contract.
+OCR/photo extraction and future parser technologies must feed exactly this proposal contract.
 
-They must not create NutritionConstraint, NutritionTarget, NutritionGoal or active NutritionPlan records directly. The review boundary remains mandatory regardless of parser technology.
+They must not create NutritionConstraint, NutritionTarget, NutritionGoal or active NutritionPlan records directly. The review boundary remains mandatory regardless of extraction or parser technology.

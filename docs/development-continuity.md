@@ -4,29 +4,30 @@ This is the authoritative handover entry point for NutriFlow AI v2. Repository c
 
 ## Repository checkpoint
 
-Nutrition Plan / Guidance has progressed through these capability blocks:
+Nutrition Plan / Guidance capability blocks:
 
 ```text
-PR #37  NutritionPlan + EffectiveNutritionPlan foundation
-PR #38  reviewed text import / confirmation boundary
-PR #39  deterministic Meal Plan-Fit evaluation + focused test UI
-PR #42  AI-assisted text interpretation + browser review UI
-PR #43  Structured Meal Transformation proposals                 IN PROGRESS
+PR #37  NutritionPlan + EffectiveNutritionPlan foundation                 MERGED
+PR #38  reviewed text import / confirmation boundary                      MERGED
+PR #39  deterministic Meal Plan-Fit evaluation + focused test UI          MERGED
+PR #42  AI-assisted text interpretation + browser review UI               MERGED
+PR #43  Structured Meal Transformation proposals                          MERGED
+PR #44  PDF/DOCX/TXT/Markdown text extraction into import review          IN PROGRESS
 ```
 
-Last confirmed merged `main` before PR #43:
+Confirmed `main` after PR #43:
 
 ```text
-83fbe4aa69f2adda7fb96be5df8c6be5d97598f3
+a2e9911698ed0d5c72f6bb6e68cc51df209c5b4d
 ```
 
-PR #43 was created from that exact main on branch:
+PR #44 was created from that exact main on branch:
 
 ```text
-feature/meal-transformation-proposals
+feature/nutrition-plan-document-extraction
 ```
 
-Its feature schema head is:
+PR #44 does not add a migration. The current schema head remains:
 
 ```text
 d2e6f1a9c4b7
@@ -47,7 +48,8 @@ Person / Family
 -> goals, targets, constraints
 -> versioned NutritionPlan
 -> EffectiveNutritionPlan per date + meal
--> source text -> proposed interpretations -> explicit review -> draft plan
+-> source text/document -> editable extracted text -> proposed interpretations
+-> explicit review -> draft plan -> separate activation
 -> FoodItem / Recipe composition evidence
 -> MealPlanFit for one candidate + portion
 -> Structured Meal Transformation proposals
@@ -69,6 +71,7 @@ Core plan/transformation docs:
 - `docs/decisions/ADR-037-meal-plan-fit-evaluation.md`
 - `docs/decisions/ADR-038-ai-assisted-nutrition-plan-import.md`
 - `docs/decisions/ADR-039-structured-meal-transformation-proposals.md`
+- `docs/decisions/ADR-040-nutrition-plan-document-extraction-feeds-review-boundary.md`
 
 ## Core invariants
 
@@ -81,6 +84,7 @@ Preserve these rules:
 - Active professional-plan content is immutable; substantive changes create a new version.
 - Source/provenance and original statements remain traceable.
 - Parser/AI interpretations never silently become active professional rules.
+- Document extraction is only an input adapter; extracted text must still cross the same review boundary.
 - Imported proposals must be explicitly confirmed/rejected before materialization; apply leaves the plan draft and activation stays separate.
 - Missing nutrition evidence is unknown, never silently zero.
 - Unsafe unit conversions are rejected rather than guessed.
@@ -112,8 +116,6 @@ Implemented NutritionPlanImportSession/Proposal staging, conservative determinis
 
 Implemented an optional AI interpretation adapter using structured output while preserving the same import/review boundary. AI output always enters as proposed content and requires explicit user confirmation/rejection. The deterministic parser remains available without AI configuration.
 
-The focused browser surface lives under the selected Person's Nutrition area. Text can be pasted and reviewed there.
-
 AI configuration:
 
 ```text
@@ -122,7 +124,40 @@ NUTRIFLOW_NUTRITION_PLAN_AI_MODEL   default: gpt-5.6-luna
 OPENAI_BASE_URL                     optional
 ```
 
-Deferred import work is now primarily PDF/photo/document extraction. Extracted text must feed the existing review flow rather than creating a second trust boundary.
+### PR #44 — document text extraction
+
+The import surface now accepts document upload before interpretation.
+
+Supported v1 inputs:
+
+```text
+PDF   selectable text
+DOCX  paragraphs and table text
+TXT   UTF-8
+MD    UTF-8 Markdown
+```
+
+Limits:
+
+```text
+10 MB upload
+60 PDF pages
+100,000 extracted characters
+```
+
+Flow:
+
+```text
+file upload
+-> server extraction
+-> editable source-text field
+-> deterministic or AI interpretation
+-> confirm/reject proposals
+-> apply to draft plan
+-> separate activation
+```
+
+Unsupported, encrypted, malformed, empty and image-only/scanned PDFs fail explicitly. OCR/photo support is deferred and must feed the same editable-text/review boundary.
 
 ### PR #39 — Meal Plan-Fit
 
@@ -159,21 +194,9 @@ Cereais com leite                         -> ~66.67%, blocked
 
 ## Phase 5 — Structured Meal Transformation
 
-PR #43 implements the first complete proposal slice.
+PR #43 is merged and implements the first complete proposal slice.
 
-### Persistence
-
-`FoodTransformationProfile` is Family-scoped and stores:
-
-- FoodItem;
-- explicit `substitution_group`;
-- optional typical quantity/unit;
-- enable flag;
-- source/source-reference provenance.
-
-This is transformation knowledge, not transformed Recipe persistence.
-
-### Proposal engine
+`FoodTransformationProfile` is Family-scoped and stores explicit FoodItem substitution-group knowledge, optional typical portions, enable state and provenance.
 
 Endpoint:
 
@@ -186,44 +209,25 @@ v1 flow:
 ```text
 Recipe + portion
 -> baseline MealPlanFit
--> find explicit same-group ingredient alternatives
--> derive replacement quantity from explicit typical portions
--> calculate virtual replacement nutrition
+-> explicit same-group ingredient alternatives
+-> replacement quantity from explicit typical portions
+-> virtual replacement nutrition
 -> after MealPlanFit
--> return only demonstrably improving proposals
+-> only demonstrably improving proposals
 ```
 
 A proposal can qualify because it resolves an eligibility block, improves meal Plan-Fit, or improves daily-rule progress. Mandatory safety/plan gates remain authoritative.
 
 v1 performs one `replace_ingredient` operation at a time. It does not mutate the source Recipe and does not persist the virtual variant.
 
-### Development example
-
-Explicit synthetic development evidence defines:
+Development example:
 
 ```text
-cultured-dairy-yogurt
-  natural yogurt  typical portion 170 g
-  Greek yogurt    typical portion 170 g
-```
-
-For `Iogurte, muesli e banana`:
-
-```text
+Iogurte, muesli e banana
 baseline ~= 96.67%, blocked by mandatory protein >= 15 g
 Iogurte natural 170 g -> Iogurte grego 170 g
 result = 100%, eligible
 ```
-
-The existing Plan-Fit panel adds progressive disclosure after evaluation:
-
-```text
-Avaliar
--> Sugerir melhoria
--> replacement card with before/after fit and mandatory-block resolution
-```
-
-Tests cover the deterministic service, HTTP endpoint and development seed idempotence.
 
 Deferred transformation work:
 
@@ -270,7 +274,7 @@ Casa      -> Receitas | Ingredientes | Despensa | Compras | Preferências
 Pessoas   -> Visão geral | Nutrição | Atividade | Saúde | Histórico | Perfil
 ```
 
-Nutrition Plan, plan import, Plan-Fit and transformation proposals live under the selected Person's Nutrition context; meal planning remains under Refeições.
+Nutrition Plan, plan import, document upload, Plan-Fit and transformation proposals live under the selected Person's Nutrition context; meal planning remains under Refeições.
 
 ## Roadmap state
 
@@ -280,15 +284,18 @@ Nutrition Plan, plan import, Plan-Fit and transformation proposals live under th
 2. EffectiveNutritionPlan compiler                                        FOUNDATION DONE
 3. Plan import/parser + explicit confirmation                             DONE
 3b. AI-assisted text interpretation + browser review                      DONE (v1)
+3c. PDF/DOCX/TXT/Markdown text extraction                                 DONE (v1, PR #44)
 4. Meal Plan-Fit evaluation/explanations                                  DONE (v1)
-5. Structured Meal Transformation proposals                               DONE (v1 slice, PR #43)
+5. Structured Meal Transformation proposals                               DONE (v1)
 6. Home/pantry/recipe recommendations consuming Plan-Fit                   NEXT
 7. Restaurant/delivery recommendations consuming the same Plan-Fit         PENDING
 8. Weekly adaptive planning + frequency progress                           PENDING
 9. Feedback/learning refinement                                            PENDING
 ```
 
-The immediate architectural priority after PR #43 is to stop legacy recommendation nutrition scoring from diverging from MealPlanFit. Nutrition eligibility/fit should come from MealPlanFit; practical availability, preference and diversity remain separate ranking layers.
+The immediate architectural priority after PR #44 is to stop legacy recommendation nutrition scoring from diverging from MealPlanFit. Nutrition eligibility/fit should come from MealPlanFit; practical availability, preference and diversity remain separate ranking layers.
+
+OCR/photo import is a parallel capability gap, not a reason to create a second plan-import trust boundary.
 
 ## Known broader limitations
 
@@ -297,7 +304,7 @@ The immediate architectural priority after PR #43 is to stop legacy recommendati
 - purchased ShoppingListItem does not automatically create PantryStockLot;
 - catalogue evidence quality is incomplete and remains visible;
 - consumer marketplace discovery depends on provider access/configuration;
-- PDF/photo/document extraction into plan import is deferred;
+- OCR/photo/scanned-PDF extraction into plan import is deferred;
 - weekly frequency progress is deferred;
 - qualitative/frequency automatic Plan-Fit evaluation is deferred;
 - recommendation ranking has not yet been refactored to consume MealPlanFit directly;
@@ -326,8 +333,9 @@ Never use `docker compose down -v` as a routine reset because the local PostgreS
 At a new session:
 
 1. resolve current `main`, open PRs and schema head;
-2. read this file plus ADR-035 through ADR-039 as relevant;
-3. if PR #43 remains open, validate exact-head API/Web CI, fix failures, verify mergeability and merge with expected head;
-4. reproduce the browser transformation demo after merge;
+2. read this file plus ADR-035 through ADR-040 as relevant;
+3. if PR #44 remains open, validate exact-head API/Web CI, verify mergeability and guarded-merge with expected head;
+4. reproduce browser document import and transformation demos after merge;
 5. next refactor home/pantry/Recipe recommendation nutrition evaluation onto MealPlanFit;
-6. keep provider-specific discovery outside the common nutrition evaluator.
+6. keep OCR/photo as an adapter into the same import review boundary;
+7. keep provider-specific discovery outside the common nutrition evaluator.
