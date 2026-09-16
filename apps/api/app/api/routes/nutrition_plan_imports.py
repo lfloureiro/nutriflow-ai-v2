@@ -1,10 +1,11 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.schemas.nutrition_plan_document import NutritionPlanDocumentExtractionRead
 from app.schemas.nutrition_plan_import import (
     NutritionPlanImportCreate,
     NutritionPlanImportProposalCreate,
@@ -15,6 +16,11 @@ from app.schemas.nutrition_plan_import import (
 from app.services.nutrition_plan_ai_import import (
     NutritionPlanAIImportError,
     create_ai_nutrition_plan_import,
+)
+from app.services.nutrition_plan_document import (
+    MAX_DOCUMENT_BYTES,
+    NutritionPlanDocumentError,
+    extract_nutrition_plan_document,
 )
 from app.services.nutrition_plan_import import (
     NutritionPlanImportError,
@@ -63,6 +69,27 @@ def list_nutrition_plan_imports_endpoint(
 ) -> list[NutritionPlanImportRead]:
     _require_person(db, person_id)
     return list_nutrition_plan_imports(db, person_id=person_id)
+
+
+@router.post(
+    "/{person_id}/nutrition-plan-imports/extract-document",
+    response_model=NutritionPlanDocumentExtractionRead,
+)
+async def extract_nutrition_plan_document_endpoint(
+    person_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    document: Annotated[UploadFile, File()],
+) -> NutritionPlanDocumentExtractionRead:
+    _require_person(db, person_id)
+    data = await document.read(MAX_DOCUMENT_BYTES + 1)
+    try:
+        return extract_nutrition_plan_document(
+            filename=document.filename or "document",
+            content_type=document.content_type,
+            data=data,
+        )
+    except NutritionPlanDocumentError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post(
