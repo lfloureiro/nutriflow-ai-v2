@@ -10,6 +10,8 @@ Nutrition Plans already represent confirmed weekly frequency guidance with struc
 
 Phase 8 needs a deterministic weekly context before any adaptive week optimizer can use frequency guidance. The system must count Person-specific meal participation without guessing categories from dish names, descriptions or model inference.
 
+The deterministic text import currently emits weekly food-group statements as `target_type=food_category`, so the progress evaluator must consume that same canonical vocabulary rather than creating a semantic split between ingestion and evaluation.
+
 ## Decision
 
 Add a server-authoritative weekly frequency progress read model and endpoint.
@@ -32,13 +34,14 @@ No food name or description matching is allowed.
 
 Supported target types in v1 are:
 
-- `food_group`: exact normalized match against explicit `MealCandidatePlanningProfile.planning_category` or `primary_protein`;
+- `food_category`: canonical target emitted by Nutrition Plan import; exact normalized match against explicit `MealCandidatePlanningProfile.planning_category` or `primary_protein`;
+- `food_group`: backward-compatible alias resolved with the same explicit metadata;
 - `planning_category`: exact normalized match against `planning_category`;
 - `primary_protein`: exact normalized match against `primary_protein`;
 - `food_item`: exact match against the referenced FoodItem `catalog_key`;
 - `recipe`: exact match against the referenced Recipe `recipe_key`.
 
-`food_group` is retained as the compatibility abstraction already used by professional-plan guidance. It is still resolved only from explicit planning metadata, never from a name heuristic.
+`food_category` and the legacy `food_group` alias are resolved only from persisted structured planning metadata, never from food names or descriptions. A category such as `fish` can therefore match an explicit `primary_protein=fish`; absent that evidence, the system does not guess.
 
 If the target type/key is unsupported, progress is `unknown` rather than silently treated as zero.
 
@@ -55,6 +58,7 @@ This endpoint does not yet mutate recommendations or construct a weekly meal pla
 ## Consequences
 
 - weekly frequency guidance becomes measurable without changing Meal Plan-Fit's meal-scoped semantics;
+- imported weekly `food_category` guidance and runtime progress use the same structured vocabulary;
 - Family meals remain Person-specific for frequency counting;
 - timezone boundaries are deterministic and local to the Person;
 - missing classification stays explicit;
@@ -64,6 +68,6 @@ This endpoint does not yet mutate recommendations or construct a weekly meal pla
 
 - hard-gating future candidates from mandatory weekly maxima;
 - optimization across all meals in a week;
-- richer taxonomy/equivalence between food groups;
+- richer taxonomy/equivalence between food categories;
 - AI-assisted classification without persisted reviewed evidence;
 - browser-side frequency calculations.
