@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.meal import MealEvent, MealParticipant, Serving
 from app.models.meal_candidate_planning_profile import MealCandidatePlanningProfile
+from app.models.nutrition_plan import NutritionPlan, NutritionPlanGuideline
 from app.models.person import Person
 from app.schemas.meal_type import MealType
 from app.schemas.nutrition_plan import EffectiveNutritionGuidelineRead
@@ -60,20 +61,24 @@ def _frequency_guidelines(
     db: Session,
     *,
     person_id: uuid.UUID,
-    anchor_date: date,
+    week_start: date,
+    week_end: date,
 ) -> list[EffectiveNutritionGuidelineRead]:
     by_id: dict[uuid.UUID, EffectiveNutritionGuidelineRead] = {}
     try:
-        for meal_type in _MEAL_TYPES:
-            effective = compile_effective_nutrition_plan(
-                db,
-                person_id=person_id,
-                on_date=anchor_date,
-                meal_type=meal_type,
-            )
-            for guideline in effective.guidelines:
-                if guideline.guideline_type == "frequency" and guideline.period == "week":
-                    by_id[guideline.id] = guideline
+        current_date = week_start
+        while current_date <= week_end:
+            for meal_type in _MEAL_TYPES:
+                effective = compile_effective_nutrition_plan(
+                    db,
+                    person_id=person_id,
+                    on_date=current_date,
+                    meal_type=meal_type,
+                )
+                for guideline in effective.guidelines:
+                    if guideline.guideline_type == "frequency" and guideline.period == "week":
+                        by_id[guideline.id] = guideline
+            current_date += timedelta(days=1)
     except NutritionPlanError as exc:
         raise WeeklyFrequencyProgressError(str(exc)) from exc
     return sorted(
@@ -141,6 +146,33 @@ def _normalize(value: str | None) -> str | None:
         return None
     normalized = value.strip().casefold()
     return normalized or None
+
+
+def _guideline_window(
+    db: Session,
+    *,
+    guideline: EffectiveNutritionGuidelineRead,
+    week_start: date,
+    week_end: date,
+) -> tuple[date, date]:
+    valid_start = week_start
+    valid_end = week_end
+
+    persisted = db.get(NutritionPlanGuideline, guideline.id)
+    if persisted is not None:
+        if persisted.valid_from is not None:
+            valid_start = max(valid_start, persisted.valid_from)
+        if persisted.valid_until is not None:
+            valid_end = min(valid_end, persisted.valid_until)
+
+    if guideline.source.plan_id is not None:
+        plan = db.get(NutritionPlan, guideline.source.plan_id)
+        if plan is not None:
+            valid_start = max(valid_start, plan.valid_from)
+            if plan.valid_until is not None:
+                valid_end = min(valid_end, plan.valid_until)
+
+    return valid_start, valid_end
 
 
 def _serving_profile(
@@ -277,6 +309,9 @@ def _guideline_progress(
     participants: list[MealParticipant],
     food_profiles: dict[uuid.UUID, MealCandidatePlanningProfile],
     recipe_profiles: dict[uuid.UUID, MealCandidatePlanningProfile],
+    zone: ZoneInfo,
+    valid_start: date,
+    valid_end: date,
 ) -> WeeklyFrequencyGuidelineProgressRead:
     target_type = _normalize(guideline.target_type)
     target_key = _normalize(guideline.target_key)
@@ -287,6 +322,9 @@ def _guideline_progress(
     unclassified_meal_count = 0
     for participant in participants:
         event = participant.meal_event
+        local_date = event.scheduled_at.astimezone(zone).date()
+        if local_date < valid_start or local_date > valid_end:
+            continue
         if guideline.meal_type is not None and event.meal_type != guideline.meal_type:
             continue
         if event.meal_type not in _MEAL_TYPES:
@@ -377,7 +415,8 @@ def get_weekly_frequency_progress(
     guidelines = _frequency_guidelines(
         db,
         person_id=person_id,
-        anchor_date=anchor_date,
+        week_start=week_start,
+        week_end=week_end,
     )
     participants = _participants_in_week(
         db,
@@ -390,19 +429,33 @@ def get_weekly_frequency_progress(
         family_id=person.family_id,
     )
 
+    progress: list[WeeklyFrequencyGuidelineProgressRead] = []
+    for guideline in guidelines:
+        valid_start, valid_end = _guideline_window(
+            db,
+            guideline=guideline,
+            week_start=week_start,
+            week_end=week_end,
+        )
+        if valid_start > valid_end:
+            continue
+        progress.append(
+            _guideline_progress(
+                guideline,
+                participants=participants,
+                food_profiles=food_profiles,
+                recipe_profiles=recipe_profiles,
+                zone=zone,
+                valid_start=valid_start,
+                valid_end=valid_end,
+            )
+        )
+
     return WeeklyFrequencyProgressRead(
         person_id=person.id,
         timezone=person.timezone,
         anchor_date=anchor_date,
         week_start=week_start,
         week_end=week_end,
-        guidelines=[
-            _guideline_progress(
-                guideline,
-                participants=participants,
-                food_profiles=food_profiles,
-                recipe_profiles=recipe_profiles,
-            )
-            for guideline in guidelines
-        ],
+        guidelines=progress,
     )
