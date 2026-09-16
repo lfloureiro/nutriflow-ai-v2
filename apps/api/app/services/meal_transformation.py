@@ -560,8 +560,8 @@ def propose_meal_transformations(
         key=lambda item: (
             item.resolves_mandatory_block,
             item.after_fit.eligible,
-            item.after_fit.fit_score if item.after_fit.fit_score is not None else Decimal("-1"),
-            item.fit_score_delta if item.fit_score_delta is not None else Decimal("-1"),
+            item.after_fit.fit_score if item.after_fit.fit_score is not None else Decimal(-1),
+            item.fit_score_delta if item.fit_score_delta is not None else Decimal(-1),
         ),
         reverse=True,
     )
