@@ -39,6 +39,7 @@ def _food(
             name=name,
             food_kind="dish",
             source="test",
+            suitable_meal_types=["breakfast"],
         ),
         reference_quantity=Decimal("100.0000"),
         reference_unit="g",
