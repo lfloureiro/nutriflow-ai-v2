@@ -24,7 +24,14 @@ _EXCLUDED_SERVING_STATUSES = frozenset({"skipped", "replaced"})
 _COMPLETED_PARTICIPANT_STATUSES = frozenset({"consumed", "partial"})
 _COMPLETED_SERVING_STATUSES = frozenset({"consumed", "partial"})
 _SUPPORTED_TARGET_TYPES = frozenset(
-    {"food_group", "planning_category", "primary_protein", "food_item", "recipe"}
+    {
+        "food_category",
+        "food_group",
+        "planning_category",
+        "primary_protein",
+        "food_item",
+        "recipe",
+    }
 )
 
 
@@ -194,9 +201,9 @@ def _serving_match(
             return None, None
         return primary_protein == target_key, "primary_protein"
 
-    # food_group is the stable compatibility target used by professional-plan
-    # frequency guidance. It can only match explicit planning metadata; names
-    # and descriptions are never interpreted here.
+    # Imported plans use food_category. food_group remains a compatibility alias.
+    # Both resolve only from explicit persisted planning metadata; food names and
+    # descriptions are never interpreted here.
     values = {
         key: value
         for key, value in (
@@ -236,8 +243,6 @@ def _progress_state(
         return "exceeded"
     if minimum is not None and total >= minimum:
         return "achieved"
-    if minimum is None and maximum is not None:
-        return "in_progress"
     return "in_progress"
 
 
