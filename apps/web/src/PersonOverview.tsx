@@ -13,6 +13,7 @@ import { memberDisplayName } from "./FamilyHome";
 import type { Locale } from "./i18n";
 import { useI18n } from "./i18n";
 import MealPlanFitPanel from "./MealPlanFitPanel";
+import NutritionPlanImportPanel from "./NutritionPlanImportPanel";
 import PersonProfileEditor from "./PersonProfileEditor";
 
 type PersonSection =
@@ -440,6 +441,10 @@ export default function PersonOverview({
             <DetailItem label={copy.breakfast} value={profile ? kcal(profile.standard_breakfast_kcal, locale) ?? copy.noData : copy.noData} />
             <DetailItem label={copy.goal} value={profile ? goalText(profile, locale) : copy.noData} />
           </div>
+          <NutritionPlanImportPanel
+            personId={member.person_id}
+            planningDate={dashboard.dashboard_date}
+          />
           <MealPlanFitPanel
             dailyNutritionStateId={dailyState?.id ?? null}
             familyId={dashboard.family_id}
