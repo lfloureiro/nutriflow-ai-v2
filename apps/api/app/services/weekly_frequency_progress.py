@@ -235,15 +235,40 @@ def _progress_state(
     minimum: int | None,
     maximum: int | None,
     total: int,
-    evidence_status: str,
 ) -> str:
-    if evidence_status != "evaluated":
-        return "unknown"
     if maximum is not None and total > maximum:
         return "exceeded"
     if minimum is not None and total >= minimum:
         return "achieved"
     return "in_progress"
+
+
+def _unsupported_progress(
+    guideline: EffectiveNutritionGuidelineRead,
+) -> WeeklyFrequencyGuidelineProgressRead:
+    return WeeklyFrequencyGuidelineProgressRead(
+        guideline_id=guideline.id,
+        description=guideline.description,
+        target_type=guideline.target_type,
+        target_key=guideline.target_key,
+        meal_type=guideline.meal_type,
+        minimum_occurrences=guideline.minimum_occurrences,
+        maximum_occurrences=guideline.maximum_occurrences,
+        severity=guideline.severity,
+        is_mandatory=guideline.is_mandatory,
+        priority=guideline.priority,
+        completed_occurrences=None,
+        planned_occurrences=None,
+        total_occurrences=None,
+        remaining_minimum=None,
+        remaining_capacity=None,
+        unclassified_meal_count=None,
+        counts_are_lower_bound=False,
+        state="unknown",
+        evidence_status="unsupported_target",
+        occurrences=[],
+        source=guideline.source,
+    )
 
 
 def _guideline_progress(
@@ -255,55 +280,51 @@ def _guideline_progress(
 ) -> WeeklyFrequencyGuidelineProgressRead:
     target_type = _normalize(guideline.target_type)
     target_key = _normalize(guideline.target_key)
-    evidence_status = (
-        "evaluated"
-        if target_type in _SUPPORTED_TARGET_TYPES and target_key is not None
-        else "unsupported_target"
-    )
+    if target_type not in _SUPPORTED_TARGET_TYPES or target_key is None:
+        return _unsupported_progress(guideline)
+
     occurrences: list[WeeklyFrequencyOccurrenceRead] = []
     unclassified_meal_count = 0
+    for participant in participants:
+        event = participant.meal_event
+        if guideline.meal_type is not None and event.meal_type != guideline.meal_type:
+            continue
+        if event.meal_type not in _MEAL_TYPES:
+            continue
 
-    if evidence_status == "evaluated":
-        for participant in participants:
-            event = participant.meal_event
-            if guideline.meal_type is not None and event.meal_type != guideline.meal_type:
+        matching_servings: list[Serving] = []
+        matched_by: set[str] = set()
+        has_unknown = False
+        considered_serving = False
+        for serving in participant.servings:
+            if serving.status in _EXCLUDED_SERVING_STATUSES:
                 continue
-            if event.meal_type not in _MEAL_TYPES:
-                continue
+            considered_serving = True
+            matches, reason = _serving_match(
+                serving,
+                guideline,
+                food_profiles=food_profiles,
+                recipe_profiles=recipe_profiles,
+            )
+            if matches is True:
+                matching_servings.append(serving)
+                if reason is not None:
+                    matched_by.update(reason.split("+"))
+            elif matches is None:
+                has_unknown = True
 
-            matching_servings: list[Serving] = []
-            matched_by: set[str] = set()
-            has_unknown = False
-            considered_serving = False
-            for serving in participant.servings:
-                if serving.status in _EXCLUDED_SERVING_STATUSES:
-                    continue
-                considered_serving = True
-                matches, reason = _serving_match(
-                    serving,
-                    guideline,
-                    food_profiles=food_profiles,
-                    recipe_profiles=recipe_profiles,
+        if matching_servings:
+            occurrences.append(
+                WeeklyFrequencyOccurrenceRead(
+                    meal_event_id=event.id,
+                    scheduled_at=event.scheduled_at,
+                    meal_type=event.meal_type,
+                    status=_occurrence_status(participant, matching_servings),
+                    matched_by=sorted(matched_by),
                 )
-                if matches is True:
-                    matching_servings.append(serving)
-                    if reason is not None:
-                        matched_by.update(reason.split("+"))
-                elif matches is None:
-                    has_unknown = True
-
-            if matching_servings:
-                occurrences.append(
-                    WeeklyFrequencyOccurrenceRead(
-                        meal_event_id=event.id,
-                        scheduled_at=event.scheduled_at,
-                        meal_type=event.meal_type,
-                        status=_occurrence_status(participant, matching_servings),
-                        matched_by=sorted(matched_by),
-                    )
-                )
-            elif has_unknown or not considered_serving:
-                unclassified_meal_count += 1
+            )
+        elif has_unknown or not considered_serving:
+            unclassified_meal_count += 1
 
     completed = sum(1 for occurrence in occurrences if occurrence.status == "completed")
     planned = sum(1 for occurrence in occurrences if occurrence.status == "planned")
@@ -335,9 +356,8 @@ def _guideline_progress(
             minimum=minimum,
             maximum=maximum,
             total=total,
-            evidence_status=evidence_status,
         ),
-        evidence_status=evidence_status,
+        evidence_status="evaluated",
         occurrences=occurrences,
         source=guideline.source,
     )
