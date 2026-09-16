@@ -12,6 +12,10 @@ from app.schemas.nutrition_plan_import import (
     NutritionPlanImportProposalUpdate,
     NutritionPlanImportRead,
 )
+from app.services.nutrition_plan_ai_import import (
+    NutritionPlanAIImportError,
+    create_ai_nutrition_plan_import,
+)
 from app.services.nutrition_plan_import import (
     NutritionPlanImportError,
     add_nutrition_plan_import_proposal,
@@ -76,6 +80,23 @@ def create_nutrition_plan_import_endpoint(
         return create_nutrition_plan_import(db, person=person, data=data)
     except NutritionPlanImportError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post(
+    "/{person_id}/nutrition-plan-imports/ai",
+    response_model=NutritionPlanImportRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_ai_nutrition_plan_import_endpoint(
+    person_id: uuid.UUID,
+    data: NutritionPlanImportCreate,
+    db: Annotated[Session, Depends(get_db)],
+) -> NutritionPlanImportRead:
+    person = _require_person(db, person_id)
+    try:
+        return create_ai_nutrition_plan_import(db, person=person, data=data)
+    except NutritionPlanAIImportError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @router.get(
