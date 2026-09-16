@@ -44,7 +44,9 @@ from app.services.shared_family_meal import (
     SharedMealCandidateProposal,
     SharedMealParticipantContext,
     SharedMealPortion,
-    recommend_shared_family_meals,
+)
+from app.services.shared_family_meal_plan_fit import (
+    recommend_shared_family_meals_with_plan_fit,
 )
 from app.services.shared_family_meal_planning import materialize_shared_family_recommendation
 
@@ -271,7 +273,7 @@ def _compute_shared_recommendation(
         )
         for person, state in loaded
     )
-    engine_version = "shared-family-practical-v1"
+    engine_version = "shared-family-practical-plan-fit-v1"
     if data.auto_size_portions:
         engine_version = f"{engine_version}+{PORTION_VERSION}"
     try:
@@ -284,10 +286,12 @@ def _compute_shared_recommendation(
     except MealEnergyAllocationError as exc:
         raise SharedPracticalRecommendationApiError(str(exc)) from exc
 
-    result = recommend_shared_family_meals(
+    result = recommend_shared_family_meals_with_plan_fit(
+        session,
         participants=contexts,
         proposals=proposals,
         planning_date=data.planning_date,
+        meal_type=data.meal_type,
         engine_version=engine_version,
     )
     result = apply_diversity_to_shared_recommendation(
