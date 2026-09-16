@@ -35,7 +35,8 @@ const COPY = {
     score: "Adequação",
     eligible: "Elegível",
     blocked: "Bloqueada",
-    rules: "Regras avaliadas",
+    mealRules: "Regras desta refeição",
+    dailyImpact: "Impacto nas metas do dia",
     guidelines: "Orientações não pontuadas",
     safety: "Bloqueios de segurança",
     conflicts: "Conflitos no plano",
@@ -73,7 +74,8 @@ const COPY = {
     score: "Fit",
     eligible: "Eligible",
     blocked: "Blocked",
-    rules: "Evaluated rules",
+    mealRules: "Rules for this meal",
+    dailyImpact: "Impact on today's targets",
     guidelines: "Unscored guidance",
     safety: "Safety blocks",
     conflicts: "Plan conflicts",
@@ -111,7 +113,9 @@ function initialQuantity(recipe: Recipe): string {
   const servings = Number(recipe.serving_count);
   if (Number.isFinite(reference) && reference > 0 && Number.isFinite(servings) && servings > 0) {
     const portion = reference / servings;
-    return Number.isInteger(portion) ? String(portion) : portion.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+    return Number.isInteger(portion)
+      ? String(portion)
+      : portion.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
   }
   return composition.reference_quantity;
 }
@@ -225,9 +229,50 @@ export default function MealPlanFitPanel({
     }
   }
 
-  const scorePercent = result?.fit_score === null || result?.fit_score === undefined
-    ? null
-    : Math.round(Number(result.fit_score) * 100);
+  const scorePercent =
+    result?.fit_score === null || result?.fit_score === undefined
+      ? null
+      : Math.round(Number(result.fit_score) * 100);
+  const mealRuleResults = result?.rule_results.filter((rule) => rule.scope !== "daily") ?? [];
+  const dailyRuleResults = result?.rule_results.filter((rule) => rule.scope === "daily") ?? [];
+
+  function renderRule(rule: MealPlanFitRule) {
+    return (
+      <article className="plan-fit-rule" key={rule.rule_id}>
+        <div className="plan-fit-rule__header">
+          <div>
+            <strong>{planFitTargetLabel(rule.target_key, locale)}</strong>
+            <small>
+              {planFitSourceLabel(
+                rule.source.plan_title ?? rule.source.source_name ?? rule.source.rule_source,
+                locale,
+              )}
+            </small>
+          </div>
+          <span className={`plan-fit-status status-${rule.status}`}>{copy[rule.status]}</span>
+        </div>
+        <div className="plan-fit-rule__values">
+          <span>{rule.is_mandatory ? copy.mandatory : copy.advisory}</span>
+          <span>
+            {copy.target}: {targetText(rule, locale)}
+          </span>
+          {rule.observed_value !== null ? (
+            <span>
+              {copy.observed}: {formatPlanFitNumber(rule.observed_value, locale)}{" "}
+              {planFitUnitLabel(rule.observed_unit, locale, rule.observed_value)}
+            </span>
+          ) : null}
+          {rule.projected_daily_value !== null ? (
+            <span>
+              {copy.projected}: {formatPlanFitNumber(rule.projected_daily_value, locale)}{" "}
+              {planFitUnitLabel(rule.target_unit, locale, rule.projected_daily_value)}
+            </span>
+          ) : null}
+        </div>
+        <p>{planFitRuleExplanation(rule, locale)}</p>
+      </article>
+    );
+  }
 
   return (
     <section className="plan-fit-panel" aria-labelledby="plan-fit-heading">
@@ -249,7 +294,9 @@ export default function MealPlanFitPanel({
             }}
           >
             {MEAL_TYPES.map((item) => (
-              <option key={item} value={item}>{copy[item]}</option>
+              <option key={item} value={item}>
+                {copy[item]}
+              </option>
             ))}
           </select>
         </label>
@@ -268,7 +315,9 @@ export default function MealPlanFitPanel({
             }}
           >
             {availableRecipes.map((recipe) => (
-              <option key={recipe.id} value={recipe.id}>{recipe.name}</option>
+              <option key={recipe.id} value={recipe.id}>
+                {recipe.name}
+              </option>
             ))}
           </select>
         </label>
@@ -301,9 +350,15 @@ export default function MealPlanFitPanel({
       </div>
 
       {!loading && availableRecipes.length === 0 ? (
-        <div className="home-empty"><strong>{copy.noRecipes}</strong></div>
+        <div className="home-empty">
+          <strong>{copy.noRecipes}</strong>
+        </div>
       ) : null}
-      {error ? <div className="error-banner" role="alert"><span>{error}</span></div> : null}
+      {error ? (
+        <div className="error-banner" role="alert">
+          <span>{error}</span>
+        </div>
+      ) : null}
 
       {result ? (
         <div className="plan-fit-result">
@@ -344,35 +399,19 @@ export default function MealPlanFitPanel({
             </div>
           ) : null}
 
-          <div className="plan-fit-rules">
-            <h4>{copy.rules}</h4>
-            {result.rule_results.map((rule) => (
-              <article className="plan-fit-rule" key={rule.rule_id}>
-                <div className="plan-fit-rule__header">
-                  <div>
-                    <strong>{planFitTargetLabel(rule.target_key, locale)}</strong>
-                    <small>{planFitSourceLabel(rule.source.plan_title ?? rule.source.source_name ?? rule.source.rule_source, locale)}</small>
-                  </div>
-                  <span className={`plan-fit-status status-${rule.status}`}>{copy[rule.status]}</span>
-                </div>
-                <div className="plan-fit-rule__values">
-                  <span>{rule.is_mandatory ? copy.mandatory : copy.advisory}</span>
-                  <span>{copy.target}: {targetText(rule, locale)}</span>
-                  {rule.observed_value !== null ? (
-                    <span>
-                      {copy.observed}: {formatPlanFitNumber(rule.observed_value, locale)} {planFitUnitLabel(rule.observed_unit, locale, rule.observed_value)}
-                    </span>
-                  ) : null}
-                  {rule.projected_daily_value !== null ? (
-                    <span>
-                      {copy.projected}: {formatPlanFitNumber(rule.projected_daily_value, locale)} {planFitUnitLabel(rule.target_unit, locale, rule.projected_daily_value)}
-                    </span>
-                  ) : null}
-                </div>
-                <p>{planFitRuleExplanation(rule, locale)}</p>
-              </article>
-            ))}
-          </div>
+          {mealRuleResults.length > 0 ? (
+            <div className="plan-fit-rules">
+              <h4>{copy.mealRules}</h4>
+              {mealRuleResults.map(renderRule)}
+            </div>
+          ) : null}
+
+          {dailyRuleResults.length > 0 ? (
+            <div className="plan-fit-rules">
+              <h4>{copy.dailyImpact}</h4>
+              {dailyRuleResults.map(renderRule)}
+            </div>
+          ) : null}
 
           {result.guideline_results.length > 0 ? (
             <div className="plan-fit-rules">
