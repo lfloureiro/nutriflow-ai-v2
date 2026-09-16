@@ -8,7 +8,7 @@ from typing import cast
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models.food_catalog import FoodCompositionSnapshot, FoodItem
+from app.models.food_catalog import FoodCompositionSnapshot
 from app.models.meal_candidate_availability import (
     MealCandidateAvailability,
     MealCommercialOffer,
