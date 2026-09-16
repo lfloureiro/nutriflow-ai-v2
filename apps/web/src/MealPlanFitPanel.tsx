@@ -6,6 +6,16 @@ import type { MealPlanFitResult, MealPlanFitRule } from "./api/planFitTypes";
 import type { Recipe } from "./api/recipeTypes";
 import type { PlanningMealType } from "./api/types";
 import { useI18n } from "./i18n";
+import {
+  formatPlanFitNumber,
+  planFitConflictMessage,
+  planFitGuidelineExplanation,
+  planFitRuleExplanation,
+  planFitSafetyIssue,
+  planFitSourceLabel,
+  planFitTargetLabel,
+  planFitUnitLabel,
+} from "./mealPlanFitPresentation";
 
 const MEAL_TYPES: PlanningMealType[] = ["breakfast", "lunch", "snack", "dinner"];
 
@@ -106,18 +116,18 @@ function initialQuantity(recipe: Recipe): string {
   return composition.reference_quantity;
 }
 
-function targetText(rule: MealPlanFitRule): string {
-  const unit = rule.target_unit ? ` ${rule.target_unit}` : "";
+function targetText(rule: MealPlanFitRule, locale: "pt-PT" | "en"): string {
+  const unit = rule.target_unit ? ` ${planFitUnitLabel(rule.target_unit, locale)}` : "";
   if (rule.operator === "range" && rule.target_min !== null && rule.target_max !== null) {
-    return `${rule.target_min}–${rule.target_max}${unit}`;
+    return `${formatPlanFitNumber(rule.target_min, locale)}–${formatPlanFitNumber(rule.target_max, locale)}${unit}`;
   }
   if (["min", "gte", ">=", ">"].includes(rule.operator) && rule.target_min !== null) {
-    return `≥ ${rule.target_min}${unit}`;
+    return `≥ ${formatPlanFitNumber(rule.target_min, locale)}${unit}`;
   }
   if (["max", "lte", "<=", "<"].includes(rule.operator) && rule.target_max !== null) {
-    return `≤ ${rule.target_max}${unit}`;
+    return `≤ ${formatPlanFitNumber(rule.target_max, locale)}${unit}`;
   }
-  if (rule.target_value !== null) return `${rule.target_value}${unit}`;
+  if (rule.target_value !== null) return `${formatPlanFitNumber(rule.target_value, locale)}${unit}`;
   return rule.operator;
 }
 
@@ -276,7 +286,7 @@ export default function MealPlanFitPanel({
                 setResult(null);
               }}
             />
-            <span>{composition?.reference_unit ?? ""}</span>
+            <span>{planFitUnitLabel(composition?.reference_unit, locale, quantity)}</span>
           </div>
         </label>
 
@@ -319,14 +329,18 @@ export default function MealPlanFitPanel({
           {result.safety_issues.length > 0 ? (
             <div className="plan-fit-alert">
               <strong>{copy.safety}</strong>
-              {result.safety_issues.map((issue) => <span key={issue}>{issue}</span>)}
+              {result.safety_issues.map((issue, index) => (
+                <span key={`${issue}:${index}`}>{planFitSafetyIssue(issue, locale)}</span>
+              ))}
             </div>
           ) : null}
 
           {result.conflicts.length > 0 ? (
             <div className="plan-fit-alert">
               <strong>{copy.conflicts}</strong>
-              {result.conflicts.map((item) => <span key={item.rule_ids.join(":")}>{item.message}</span>)}
+              {result.conflicts.map((item) => (
+                <span key={item.rule_ids.join(":")}>{planFitConflictMessage(item, locale)}</span>
+              ))}
             </div>
           ) : null}
 
@@ -336,22 +350,26 @@ export default function MealPlanFitPanel({
               <article className="plan-fit-rule" key={rule.rule_id}>
                 <div className="plan-fit-rule__header">
                   <div>
-                    <strong>{rule.target_key}</strong>
-                    <small>{rule.source.plan_title ?? rule.source.source_name ?? rule.source.rule_source ?? "NutriFlow"}</small>
+                    <strong>{planFitTargetLabel(rule.target_key, locale)}</strong>
+                    <small>{planFitSourceLabel(rule.source.plan_title ?? rule.source.source_name ?? rule.source.rule_source, locale)}</small>
                   </div>
                   <span className={`plan-fit-status status-${rule.status}`}>{copy[rule.status]}</span>
                 </div>
                 <div className="plan-fit-rule__values">
                   <span>{rule.is_mandatory ? copy.mandatory : copy.advisory}</span>
-                  <span>{copy.target}: {targetText(rule)}</span>
+                  <span>{copy.target}: {targetText(rule, locale)}</span>
                   {rule.observed_value !== null ? (
-                    <span>{copy.observed}: {rule.observed_value} {rule.observed_unit ?? ""}</span>
+                    <span>
+                      {copy.observed}: {formatPlanFitNumber(rule.observed_value, locale)} {planFitUnitLabel(rule.observed_unit, locale, rule.observed_value)}
+                    </span>
                   ) : null}
                   {rule.projected_daily_value !== null ? (
-                    <span>{copy.projected}: {rule.projected_daily_value} {rule.target_unit ?? ""}</span>
+                    <span>
+                      {copy.projected}: {formatPlanFitNumber(rule.projected_daily_value, locale)} {planFitUnitLabel(rule.target_unit, locale, rule.projected_daily_value)}
+                    </span>
                   ) : null}
                 </div>
-                <p>{rule.explanation}</p>
+                <p>{planFitRuleExplanation(rule, locale)}</p>
               </article>
             ))}
           </div>
@@ -365,7 +383,7 @@ export default function MealPlanFitPanel({
                     <strong>{guideline.description}</strong>
                     <span className="plan-fit-status status-not_evaluated">{copy.not_evaluated}</span>
                   </div>
-                  <p>{guideline.explanation}</p>
+                  <p>{planFitGuidelineExplanation(guideline, locale)}</p>
                 </article>
               ))}
             </div>
