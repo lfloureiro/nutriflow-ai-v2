@@ -1,12 +1,11 @@
+import uuid
 from datetime import date, datetime
 from typing import Literal
-import uuid
 
 from pydantic import BaseModel
 
 from app.schemas.meal_type import MealType
 from app.schemas.nutrition_plan import EffectiveNutritionPlanSourceRead
-
 
 WeeklyFrequencyProgressState = Literal["achieved", "exceeded", "in_progress", "unknown"]
 WeeklyFrequencyEvidenceStatus = Literal["evaluated", "unsupported_target"]
