@@ -1,0 +1,103 @@
+.nutrition-import {
+  margin-top: 24px;
+  border: 1px solid var(--border-subtle, #dfe5da);
+  border-radius: 18px;
+  background: var(--surface, #fff);
+  padding: 20px;
+}
+
+.nutrition-import__header,
+.nutrition-import__proposal-header,
+.nutrition-import__actions,
+.nutrition-import__review-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.nutrition-import__header h3,
+.nutrition-import__review h4 { margin: 0; }
+.nutrition-import__header p { margin: 4px 0 0; color: var(--text-muted, #667066); }
+
+.nutrition-import__form {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.nutrition-import__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.nutrition-import textarea {
+  min-height: 180px;
+  resize: vertical;
+}
+
+.nutrition-import__actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.nutrition-import__hint,
+.nutrition-import__summary,
+.nutrition-import__source,
+.nutrition-import__meta {
+  color: var(--text-muted, #667066);
+  font-size: 0.9rem;
+}
+
+.nutrition-import__review { margin-top: 18px; }
+.nutrition-import__summary { margin: 4px 0 16px; }
+
+.nutrition-import__proposals {
+  display: grid;
+  gap: 10px;
+}
+
+.nutrition-import__proposal {
+  border: 1px solid var(--border-subtle, #dfe5da);
+  border-radius: 14px;
+  padding: 14px;
+  background: var(--surface-soft, #f5f8f1);
+}
+
+.nutrition-import__proposal p { margin: 8px 0; }
+.nutrition-import__proposal-header small { white-space: nowrap; }
+
+.nutrition-import__status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: #e8eee3;
+}
+
+.nutrition-import__status.confirmed { background: #e0efe2; }
+.nutrition-import__status.rejected { background: #f2e8e5; }
+
+.nutrition-import__review-actions {
+  justify-content: flex-start;
+  margin-top: 10px;
+}
+
+.nutrition-import__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle, #dfe5da);
+}
+
+@media (max-width: 720px) {
+  .nutrition-import__row { grid-template-columns: 1fr; }
+  .nutrition-import__header,
+  .nutrition-import__footer { align-items: flex-start; flex-direction: column; }
+}
