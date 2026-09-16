@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -52,7 +52,7 @@ class ExternalMealCandidateEvidenceRead(BaseModel):
 
 class ExternalMealRecommendationRead(BaseModel):
     person_id: uuid.UUID
-    planning_date: str
+    planning_date: date
     scheduled_at: datetime
     meal_type: str
     discovered_count: int
