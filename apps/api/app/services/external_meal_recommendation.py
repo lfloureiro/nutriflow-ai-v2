@@ -121,6 +121,36 @@ def _external_rows(
     ]
 
 
+def _latest_active_offer_observed_at(
+    rows: list[MealCandidateAvailability],
+    *,
+    scheduled_at: datetime,
+) -> datetime:
+    return max(
+        offer.observed_at
+        for row in rows
+        for offer in row.commercial_offers
+        if _offer_is_active(offer, scheduled_at)
+    )
+
+
+def _selected_catalog_keys(
+    rows_by_key: dict[str, list[MealCandidateAvailability]],
+    *,
+    scheduled_at: datetime,
+    max_candidates: int,
+) -> list[str]:
+    keys = sorted(rows_by_key)
+    keys.sort(
+        key=lambda key: _latest_active_offer_observed_at(
+            rows_by_key[key],
+            scheduled_at=scheduled_at,
+        ),
+        reverse=True,
+    )
+    return keys[:max_candidates]
+
+
 def _composition_map(
     session: Session,
     composition_ids: set[uuid.UUID],
@@ -164,7 +194,11 @@ def create_external_meal_recommendation(
         if food_item is not None:
             rows_by_key[food_item.catalog_key].append(row)
 
-    selected_keys = sorted(rows_by_key)[: data.max_candidates]
+    selected_keys = _selected_catalog_keys(
+        rows_by_key,
+        scheduled_at=data.scheduled_at,
+        max_candidates=data.max_candidates,
+    )
     planning_candidates = {
         candidate.catalog_key: candidate
         for candidate in bootstrap.candidates
@@ -225,7 +259,11 @@ def create_external_meal_recommendation(
                 merchant_name=food_item.brand,
                 source_kinds=source_kinds,
                 provider_keys=provider_keys,
-                source_reference=food_item.source_reference,
+                source_reference=(
+                    composition.source_reference
+                    if composition is not None
+                    else food_item.source_reference
+                ),
                 composition_id=None if composition is None else composition.id,
                 reference_quantity=(
                     None if composition is None else composition.reference_quantity
@@ -265,7 +303,7 @@ def create_external_meal_recommendation(
         planning_date=bootstrap.planning_date,
         scheduled_at=data.scheduled_at,
         meal_type=data.meal_type,
-        discovered_count=len(selected_keys),
+        discovered_count=len(rows_by_key),
         evaluated_count=len(candidate_inputs),
         evidence=evidence,
         recommendation=recommendation,
