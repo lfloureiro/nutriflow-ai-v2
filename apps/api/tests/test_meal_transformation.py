@@ -40,7 +40,7 @@ def test_yogurt_replacement_resolves_mandatory_breakfast_protein(db_session: Ses
             planning_date=demo.planning_date,
             meal_type="breakfast",
             recipe_id=recipe.id,
-            quantity=Decimal("1"),
+            quantity=Decimal(1),
             quantity_unit="serving",
             daily_nutrition_state_id=demo.daily_nutrition_state_id,
         ),
@@ -56,8 +56,8 @@ def test_yogurt_replacement_resolves_mandatory_breakfast_protein(db_session: Ses
         if item.operation.replacement_food_name == "Iogurte grego"
     )
     assert proposal.operation.source_food_name == "Iogurte natural"
-    assert proposal.operation.source_quantity == Decimal("170")
-    assert proposal.operation.replacement_quantity == Decimal("170")
+    assert proposal.operation.source_quantity == Decimal(170)
+    assert proposal.operation.replacement_quantity == Decimal(170)
     assert proposal.operation.replacement_unit == "g"
     assert proposal.resolves_mandatory_block is True
     assert proposal.after_fit.eligible is True
@@ -79,7 +79,7 @@ def test_transformation_engine_does_not_offer_worse_replacement(db_session: Sess
             planning_date=demo.planning_date,
             meal_type="breakfast",
             recipe_id=recipe.id,
-            quantity=Decimal("1"),
+            quantity=Decimal(1),
             quantity_unit="serving",
             daily_nutrition_state_id=demo.daily_nutrition_state_id,
         ),
