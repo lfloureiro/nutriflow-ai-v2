@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { ApiError, listFamilyRecipes } from "./api/client";
+import { proposeMealTransformations } from "./api/mealTransformationClient";
+import type { MealTransformationResult } from "./api/mealTransformationTypes";
 import { evaluateMealPlanFit } from "./api/planFitClient";
 import type { MealPlanFitResult, MealPlanFitRule } from "./api/planFitTypes";
 import type { Recipe } from "./api/recipeTypes";
@@ -28,6 +30,17 @@ const COPY = {
     quantity: "Quantidade",
     evaluate: "Avaliar",
     evaluating: "A avaliar…",
+    improve: "Sugerir melhoria",
+    improving: "A procurar melhorias…",
+    improvementsTitle: "Melhorias estruturadas",
+    improvementsHelp:
+      "Só são mostradas substituições com evidência nutricional suficiente e melhoria mensurável no plano.",
+    noImprovements: "Não foi encontrada uma substituição segura que melhore esta refeição.",
+    replace: "Substituir",
+    before: "Antes",
+    after: "Depois",
+    resolvesMandatory: "Resolve bloqueio obrigatório",
+    changedRules: "Regras afetadas",
     noRecipes: "Não há receitas com composição nutricional para esta refeição.",
     noPlan: "Nenhum plano alimentar ativo; podem ainda existir metas ou limites gerais da pessoa.",
     activePlan: "Plano ativo",
@@ -58,6 +71,7 @@ const COPY = {
     dinner: "Jantar",
     loadError: "Não foi possível carregar as receitas.",
     evaluateError: "Não foi possível avaliar esta refeição.",
+    transformationError: "Não foi possível calcular melhorias para esta refeição.",
   },
   en: {
     title: "Plan fit",
@@ -67,6 +81,17 @@ const COPY = {
     quantity: "Quantity",
     evaluate: "Evaluate",
     evaluating: "Evaluating…",
+    improve: "Suggest improvement",
+    improving: "Finding improvements…",
+    improvementsTitle: "Structured improvements",
+    improvementsHelp:
+      "Only substitutions with sufficient nutrition evidence and measurable plan improvement are shown.",
+    noImprovements: "No safe substitution was found that improves this meal.",
+    replace: "Replace",
+    before: "Before",
+    after: "After",
+    resolvesMandatory: "Resolves mandatory block",
+    changedRules: "Affected rules",
     noRecipes: "There are no recipes with nutrition composition for this meal.",
     noPlan: "No active nutrition plan; general Person targets or limits may still apply.",
     activePlan: "Active plan",
@@ -97,6 +122,7 @@ const COPY = {
     dinner: "Dinner",
     loadError: "Could not load recipes.",
     evaluateError: "Could not evaluate this meal.",
+    transformationError: "Could not calculate improvements for this meal.",
   },
 } as const;
 
@@ -135,6 +161,11 @@ function targetText(rule: MealPlanFitRule, locale: "pt-PT" | "en"): string {
   return rule.operator;
 }
 
+function fitPercent(value: string | null): string {
+  if (value === null) return "—";
+  return `${Math.round(Number(value) * 100)}%`;
+}
+
 export default function MealPlanFitPanel({
   familyId,
   personId,
@@ -153,9 +184,11 @@ export default function MealPlanFitPanel({
   const [selectedRecipeId, setSelectedRecipeId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [busy, setBusy] = useState(false);
+  const [transformationBusy, setTransformationBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<MealPlanFitResult | null>(null);
+  const [transformation, setTransformation] = useState<MealTransformationResult | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -191,11 +224,13 @@ export default function MealPlanFitPanel({
       setSelectedRecipeId("");
       setQuantity("");
       setResult(null);
+      setTransformation(null);
       return;
     }
     if (!current) setSelectedRecipeId(next.id);
     setQuantity(initialQuantity(next));
     setResult(null);
+    setTransformation(null);
   }, [availableRecipes, selectedRecipeId]);
 
   const selectedRecipe = availableRecipes.find((recipe) => recipe.id === selectedRecipeId) ?? null;
@@ -208,6 +243,7 @@ export default function MealPlanFitPanel({
 
     setBusy(true);
     setError(null);
+    setTransformation(null);
     try {
       const response = await evaluateMealPlanFit(personId, {
         planning_date: planningDate,
@@ -226,6 +262,29 @@ export default function MealPlanFitPanel({
       setError(errorText(caught, copy.evaluateError));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function runTransformations() {
+    if (!selectedRecipe || !composition || !result) return;
+    setTransformationBusy(true);
+    setError(null);
+    try {
+      const response = await proposeMealTransformations(personId, {
+        planning_date: planningDate,
+        meal_type: mealType,
+        recipe_id: selectedRecipe.id,
+        quantity,
+        quantity_unit: composition.reference_unit,
+        daily_nutrition_state_id: dailyNutritionStateId,
+        max_proposals: 5,
+      });
+      setTransformation(response);
+    } catch (caught: unknown) {
+      setTransformation(null);
+      setError(errorText(caught, copy.transformationError));
+    } finally {
+      setTransformationBusy(false);
     }
   }
 
@@ -291,6 +350,7 @@ export default function MealPlanFitPanel({
             onChange={(event) => {
               setMealType(event.target.value as PlanningMealType);
               setResult(null);
+              setTransformation(null);
             }}
           >
             {MEAL_TYPES.map((item) => (
@@ -312,6 +372,7 @@ export default function MealPlanFitPanel({
               const nextRecipe = availableRecipes.find((recipe) => recipe.id === nextId);
               if (nextRecipe) setQuantity(initialQuantity(nextRecipe));
               setResult(null);
+              setTransformation(null);
             }}
           >
             {availableRecipes.map((recipe) => (
@@ -333,6 +394,7 @@ export default function MealPlanFitPanel({
               onChange={(event) => {
                 setQuantity(event.target.value);
                 setResult(null);
+                setTransformation(null);
               }}
             />
             <span>{planFitUnitLabel(composition?.reference_unit, locale, quantity)}</span>
@@ -396,6 +458,74 @@ export default function MealPlanFitPanel({
               {result.conflicts.map((item) => (
                 <span key={item.rule_ids.join(":")}>{planFitConflictMessage(item, locale)}</span>
               ))}
+            </div>
+          ) : null}
+
+          <div className="meal-transform-actions">
+            <div>
+              <strong>{copy.improvementsTitle}</strong>
+              <span>{copy.improvementsHelp}</span>
+            </div>
+            <button
+              className="button secondary"
+              disabled={transformationBusy}
+              onClick={() => void runTransformations()}
+              type="button"
+            >
+              {transformationBusy ? copy.improving : copy.improve}
+            </button>
+          </div>
+
+          {transformation ? (
+            <div className="meal-transform-results">
+              {transformation.proposals.length === 0 ? (
+                <div className="home-empty">
+                  <strong>{copy.noImprovements}</strong>
+                </div>
+              ) : (
+                transformation.proposals.map((proposal) => (
+                  <article
+                    className="meal-transform-proposal"
+                    key={`${proposal.operation.recipe_ingredient_id}:${proposal.operation.replacement_food_item_id}`}
+                  >
+                    <div className="meal-transform-proposal__header">
+                      <div>
+                        <small>{copy.replace}</small>
+                        <strong>
+                          {proposal.operation.source_food_name} → {proposal.operation.replacement_food_name}
+                        </strong>
+                      </div>
+                      {proposal.resolves_mandatory_block ? (
+                        <span className="plan-fit-status status-pass">{copy.resolvesMandatory}</span>
+                      ) : null}
+                    </div>
+                    <div className="meal-transform-proposal__details">
+                      <span>
+                        {formatPlanFitNumber(proposal.operation.source_quantity, locale)}{" "}
+                        {planFitUnitLabel(
+                          proposal.operation.source_unit,
+                          locale,
+                          proposal.operation.source_quantity,
+                        )}
+                        {" → "}
+                        {formatPlanFitNumber(proposal.operation.replacement_quantity, locale)}{" "}
+                        {planFitUnitLabel(
+                          proposal.operation.replacement_unit,
+                          locale,
+                          proposal.operation.replacement_quantity,
+                        )}
+                      </span>
+                      <span>
+                        {copy.before}: {fitPercent(proposal.before_fit.fit_score)} · {copy.after}:{" "}
+                        {fitPercent(proposal.after_fit.fit_score)}
+                      </span>
+                      <span>
+                        {copy.changedRules}: {proposal.changed_rule_ids.length}
+                      </span>
+                    </div>
+                  </article>
+                ))
+              )}
             </div>
           ) : null}
 

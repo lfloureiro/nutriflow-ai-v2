@@ -7,6 +7,7 @@ from app.api.routes.meal_discovery import router as meal_discovery_router
 from app.api.routes.meal_plan import router as meal_plan_router
 from app.api.routes.meal_plan_fit import router as meal_plan_fit_router
 from app.api.routes.meal_recommendations import router as meal_recommendations_router
+from app.api.routes.meal_transformations import router as meal_transformations_router
 from app.api.routes.nutrition_plan_imports import router as nutrition_plan_imports_router
 from app.api.routes.nutrition_plans import router as nutrition_plans_router
 from app.api.routes.pantry_shopping import router as pantry_shopping_router
@@ -36,6 +37,7 @@ api_router.include_router(persons_router)
 api_router.include_router(nutrition_plans_router)
 api_router.include_router(nutrition_plan_imports_router)
 api_router.include_router(meal_plan_fit_router)
+api_router.include_router(meal_transformations_router)
 api_router.include_router(planning_bootstrap_router)
 api_router.include_router(meal_recommendations_router)
 api_router.include_router(practical_meal_recommendations_router)

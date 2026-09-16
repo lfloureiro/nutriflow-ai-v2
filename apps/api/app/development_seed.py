@@ -11,6 +11,7 @@ from app.development_legacy_recipe_planning_seed import (
 from app.development_plan_fit_seed import seed_development_plan_fit
 from app.development_planning_profile_seed import seed_development_planning_profiles
 from app.development_snack_seed import seed_development_snack_catalog
+from app.development_transformation_seed import seed_development_transformations
 from app.legacy_v1_loureiro_seed import seed_loureiro_v1_snapshot
 from app.models.family import Family
 from app.models.meal_candidate_availability import (
@@ -64,6 +65,10 @@ def main() -> None:
             session,
             families=(demo_family, loureiro_family),
         )
+        transformations = seed_development_transformations(
+            session,
+            families=(demo_family, loureiro_family),
+        )
         plan_fit = seed_development_plan_fit(session, person_id=demo.person_id)
         _remove_fake_commercial_browser_data(session)
         planning = seed_development_planning_profiles(session, family=demo_family)
@@ -83,6 +88,8 @@ def main() -> None:
     print(f"Shared breakfast ingredients: {breakfasts.ingredient_count}")
     print(f"Shared snack recipes: {snacks.recipe_count}")
     print(f"New shared snack ingredients: {snacks.new_ingredient_count}")
+    print(f"Transformation profiles: {transformations.profile_count}")
+    print(f"Transformation evidence snapshots: {transformations.composition_count}")
     print(f"Demo nutrition targets: {nutrition.target_count}")
     print(f"Demo calorie budget states: {nutrition.state_count}")
     print(f"Demo Plan-Fit plan: {plan_fit.plan_id}")

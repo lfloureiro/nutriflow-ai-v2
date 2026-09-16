@@ -13,6 +13,7 @@ from app.models.food_catalog import (
     RecipeNutrientComponent,
 )
 from app.models.food_preference import FoodPreference
+from app.models.food_transformation_profile import FoodTransformationProfile
 from app.models.health_connection import HealthConnection
 from app.models.health_measurement import HealthMeasurement
 from app.models.meal import MealEvent, MealParticipant, Serving, ServingNutritionComponent
@@ -52,6 +53,7 @@ __all__ = [
     "FoodItem",
     "FoodNutrientComponent",
     "FoodPreference",
+    "FoodTransformationProfile",
     "HealthConnection",
     "HealthMeasurement",
     "MealCandidateAvailability",
