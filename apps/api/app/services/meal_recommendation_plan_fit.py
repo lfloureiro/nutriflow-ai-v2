@@ -1,6 +1,6 @@
 import uuid
 from datetime import date
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP
 
 from sqlalchemy.orm import Session
 
