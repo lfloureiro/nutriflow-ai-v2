@@ -31,12 +31,12 @@ class WeeklyFrequencyGuidelineProgressRead(BaseModel):
     severity: str
     is_mandatory: bool
     priority: int
-    completed_occurrences: int
-    planned_occurrences: int
-    total_occurrences: int
+    completed_occurrences: int | None
+    planned_occurrences: int | None
+    total_occurrences: int | None
     remaining_minimum: int | None
     remaining_capacity: int | None
-    unclassified_meal_count: int
+    unclassified_meal_count: int | None
     counts_are_lower_bound: bool
     state: WeeklyFrequencyProgressState
     evidence_status: WeeklyFrequencyEvidenceStatus
