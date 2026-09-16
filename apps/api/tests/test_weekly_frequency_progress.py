@@ -346,6 +346,9 @@ def test_weekly_frequency_progress_keeps_unsupported_targets_unknown(
     progress = result.guidelines[0]
     assert progress.evidence_status == "unsupported_target"
     assert progress.state == "unknown"
-    assert progress.total_occurrences == 0
-    assert progress.remaining_minimum == 2
+    assert progress.completed_occurrences is None
+    assert progress.planned_occurrences is None
+    assert progress.total_occurrences is None
+    assert progress.remaining_minimum is None
+    assert progress.unclassified_meal_count is None
     assert not progress.counts_are_lower_bound
