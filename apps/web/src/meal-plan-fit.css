@@ -76,6 +76,61 @@
   border-radius: 0.8rem;
 }
 
+.meal-transform-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.8rem;
+  background: var(--surface-soft);
+}
+
+.meal-transform-actions > div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.meal-transform-actions span,
+.meal-transform-proposal small,
+.meal-transform-proposal__details {
+  color: var(--text-muted);
+}
+
+.meal-transform-results {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.meal-transform-proposal {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.8rem;
+  background: var(--surface-raised);
+}
+
+.meal-transform-proposal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.meal-transform-proposal__header > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.meal-transform-proposal__details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 1rem;
+  font-size: 0.84rem;
+}
+
 .plan-fit-rules {
   display: grid;
   gap: 0.7rem;
@@ -174,7 +229,9 @@
     grid-column: auto;
   }
 
-  .plan-fit-rule__header {
+  .plan-fit-rule__header,
+  .meal-transform-proposal__header,
+  .meal-transform-actions {
     align-items: flex-start;
     flex-direction: column;
   }
