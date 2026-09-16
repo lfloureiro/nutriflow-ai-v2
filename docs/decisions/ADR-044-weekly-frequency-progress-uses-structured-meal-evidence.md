@@ -18,7 +18,9 @@ Add a server-authoritative weekly frequency progress read model and endpoint.
 
 The week is Monday through Sunday in the Person's persisted IANA timezone. The requested date is only an anchor for selecting that local week.
 
-Frequency guidelines are obtained from the existing EffectiveNutritionPlan compiler across the four supported meal types and deduplicated by guideline id. Only confirmed `frequency` guidelines with `period=week` participate.
+Frequency guidelines are obtained from the existing EffectiveNutritionPlan compiler across the days and four supported meal types in the selected week, then deduplicated by guideline id. Only confirmed `frequency` guidelines with `period=week` participate. This allows guidance that becomes effective partway through the selected week to be surfaced even when the anchor date precedes activation.
+
+Each guideline is counted only inside the intersection of the selected week, its NutritionPlan validity window and its own validity window. Meals before activation or after expiry do not contribute.
 
 Occurrences are Person-specific. A shared MealEvent contributes only when the selected Person has a non-skipped, non-replaced MealParticipant and a matching non-skipped, non-replaced Serving.
 
@@ -61,6 +63,7 @@ This endpoint does not yet mutate recommendations or construct a weekly meal pla
 - imported weekly `food_category` guidance and runtime progress use the same structured vocabulary;
 - Family meals remain Person-specific for frequency counting;
 - timezone boundaries are deterministic and local to the Person;
+- plans/guidelines that begin or end midweek do not count meals outside their effective interval;
 - missing classification stays explicit;
 - unsupported evidence remains unknown rather than being represented as a numeric zero;
 - adaptive weekly planning can later use the same evidence rather than inventing a second frequency evaluator.
