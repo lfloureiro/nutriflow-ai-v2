@@ -162,7 +162,7 @@ def _call_openai(source_text: str) -> tuple[list[dict[str, object]], str, str]:
         method="POST",
     )
     try:
-        with urlopen(request, timeout=45) as response:  # noqa: S310 - configured HTTPS API endpoint
+        with urlopen(request, timeout=45) as response:
             raw = response.read().decode("utf-8")
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
@@ -184,7 +184,9 @@ def _call_openai(source_text: str) -> tuple[list[dict[str, object]], str, str]:
     return proposals, summary, model
 
 
-def _validated_proposals(raw_proposals: list[dict[str, object]]) -> list[NutritionPlanImportProposalCreate]:
+def _validated_proposals(
+    raw_proposals: list[dict[str, object]],
+) -> list[NutritionPlanImportProposalCreate]:
     validated: list[NutritionPlanImportProposalCreate] = []
     for raw in raw_proposals:
         candidate = dict(raw)
