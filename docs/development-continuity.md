@@ -15,28 +15,27 @@ PR #43  Structured Meal Transformation proposals                          MERGED
 PR #44  PDF/DOCX/TXT/Markdown text extraction into import review          MERGED
 PR #45  scoped single-Person recommendations consume Meal Plan-Fit         MERGED
 PR #46  shared-family recommendations use Person-specific Meal Plan-Fit    MERGED
-Phase 7 external restaurant/delivery Plan-Fit                             IN PROGRESS
+PR #47  restaurant/delivery recommendations consume Meal Plan-Fit          MERGED
+Phase 8 weekly frequency progress foundation                              IN PROGRESS
 ```
 
-Confirmed `main` after PR #46 and before the current Phase 7 branch:
+Confirmed `main` after PR #47:
 
 ```text
-19534a2bcf0c332666386a8257b8a249261a4506
+bb5a700c8ef80c0b74fa455d4fe6c5bc6a33775e
 ```
 
-Current Phase 7 branch:
+Current Phase 8 branch:
 
 ```text
-feature/external-meal-recommendations-plan-fit
+feature/weekly-frequency-progress
 ```
 
-PR #45, PR #46 and the current Phase 7 slice add no migration. Verified migration chain remains:
+The current Phase 8 slice adds no migration. Repository schema head remains:
 
 ```text
-c1f4a8d2e6b9 -> d2e6f1a9c4b7
+d2e6f1a9c4b7
 ```
-
-with `d2e6f1a9c4b7` (`add_food_transformation_profiles`) as the repository schema head at this checkpoint.
 
 Do not treat any SHA in this file as permanently current. At every new session resolve `refs/heads/main`, inspect open PRs and confirm CI on the exact final head before merging or starting new work.
 
@@ -44,7 +43,7 @@ The API test environment currently caps development/test AnyIO below 4.15 becaus
 
 ## Product direction
 
-NutriFlow AI v2 is a Person-centric adaptive nutrition platform inside Family context. The product converts nutrition guidance into concrete meal decisions while keeping professional guidance, user preference, evidence quality and practical availability distinct.
+NutriFlow AI v2 is a Person-centric adaptive nutrition platform inside Family context. Professional guidance is compiled once into authoritative planning evidence and then reused by meal evaluation, recommendations and week-level planning.
 
 Current operational chain:
 
@@ -53,17 +52,15 @@ Person / Family
 -> goals, targets, constraints
 -> versioned NutritionPlan
 -> EffectiveNutritionPlan per date + meal
--> source text/document -> editable extracted text -> proposed interpretations
--> explicit review -> draft plan -> separate activation
--> FoodItem / Recipe composition evidence
+-> reviewed text/document import
+-> FoodItem / Recipe composition + planning metadata
 -> MealPlanFit for one candidate + exact portion
 -> Structured Meal Transformation proposals
--> single-Person or shared-family recommendation eligibility/fit
+-> single-Person / shared-Family / external recommendation paths
 -> practical availability + preference + diversity + feedback
--> Family meal planning / Person-specific Servings
--> pantry / shopping
--> normalized restaurant / delivery catalogue evidence
--> external commercial recommendation through the same Meal Plan-Fit path
+-> Family MealEvent + Person-specific Servings
+-> weekly frequency progress from structured meal evidence
+-> future adaptive weekly planning
 ```
 
 Authoritative roadmap: `docs/vision/nutrition-plan-guidance-roadmap.md`.
@@ -79,6 +76,7 @@ Key ADRs:
 - ADR-041 scoped recommendations consume Meal Plan-Fit
 - ADR-042 shared-family recommendations use Person-specific Meal Plan-Fit
 - ADR-043 external commercial recommendations use normalized persisted evidence and Meal Plan-Fit
+- ADR-044 weekly frequency progress uses structured meal evidence
 
 ## Core invariants
 
@@ -91,11 +89,9 @@ Preserve these rules:
 - Active professional-plan content is immutable; substantive changes create a new version.
 - Source/provenance and original statements remain traceable.
 - Parser/AI interpretations never silently become active professional rules.
-- Document extraction is only an input adapter; extracted text must still cross the same review boundary.
-- Missing nutrition evidence is unknown, never silently zero.
+- Missing nutrition or classification evidence is unknown, never silently zero.
 - Unsafe unit conversions are rejected rather than guessed.
 - Mandatory adverse reactions and mandatory nutrition rules are hard gates before preferences/ranking/ML.
-- Mandatory missing evidence/context fails closed where evaluation is safety-relevant.
 - A numeric fit score never overrides a mandatory failure, conflict or safety block.
 - Daily guidance must not be naively interpreted as a per-meal target.
 - User preference remains separate from nutrition/practical fit.
@@ -103,123 +99,18 @@ Preserve these rules:
 - Conflicts are surfaced, not silently resolved.
 - Historical Servings and composition provenance remain stable when catalogue data changes.
 - Structured transformations never silently mutate their source Recipe.
-- Ingredient equivalence is explicit transformation metadata, not inferred from names or same-weight assumptions.
 - Practical availability, price, family preference, diversity and feedback may rank an eligible meal but may not reverse Meal Plan-Fit ineligibility.
-- If Plan-Fit is eligible but numerically unscored, missing score is omitted rather than converted to zero.
 - Shared-family Plan-Fit is Person-specific; one Person's plan must never be copied to another Person.
-- A shared candidate is eligible only when every participant is eligible for their own final portion.
-- Provider-specific discovery/sync remains outside the common nutrition evaluator.
-- External items without persisted composition evidence are not nutrition-ranked and are never converted to zero-valued nutrition.
+- External items without persisted composition evidence are not nutrition-ranked.
+- Weekly frequency evaluation never classifies food from names/descriptions; only persisted structured planning evidence may count.
 - Browser code presents server-authoritative nutrition/planning evidence.
-- Demo/synthetic evidence remains explicitly development-only.
 - Persisted timezones are valid IANA names.
-
-## Nutrition Plan and Plan-Fit chain
-
-### Plan ingestion
-
-The ingestion path is:
-
-```text
-paste text
-or PDF / DOCX / TXT / Markdown upload
--> bounded extraction when needed
--> editable source text
--> deterministic or AI interpretation
--> proposed structured statements
--> explicit confirm/reject review
--> apply confirmed proposals to a draft plan
--> separate activation
-```
-
-Document limits:
-
-```text
-10 MB upload
-60 PDF pages
-100,000 extracted characters
-```
-
-Unsupported, malformed, encrypted, empty and image-only/scanned PDFs fail explicitly. OCR/photo support is deferred and must feed the same editable-text/review boundary.
-
-AI configuration:
-
-```text
-OPENAI_API_KEY
-NUTRIFLOW_NUTRITION_PLAN_AI_MODEL   default: gpt-5.6-luna
-OPENAI_BASE_URL                     optional
-```
-
-### Meal Plan-Fit
-
-`POST /api/persons/{person_id}/meal-plan-fit` evaluates EffectiveNutritionPlan against exact candidate composition/portion evidence.
-
-Important semantics:
-
-- meal-scoped numeric rules evaluated directly;
-- daily rules evaluated against DailyNutritionState projected totals;
-- mandatory conflicts/safety/evidence failures are hard gates;
-- qualitative/frequency guidance is visible but not guessed/scored;
-- fit score is secondary and cannot override eligibility.
-
-### Structured Meal Transformation
-
-The current transformation flow is:
-
-```text
-Recipe + portion
--> baseline MealPlanFit
--> explicit same-group ingredient alternatives
--> explicit portion-equivalence metadata
--> virtual replacement nutrition
--> after MealPlanFit
--> only demonstrably improving proposals
-```
-
-The source Recipe is never silently mutated. Persistent variants and multi-operation/cooking-method transformations remain deferred.
 
 ## Recommendation integration
 
-### PR #45 — scoped single-Person recommendation
+Single-Person, shared-Family and external restaurant/delivery production recommendation paths now consume the common Meal Plan-Fit semantics when an explicit meal scope exists.
 
-For single-Person recommendations with an explicit meal type:
-
-```text
-candidate + exact/final portion
--> Meal Plan-Fit
--> mandatory eligibility gate
--> Plan-Fit score when available
--> preference/advisory reaction
--> practical availability/context
--> family preference
--> diversity
--> feedback
-```
-
-This covers basic scoped recommendations and the practical home/pantry/commercial recommendation endpoint. Optional portion sizing happens before Plan-Fit. Recommendation calls without `meal_type` intentionally retain the legacy evaluator until a safe explicit scope exists.
-
-### PR #46 — shared-family recommendation
-
-Production shared-practical recommendations evaluate:
-
-```text
-Person × candidate × final Person-specific portion
--> that Person's EffectiveNutritionPlan + DailyNutritionState
--> Meal Plan-Fit
--> Person-specific preference/practical context
--> shared eligibility aggregation
--> minimum participant score before average participant score
--> diversity
--> feedback
-```
-
-A mandatory failure for one participant blocks the shared candidate and retains the Person id in exclusion reasons. Another participant's score or preference cannot average the failure away.
-
-The lower-level legacy `shared_family_meal.py` evaluator remains temporarily available for direct legacy/unit-test callers; the production shared-practical API uses `shared_family_meal_plan_fit.py`.
-
-### Phase 7 — restaurant/delivery recommendation (current branch)
-
-Existing provider/observed-menu ingestion already normalizes external food to:
+External restaurant/delivery observations are normalized to ordinary catalogue abstractions:
 
 ```text
 FoodItem
@@ -228,53 +119,53 @@ FoodItem
 + MealCommercialOffer
 ```
 
-Current branch adds an external recommendation orchestration endpoint conceptually equivalent to:
+Commercial items without nutrition composition remain visible but unranked. Price/provider/preference cannot override mandatory Plan-Fit failure.
+
+## Phase 8 — weekly frequency progress
+
+The current branch adds a deterministic, server-authoritative read model and endpoint:
 
 ```text
-POST /api/persons/{person_id}/meal-recommendations/external
+GET /api/persons/{person_id}/weekly-frequency-progress?on_date=YYYY-MM-DD
 ```
 
-The intended/current implementation path is:
+The endpoint:
+
+- resolves Monday-Sunday in the Person's persisted IANA timezone;
+- obtains confirmed weekly `frequency` guidance from the existing EffectiveNutritionPlan compiler;
+- counts Person-specific MealParticipant/Serving evidence only;
+- excludes cancelled/replaced events and skipped/replaced participants/servings;
+- separates completed from planned occurrences;
+- counts one MealEvent at most once per guideline;
+- reports minimum/maximum progress, remaining minimum/capacity and occurrence provenance;
+- marks counts as a lower bound when relevant meals lack enough structured classification evidence;
+- keeps unsupported targets `unknown`, with numeric occurrence/progress fields `null` rather than zero.
+
+Structured target support in v1:
 
 ```text
-normalized active restaurant/delivery catalogue
--> Person + planning instant + meal type
--> active commercial/provider filtering
--> latest persisted composition evidence
--> explicit evidence classification
--> exact provider/composition reference portion
--> common practical Meal Plan-Fit pipeline
--> preference/practical context
--> diversity/feedback
--> ranked commercial options
+food_category       canonical Nutrition Plan import vocabulary
+food_group          backward-compatible alias
+planning_category
+primary_protein
+food_item
+recipe
 ```
 
-Important Phase 7 rules:
+`food_category`/`food_group` are resolved only from explicit `MealCandidatePlanningProfile.planning_category` or `primary_protein`. Food names and descriptions are never used as classification evidence.
 
-- no provider-specific nutrition score;
-- only persisted normalized composition evidence enters nutrition ranking;
-- external rows without composition remain visible as `nutrition_composition_missing` and are not scored;
-- evidence level (`official`, `provider`, `estimated`) and confidence remain visible;
-- commercial portions are not auto-resized in v1;
-- active offer/provider filtering occurs before scoring;
-- mandatory Plan-Fit failure cannot be reversed by lower price or user preference.
+Focused regression coverage includes:
 
-Focused tests cover a cheaper/user-preferred low-protein delivery item remaining blocked by a mandatory professional lunch protein rule while a higher-protein item remains eligible, and a no-nutrition commercial item remaining explicitly unranked.
+- Person-specific counting inside shared Family events;
+- completed vs planned evidence;
+- weekly minimum achieved and maximum exceeded states;
+- cancelled/replaced exclusion;
+- Lisbon local-week boundary handling;
+- unclassified meals producing lower-bound counts;
+- unsupported target evidence staying `unknown`/`null`;
+- canonical imported `food_category=fish` matching explicit `primary_protein=fish`.
 
-## Existing supporting foundation
-
-Already implemented elsewhere:
-
-- Family/Person profiles, anthropometric history, energy profiles, goals, targets and constraints;
-- health connection/measurement foundations and DailyHealthState/DailyNutritionState;
-- versioned FoodItem and Recipe composition evidence;
-- deterministic recipe nutrition;
-- Family meal planning and Person-specific Servings;
-- pantry and durable shopping lists;
-- persisted recommendation runs/decisions, preferences, practical context, diversity/history and feedback;
-- normalized availability/commercial-offer abstractions for home, pantry, restaurant, delivery and store;
-- provider discovery/synchronization adapters;
-- external menu ingestion into ordinary FoodItem/composition evidence.
+This is only the Phase 8 evidence foundation. It does not yet mutate recommendations or optimize a full week.
 
 ## Frontend information architecture
 
@@ -296,7 +187,7 @@ Casa      -> Receitas | Ingredientes | Despensa | Compras | Preferências
 Pessoas   -> Visão geral | Nutrição | Atividade | Saúde | Histórico | Perfil
 ```
 
-Nutrition Plan, plan import, document upload, Plan-Fit and transformation proposals live under the selected Person's Nutrition context; meal planning and operational recommendations remain under Refeições.
+Nutrition Plan, import, Plan-Fit and weekly guidance evidence belong to the selected Person's Nutrition context; operational meal planning remains under Refeições.
 
 ## Roadmap state
 
@@ -311,9 +202,11 @@ Nutrition Plan, plan import, document upload, Plan-Fit and transformation propos
 5. Structured Meal Transformation proposals                               DONE (v1)
 6. Home/pantry/recipe recommendations consuming Plan-Fit                  DONE (v1)
 6b. Shared-family Person-specific Plan-Fit                                DONE (v1)
-7. Restaurant/delivery recommendations consuming same Plan-Fit             IN PROGRESS
-8. Weekly adaptive planning + frequency progress                           PENDING
-9. Feedback/learning refinement                                            PENDING
+7. Restaurant/delivery recommendations consuming same Plan-Fit            DONE (v1)
+8. Weekly adaptive planning + frequency progress                          IN PROGRESS
+8a. Deterministic weekly frequency progress                               IN PROGRESS (current branch)
+8b. Week-level adaptive candidate selection/optimization                  PENDING
+9. Feedback/learning refinement                                           PENDING
 ```
 
 OCR/photo import remains a parallel capability gap, not a reason to create a second plan-import trust boundary.
@@ -322,19 +215,15 @@ OCR/photo import remains a parallel capability gap, not a reason to create a sec
 
 - production authentication / Family authorization are not implemented;
 - Family UUID remains development context;
-- purchased ShoppingListItem does not automatically create PantryStockLot;
-- catalogue evidence quality is incomplete and remains visible;
+- catalogue classification/evidence quality remains incomplete and visible;
 - consumer marketplace discovery depends on provider access/configuration;
-- external recommendation currently depends on already normalized/persisted provider evidence; live discovery and normalization remain separate adapter steps;
-- external items without composition are visible but intentionally unranked;
-- commercial automatic portion optimization is intentionally disabled in Phase 7 v1;
+- external items without composition remain intentionally unranked;
 - OCR/photo/scanned-PDF extraction is deferred;
-- weekly frequency progress is deferred;
-- qualitative/frequency automatic Plan-Fit evaluation is deferred;
+- weekly progress v1 does not yet optimize future meals or hard-gate a future candidate against a weekly maximum;
+- richer reviewed food-category taxonomy/equivalence is deferred;
+- qualitative guidance remains visible but is not automatically guessed/scored;
 - unscoped recommendation still has the legacy nutrition evaluator;
-- lower-level legacy shared-family evaluator remains for direct legacy callers;
-- MealPlanFit still imports private candidate-loading helpers from recommendation API; move these to a public common service later;
-- shared Plan-Fit service currently imports private aggregation helpers from the legacy shared service; extract public common helpers later;
+- MealPlanFit still imports private candidate-loading helpers from recommendation API; extract a public common service later;
 - candidate-by-candidate Plan-Fit is correct but not yet batch-optimized;
 - transformation proposals are not yet persistent Recipe variants;
 - production npm lockfile / `npm ci` hardening remains pending.
@@ -361,9 +250,9 @@ Never use `docker compose down -v` as a routine reset because the local PostgreS
 At a new session:
 
 1. resolve current `main`, open PRs and schema head;
-2. read this file and the latest relevant ADRs;
-3. if the Phase 7 external recommendation PR/branch is active, inspect API/Web CI on the exact latest head and fix warnings/tests before merge;
-4. verify that missing external nutrition evidence stays explicitly unranked and that provider/price/preference cannot override mandatory Plan-Fit failures;
+2. read this file and ADR-044;
+3. if the weekly-frequency branch/PR is active, inspect API/Web CI on the exact latest head;
+4. verify `food_category` import vocabulary, Person-specific counting, lower-bound semantics and unsupported-target `null` behavior;
 5. guarded squash-merge only after exact-head CI is green and the PR head is unchanged/mergeable;
 6. verify post-merge `main` CI;
-7. then continue toward weekly frequency/adaptive planning or the next explicit external-provider/frontend integration slice without creating another nutrition evaluator.
+7. continue Phase 8 by making adaptive weekly planning consume this frequency-progress evidence rather than creating another frequency evaluator.
