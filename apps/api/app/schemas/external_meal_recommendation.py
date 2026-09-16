@@ -56,6 +56,7 @@ class ExternalMealRecommendationRead(BaseModel):
     scheduled_at: datetime
     meal_type: str
     discovered_count: int
+    selected_count: int
     evaluated_count: int
     evidence: list[ExternalMealCandidateEvidenceRead]
     recommendation: PracticalMealRecommendationRunRead | None
