@@ -14,9 +14,9 @@ from app.services.meal_recommendation_api import (
     MealRecommendationApiError,
     MealRecommendationApiNotFoundError,
 )
-from app.services.practical_recommendation_api import (
-    PracticalRecommendationApiError,
-    create_practical_meal_recommendation,
+from app.services.practical_recommendation_api import PracticalRecommendationApiError
+from app.services.practical_recommendation_plan_fit_api import (
+    create_practical_meal_recommendation_with_plan_fit,
 )
 
 router = APIRouter(
@@ -36,7 +36,11 @@ def create_practical_meal_recommendation_endpoint(
     db: Annotated[Session, Depends(get_db)],
 ) -> PracticalMealRecommendationRunRead:
     try:
-        return create_practical_meal_recommendation(db, person_id=person_id, data=data)
+        return create_practical_meal_recommendation_with_plan_fit(
+            db,
+            person_id=person_id,
+            data=data,
+        )
     except MealRecommendationApiNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except (

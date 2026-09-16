@@ -174,7 +174,7 @@ def test_meal_recommendation_api_persists_ranked_and_excluded_options(
     body = response.json()
     assert body["person_id"] == str(person.id)
     assert body["daily_nutrition_state_id"] == str(state.id)
-    assert body["engine_version"] == "meal-recommendation-v1"
+    assert body["engine_version"] == "meal-recommendation-plan-fit-v1"
     assert [option["candidate_key"] for option in body["options"]] == [
         "food:api-safe",
         "food:api-high",
@@ -182,7 +182,10 @@ def test_meal_recommendation_api_persists_ranked_and_excluded_options(
     assert body["options"][0]["eligible"] is True
     assert body["options"][0]["rank"] == 1
     assert body["options"][1]["eligible"] is False
-    assert body["options"][1]["exclusion_reasons"] == ["mandatory_nutrient_max:sodium"]
+    assert body["options"][1]["exclusion_reasons"] == [
+        "plan_fit_rule:daily:nutrient:sodium:fail",
+        "plan_fit_status:fail",
+    ]
 
     runs = db_session.scalars(select(MealRecommendationRun)).all()
     assert len(runs) == 1
