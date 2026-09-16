@@ -43,7 +43,7 @@ Supported target types in v1 are:
 
 `food_category` and the legacy `food_group` alias are resolved only from persisted structured planning metadata, never from food names or descriptions. A category such as `fish` can therefore match an explicit `primary_protein=fish`; absent that evidence, the system does not guess.
 
-If the target type/key is unsupported, progress is `unknown` rather than silently treated as zero.
+If the target type/key is unsupported, progress is `unknown` rather than silently treated as zero. Numeric occurrence/progress fields are therefore `null` for unsupported targets, not zero.
 
 If an otherwise relevant meal lacks enough structured classification evidence to decide whether it matches, it is counted as unclassified. Reported matching counts then become a lower bound. Missing classification evidence is not equivalent to a confirmed non-match.
 
@@ -62,6 +62,7 @@ This endpoint does not yet mutate recommendations or construct a weekly meal pla
 - Family meals remain Person-specific for frequency counting;
 - timezone boundaries are deterministic and local to the Person;
 - missing classification stays explicit;
+- unsupported evidence remains unknown rather than being represented as a numeric zero;
 - adaptive weekly planning can later use the same evidence rather than inventing a second frequency evaluator.
 
 ## Deferred
