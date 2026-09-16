@@ -24,7 +24,7 @@ class ExternalMealRecommendationCreate(BaseModel):
     location: str | None = Field(default=None, max_length=255)
     available_minutes: int | None = Field(default=None, ge=0)
     max_candidates: int = Field(default=50, ge=1, le=100)
-    max_results: int = Field(default=10, ge=1, le=10)
+    max_results: int | None = Field(default=10, ge=1, le=10)
 
     @field_validator("scheduled_at")
     @classmethod
