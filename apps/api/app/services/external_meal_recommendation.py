@@ -304,6 +304,7 @@ def create_external_meal_recommendation(
         scheduled_at=data.scheduled_at,
         meal_type=data.meal_type,
         discovered_count=len(rows_by_key),
+        selected_count=len(selected_keys),
         evaluated_count=len(candidate_inputs),
         evidence=evidence,
         recommendation=recommendation,
