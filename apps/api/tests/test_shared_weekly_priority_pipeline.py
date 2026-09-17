@@ -30,9 +30,9 @@ def _candidate(key: str) -> MealCandidate:
         key=key,
         name=key,
         kind="food_item",
-        quantity=Decimal("100"),
+        quantity=Decimal(100),
         quantity_unit="g",
-        nutrition=NutritionSnapshot(energy_kcal=Decimal("400"), nutrients={}),
+        nutrition=NutritionSnapshot(energy_kcal=Decimal(400), nutrients={}),
         subjects=frozenset({("food", key)}),
     )
 
@@ -49,7 +49,7 @@ def _shared_evaluation(
         person=person,
         portion=SharedMealPortion(
             person_id=person.id,
-            quantity=Decimal("100"),
+            quantity=Decimal(100),
             quantity_unit="g",
         ),
         evaluation=CandidateEvaluation(
