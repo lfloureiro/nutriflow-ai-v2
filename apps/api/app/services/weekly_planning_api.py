@@ -20,8 +20,8 @@ from app.services.shared_weekly_multi_slot_planning import (
     SharedWeeklyMultiSlotPlanningError,
     SharedWeeklyPlanningCandidate,
     SharedWeeklyPlanningSlot,
-    optimize_shared_weekly_slots,
 )
+from app.services.shared_weekly_search import optimize_shared_weekly_slots_scalable
 
 
 class WeeklyPlanningApiError(ValueError):
@@ -113,7 +113,7 @@ def propose_shared_weekly_plan(
         slot_engine_versions[slot.slot_key] = engine_version
 
     try:
-        result = optimize_shared_weekly_slots(
+        result = optimize_shared_weekly_slots_scalable(
             tuple(planning_slots),
             max_combinations=data.max_combinations,
         )
@@ -186,4 +186,7 @@ def propose_shared_weekly_plan(
         feasible_combinations=result.feasible_combinations,
         rejected_by_person_weekly_maximum=result.rejected_by_person_weekly_maximum,
         rejected_by_person_daily_limit=result.rejected_by_person_daily_limit,
+        search_strategy=result.search_strategy,
+        search_space_size=result.search_space_size,
+        search_truncated=result.search_truncated,
     )
