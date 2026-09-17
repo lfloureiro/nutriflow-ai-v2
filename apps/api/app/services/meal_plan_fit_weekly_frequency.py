@@ -195,6 +195,7 @@ def _frequency_result(
         return MealPlanFitGuidelineRead(
             **base,
             counts_are_lower_bound=progress.counts_are_lower_bound,
+            unclassified_meal_count=progress.unclassified_meal_count,
             status="unknown",
             explanation="Weekly frequency target cannot be evaluated from supported structured evidence.",
         )
@@ -207,6 +208,8 @@ def _frequency_result(
         "current_occurrences": total,
         "projected_occurrences": projected,
         "counts_are_lower_bound": progress.counts_are_lower_bound,
+        "unclassified_meal_count": progress.unclassified_meal_count,
+        "candidate_matches": matches,
         "matched_by": matched_by,
     }
 
