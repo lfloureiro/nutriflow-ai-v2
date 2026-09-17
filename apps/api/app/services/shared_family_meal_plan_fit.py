@@ -15,6 +15,10 @@ from app.services.meal_recommendation_plan_fit import (
 from app.services.recommendation_practical_plan_fit import (
     recommend_meals_with_practical_context_and_plan_fit,
 )
+from app.services.recommendation_weekly_frequency import (
+    RecommendationWeeklyFrequencyError,
+    apply_weekly_frequency_to_recommendation,
+)
 from app.services.shared_family_meal import (
     SharedFamilyMealError,
     SharedFamilyMealRecommendationResult,
@@ -61,11 +65,79 @@ def _evaluate_participant_candidate(
             engine_version=engine_version,
         )
 
+    try:
+        result = apply_weekly_frequency_to_recommendation(
+            result,
+            plan_fits=plan_fits,
+        )
+    except RecommendationWeeklyFrequencyError as exc:
+        raise SharedFamilyMealError(str(exc)) from exc
+
     if len(result.evaluations) != 1:
         raise SharedFamilyMealError(
             "Participant Plan-Fit recommendation must return exactly one candidate evaluation."
         )
     return result.evaluations[0]
+
+
+def _weekly_support_counts(fit: MealPlanFitRead) -> tuple[int, int]:
+    mandatory = 0
+    advisory = 0
+    for guideline in fit.guideline_results:
+        if (
+            guideline.guideline_type != "frequency"
+            or guideline.period != "week"
+            or guideline.status != "support"
+        ):
+            continue
+        if guideline.is_mandatory:
+            mandatory += 1
+        else:
+            advisory += 1
+    return mandatory, advisory
+
+
+def _shared_weekly_support(
+    candidate_key: str,
+    *,
+    plan_fits_by_person: dict[uuid.UUID, dict[str, MealPlanFitRead]],
+) -> tuple[int, int, int, int]:
+    mandatory_participants = 0
+    mandatory_total = 0
+    advisory_participants = 0
+    advisory_total = 0
+
+    for person_fits in plan_fits_by_person.values():
+        fit = person_fits.get(candidate_key)
+        if fit is None:
+            raise SharedFamilyMealError(
+                f"Missing Person-specific Plan-Fit evidence for shared candidate {candidate_key!r}."
+            )
+        mandatory, advisory = _weekly_support_counts(fit)
+        if mandatory:
+            mandatory_participants += 1
+            mandatory_total += mandatory
+        if advisory:
+            advisory_participants += 1
+            advisory_total += advisory
+
+    return (
+        mandatory_participants,
+        mandatory_total,
+        advisory_participants,
+        advisory_total,
+    )
+
+
+def _has_weekly_guidance(
+    plan_fits_by_person: dict[uuid.UUID, dict[str, MealPlanFitRead]],
+) -> bool:
+    return any(
+        guideline.guideline_type == "frequency" and guideline.period == "week"
+        for person_fits in plan_fits_by_person.values()
+        for fit in person_fits.values()
+        for guideline in fit.guideline_results
+    )
 
 
 def recommend_shared_family_meals_with_plan_fit(
@@ -138,7 +210,9 @@ def recommend_shared_family_meals_with_plan_fit(
         except MealRecommendationPlanFitError as exc:
             raise SharedFamilyMealError(str(exc)) from exc
 
+    weekly_guidance = _has_weekly_guidance(plan_fits_by_person)
     provisional: list[SharedMealCandidateEvaluation] = []
+    support_by_key: dict[str, tuple[int, int, int, int]] = {}
     for candidate_key, candidate_name, candidate_kind, portions in proposal_rows:
         participant_evaluations: list[SharedMealParticipantEvaluation] = []
         for participant in participants:
@@ -164,6 +238,10 @@ def recommend_shared_family_meals_with_plan_fit(
         participant_tuple = tuple(participant_evaluations)
         minimum_score, average_score = _score_summary(participant_tuple)
         eligible = all(item.evaluation.eligible for item in participant_tuple)
+        support_by_key[candidate_key] = _shared_weekly_support(
+            candidate_key,
+            plan_fits_by_person=plan_fits_by_person,
+        )
         provisional.append(
             SharedMealCandidateEvaluation(
                 candidate_key=candidate_key,
@@ -181,6 +259,10 @@ def recommend_shared_family_meals_with_plan_fit(
     eligible_sorted = sorted(
         (evaluation for evaluation in provisional if evaluation.eligible),
         key=lambda evaluation: (
+            -support_by_key[evaluation.candidate_key][0],
+            -support_by_key[evaluation.candidate_key][1],
+            -support_by_key[evaluation.candidate_key][2],
+            -support_by_key[evaluation.candidate_key][3],
             -(evaluation.minimum_score or ZERO),
             -(evaluation.average_score or ZERO),
             evaluation.candidate_key,
@@ -202,7 +284,10 @@ def recommend_shared_family_meals_with_plan_fit(
             evaluation.candidate_key,
         )
     )
+    result_engine_version = engine_version
+    if weekly_guidance:
+        result_engine_version = f"{engine_version}+shared-weekly-frequency-v1"
     return SharedFamilyMealRecommendationResult(
-        engine_version=engine_version,
+        engine_version=result_engine_version,
         evaluations=tuple(ranked),
     )
