@@ -40,6 +40,15 @@ class SharedWeeklyPlanProposalCreate(BaseModel):
     max_combinations: int = Field(default=10_000, ge=1, le=10_000)
 
 
+class SharedWeeklyPlanExpectedChoice(BaseModel):
+    slot_key: str = Field(min_length=1, max_length=120)
+    candidate_key: str = Field(min_length=1, max_length=160)
+
+
+class SharedWeeklyPlanAcceptCreate(SharedWeeklyPlanProposalCreate):
+    expected_choices: list[SharedWeeklyPlanExpectedChoice] = Field(min_length=1, max_length=28)
+
+
 class SharedWeeklyPlanParticipantRead(BaseModel):
     person_id: uuid.UUID
     score: Decimal | None
@@ -85,3 +94,21 @@ class SharedWeeklyPlanProposalRead(BaseModel):
     feasible_combinations: int
     rejected_by_person_weekly_maximum: int
     rejected_by_person_daily_limit: int
+
+
+class SharedWeeklyPlanMaterializedChoiceRead(BaseModel):
+    slot_key: str
+    candidate_key: str
+    meal_event_id: uuid.UUID
+    status: str
+    person_ids: list[uuid.UUID]
+    serving_ids: list[uuid.UUID]
+
+
+class SharedWeeklyPlanAcceptRead(BaseModel):
+    family_id: uuid.UUID
+    participant_ids: list[uuid.UUID]
+    week_start: date
+    week_end: date
+    engine_version: str
+    choices: list[SharedWeeklyPlanMaterializedChoiceRead]
