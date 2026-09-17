@@ -1,8 +1,11 @@
+import uuid
 from dataclasses import dataclass
 from math import prod
 
 from app.services.shared_weekly_multi_slot_planning import (
     ENGINE_VERSION as EXACT_ENGINE_VERSION,
+)
+from app.services.shared_weekly_multi_slot_planning import (
     SharedWeeklyMultiSlotPlanningError,
     SharedWeeklyMultiSlotPlanningResult,
     SharedWeeklyPlanChoice,
@@ -22,8 +25,8 @@ ENGINE_VERSION = "shared-weekly-search-v1"
 @dataclass(frozen=True)
 class SharedWeeklySearchResult:
     engine_version: str
-    family_id: object
-    participant_ids: tuple[object, ...]
+    family_id: uuid.UUID
+    participant_ids: tuple[uuid.UUID, ...]
     selected_plan: SharedWeeklyPlanEvaluation | None
     evaluated_combinations: int
     feasible_combinations: int
@@ -140,9 +143,13 @@ def optimize_shared_weekly_slots_scalable(
                 choices = (*previous_choices, choice)
                 expansions.append(
                     (
-                        (previous_key, _candidate_hint_key(candidate), tuple(
-                            item.candidate.evaluation.candidate_key for item in choices
-                        )),
+                        (
+                            previous_key,
+                            _candidate_hint_key(candidate),
+                            tuple(
+                                item.candidate.evaluation.candidate_key for item in choices
+                            ),
+                        ),
                         choices,
                     )
                 )
