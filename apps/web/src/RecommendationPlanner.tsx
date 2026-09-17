@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   ApiError,
   listFamilyPersons,
+  listFamilyRecipes,
   requestPracticalRecommendation,
   submitRecommendationDecision,
 } from "./api/client";
@@ -10,6 +11,7 @@ import type { NutritionPlanAuthority } from "./api/planFitTypes";
 import { getRecommendationBootstrap } from "./api/recommendationClient";
 import { discoverRestaurants } from "./api/restaurantDiscoveryClient";
 import type { RestaurantDiscovery } from "./api/restaurantDiscoveryTypes";
+import type { Recipe } from "./api/recipeTypes";
 import {
   planSharedPracticalRecommendation,
   requestSharedPracticalRecommendation,
@@ -34,6 +36,7 @@ import type {
 import { useI18n, type Locale } from "./i18n";
 import { localDateValue, scheduledIso } from "./planning";
 import RecommendationNutritionBudgetPanel from "./RecommendationNutritionBudget";
+import SharedTransformationPreview from "./SharedTransformationPreview";
 import {
   recommendationNutritionBudget,
   type RecommendationNutritionBudget,
@@ -503,6 +506,10 @@ function SharedResultCard({
   planned,
   busy,
   onPlan,
+  familyId,
+  mealType,
+  planningDate,
+  recipeId,
 }: {
   option: SharedRecommendationOption;
   run: SharedPracticalRecommendation;
@@ -511,6 +518,10 @@ function SharedResultCard({
   planned: SharedPracticalPlan | undefined;
   busy: boolean;
   onPlan: (option: SharedRecommendationOption) => void;
+  familyId: string;
+  mealType: RecommendationMealType;
+  planningDate: string;
+  recipeId: string | null;
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
@@ -545,6 +556,13 @@ function SharedResultCard({
         })}
       </div>
       <OfferList offers={offers} />
+      <SharedTransformationPreview
+        familyId={familyId}
+        mealType={mealType}
+        option={option}
+        planningDate={planningDate}
+        recipeId={recipeId}
+      />
       {planned ? (
         <div className="decision-result" role="status"><strong>{copy.planned}</strong></div>
       ) : (
@@ -604,6 +622,7 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
   const copy = COPY[locale];
   const today = localDateValue();
   const [people, setPeople] = useState<Person[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [discoveryByPersonId, setDiscoveryByPersonId] = useState<Record<string, PersonMealDiscovery>>({});
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([]);
   const [periodMode, setPeriodMode] = useState<RecommendationPeriodMode>("single");
@@ -627,6 +646,10 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
   const peopleById = useMemo(
     () => new Map<string, Person>(people.map((person) => [person.id, person])),
     [people],
+  );
+  const recipesByKey = useMemo(
+    () => new Map<string, Recipe>(recipes.map((recipe) => [recipe.recipe_key, recipe])),
+    [recipes],
   );
   const configuredSources = useMemo(
     () => commonRecommendationSources(selectedPersonIds, discoveryByPersonId),
@@ -654,6 +677,20 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
       })
       .catch((caught: unknown) => {
         if (!cancelled) setError(errorText(caught));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [familyId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listFamilyRecipes(familyId)
+      .then((loaded) => {
+        if (!cancelled) setRecipes(loaded.filter((recipe) => recipe.is_active));
+      })
+      .catch(() => {
+        if (!cancelled) setRecipes([]);
       });
     return () => {
       cancelled = true;
@@ -1065,11 +1102,15 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
                         return (
                           <SharedResultCard
                             busy={busy?.kind === "shared-plan" && busy.key === key}
+                            familyId={familyId}
                             key={option.candidate_key}
+                            mealType={mealType}
                             onPlan={(selected) => void planShared(day, selected)}
                             option={option}
                             peopleById={peopleById}
                             planned={sharedPlans[key]}
+                            planningDate={day.date}
+                            recipeId={recipesByKey.get(option.candidate_key)?.id ?? null}
                             run={day.run as SharedPracticalRecommendation}
                             sources={day.sources}
                           />
