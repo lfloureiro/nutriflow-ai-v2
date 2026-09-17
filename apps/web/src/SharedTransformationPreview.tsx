@@ -68,8 +68,8 @@ export default function SharedTransformationPreview({
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const resolvedRecipeId = recipeId;
-  if (!resolvedRecipeId || option.candidate_kind !== "recipe") return null;
+  if (!recipeId || option.candidate_kind !== "recipe") return null;
+  const resolvedRecipeId: string = recipeId;
 
   async function togglePreview() {
     if (open) {
