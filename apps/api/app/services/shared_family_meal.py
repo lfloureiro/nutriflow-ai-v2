@@ -9,6 +9,7 @@ from app.models.food_catalog import FoodCompositionSnapshot, RecipeCompositionSn
 from app.models.food_preference import FoodPreference
 from app.models.nutrition_constraint import NutritionConstraint
 from app.models.person import Person
+from app.schemas.meal_plan_fit import MealPlanFitRead
 from app.services.meal_recommendation import (
     CandidateEvaluation,
     MealCandidate,
@@ -64,6 +65,7 @@ class SharedMealParticipantEvaluation:
     person: Person
     portion: SharedMealPortion
     evaluation: CandidateEvaluation
+    plan_fit: MealPlanFitRead | None = None
 
 
 @dataclass(frozen=True)

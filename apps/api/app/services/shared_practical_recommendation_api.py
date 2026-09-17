@@ -317,13 +317,27 @@ def _compute_shared_recommendation(
     return result, offers
 
 
+def compute_shared_practical_recommendation(
+    session: Session,
+    *,
+    family: Family,
+    data: SharedPracticalRecommendationCreate,
+) -> tuple[SharedFamilyMealRecommendationResult, list[CommercialOfferSnapshot]]:
+    """Return the server-authoritative domain result for internal orchestration."""
+    return _compute_shared_recommendation(session, family=family, data=data)
+
+
 def create_shared_practical_recommendation(
     session: Session,
     *,
     family: Family,
     data: SharedPracticalRecommendationCreate,
 ) -> SharedPracticalRecommendationRead:
-    result, offers = _compute_shared_recommendation(session, family=family, data=data)
+    result, offers = compute_shared_practical_recommendation(
+        session,
+        family=family,
+        data=data,
+    )
     return _result_read(family, data, result, offers)
 
 
@@ -348,7 +362,11 @@ def plan_shared_practical_recommendation(
         auto_size_portions=data.auto_size_portions,
         max_results=data.max_results,
     )
-    result, _ = _compute_shared_recommendation(session, family=family, data=request)
+    result, _ = compute_shared_practical_recommendation(
+        session,
+        family=family,
+        data=request,
+    )
     planned = materialize_shared_family_recommendation(
         session,
         recommendation=result,

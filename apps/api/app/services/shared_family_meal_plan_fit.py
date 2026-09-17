@@ -204,6 +204,11 @@ def recommend_shared_family_meals_with_plan_fit(
             if person_id is None:
                 raise SharedFamilyMealError("Shared-family participant is not persisted.")
             candidate = candidates_by_person_and_key[(person_id, candidate_key)]
+            plan_fit = plan_fits_by_person[person_id].get(candidate_key)
+            if plan_fit is None:
+                raise SharedFamilyMealError(
+                    f"Missing Person-specific Plan-Fit evidence for shared candidate {candidate_key!r}."
+                )
             evaluation = _evaluate_participant_candidate(
                 participant,
                 candidate,
@@ -216,6 +221,7 @@ def recommend_shared_family_meals_with_plan_fit(
                     person=participant.person,
                     portion=portions[person_id],
                     evaluation=evaluation,
+                    plan_fit=plan_fit,
                 )
             )
 

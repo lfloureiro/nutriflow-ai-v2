@@ -24,6 +24,7 @@ from app.api.routes.shared_practical_recommendations import (
     router as shared_practical_recommendations_router,
 )
 from app.api.routes.weekly_frequency_progress import router as weekly_frequency_progress_router
+from app.api.routes.weekly_planning import router as weekly_planning_router
 
 api_router = APIRouter(prefix="/api")
 
@@ -47,3 +48,4 @@ api_router.include_router(recommendation_decisions_router)
 api_router.include_router(meal_discovery_router)
 api_router.include_router(restaurant_discovery_router)
 api_router.include_router(weekly_frequency_progress_router)
+api_router.include_router(weekly_planning_router)
