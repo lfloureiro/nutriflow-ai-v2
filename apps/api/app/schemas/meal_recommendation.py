@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.schemas.meal_type import MealType
+from app.schemas.nutrition_plan import NutritionPlanAuthorityRead
 
 
 class MealRecommendationCandidateInput(BaseModel):
@@ -46,6 +47,7 @@ class MealRecommendationOptionRead(BaseModel):
     exclusion_reasons: list[str]
     explanation: list[str]
     nutrition: RecommendationNutritionRead
+    nutrition_plan_authority: NutritionPlanAuthorityRead | None = None
 
 
 class MealRecommendationRunRead(BaseModel):
