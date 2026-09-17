@@ -56,7 +56,7 @@ function effective(
 
 function summarize(states: NutritionPlanAuthorityState[]): NutritionPlanAuthorityOverview {
   return summarizeNutritionPlanAuthority(
-    states.map((state, index) => effective(mealTypes[index], state)),
+    states.map((state, index) => effective(mealTypes[index]!, state)),
   );
 }
 
@@ -107,6 +107,6 @@ describe("summarizeNutritionPlanAuthority", () => {
     );
 
     expect(overview.active_plans).toHaveLength(1);
-    expect(overview.active_plans[0].id).toBe(shared.id);
+    expect(overview.active_plans.at(0)?.id).toBe(shared.id);
   });
 });
