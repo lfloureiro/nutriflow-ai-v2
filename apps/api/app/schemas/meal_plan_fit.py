@@ -19,6 +19,14 @@ from app.schemas.nutrition_plan import (
 MealPlanFitStatus = Literal["pass", "partial", "fail", "unknown", "conflict"]
 MealPlanFitRuleStatus = Literal["pass", "fail", "support", "unknown", "not_evaluated"]
 MealPlanFitRuleScope = Literal["candidate", "meal", "daily"]
+MealPlanFitGuidelineStatus = Literal[
+    "pass",
+    "fail",
+    "support",
+    "neutral",
+    "unknown",
+    "not_evaluated",
+]
 
 
 class MealPlanFitCreate(BaseModel):
@@ -60,10 +68,21 @@ class MealPlanFitRuleRead(BaseModel):
 
 class MealPlanFitGuidelineRead(BaseModel):
     guideline_id: uuid.UUID
+    guideline_type: str = "unknown"
+    target_type: str | None = None
+    target_key: str | None = None
     description: str
+    meal_type: MealType | None = None
+    period: str | None = None
+    minimum_occurrences: int | None = None
+    maximum_occurrences: int | None = None
+    current_occurrences: int | None = None
+    projected_occurrences: int | None = None
+    counts_are_lower_bound: bool = False
+    matched_by: list[str] = Field(default_factory=list)
     is_mandatory: bool
     priority: int
-    status: Literal["not_evaluated"] = "not_evaluated"
+    status: MealPlanFitGuidelineStatus = "not_evaluated"
     explanation: str
     source: EffectiveNutritionPlanSourceRead
 

@@ -60,12 +60,15 @@ def evaluate_candidate_plan_fits(
 ) -> dict[str, MealPlanFitRead]:
     # Local import avoids the existing MealPlanFit -> recommendation API loader dependency
     # becoming an import cycle while that loader is still shared as technical debt.
-    from app.services.meal_plan_fit import MealPlanFitError, evaluate_meal_plan_fit
+    from app.services.meal_plan_fit import MealPlanFitError
+    from app.services.meal_plan_fit_weekly_frequency import (
+        evaluate_meal_plan_fit_with_weekly_frequency,
+    )
 
     results: dict[str, MealPlanFitRead] = {}
     for candidate in candidates:
         try:
-            fit = evaluate_meal_plan_fit(
+            fit = evaluate_meal_plan_fit_with_weekly_frequency(
                 db,
                 person_id=person_id,
                 data=MealPlanFitCreate(
@@ -102,8 +105,17 @@ def _plan_fit_exclusion_reasons(fit: MealPlanFitRead) -> tuple[str, ...]:
             )
     if any(conflict.severity == "mandatory" for conflict in fit.conflicts):
         reasons.add("plan_fit_conflict:mandatory")
-    if any(guideline.is_mandatory for guideline in fit.guideline_results):
-        reasons.add("plan_fit_guideline:mandatory:not_evaluated")
+    for guideline in fit.guideline_results:
+        if guideline.is_mandatory and guideline.status in {
+            "fail",
+            "unknown",
+            "not_evaluated",
+        }:
+            reasons.add(
+                "plan_fit_guideline:"
+                f"{guideline.guideline_type}:{guideline.target_type}:"
+                f"{guideline.target_key}:{guideline.status}"
+            )
     return tuple(sorted(reasons))
 
 

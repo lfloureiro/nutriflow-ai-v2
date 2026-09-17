@@ -16,22 +16,23 @@ PR #44  PDF/DOCX/TXT/Markdown text extraction into import review          MERGED
 PR #45  scoped single-Person recommendations consume Meal Plan-Fit         MERGED
 PR #46  shared-family recommendations use Person-specific Meal Plan-Fit    MERGED
 PR #47  restaurant/delivery recommendations consume Meal Plan-Fit          MERGED
-Phase 8 weekly frequency progress foundation                              IN PROGRESS
+PR #48  deterministic weekly frequency progress                           MERGED
+Phase 8b adaptive candidate selection from weekly frequency evidence       IN PROGRESS
 ```
 
-Confirmed `main` after PR #47:
+Confirmed `main` after PR #48:
 
 ```text
-bb5a700c8ef80c0b74fa455d4fe6c5bc6a33775e
+e33659a394521d6f3b1ef3340c46b79f29316af7
 ```
 
-Current Phase 8 branch:
+Current Phase 8b branch:
 
 ```text
-feature/weekly-frequency-progress
+feature/weekly-adaptive-planning
 ```
 
-The current Phase 8 slice adds no migration. Repository schema head remains:
+The current slice adds no migration. Repository schema head remains:
 
 ```text
 d2e6f1a9c4b7
@@ -43,7 +44,7 @@ The API test environment currently caps development/test AnyIO below 4.15 becaus
 
 ## Product direction
 
-NutriFlow AI v2 is a Person-centric adaptive nutrition platform inside Family context. Professional guidance is compiled once into authoritative planning evidence and then reused by meal evaluation, recommendations and week-level planning.
+NutriFlow AI v2 is a Person-centric adaptive nutrition platform inside Family context. Professional guidance is compiled once into authoritative planning evidence and reused by meal evaluation, recommendations and week-level planning.
 
 Current operational chain:
 
@@ -53,14 +54,16 @@ Person / Family
 -> versioned NutritionPlan
 -> EffectiveNutritionPlan per date + meal
 -> reviewed text/document import
--> FoodItem / Recipe composition + planning metadata
--> MealPlanFit for one candidate + exact portion
+-> FoodItem / Recipe composition + explicit planning metadata
+-> MealPlanFit for candidate + exact portion
+-> Person-specific weekly frequency progress
+-> weekly-aware MealPlanFit guideline evidence
 -> Structured Meal Transformation proposals
 -> single-Person / shared-Family / external recommendation paths
 -> practical availability + preference + diversity + feedback
+-> adaptive candidate ordering from weekly support
 -> Family MealEvent + Person-specific Servings
--> weekly frequency progress from structured meal evidence
--> future adaptive weekly planning
+-> future full-week optimization
 ```
 
 Authoritative roadmap: `docs/vision/nutrition-plan-guidance-roadmap.md`.
@@ -77,6 +80,7 @@ Key ADRs:
 - ADR-042 shared-family recommendations use Person-specific Meal Plan-Fit
 - ADR-043 external commercial recommendations use normalized persisted evidence and Meal Plan-Fit
 - ADR-044 weekly frequency progress uses structured meal evidence
+- ADR-045 weekly frequency guidance extends Meal Plan-Fit
 
 ## Core invariants
 
@@ -94,6 +98,8 @@ Preserve these rules:
 - Mandatory adverse reactions and mandatory nutrition rules are hard gates before preferences/ranking/ML.
 - A numeric fit score never overrides a mandatory failure, conflict or safety block.
 - Daily guidance must not be naively interpreted as a per-meal target.
+- Weekly minimum frequency guidance must not be naively interpreted as a per-meal mandatory target.
+- Mandatory weekly maxima fail closed when remaining safe capacity cannot be established from the available structured evidence.
 - User preference remains separate from nutrition/practical fit.
 - Professional guidance is not silently overridden by lower-authority guidance.
 - Conflicts are surfaced, not silently resolved.
@@ -103,12 +109,13 @@ Preserve these rules:
 - Shared-family Plan-Fit is Person-specific; one Person's plan must never be copied to another Person.
 - External items without persisted composition evidence are not nutrition-ranked.
 - Weekly frequency evaluation never classifies food from names/descriptions; only persisted structured planning evidence may count.
+- Recommendation code consumes weekly evidence from Meal Plan-Fit rather than implementing another frequency evaluator.
 - Browser code presents server-authoritative nutrition/planning evidence.
 - Persisted timezones are valid IANA names.
 
 ## Recommendation integration
 
-Single-Person, shared-Family and external restaurant/delivery production recommendation paths now consume the common Meal Plan-Fit semantics when an explicit meal scope exists.
+Single-Person, shared-Family and external restaurant/delivery production recommendation paths consume the common Meal Plan-Fit semantics when an explicit meal scope exists.
 
 External restaurant/delivery observations are normalized to ordinary catalogue abstractions:
 
@@ -121,51 +128,62 @@ FoodItem
 
 Commercial items without nutrition composition remain visible but unranked. Price/provider/preference cannot override mandatory Plan-Fit failure.
 
-## Phase 8 — weekly frequency progress
+## Phase 8a — weekly frequency progress
 
-The current branch adds a deterministic, server-authoritative read model and endpoint:
+PR #48 added the deterministic server-authoritative read model:
 
 ```text
 GET /api/persons/{person_id}/weekly-frequency-progress?on_date=YYYY-MM-DD
 ```
 
-The endpoint:
+It resolves Monday-Sunday in the Person's IANA timezone, consumes confirmed weekly frequency guidance from EffectiveNutritionPlan, counts Person-specific MealParticipant/Serving evidence, separates completed/planned occurrences, reports provenance and remaining minimum/capacity, and marks lower-bound counts when structured classification is incomplete.
 
-- resolves Monday-Sunday in the Person's persisted IANA timezone;
-- obtains confirmed weekly `frequency` guidance from the existing EffectiveNutritionPlan compiler;
-- counts Person-specific MealParticipant/Serving evidence only;
-- excludes cancelled/replaced events and skipped/replaced participants/servings;
-- separates completed from planned occurrences;
-- counts one MealEvent at most once per guideline;
-- reports minimum/maximum progress, remaining minimum/capacity and occurrence provenance;
-- marks counts as a lower bound when relevant meals lack enough structured classification evidence;
-- keeps unsupported targets `unknown`, with numeric occurrence/progress fields `null` rather than zero.
-
-Structured target support in v1:
+Supported structured targets in v1:
 
 ```text
-food_category       canonical Nutrition Plan import vocabulary
-food_group          backward-compatible alias
+food_category
+food_group
 planning_category
 primary_protein
 food_item
 recipe
 ```
 
-`food_category`/`food_group` are resolved only from explicit `MealCandidatePlanningProfile.planning_category` or `primary_protein`. Food names and descriptions are never used as classification evidence.
+`food_category`/`food_group` resolve only through explicit `MealCandidatePlanningProfile` metadata. Names and descriptions are never classification evidence. Unsupported targets remain `unknown` with numeric fields `null`.
 
-Focused regression coverage includes:
+## Phase 8b — weekly-aware adaptive candidate selection
 
-- Person-specific counting inside shared Family events;
-- completed vs planned evidence;
-- weekly minimum achieved and maximum exceeded states;
-- cancelled/replaced exclusion;
-- Lisbon local-week boundary handling;
-- unclassified meals producing lower-bound counts;
-- unsupported target evidence staying `unknown`/`null`;
-- canonical imported `food_category=fish` matching explicit `primary_protein=fish`.
+The current branch extends production Meal Plan-Fit with the Phase 8a weekly evidence instead of introducing a separate nutrition evaluator.
 
-This is only the Phase 8 evidence foundation. It does not yet mutate recommendations or optimize a full week.
+For an explicit Person/date/meal/candidate:
+
+```text
+ordinary numeric/safety Meal Plan-Fit
+-> weekly frequency progress
+-> explicit candidate planning classification
+-> weekly guideline status
+-> final Meal Plan-Fit eligibility
+-> recommendation ranking
+```
+
+Frequency guideline semantics:
+
+- a candidate matching a confirmed remaining weekly minimum receives `support`;
+- a non-matching candidate is not blocked by a weekly minimum because future meals can still satisfy it;
+- a mandatory weekly maximum returns `fail` when the candidate would definitely exceed it;
+- incomplete structured evidence returns `unknown` and fails closed when safe remaining capacity for a mandatory maximum cannot be proven;
+- qualitative guidance remains visible but not automatically inferred/scored;
+- weekly support is not folded into numeric `fit_score`.
+
+Recommendation adaptation reads the weekly `support` evidence from Meal Plan-Fit. Among already eligible candidates it orders confirmed mandatory-minimum support first, then advisory-minimum support, then preserves the existing rank from Plan-Fit/preference/practical/diversity/feedback. Hard gates remain entirely owned by Meal Plan-Fit.
+
+Focused regressions cover:
+
+- a strong user preference cannot outrank an eligible candidate that supports a confirmed mandatory weekly minimum;
+- a mandatory weekly maximum blocks a matching candidate through Meal Plan-Fit;
+- lower-bound uncertainty around a mandatory maximum remains `unknown` and fails closed.
+
+This remains slot-level adaptive selection. Simultaneous combinatorial optimization of the whole week is deferred.
 
 ## Frontend information architecture
 
@@ -204,8 +222,9 @@ Nutrition Plan, import, Plan-Fit and weekly guidance evidence belong to the sele
 6b. Shared-family Person-specific Plan-Fit                                DONE (v1)
 7. Restaurant/delivery recommendations consuming same Plan-Fit            DONE (v1)
 8. Weekly adaptive planning + frequency progress                          IN PROGRESS
-8a. Deterministic weekly frequency progress                               IN PROGRESS (current branch)
-8b. Week-level adaptive candidate selection/optimization                  PENDING
+8a. Deterministic weekly frequency progress                               DONE (v1, PR #48)
+8b. Weekly-aware adaptive candidate selection                             IN PROGRESS
+8c. Full-week multi-slot optimization                                     PENDING
 9. Feedback/learning refinement                                           PENDING
 ```
 
@@ -219,7 +238,8 @@ OCR/photo import remains a parallel capability gap, not a reason to create a sec
 - consumer marketplace discovery depends on provider access/configuration;
 - external items without composition remain intentionally unranked;
 - OCR/photo/scanned-PDF extraction is deferred;
-- weekly progress v1 does not yet optimize future meals or hard-gate a future candidate against a weekly maximum;
+- full-week combinatorial optimization is deferred;
+- shared-Family recommendation does not yet aggregate participant-specific weekly frequency support for group ordering;
 - richer reviewed food-category taxonomy/equivalence is deferred;
 - qualitative guidance remains visible but is not automatically guessed/scored;
 - unscoped recommendation still has the legacy nutrition evaluator;
@@ -250,9 +270,10 @@ Never use `docker compose down -v` as a routine reset because the local PostgreS
 At a new session:
 
 1. resolve current `main`, open PRs and schema head;
-2. read this file and ADR-044;
-3. if the weekly-frequency branch/PR is active, inspect API/Web CI on the exact latest head;
-4. verify `food_category` import vocabulary, Person-specific counting, lower-bound semantics and unsupported-target `null` behavior;
-5. guarded squash-merge only after exact-head CI is green and the PR head is unchanged/mergeable;
-6. verify post-merge `main` CI;
-7. continue Phase 8 by making adaptive weekly planning consume this frequency-progress evidence rather than creating another frequency evaluator.
+2. read this file plus ADR-044 and ADR-045;
+3. if the weekly-adaptive branch/PR is active, inspect API/Web CI on the exact latest head;
+4. verify minimum-support semantics, mandatory-maximum fail-closed behavior and explicit-only candidate classification;
+5. verify recommendation ranking consumes Meal Plan-Fit weekly evidence and does not recreate frequency evaluation;
+6. guarded squash-merge only after exact-head CI is green and the PR head is unchanged/mergeable;
+7. verify post-merge `main` CI;
+8. continue toward full-week multi-slot optimization or participant-specific shared-family weekly adaptation without weakening the common evaluator boundary.
