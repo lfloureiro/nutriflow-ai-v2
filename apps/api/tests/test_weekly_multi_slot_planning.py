@@ -92,6 +92,7 @@ def _option(
         meal_type="lunch",
         candidate=MealPlanFitCandidateRead.model_construct(key=key),
         eligible=eligible,
+        rule_results=[],
         guideline_results=list(guidelines),
     )
     return WeeklyPlanningCandidate(evaluation=evaluation, plan_fit=fit)
