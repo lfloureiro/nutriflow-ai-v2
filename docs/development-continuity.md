@@ -18,19 +18,20 @@ PR #46  shared-family recommendations use Person-specific Meal Plan-Fit     MERG
 PR #47  restaurant/delivery recommendations consume Meal Plan-Fit           MERGED
 PR #48  deterministic weekly frequency progress                            MERGED
 PR #49  individual recommendations use weekly frequency progress            MERGED
-8b ext. shared-Family participant-specific weekly aggregation               IN PROGRESS
+PR #50  Person-specific weekly support in shared-family ranking             MERGED
+8c       full-week multi-slot planning foundation                            IN PROGRESS
 ```
 
-Confirmed `main` after PR #49:
+Confirmed `main` after PR #50:
 
 ```text
-b4855c2cb64f39a057196e7b769874d8cc065b20
+153af395e2b875763d621ff150e366e4c27a1695
 ```
 
-Current focused branch:
+Current focused branch, created from that exact main SHA:
 
 ```text
-feature/shared-family-weekly-frequency-adaptation
+feature/full-week-multi-slot-planning-foundation
 ```
 
 The current slice adds no migration. Repository schema head remains:
@@ -39,7 +40,7 @@ The current slice adds no migration. Repository schema head remains:
 d2e6f1a9c4b7
 ```
 
-Do not treat any SHA in this file as permanently current. At every new session resolve `refs/heads/main`, inspect open PRs and confirm CI on the exact final head before merging or starting new work.
+Do not treat any SHA in this file as permanently current. At every new session resolve `refs/heads/main`, inspect the open PR and confirm CI on the exact final head before merging or starting new work.
 
 The API test environment currently caps development/test AnyIO below 4.15 because Starlette 1.6.0 TestClient still imports a deprecated AnyIO alias and this repository treats warnings as errors.
 
@@ -63,8 +64,8 @@ Person / Family
 -> single-Person / shared-Family / external recommendation paths
 -> practical availability + preference + diversity + feedback
 -> adaptive candidate ordering from weekly support
+-> multi-slot weekly composition over existing Meal Plan-Fit evidence
 -> Family MealEvent + Person-specific Servings
--> future full-week optimization
 ```
 
 Authoritative product roadmap: `docs/vision/nutrition-plan-guidance-roadmap.md`.
@@ -83,6 +84,7 @@ Key ADRs:
 - ADR-044 weekly frequency progress uses structured meal evidence
 - ADR-045 weekly frequency guidance extends Meal Plan-Fit
 - ADR-046 shared-family weekly support remains Person-specific
+- ADR-047 full-week planning consumes Meal Plan-Fit evidence
 
 ## Core invariants
 
@@ -112,8 +114,9 @@ Preserve these rules:
 - Any hard failure for any shared-meal participant excludes that shared candidate before Family-level ranking.
 - External items without persisted composition evidence are not nutrition-ranked.
 - Weekly frequency evaluation never classifies food from names/descriptions; only persisted structured planning evidence may count.
-- Recommendation code consumes weekly evidence from Meal Plan-Fit rather than implementing another frequency evaluator.
-- Weekly minimum support is ranking pressure only; it is never an obligation for one meal slot.
+- Recommendation and week-planning code consume weekly evidence from Meal Plan-Fit rather than implementing another frequency evaluator.
+- Weekly minimum support is ranking/optimization pressure only; it is never an obligation for one meal slot.
+- Full-week planning must recheck constraints that can be violated only by the combination of several individually eligible choices.
 - Browser code presents server-authoritative nutrition/planning evidence.
 - Persisted timezones are valid IANA names.
 
@@ -159,72 +162,74 @@ recipe
 
 PR #49 extended production Meal Plan-Fit with Phase 8a weekly evidence instead of introducing a separate nutrition evaluator.
 
-For an explicit Person/date/meal/candidate:
+A candidate matching a confirmed remaining weekly minimum receives `support`. A non-matching candidate is not blocked because later meals can still satisfy the minimum. Mandatory weekly maxima fail or fail closed when structured evidence cannot prove safe capacity. Weekly support remains separate from numeric `fit_score`.
 
-```text
-ordinary numeric/safety Meal Plan-Fit
--> weekly frequency progress
--> explicit candidate planning classification
--> weekly guideline status
--> final Meal Plan-Fit eligibility
--> recommendation ranking
-```
+Among already eligible individual candidates, ranking orders confirmed mandatory-minimum support first, then advisory-minimum support, then preserves the previous recommendation ranking.
 
-Frequency guideline semantics:
+## Phase 8b extension — shared-Family weekly adaptation — DONE v1
 
-- a candidate matching a confirmed remaining weekly minimum receives `support`;
-- a non-matching candidate is not blocked by a weekly minimum because future meals can still satisfy it;
-- a mandatory weekly maximum returns `fail` when the candidate would definitely exceed it;
-- incomplete structured evidence returns `unknown` and fails closed when safe remaining capacity for a mandatory maximum cannot be proven;
-- qualitative guidance remains visible but not automatically inferred/scored;
-- weekly support is not folded into numeric `fit_score`.
-
-Among already eligible individual candidates, ranking orders confirmed mandatory-minimum support first, then advisory-minimum support, then preserves the previous recommendation ranking. Hard gates remain entirely owned by Meal Plan-Fit.
-
-## Phase 8b extension — shared-Family weekly adaptation — IN PROGRESS
-
-Current branch:
-
-```text
-feature/shared-family-weekly-frequency-adaptation
-```
-
-The shared-Family layer keeps each participant's weekly evidence independent. For every shared candidate:
+PR #50 keeps every participant's weekly evidence independent:
 
 ```text
 Person A portion -> Person A Meal Plan-Fit -> Person A guideline_results
 Person B portion -> Person B Meal Plan-Fit -> Person B guideline_results
 ...
 -> exclude candidate if ANY Person fails a hard gate
--> aggregate only weekly `support` evidence for the remaining eligible candidate
+-> aggregate only weekly support evidence for the remaining eligible candidate
 -> Family ordering
 ```
 
-The current aggregation policy is deterministic and intentionally does not reinterpret weekly guidance:
+Shared ordering is deterministic:
 
 ```text
 mandatory-support participant coverage
 -> total mandatory support statements
 -> advisory-support participant coverage
 -> total advisory support statements
--> existing minimum participant score (fairness)
--> existing average score
--> candidate key tie-breaker
+-> minimum participant score (fairness)
+-> average score
+-> candidate key
 ```
 
-Participant coverage precedes raw support count so several support statements for one Person do not outweigh helping more Family members. The existing minimum-score fairness rule remains in force after equal weekly support.
-
-The shared layer consumes only `MealPlanFitRead.guideline_results`; it must not calculate weekly progress or classify food itself. Weekly support from one Person never becomes evidence for another Person. A weekly minimum can promote an otherwise eligible shared candidate, but can never rescue a hard failure for another participant.
+The common weekly recommendation adapter owns interpretation of `guideline_results` into mandatory/advisory support counts. The shared layer only aggregates Person-specific results. Diversity and feedback score adjustments reapply the canonical shared ranking so they cannot erase higher weekly support.
 
 ADR: `docs/decisions/ADR-046-shared-family-weekly-support-is-person-specific.md`.
 
-Focused regressions cover Person-specific support, mandatory/advisory distinction, hard-failure precedence and fairness after equal weekly support.
+## Phase 8c — full-week multi-slot optimization — IN PROGRESS
 
-## Phase 8c — full-week multi-slot optimization — PENDING
+Current branch:
 
-Do not start Phase 8c until the shared-Family Phase 8b extension has completed exact-head CI, guarded merge and post-merge main verification.
+```text
+feature/full-week-multi-slot-planning-foundation
+```
 
-Phase 8c is the first place to consider simultaneous optimization over several future meal slots. It must reuse the same EffectiveNutritionPlan / Meal Plan-Fit / weekly evidence boundaries rather than create a competing rules engine.
+The foundation composes several already evaluated future meal slots for one Person. It does not introduce another nutrition evaluator or classifier.
+
+Input boundary:
+
+```text
+slot
+-> CandidateEvaluation
+-> MealPlanFitRead
+-> structured weekly guideline evidence
+```
+
+The first deterministic optimizer slice:
+
+- accepts only candidates already eligible in recommendation and Meal Plan-Fit;
+- preserves structured `candidate_matches` evidence from the existing weekly Meal Plan-Fit classifier;
+- preserves `unclassified_meal_count` when weekly progress is a lower bound;
+- rechecks mandatory weekly maxima over the whole selected combination, including unknown matches conservatively;
+- rewards confirmed mandatory weekly minimum deficits before advisory deficits;
+- caps support credit at the confirmed remaining deficit so repeated matching meals cannot over-count the target;
+- then compares minimum candidate score, average score, exact-repeat count and stable candidate keys;
+- refuses search spaces above an explicit deterministic combination limit instead of silently approximating.
+
+This foundation is intentionally one-Person/one-week and in-memory. It adds no migration and no acceptance/persistence API yet.
+
+ADR: `docs/decisions/ADR-047-full-week-planning-consumes-meal-plan-fit-evidence.md`.
+
+Next Phase 8c increments after this foundation include projected daily nutrient composition across several same-day slots, shared-Family multi-slot fairness/portions, richer across-week category/protein diversity, pantry/shopping/schedule coupling and a scalable search strategy.
 
 ## Frontend information architecture
 
@@ -265,8 +270,9 @@ Nutrition Plan, import, Plan-Fit and weekly guidance evidence belong to the sele
 8. Adaptive weekly planning                                               IN PROGRESS
 8a. Deterministic weekly frequency progress                               DONE (v1, PR #48)
 8b. Individual weekly-aware candidate selection                           DONE (v1, PR #49)
-8b extension. Shared-family participant-specific weekly adaptation        IN PROGRESS
-8c. Full-week multi-slot optimization                                     PENDING
+8b extension. Shared-family participant-specific weekly adaptation        DONE (v1, PR #50)
+8c. Full-week multi-slot optimization                                     IN PROGRESS
+8c foundation. Person-specific multi-slot weekly composition              IN PROGRESS
 9. Feedback/learning refinement                                           PENDING
 ```
 
@@ -280,8 +286,10 @@ OCR/photo import remains a parallel capability gap, not a reason to create a sec
 - consumer marketplace discovery depends on provider access/configuration;
 - external items without composition remain intentionally unranked;
 - OCR/photo/scanned-PDF extraction is deferred;
-- full-week combinatorial optimization is deferred;
-- explicit optimization of competing participant weekly deficits across several future shared meals is deferred to later week-level work;
+- full-week optimization currently has an explicit exhaustive-search cap;
+- projected daily nutrient coupling across several proposed slots is not yet implemented;
+- shared-Family multi-slot optimization is not yet implemented;
+- pantry depletion, shopping and schedule coupling are not yet optimized jointly;
 - richer reviewed food-category taxonomy/equivalence is deferred;
 - qualitative guidance remains visible but is not automatically guessed/scored;
 - unscoped recommendation still has the legacy nutrition evaluator;
@@ -311,13 +319,12 @@ Never use `docker compose down -v` as a routine reset because the local PostgreS
 
 At a new session during this slice:
 
-1. resolve current `main`, current branch head, open PR and schema head;
-2. confirm `main` still contains PR #49 and branch base is `b4855c2cb64f39a057196e7b769874d8cc065b20` unless main has legitimately advanced;
-3. read this file plus ADR-044, ADR-045 and ADR-046;
-4. inspect the shared-Family implementation and focused regressions;
-5. verify shared ranking consumes only Person-specific Meal Plan-Fit `guideline_results`;
-6. verify any participant hard failure excludes the shared candidate before weekly support ordering;
-7. verify mandatory support -> advisory support -> minimum score -> average score remains deterministic;
-8. inspect API CI and Web CI on the exact latest PR head; warnings count as failures;
-9. guarded squash-merge only after exact-head CI is green, PR head is unchanged and PR is mergeable;
-10. verify post-merge `main` before creating any Phase 8c branch.
+1. resolve current `main`, branch head, open PR and schema head;
+2. confirm branch base is the verified post-PR-#50 main `153af395e2b875763d621ff150e366e4c27a1695` unless main has legitimately advanced;
+3. read this file plus ADR-044 through ADR-047;
+4. verify the multi-slot planner consumes Meal Plan-Fit evidence and does not classify food independently;
+5. verify combinations cannot exceed a mandatory weekly maximum, including lower-bound/unknown evidence;
+6. verify minimum-support credit is capped at the confirmed remaining deficit;
+7. inspect API CI and Web CI on the exact latest PR head; warnings count as failures;
+8. guarded squash-merge only after exact-head CI is green, PR head is unchanged and PR is mergeable;
+9. verify post-merge `main` before starting the next Phase 8c increment.
