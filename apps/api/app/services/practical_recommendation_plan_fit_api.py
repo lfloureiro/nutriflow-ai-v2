@@ -45,6 +45,11 @@ from app.services.recommendation_practical_context import (
 from app.services.recommendation_practical_plan_fit import (
     recommend_meals_with_practical_context_and_plan_fit,
 )
+from app.services.recommendation_weekly_frequency import (
+    RecommendationWeeklyFrequencyError,
+    apply_weekly_frequency_to_recommendation,
+    evaluate_candidate_weekly_frequency_impacts,
+)
 
 
 def create_practical_meal_recommendation_with_plan_fit(
@@ -152,6 +157,18 @@ def create_practical_meal_recommendation_with_plan_fit(
             recommendation,
             feedback_signals=feedback_signals,
         )
+        weekly_impacts = evaluate_candidate_weekly_frequency_impacts(
+            session,
+            person_id=person.id,
+            family_id=person.family_id,
+            planning_date=data.planning_date,
+            meal_type=data.meal_type,
+            candidates=candidates,
+        )
+        recommendation = apply_weekly_frequency_to_recommendation(
+            recommendation,
+            impacts=weekly_impacts,
+        )
     except (
         CommercialAvailabilityError,
         MealEnergyAllocationError,
@@ -159,6 +176,7 @@ def create_practical_meal_recommendation_with_plan_fit(
         PantryPlanningError,
         PersistedPracticalAvailabilityError,
         PracticalRecommendationError,
+        RecommendationWeeklyFrequencyError,
     ) as exc:
         raise PracticalRecommendationApiError(str(exc)) from exc
 
@@ -173,6 +191,7 @@ def create_practical_meal_recommendation_with_plan_fit(
         context={
             "entrypoint": "practical-api",
             "nutrition_evaluator": "meal-plan-fit-v1",
+            "weekly_frequency_evaluator": "weekly-frequency-progress-v1",
             "candidate_composition_ids": [
                 str(candidate.composition_id) for candidate in data.candidates
             ],
