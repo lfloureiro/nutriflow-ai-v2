@@ -30,7 +30,8 @@ For each shared candidate:
    - existing shared average score;
    - candidate key as deterministic tie-breaker;
 5. participant explanations preserve the weekly-support markers emitted by the common recommendation adapter;
-6. when weekly guidance is present, the shared engine version records `shared-weekly-frequency-v1`.
+6. when weekly guidance is present, the shared engine version records `shared-weekly-frequency-v1`;
+7. the aggregated support tuple is carried as non-persistent internal recommendation metadata so later diversity and feedback score adjustments cannot erase weekly priority. Final shared ordering reapplies the same canonical key after those score adjustments; weekly support itself is never added to the numeric score.
 
 Weekly support is therefore a ranking pressure only after common eligibility gates. It cannot rescue a candidate that is unsafe or incompatible with any participant's mandatory plan.
 
@@ -45,8 +46,9 @@ This is an aggregation policy over existing Person-specific evidence, not a new 
 - Shared-family ranking now reflects weekly plan progress without weakening hard gates.
 - One Person's weekly minimum never becomes another Person's requirement.
 - The common Meal Plan-Fit service remains the only weekly-frequency evaluator.
-- Existing minimum/average score fairness remains in place after weekly-support ordering.
-- No persistence or migration change is required.
+- The common recommendation adapter owns the interpretation of `guideline_results` into mandatory/advisory support counts; the shared layer only aggregates those Person-specific results.
+- Existing minimum/average score fairness remains in place after weekly-support ordering, including after diversity and feedback update those scores.
+- Weekly support metadata is transient and requires no persistence or migration change.
 
 ## Deferred
 
