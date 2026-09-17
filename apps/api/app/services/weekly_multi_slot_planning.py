@@ -5,12 +5,18 @@ from decimal import Decimal
 from itertools import product
 from math import prod
 
-from app.schemas.meal_plan_fit import MealPlanFitGuidelineRead, MealPlanFitRead
+from app.schemas.meal_plan_fit import (
+    MealPlanFitGuidelineRead,
+    MealPlanFitRead,
+    MealPlanFitRuleRead,
+)
 from app.schemas.meal_type import MealType
 from app.services.meal_recommendation import CandidateEvaluation
 
 DEFAULT_MAX_COMBINATIONS = 10_000
-ENGINE_VERSION = "weekly-multi-slot-v1"
+ENGINE_VERSION = "weekly-multi-slot-v2"
+
+_DAILY_MAX_OPERATORS = frozenset({"max", "lte", "<=", "<"})
 
 
 class WeeklyMultiSlotPlanningError(ValueError):
@@ -57,6 +63,7 @@ class WeeklyMultiSlotPlanningResult:
     evaluated_combinations: int
     feasible_combinations: int
     rejected_by_mandatory_weekly_maximum: int
+    rejected_by_mandatory_daily_limit: int
 
 
 def _week_start(value: date) -> date:
@@ -68,6 +75,14 @@ def _weekly_guidelines(fit: MealPlanFitRead) -> tuple[MealPlanFitGuidelineRead, 
         guideline
         for guideline in fit.guideline_results
         if guideline.guideline_type == "frequency" and guideline.period == "week"
+    )
+
+
+def _daily_rules(fit: MealPlanFitRead) -> tuple[MealPlanFitRuleRead, ...]:
+    return tuple(
+        rule
+        for rule in fit.rule_results
+        if rule.scope == "daily" and rule.target_type == "nutrient"
     )
 
 
@@ -150,6 +165,34 @@ def _consistent_bool(
     return next(iter(values)) if values else False
 
 
+def _consistent_rule_value(
+    values: set[Decimal | None],
+    *,
+    label: str,
+    rule_id: str,
+    planning_date: date,
+) -> Decimal | None:
+    if len(values) > 1:
+        raise WeeklyMultiSlotPlanningError(
+            f"Inconsistent {label} for daily rule {rule_id!r} on {planning_date}."
+        )
+    return next(iter(values)) if values else None
+
+
+def _consistent_rule_text(
+    values: set[str | None],
+    *,
+    label: str,
+    rule_id: str,
+    planning_date: date,
+) -> str | None:
+    if len(values) > 1:
+        raise WeeklyMultiSlotPlanningError(
+            f"Inconsistent {label} for daily rule {rule_id!r} on {planning_date}."
+        )
+    return next(iter(values)) if values else None
+
+
 def _mandatory_weekly_maximum_is_safe(choices: tuple[WeeklyPlanChoice, ...]) -> bool:
     by_guideline: dict[uuid.UUID, list[MealPlanFitGuidelineRead]] = {}
     for choice in choices:
@@ -188,6 +231,68 @@ def _mandatory_weekly_maximum_is_safe(choices: tuple[WeeklyPlanChoice, ...]) -> 
         possible_projected = current + possible_existing + known_matches + unknown_matches
         if possible_projected > maximum:
             return False
+    return True
+
+
+def _mandatory_daily_limits_are_safe(choices: tuple[WeeklyPlanChoice, ...]) -> bool:
+    by_rule_and_date: dict[tuple[date, str], list[MealPlanFitRuleRead]] = {}
+    for choice in choices:
+        for rule in _daily_rules(choice.candidate.plan_fit):
+            if not rule.is_mandatory:
+                continue
+            if rule.operator not in _DAILY_MAX_OPERATORS | {"range", "target"}:
+                continue
+            by_rule_and_date.setdefault((choice.planning_date, rule.rule_id), []).append(rule)
+
+    for (planning_date, rule_id), results in by_rule_and_date.items():
+        operator = _consistent_rule_text(
+            {result.operator for result in results},
+            label="operator",
+            rule_id=rule_id,
+            planning_date=planning_date,
+        )
+        _consistent_rule_text(
+            {result.target_unit for result in results},
+            label="target unit",
+            rule_id=rule_id,
+            planning_date=planning_date,
+        )
+        maximum = _consistent_rule_value(
+            {result.target_max for result in results},
+            label="maximum target",
+            rule_id=rule_id,
+            planning_date=planning_date,
+        )
+        target = _consistent_rule_value(
+            {result.target_value for result in results},
+            label="target value",
+            rule_id=rule_id,
+            planning_date=planning_date,
+        )
+
+        baselines: set[Decimal] = set()
+        combined_candidate_value = Decimal(0)
+        for result in results:
+            if result.observed_value is None or result.projected_daily_value is None:
+                return False
+            baselines.add(result.projected_daily_value - result.observed_value)
+            combined_candidate_value += result.observed_value
+        if len(baselines) != 1:
+            raise WeeklyMultiSlotPlanningError(
+                f"Inconsistent DailyNutritionState baseline for daily rule {rule_id!r} "
+                f"on {planning_date}."
+            )
+
+        projected = next(iter(baselines)) + combined_candidate_value
+        if operator in _DAILY_MAX_OPERATORS:
+            if maximum is None or projected > maximum:
+                return False
+        elif operator == "range":
+            if maximum is None or projected > maximum:
+                return False
+        elif operator == "target":
+            if target is None or projected > target:
+                return False
     return True
 
 
@@ -297,6 +402,7 @@ def optimize_weekly_slots(
             evaluated_combinations=0,
             feasible_combinations=0,
             rejected_by_mandatory_weekly_maximum=0,
+            rejected_by_mandatory_daily_limit=0,
         )
 
     combination_count = prod(len(candidates) for candidates in eligible_by_slot)
@@ -308,6 +414,7 @@ def optimize_weekly_slots(
 
     feasible: list[WeeklyPlanEvaluation] = []
     rejected_by_maximum = 0
+    rejected_by_daily_limit = 0
     evaluated = 0
     for candidate_combination in product(*eligible_by_slot):
         evaluated += 1
@@ -323,6 +430,9 @@ def optimize_weekly_slots(
         if not _mandatory_weekly_maximum_is_safe(choices):
             rejected_by_maximum += 1
             continue
+        if not _mandatory_daily_limits_are_safe(choices):
+            rejected_by_daily_limit += 1
+            continue
         feasible.append(_evaluate_choices(choices))
 
     selected = min(feasible, key=_ranking_key) if feasible else None
@@ -333,4 +443,5 @@ def optimize_weekly_slots(
         evaluated_combinations=evaluated,
         feasible_combinations=len(feasible),
         rejected_by_mandatory_weekly_maximum=rejected_by_maximum,
+        rejected_by_mandatory_daily_limit=rejected_by_daily_limit,
     )
