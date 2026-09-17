@@ -18,6 +18,29 @@ export type NutritionPlanSummary = {
   updated_at: string;
 };
 
+export type NutritionPlanAuthorityState =
+  | "active_plan"
+  | "partial_plan_coverage"
+  | "no_active_plan"
+  | "plan_conflict";
+
+export type NutritionPlanAuthority = {
+  state: NutritionPlanAuthorityState;
+  active_plans: NutritionPlanSummary[];
+  plan_rule_ids: string[];
+  plan_guideline_ids: string[];
+  unknown_evidence: string[];
+  explanation: string[];
+};
+
+export type EffectiveNutritionPlan = {
+  person_id: string;
+  effective_date: string;
+  meal_type: PlanningMealType;
+  active_plans: NutritionPlanSummary[];
+  nutrition_plan_authority: NutritionPlanAuthority;
+};
+
 export type PlanFitSource = {
   plan_id: string | null;
   plan_title: string | null;
@@ -101,6 +124,7 @@ export type MealPlanFitResult = {
   status: "pass" | "partial" | "fail" | "unknown" | "conflict";
   fit_score: string | null;
   active_plans: NutritionPlanSummary[];
+  nutrition_plan_authority: NutritionPlanAuthority;
   conflicts: PlanFitConflict[];
   safety_issues: string[];
   rule_results: MealPlanFitRule[];
