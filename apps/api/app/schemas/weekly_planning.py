@@ -85,3 +85,6 @@ class SharedWeeklyPlanProposalRead(BaseModel):
     feasible_combinations: int
     rejected_by_person_weekly_maximum: int
     rejected_by_person_daily_limit: int
+    search_strategy: str
+    search_space_size: int
+    search_truncated: bool
