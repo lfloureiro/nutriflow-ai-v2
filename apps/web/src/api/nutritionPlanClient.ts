@@ -61,7 +61,8 @@ async function getEffectiveNutritionPlan(
 export function summarizeNutritionPlanAuthority(
   plans: EffectiveNutritionPlan[],
 ): NutritionPlanAuthorityOverview {
-  if (plans.length === 0) {
+  const firstPlan = plans[0];
+  if (!firstPlan) {
     throw new Error("At least one effective NutritionPlan response is required.");
   }
 
@@ -85,7 +86,7 @@ export function summarizeNutritionPlanAuthority(
   }
 
   return {
-    effective_date: plans[0].effective_date,
+    effective_date: firstPlan.effective_date,
     state,
     active_plans: [...activePlans.values()].sort((left, right) =>
       left.title.localeCompare(right.title),
