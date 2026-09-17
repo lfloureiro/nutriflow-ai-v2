@@ -5,7 +5,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.models.food_catalog import FoodCompositionSnapshot, FoodItem, Recipe, RecipeIngredient
+from app.models.food_catalog import FoodItem, Recipe, RecipeIngredient
 from app.models.food_transformation_profile import FoodTransformationProfile
 from app.models.person import Person
 from app.schemas.meal_plan_fit import MealPlanFitCreate, MealPlanFitRead
@@ -18,8 +18,17 @@ from app.schemas.shared_meal_transformation import (
     SharedMealTransformationProposalRead,
     SharedMealTransformationRead,
 )
-from app.services.meal_plan_fit import MealPlanFitError, _load_daily_state, _load_person, evaluate_meal_plan_fit
-from app.services.meal_recommendation import MealCandidate, _preference_score, build_recipe_candidate
+from app.services.meal_plan_fit import (
+    MealPlanFitError,
+    _load_daily_state,
+    _load_person,
+    evaluate_meal_plan_fit,
+)
+from app.services.meal_recommendation import (
+    MealCandidate,
+    _preference_score,
+    build_recipe_candidate,
+)
 from app.services.meal_transformation import (
     SCORE_QUANTUM,
     ZERO,
@@ -65,7 +74,6 @@ class _ParticipantContext:
     state_id: uuid.UUID | None
     quantity: Decimal
     quantity_unit: str
-    baseline_candidate: MealCandidate
     baseline_fit: MealPlanFitRead
     baseline_preference_score: Decimal
 
@@ -124,7 +132,10 @@ def _plan_score_delta(before: MealPlanFitRead, after: MealPlanFitRead) -> Decima
     after_score = _plan_rule_score(after)
     if before_score is None or after_score is None:
         return None
-    return (after_score - before_score).quantize(SCORE_QUANTUM, rounding=ROUND_HALF_UP)
+    return (after_score - before_score).quantize(
+        SCORE_QUANTUM,
+        rounding=ROUND_HALF_UP,
+    )
 
 
 def _load_variants(
@@ -177,7 +188,9 @@ def _load_variants(
             continue
         original_composition = _latest_food_composition(ingredient.food_item)
         if original_composition is None:
-            limitations.append(f"missing_source_composition:{ingredient.food_item.catalog_key}")
+            limitations.append(
+                f"missing_source_composition:{ingredient.food_item.catalog_key}"
+            )
             continue
         try:
             original_nutrition = scale_composition_nutrition(
@@ -191,13 +204,18 @@ def _load_variants(
             )
             continue
 
-        for target_profile in alternatives_by_group.get(source_profile.substitution_group, []):
+        for target_profile in alternatives_by_group.get(
+            source_profile.substitution_group,
+            [],
+        ):
             replacement = target_profile.food_item
             if replacement.id == ingredient.food_item_id:
                 continue
             replacement_composition = _latest_food_composition(replacement)
             if replacement_composition is None:
-                limitations.append(f"missing_replacement_composition:{replacement.catalog_key}")
+                limitations.append(
+                    f"missing_replacement_composition:{replacement.catalog_key}"
+                )
                 continue
             try:
                 replacement_quantity, replacement_unit = _replacement_quantity(
@@ -211,7 +229,9 @@ def _load_variants(
                     quantity_unit=replacement_unit,
                 )
             except UnsupportedUnitConversionError:
-                limitations.append(f"insufficient_replacement_evidence:{replacement.catalog_key}")
+                limitations.append(
+                    f"insufficient_replacement_evidence:{replacement.catalog_key}"
+                )
                 continue
             variants.append(
                 _ReplacementVariant(
@@ -293,14 +313,13 @@ def _participant_contexts(
     db: Session,
     *,
     family_id: uuid.UUID,
-    recipe: Recipe,
     composition,
     data: SharedMealTransformationCreate,
 ) -> list[_ParticipantContext]:
     result: list[_ParticipantContext] = []
     for participant in data.participants:
         person = _load_person(db, participant.person_id)
-        if person.family_id != family_id:
+        if person.id is None or person.family_id != family_id:
             raise MealTransformationError(
                 "All shared transformation participants must belong to the requested Family."
             )
@@ -339,7 +358,6 @@ def _participant_contexts(
                 state_id=participant.daily_nutrition_state_id,
                 quantity=participant.quantity,
                 quantity_unit=participant.quantity_unit,
-                baseline_candidate=baseline_candidate,
                 baseline_fit=baseline_fit,
                 baseline_preference_score=preference_score,
             )
@@ -366,12 +384,13 @@ def propose_shared_meal_transformations(
         raise MealTransformationNotFoundError(str(exc)) from exc
     composition = _latest_recipe_composition(recipe)
     if composition is None or composition.id is None:
-        raise MealTransformationError("Recipe has no persisted nutrition composition to transform safely.")
+        raise MealTransformationError(
+            "Recipe has no persisted nutrition composition to transform safely."
+        )
 
     participants = _participant_contexts(
         db,
         family_id=family_id,
-        recipe=recipe,
         composition=composition,
         data=data,
     )
@@ -383,6 +402,11 @@ def propose_shared_meal_transformations(
         unsafe = False
         any_plan_improvement = False
         for participant in participants:
+            person_id = participant.person.id
+            if person_id is None:
+                raise MealTransformationError(
+                    "Shared transformation participants must be persisted."
+                )
             candidate = _transformed_candidate(
                 recipe,
                 composition,
@@ -392,7 +416,7 @@ def propose_shared_meal_transformations(
             )
             daily_state = _load_daily_state(
                 db,
-                person_id=participant.person.id,
+                person_id=person_id,
                 planning_date=data.planning_date,
                 state_id=participant.state_id,
             )
@@ -411,20 +435,24 @@ def propose_shared_meal_transformations(
             if not after_fit.eligible or worsened_ids:
                 unsafe = True
             plan_delta = _plan_score_delta(participant.baseline_fit, after_fit)
-            plan_improved = bool(improved_ids) or (plan_delta is not None and plan_delta > ZERO)
+            plan_improved = bool(improved_ids) or (
+                plan_delta is not None and plan_delta > ZERO
+            )
             any_plan_improvement = any_plan_improvement or plan_improved
             preference_score, _ = _preference_score(
                 candidate,
                 list(participant.person.food_preferences),
                 data.planning_date,
             )
-            preference_delta = (preference_score - participant.baseline_preference_score).quantize(
+            preference_delta = (
+                preference_score - participant.baseline_preference_score
+            ).quantize(
                 SCORE_QUANTUM,
                 rounding=ROUND_HALF_UP,
             )
             participant_results.append(
                 SharedMealTransformationParticipantRead(
-                    person_id=participant.person.id,
+                    person_id=person_id,
                     before_fit=participant.baseline_fit,
                     after_fit=after_fit,
                     plan_score_delta=plan_delta,
@@ -506,6 +534,7 @@ def propose_shared_meal_transformations(
                 fit=participant.baseline_fit,
             )
             for participant in participants
+            if participant.person.id is not None
         ],
         proposals=proposals[: data.max_proposals],
         limitations=limitations,
