@@ -1,3 +1,4 @@
+import uuid
 from datetime import timedelta
 
 from sqlalchemy.orm import Session
@@ -10,6 +11,7 @@ from app.schemas.weekly_planning import (
     SharedWeeklyPlanProposalCreate,
     SharedWeeklyPlanProposalRead,
     SharedWeeklyPlanSelectionRead,
+    SharedWeeklyPlanningSlotCreate,
 )
 from app.services.shared_practical_recommendation_api import (
     compute_shared_practical_recommendation,
@@ -30,8 +32,8 @@ def _planning_slot(
     session: Session,
     *,
     family: Family,
-    person_ids: list,
-    slot,
+    person_ids: list[uuid.UUID],
+    slot: SharedWeeklyPlanningSlotCreate,
 ) -> tuple[SharedWeeklyPlanningSlot, str]:
     request = SharedPracticalRecommendationCreate(
         person_ids=person_ids,
