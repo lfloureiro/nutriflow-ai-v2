@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
@@ -99,10 +100,10 @@ class MealTransformationApplication(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     substitution_group: Mapped[str] = mapped_column(String(64), nullable=False)
 
     source_food_name: Mapped[str] = mapped_column(String(160), nullable=False)
-    source_quantity: Mapped[object] = mapped_column(Numeric(14, 4), nullable=False)
+    source_quantity: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
     source_unit: Mapped[str] = mapped_column(String(24), nullable=False)
     replacement_food_name: Mapped[str] = mapped_column(String(160), nullable=False)
-    replacement_quantity: Mapped[object] = mapped_column(Numeric(14, 4), nullable=False)
+    replacement_quantity: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
     replacement_unit: Mapped[str] = mapped_column(String(24), nullable=False)
 
     engine_version: Mapped[str] = mapped_column(String(96), nullable=False)
@@ -111,7 +112,9 @@ class MealTransformationApplication(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     meal_event: Mapped["MealEvent"] = relationship(back_populates="transformation_applications")
     recipe: Mapped["Recipe | None"] = relationship()
-    source_recipe_composition_snapshot: Mapped["RecipeCompositionSnapshot | None"] = relationship()
+    source_recipe_composition_snapshot: Mapped[
+        "RecipeCompositionSnapshot | None"
+    ] = relationship()
     recipe_ingredient: Mapped["RecipeIngredient | None"] = relationship()
     source_food_item: Mapped["FoodItem | None"] = relationship(
         foreign_keys=[source_food_item_id]
