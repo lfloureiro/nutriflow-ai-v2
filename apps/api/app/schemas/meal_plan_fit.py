@@ -68,7 +68,7 @@ class MealPlanFitRuleRead(BaseModel):
 
 class MealPlanFitGuidelineRead(BaseModel):
     guideline_id: uuid.UUID
-    guideline_type: str
+    guideline_type: str = "unknown"
     target_type: str | None = None
     target_key: str | None = None
     description: str
