@@ -100,10 +100,10 @@ def test_shared_transformation_is_plan_adapted_when_one_plan_improves_and_all_ar
 
     by_person = {item.person_id: item for item in proposal.participant_results}
     primary = by_person[DEMO_PERSON_ID]
-    assert str(PROTEIN_RULE_ID) in primary.plan_improved_rule_ids
+    assert f"plan-rule:{PROTEIN_RULE_ID}" in primary.plan_improved_rule_ids
     assert primary.before_fit.eligible is False
     assert primary.after_fit.eligible is True
-    assert primary.after_fit.nutrition_plan_authority.state == "active_plan"
+    assert primary.after_fit.nutrition_plan_authority.state == "partial_plan_coverage"
 
     marta = by_person[DEMO_MARTA_ID]
     assert marta.after_fit.eligible is True
