@@ -79,6 +79,8 @@ class MealPlanFitGuidelineRead(BaseModel):
     current_occurrences: int | None = None
     projected_occurrences: int | None = None
     counts_are_lower_bound: bool = False
+    unclassified_meal_count: int | None = Field(default=None, ge=0)
+    candidate_matches: bool | None = None
     matched_by: list[str] = Field(default_factory=list)
     is_mandatory: bool
     priority: int
