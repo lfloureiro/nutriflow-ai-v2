@@ -68,7 +68,8 @@ export default function SharedTransformationPreview({
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!recipeId || option.candidate_kind !== "recipe") return null;
+  const resolvedRecipeId = recipeId;
+  if (!resolvedRecipeId || option.candidate_kind !== "recipe") return null;
 
   async function togglePreview() {
     if (open) {
@@ -84,7 +85,7 @@ export default function SharedTransformationPreview({
       const response = await proposeSharedMealTransformations(familyId, {
         planning_date: planningDate,
         meal_type: mealType,
-        recipe_id: recipeId,
+        recipe_id: resolvedRecipeId,
         participants: option.participants.map((participant) => ({
           person_id: participant.person_id,
           daily_nutrition_state_id: null,
