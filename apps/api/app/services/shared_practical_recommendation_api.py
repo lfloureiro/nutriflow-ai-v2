@@ -154,6 +154,11 @@ def _result_read(
                         quantity_unit=participant.portion.quantity_unit,
                         energy_kcal=participant.evaluation.candidate.nutrition.energy_kcal,
                         explanation=list(participant.evaluation.explanation),
+                        nutrition_plan_authority=(
+                            participant.plan_fit.nutrition_plan_authority
+                            if participant.plan_fit is not None
+                            else None
+                        ),
                     )
                     for participant in evaluation.participant_evaluations
                 ],
