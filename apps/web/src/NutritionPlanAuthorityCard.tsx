@@ -115,6 +115,7 @@ export default function NutritionPlanAuthorityCard({
   useEffect(() => {
     let cancelled = false;
     setError(false);
+    setOverview(null);
     void getNutritionPlanAuthorityOverview(personId, effectiveDate)
       .then((result) => {
         if (!cancelled) setOverview(result);
