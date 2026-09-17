@@ -34,6 +34,7 @@ def create_meal_recommendation_with_plan_fit(
         candidates=data.candidates,
         meal_type=data.meal_type,
     )
+    plan_fits = None
 
     if data.meal_type is None:
         # Backward-compatible unscoped calls retain the legacy evaluator until MealPlanFit
@@ -78,7 +79,7 @@ def create_meal_recommendation_with_plan_fit(
         fit_mode = True
         weekly_frequency_mode = recommendation.engine_version.endswith("+weekly-frequency-v1")
 
-    return persist_recommendation_response(
+    response = persist_recommendation_response(
         session,
         person=person,
         state=state,
@@ -96,3 +97,9 @@ def create_meal_recommendation_with_plan_fit(
             ],
         },
     )
+    if plan_fits is not None:
+        for option in response.options:
+            fit = plan_fits.get(option.candidate_key)
+            if fit is not None:
+                option.nutrition_plan_authority = fit.nutrition_plan_authority
+    return response
