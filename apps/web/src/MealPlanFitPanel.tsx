@@ -43,8 +43,11 @@ const COPY = {
     changedRules: "Regras afetadas",
     noRecipes: "Não há receitas com composição nutricional para esta refeição.",
     noPlan: "Nenhum plano alimentar ativo; podem ainda existir metas ou limites gerais da pessoa.",
-    activePlan: "Plano ativo",
-    activePlans: "Planos ativos",
+    planAuthority: "Estado do plano",
+    active_plan: "Plano activo",
+    partial_plan_coverage: "Cobertura parcial",
+    no_active_plan: "Sem plano activo",
+    plan_conflict: "Conflito no plano",
     score: "Adequação",
     eligible: "Elegível",
     blocked: "Bloqueada",
@@ -94,8 +97,11 @@ const COPY = {
     changedRules: "Affected rules",
     noRecipes: "There are no recipes with nutrition composition for this meal.",
     noPlan: "No active nutrition plan; general Person targets or limits may still apply.",
-    activePlan: "Active plan",
-    activePlans: "Active plans",
+    planAuthority: "Plan state",
+    active_plan: "Active plan",
+    partial_plan_coverage: "Partial coverage",
+    no_active_plan: "No active plan",
+    plan_conflict: "Plan conflict",
     score: "Fit",
     eligible: "Eligible",
     blocked: "Blocked",
@@ -434,11 +440,12 @@ export default function MealPlanFitPanel({
               <strong className={`plan-fit-status status-${result.status}`}>{copy[result.status]}</strong>
             </div>
             <div className="plan-fit-summary__plans">
-              <span>{result.active_plans.length === 1 ? copy.activePlan : copy.activePlans}</span>
+              <span>{copy.planAuthority}</span>
               <strong>
+                {copy[result.nutrition_plan_authority.state]}
                 {result.active_plans.length > 0
-                  ? result.active_plans.map((plan) => plan.title).join(" · ")
-                  : copy.noPlan}
+                  ? ` · ${result.active_plans.map((plan) => plan.title).join(" · ")}`
+                  : ""}
               </strong>
             </div>
           </div>
