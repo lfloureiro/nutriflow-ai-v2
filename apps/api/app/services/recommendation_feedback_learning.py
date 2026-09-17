@@ -16,6 +16,7 @@ from app.services.shared_family_meal import (
     SharedFamilyMealRecommendationResult,
     SharedMealCandidateEvaluation,
     SharedMealParticipantEvaluation,
+    shared_candidate_ranking_key,
 )
 
 ZERO = Decimal(0)
@@ -220,16 +221,9 @@ def apply_feedback_to_shared_recommendation(
             )
         )
 
-    if not changed:
-        return recommendation
-
     eligible = sorted(
         (evaluation for evaluation in adjusted if evaluation.eligible),
-        key=lambda evaluation: (
-            -(evaluation.minimum_score or ZERO),
-            -(evaluation.average_score or ZERO),
-            evaluation.candidate_key,
-        ),
+        key=shared_candidate_ranking_key,
     )
     rank_by_key = {
         evaluation.candidate_key: rank for rank, evaluation in enumerate(eligible, start=1)
@@ -245,7 +239,10 @@ def apply_feedback_to_shared_recommendation(
             ),
         )
     )
+    engine_version = recommendation.engine_version
+    if changed:
+        engine_version = f"{engine_version}+feedback-v1"
     return SharedFamilyMealRecommendationResult(
-        engine_version=f"{recommendation.engine_version}+feedback-v1",
+        engine_version=engine_version,
         evaluations=ranked,
     )
