@@ -7,11 +7,11 @@ from app.models.family import Family
 from app.schemas.shared_practical_recommendation import SharedPracticalRecommendationCreate
 from app.schemas.weekly_planning import (
     SharedWeeklyPlanChoiceRead,
+    SharedWeeklyPlanningSlotCreate,
     SharedWeeklyPlanParticipantRead,
     SharedWeeklyPlanProposalCreate,
     SharedWeeklyPlanProposalRead,
     SharedWeeklyPlanSelectionRead,
-    SharedWeeklyPlanningSlotCreate,
 )
 from app.services.shared_practical_recommendation_api import (
     compute_shared_practical_recommendation,
