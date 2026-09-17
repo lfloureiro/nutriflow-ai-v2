@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.schemas.meal_plan_fit import MealPlanFitRead
 from app.schemas.meal_type import MealType
-from app.services.meal_recommendation import ZERO, CandidateEvaluation, MealCandidate
+from app.services.meal_recommendation import CandidateEvaluation, MealCandidate
 from app.services.meal_recommendation_plan_fit import (
     MealRecommendationPlanFitError,
     evaluate_candidate_plan_fits,
@@ -18,6 +18,7 @@ from app.services.recommendation_practical_plan_fit import (
 from app.services.recommendation_weekly_frequency import (
     RecommendationWeeklyFrequencyError,
     apply_weekly_frequency_to_recommendation,
+    weekly_support_counts,
 )
 from app.services.shared_family_meal import (
     SharedFamilyMealError,
@@ -33,6 +34,7 @@ from app.services.shared_family_meal import (
     _proposal_identity,
     _score_summary,
     _validate_participants,
+    shared_candidate_ranking_key,
 )
 
 
@@ -80,23 +82,6 @@ def _evaluate_participant_candidate(
     return result.evaluations[0]
 
 
-def _weekly_support_counts(fit: MealPlanFitRead) -> tuple[int, int]:
-    mandatory = 0
-    advisory = 0
-    for guideline in fit.guideline_results:
-        if (
-            guideline.guideline_type != "frequency"
-            or guideline.period != "week"
-            or guideline.status != "support"
-        ):
-            continue
-        if guideline.is_mandatory:
-            mandatory += 1
-        else:
-            advisory += 1
-    return mandatory, advisory
-
-
 def _shared_weekly_support(
     candidate_key: str,
     *,
@@ -113,7 +98,7 @@ def _shared_weekly_support(
             raise SharedFamilyMealError(
                 f"Missing Person-specific Plan-Fit evidence for shared candidate {candidate_key!r}."
             )
-        mandatory, advisory = _weekly_support_counts(fit)
+        mandatory, advisory = weekly_support_counts(fit)
         if mandatory:
             mandatory_participants += 1
             mandatory_total += mandatory
@@ -212,7 +197,6 @@ def recommend_shared_family_meals_with_plan_fit(
 
     weekly_guidance = _has_weekly_guidance(plan_fits_by_person)
     provisional: list[SharedMealCandidateEvaluation] = []
-    support_by_key: dict[str, tuple[int, int, int, int]] = {}
     for candidate_key, candidate_name, candidate_kind, portions in proposal_rows:
         participant_evaluations: list[SharedMealParticipantEvaluation] = []
         for participant in participants:
@@ -238,7 +222,12 @@ def recommend_shared_family_meals_with_plan_fit(
         participant_tuple = tuple(participant_evaluations)
         minimum_score, average_score = _score_summary(participant_tuple)
         eligible = all(item.evaluation.eligible for item in participant_tuple)
-        support_by_key[candidate_key] = _shared_weekly_support(
+        (
+            mandatory_participants,
+            mandatory_total,
+            advisory_participants,
+            advisory_total,
+        ) = _shared_weekly_support(
             candidate_key,
             plan_fits_by_person=plan_fits_by_person,
         )
@@ -253,20 +242,16 @@ def recommend_shared_family_meals_with_plan_fit(
                 average_score=average_score,
                 participant_evaluations=participant_tuple,
                 exclusion_reasons=_participant_exclusions(participant_tuple),
+                weekly_mandatory_support_participants=mandatory_participants,
+                weekly_mandatory_support_total=mandatory_total,
+                weekly_advisory_support_participants=advisory_participants,
+                weekly_advisory_support_total=advisory_total,
             )
         )
 
     eligible_sorted = sorted(
         (evaluation for evaluation in provisional if evaluation.eligible),
-        key=lambda evaluation: (
-            -support_by_key[evaluation.candidate_key][0],
-            -support_by_key[evaluation.candidate_key][1],
-            -support_by_key[evaluation.candidate_key][2],
-            -support_by_key[evaluation.candidate_key][3],
-            -(evaluation.minimum_score or ZERO),
-            -(evaluation.average_score or ZERO),
-            evaluation.candidate_key,
-        ),
+        key=shared_candidate_ranking_key,
     )
     rank_by_key = {
         evaluation.candidate_key: rank
