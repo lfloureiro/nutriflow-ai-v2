@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 from decimal import Decimal
 from typing import Literal
 
@@ -19,7 +20,7 @@ class SharedMealTransformationParticipantCreate(BaseModel):
 
 
 class SharedMealTransformationCreate(BaseModel):
-    planning_date: str
+    planning_date: date
     meal_type: MealType
     recipe_id: uuid.UUID
     participants: list[SharedMealTransformationParticipantCreate] = Field(
@@ -68,7 +69,7 @@ class SharedMealTransformationRead(BaseModel):
     family_id: uuid.UUID
     recipe_id: uuid.UUID
     recipe_name: str
-    planning_date: str
+    planning_date: date
     meal_type: MealType
     baseline: list[SharedMealTransformationBaselineRead]
     proposals: list[SharedMealTransformationProposalRead]
