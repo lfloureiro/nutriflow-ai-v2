@@ -284,15 +284,11 @@ def _mandatory_daily_limits_are_safe(choices: tuple[WeeklyPlanChoice, ...]) -> b
             )
 
         projected = next(iter(baselines)) + combined_candidate_value
-        if operator in _DAILY_MAX_OPERATORS:
+        if operator in _DAILY_MAX_OPERATORS or operator == "range":
             if maximum is None or projected > maximum:
                 return False
-        elif operator == "range":
-            if maximum is None or projected > maximum:
-                return False
-        elif operator == "target":
-            if target is None or projected > target:
-                return False
+        elif operator == "target" and (target is None or projected > target):
+            return False
     return True
 
 
