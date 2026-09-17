@@ -241,6 +241,7 @@ def _rule_result(
     status: str,
     explanation: str,
     observed_value: Decimal | None = None,
+    current_daily_value: Decimal | None = None,
     projected_daily_value: Decimal | None = None,
     score: Decimal | None = None,
 ) -> MealPlanFitRuleRead:
@@ -255,6 +256,7 @@ def _rule_result(
         priority=rule.priority,
         observed_value=observed_value,
         observed_unit=rule.unit if observed_value is not None else None,
+        current_daily_value=current_daily_value,
         projected_daily_value=projected_daily_value,
         target_min=rule.value_min,
         target_max=rule.value_max,
@@ -394,6 +396,7 @@ def _evaluate_rule(
         status=status,
         score=None if status == "support" else score,
         observed_value=candidate_value,
+        current_daily_value=current,
         projected_daily_value=projected,
         explanation=explanation,
     )
