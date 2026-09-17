@@ -19,19 +19,20 @@ PR #47  restaurant/delivery recommendations consume Meal Plan-Fit           MERG
 PR #48  deterministic weekly frequency progress                            MERGED
 PR #49  individual recommendations use weekly frequency progress            MERGED
 PR #50  Person-specific weekly support in shared-family ranking             MERGED
-8c       full-week multi-slot planning foundation                            IN PROGRESS
+PR #51  full-week multi-slot planning foundation                            MERGED
+8c next  same-day daily nutrient coupling                                   IN PROGRESS
 ```
 
-Confirmed `main` after PR #50:
+Confirmed `main` after PR #51:
 
 ```text
-153af395e2b875763d621ff150e366e4c27a1695
+94166de62b7d5ea2ec629bf4c2966ed170dd3795
 ```
 
 Current focused branch, created from that exact main SHA:
 
 ```text
-feature/full-week-multi-slot-planning-foundation
+feature/full-week-daily-nutrient-coupling
 ```
 
 The current slice adds no migration. Repository schema head remains:
@@ -65,6 +66,7 @@ Person / Family
 -> practical availability + preference + diversity + feedback
 -> adaptive candidate ordering from weekly support
 -> multi-slot weekly composition over existing Meal Plan-Fit evidence
+-> same-day recomposition of mandatory daily nutrient upper bounds
 -> Family MealEvent + Person-specific Servings
 ```
 
@@ -85,6 +87,7 @@ Key ADRs:
 - ADR-045 weekly frequency guidance extends Meal Plan-Fit
 - ADR-046 shared-family weekly support remains Person-specific
 - ADR-047 full-week planning consumes Meal Plan-Fit evidence
+- ADR-048 weekly planning rechecks daily nutrient limits across same-day slots
 
 ## Core invariants
 
@@ -117,6 +120,7 @@ Preserve these rules:
 - Recommendation and week-planning code consume weekly evidence from Meal Plan-Fit rather than implementing another frequency evaluator.
 - Weekly minimum support is ranking/optimization pressure only; it is never an obligation for one meal slot.
 - Full-week planning must recheck constraints that can be violated only by the combination of several individually eligible choices.
+- Same-day daily nutrient coupling consumes structured Meal Plan-Fit rule evidence; it does not reload/reinterpret NutritionPlan rules or silently convert units.
 - Browser code presents server-authoritative nutrition/planning evidence.
 - Persisted timezones are valid IANA names.
 
@@ -197,13 +201,7 @@ ADR: `docs/decisions/ADR-046-shared-family-weekly-support-is-person-specific.md`
 
 ## Phase 8c — full-week multi-slot optimization — IN PROGRESS
 
-Current branch:
-
-```text
-feature/full-week-multi-slot-planning-foundation
-```
-
-The foundation composes several already evaluated future meal slots for one Person. It does not introduce another nutrition evaluator or classifier.
+PR #51 merged the first deterministic one-Person/one-week foundation. It composes several already evaluated future meal slots without introducing another nutrition evaluator or classifier.
 
 Input boundary:
 
@@ -211,10 +209,10 @@ Input boundary:
 slot
 -> CandidateEvaluation
 -> MealPlanFitRead
--> structured weekly guideline evidence
+-> structured rule/guideline evidence
 ```
 
-The first deterministic optimizer slice:
+The merged foundation:
 
 - accepts only candidates already eligible in recommendation and Meal Plan-Fit;
 - preserves structured `candidate_matches` evidence from the existing weekly Meal Plan-Fit classifier;
@@ -225,11 +223,18 @@ The first deterministic optimizer slice:
 - then compares minimum candidate score, average score, exact-repeat count and stable candidate keys;
 - refuses search spaces above an explicit deterministic combination limit instead of silently approximating.
 
-This foundation is intentionally one-Person/one-week and in-memory. It adds no migration and no acceptance/persistence API yet.
+Current increment: same-day daily nutrient coupling.
 
-ADR: `docs/decisions/ADR-047-full-week-planning-consumes-meal-plan-fit-evidence.md`.
+For mandatory daily nutrient rules already evaluated by Meal Plan-Fit, several individually safe candidates for the same date are recomposed against their common `DailyNutritionState` baseline. Mandatory maximum/range-upper-bound/exact-target overshoot is rejected at combination level. Daily values are never summed across different dates. Missing safety evidence fails closed; inconsistent baselines or rule metadata are planning errors.
 
-Next Phase 8c increments after this foundation include projected daily nutrient composition across several same-day slots, shared-Family multi-slot fairness/portions, richer across-week category/protein diversity, pantry/shopping/schedule coupling and a scalable search strategy.
+Daily minimums are deliberately not converted into a whole-day hard gate yet because planner input can represent only a subset of the day's remaining slots.
+
+ADRs:
+
+- `docs/decisions/ADR-047-full-week-planning-consumes-meal-plan-fit-evidence.md`
+- `docs/decisions/ADR-048-weekly-planning-rechecks-daily-nutrient-limits.md`
+
+Next Phase 8c increments after this slice include shared-Family multi-slot fairness/Person-specific portions, richer across-week category/protein diversity, pantry/shopping/schedule coupling, scalable search and proposal acceptance/persistence.
 
 ## Frontend information architecture
 
@@ -272,7 +277,8 @@ Nutrition Plan, import, Plan-Fit and weekly guidance evidence belong to the sele
 8b. Individual weekly-aware candidate selection                           DONE (v1, PR #49)
 8b extension. Shared-family participant-specific weekly adaptation        DONE (v1, PR #50)
 8c. Full-week multi-slot optimization                                     IN PROGRESS
-8c foundation. Person-specific multi-slot weekly composition              IN PROGRESS
+8c foundation. Person-specific multi-slot weekly composition              DONE (v1, PR #51)
+8c daily coupling. Same-day mandatory nutrient upper bounds               IN PROGRESS
 9. Feedback/learning refinement                                           PENDING
 ```
 
@@ -287,7 +293,7 @@ OCR/photo import remains a parallel capability gap, not a reason to create a sec
 - external items without composition remain intentionally unranked;
 - OCR/photo/scanned-PDF extraction is deferred;
 - full-week optimization currently has an explicit exhaustive-search cap;
-- projected daily nutrient coupling across several proposed slots is not yet implemented;
+- daily minimum completion is not forced unless complete-day slot coverage becomes explicit;
 - shared-Family multi-slot optimization is not yet implemented;
 - pantry depletion, shopping and schedule coupling are not yet optimized jointly;
 - richer reviewed food-category taxonomy/equivalence is deferred;
@@ -320,11 +326,12 @@ Never use `docker compose down -v` as a routine reset because the local PostgreS
 At a new session during this slice:
 
 1. resolve current `main`, branch head, open PR and schema head;
-2. confirm branch base is the verified post-PR-#50 main `153af395e2b875763d621ff150e366e4c27a1695` unless main has legitimately advanced;
-3. read this file plus ADR-044 through ADR-047;
-4. verify the multi-slot planner consumes Meal Plan-Fit evidence and does not classify food independently;
+2. confirm branch base is the verified post-PR-#51 main `94166de62b7d5ea2ec629bf4c2966ed170dd3795` unless main has legitimately advanced;
+3. read this file plus ADR-044 through ADR-048;
+4. verify the multi-slot planner consumes Meal Plan-Fit evidence and does not classify food or reinterpret NutritionPlan rules independently;
 5. verify combinations cannot exceed a mandatory weekly maximum, including lower-bound/unknown evidence;
-6. verify minimum-support credit is capped at the confirmed remaining deficit;
-7. inspect API CI and Web CI on the exact latest PR head; warnings count as failures;
-8. guarded squash-merge only after exact-head CI is green, PR head is unchanged and PR is mergeable;
-9. verify post-merge `main` before starting the next Phase 8c increment.
+6. verify same-day combinations cannot exceed a mandatory daily nutrient upper bound already represented in Plan-Fit evidence;
+7. verify daily values are coupled per date and inconsistent DailyNutritionState baselines fail rather than being guessed;
+8. inspect API CI and Web CI on the exact latest PR head; warnings count as failures;
+9. guarded squash-merge only after exact-head CI is green, PR head is unchanged and PR is mergeable;
+10. verify post-merge `main` before starting the next Phase 8c increment.
