@@ -20,6 +20,7 @@ from app.api.routes.recipe_preferences import router as recipe_preferences_route
 from app.api.routes.recipes import router as recipes_router
 from app.api.routes.recommendation_decisions import router as recommendation_decisions_router
 from app.api.routes.restaurant_discovery import router as restaurant_discovery_router
+from app.api.routes.shared_meal_transformations import router as shared_meal_transformations_router
 from app.api.routes.shared_practical_recommendations import (
     router as shared_practical_recommendations_router,
 )
@@ -40,6 +41,7 @@ api_router.include_router(nutrition_plans_router)
 api_router.include_router(nutrition_plan_imports_router)
 api_router.include_router(meal_plan_fit_router)
 api_router.include_router(meal_transformations_router)
+api_router.include_router(shared_meal_transformations_router)
 api_router.include_router(planning_bootstrap_router)
 api_router.include_router(meal_recommendations_router)
 api_router.include_router(practical_meal_recommendations_router)
