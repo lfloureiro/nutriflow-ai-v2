@@ -1,3 +1,4 @@
+import type { NutritionPlanAuthority } from "./planFitTypes";
 import type {
   PracticalSourceKind,
   RecommendationCandidateInput,
@@ -27,6 +28,7 @@ export type SharedParticipantEvaluation = {
   quantity_unit: string;
   energy_kcal: string | null;
   explanation: string[];
+  nutrition_plan_authority: NutritionPlanAuthority | null;
 };
 
 export type SharedRecommendationOption = {

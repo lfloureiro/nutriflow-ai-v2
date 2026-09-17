@@ -12,6 +12,7 @@ from app.models.family import Family
 from app.models.food_catalog import Recipe, RecipeCompositionSnapshot
 from app.models.meal import MealEvent
 from app.models.nutrition_constraint import NutritionConstraint
+from app.models.nutrition_plan import NutritionPlan, NutritionPlanRule
 from app.models.person import Person
 
 PLANNING_DATE = date(2026, 8, 22)
@@ -131,6 +132,64 @@ def test_shared_practical_recommendation_returns_one_group_option(db_session: Se
         str(ana.id),
         str(bruno.id),
     }
+    assert {
+        participant["nutrition_plan_authority"]["state"]
+        for participant in option["participants"]
+    } == {"no_active_plan"}
+
+
+def test_shared_practical_recommendation_preserves_person_specific_plan_authority(
+    db_session: Session,
+) -> None:
+    family, ana, bruno, _, composition = _base(db_session, "authority")
+    constraint = NutritionConstraint(
+        person=ana,
+        constraint_type="meal_target",
+        target_type="nutrient",
+        target_key="energy_kcal",
+        operator="max",
+        value_max=Decimal(600),
+        unit="kcal",
+        severity="advisory",
+        is_mandatory=False,
+        source="nutritionist",
+        start_date=PLANNING_DATE,
+    )
+    plan = NutritionPlan(
+        person=ana,
+        title="Plano da Ana",
+        source_type="nutritionist",
+        source_name="Dra. Teste",
+        status="active",
+        valid_from=PLANNING_DATE,
+    )
+    binding = NutritionPlanRule(
+        nutrition_plan=plan,
+        rule_kind="constraint",
+        nutrition_constraint=constraint,
+        meal_type="lunch",
+        priority=100,
+        source_statement="Almoço até 600 kcal.",
+    )
+    db_session.add_all([constraint, plan, binding])
+    db_session.flush()
+
+    response = _post(
+        db_session,
+        family,
+        "/meal-recommendations/shared-practical",
+        _payload(ana, bruno, composition),
+    )
+
+    assert response.status_code == 201
+    participants = response.json()["options"][0]["participants"]
+    authority_by_person = {
+        participant["person_id"]: participant["nutrition_plan_authority"]
+        for participant in participants
+    }
+    assert authority_by_person[str(ana.id)]["state"] == "active_plan"
+    assert authority_by_person[str(ana.id)]["active_plans"][0]["title"] == "Plano da Ana"
+    assert authority_by_person[str(bruno.id)]["state"] == "no_active_plan"
 
 
 def test_shared_practical_recommendation_respects_one_person_mandatory_rule(

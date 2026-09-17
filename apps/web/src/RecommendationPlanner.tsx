@@ -6,6 +6,7 @@ import {
   requestPracticalRecommendation,
   submitRecommendationDecision,
 } from "./api/client";
+import type { NutritionPlanAuthority } from "./api/planFitTypes";
 import { getRecommendationBootstrap } from "./api/recommendationClient";
 import { discoverRestaurants } from "./api/restaurantDiscoveryClient";
 import type { RestaurantDiscovery } from "./api/restaurantDiscoveryTypes";
@@ -108,6 +109,10 @@ const COPY = {
     deliverySource: "Entrega",
     groupFit: "Adequação do grupo",
     portion: "Porção",
+    active_plan: "Plano aplicado",
+    partial_plan_coverage: "Cobertura parcial",
+    no_active_plan: "Sem plano",
+    plan_conflict: "Conflito no plano",
     restaurants: "Restaurantes na área",
     restaurantLiveNote: "Descoberta live ordenada por qualidade/reputação quando o Google Places está configurado. A adequação nutricional continua a depender de um prato/menu concreto.",
     restaurantAreaRequired: "Configura uma área de restaurantes em Casa → Fontes ou indica uma área em Mais opções.",
@@ -172,6 +177,10 @@ const COPY = {
     deliverySource: "Delivery",
     groupFit: "Group fit",
     portion: "Portion",
+    active_plan: "Plan applied",
+    partial_plan_coverage: "Partial coverage",
+    no_active_plan: "No plan",
+    plan_conflict: "Plan conflict",
     restaurants: "Restaurants in the area",
     restaurantLiveNote: "Live discovery is ranked by quality/reputation when Google Places is configured. Nutritional suitability still requires a concrete dish/menu item.",
     restaurantAreaRequired: "Configure a restaurant area under Home base → Sources or enter an area in More options.",
@@ -419,6 +428,22 @@ function ResultEyebrow({ rank }: { rank: number | null }) {
   return <span className="eyebrow">{rank === 1 ? COPY[locale].best : COPY[locale].alternative}</span>;
 }
 
+function PlanAuthorityBadge({
+  authority,
+}: {
+  authority: NutritionPlanAuthority | null;
+}) {
+  const { locale } = useI18n();
+  if (!authority) return null;
+  return (
+    <span
+      className={`recommend-plan-authority recommend-plan-authority--${authority.state}`}
+    >
+      {COPY[locale][authority.state]}
+    </span>
+  );
+}
+
 function SingleResultCard({
   option,
   run,
@@ -444,6 +469,7 @@ function SingleResultCard({
           <ResultEyebrow rank={option.rank} />
           <h3>{option.candidate_name}</h3>
           <p className="muted compact">{formatNumber(option.quantity, locale)} {option.quantity_unit}</p>
+          <PlanAuthorityBadge authority={option.nutrition_plan_authority} />
         </div>
         {option.nutrition.energy_kcal !== null ? (
           <div className="energy-pill"><strong>{formatNumber(option.nutrition.energy_kcal, locale, 0)}</strong><span>kcal</span></div>
@@ -506,7 +532,10 @@ function SharedResultCard({
           const person = peopleById.get(participant.person_id);
           return (
             <div className="shared-participant-row" key={participant.person_id}>
-              <strong>{person ? displayName(person) : participant.person_id}</strong>
+              <div className="shared-participant-row__identity">
+                <strong>{person ? displayName(person) : participant.person_id}</strong>
+                <PlanAuthorityBadge authority={participant.nutrition_plan_authority} />
+              </div>
               <span>
                 {copy.portion}: {formatNumber(participant.quantity, locale)} {participant.quantity_unit}
                 {participant.energy_kcal !== null ? ` · ${formatNumber(participant.energy_kcal, locale, 0)} kcal` : ""}

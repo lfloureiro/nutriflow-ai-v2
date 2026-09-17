@@ -1,3 +1,5 @@
+import type { NutritionPlanAuthority } from "./planFitTypes";
+
 export type Person = {
   id: string;
   family_id: string;
@@ -201,6 +203,7 @@ export type RecommendationOption = {
   score_breakdown: Record<string, string>;
   exclusion_reasons: string[];
   explanation: string[];
+  nutrition_plan_authority: NutritionPlanAuthority | null;
   nutrition: {
     energy_kcal: string | null;
     nutrients: Record<string, RecommendationNutrient>;
