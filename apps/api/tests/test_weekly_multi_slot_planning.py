@@ -5,8 +5,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.schemas.meal_plan_fit import MealPlanFitCandidateRead, MealPlanFitGuidelineRead, MealPlanFitRead
-from app.schemas.nutrition_plan import EffectiveNutritionGuidelineRead, EffectiveNutritionPlanSourceRead
+from app.schemas.meal_plan_fit import (
+    MealPlanFitCandidateRead,
+    MealPlanFitGuidelineRead,
+    MealPlanFitRead,
+)
+from app.schemas.nutrition_plan import (
+    EffectiveNutritionGuidelineRead,
+    EffectiveNutritionPlanSourceRead,
+)
 from app.schemas.weekly_frequency_progress import WeeklyFrequencyGuidelineProgressRead
 from app.services.meal_plan_fit_weekly_frequency import _frequency_result
 from app.services.meal_recommendation import CandidateEvaluation, MealCandidate
