@@ -16,14 +16,16 @@ async function responseError(response: Response): Promise<string> {
   return response.statusText || `HTTP ${response.status}`;
 }
 
+export function sharedMealTransformationPath(familyId: string): string {
+  return `/api/families/${encodeURIComponent(familyId)}/meal-transformations/proposals`;
+}
+
 export async function proposeSharedMealTransformations(
   familyId: string,
   payload: SharedMealTransformationRequest,
 ): Promise<SharedMealTransformationResult> {
   const response = await fetch(
-    buildApiUrl(
-      `/api/families/${encodeURIComponent(familyId)}/meal-transformations/proposals`,
-    ),
+    buildApiUrl(sharedMealTransformationPath(familyId)),
     {
       method: "POST",
       headers: {
