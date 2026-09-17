@@ -20,19 +20,20 @@ PR #48  deterministic weekly frequency progress                            MERGE
 PR #49  individual recommendations use weekly frequency progress            MERGED
 PR #50  Person-specific weekly support in shared-family ranking             MERGED
 PR #51  full-week multi-slot planning foundation                            MERGED
-8c next  same-day daily nutrient coupling                                   IN PROGRESS
+PR #52  same-day daily nutrient coupling                                    MERGED
+8c next  shared-Family multi-slot planning                                  IN PROGRESS
 ```
 
-Confirmed `main` after PR #51:
+Confirmed `main` after PR #52:
 
 ```text
-94166de62b7d5ea2ec629bf4c2966ed170dd3795
+51cecf83858c7cd1a931cb205b141d360a43076a
 ```
 
 Current focused branch, created from that exact main SHA:
 
 ```text
-feature/full-week-daily-nutrient-coupling
+feature/shared-family-multi-slot-planning
 ```
 
 The current slice adds no migration. Repository schema head remains:
@@ -67,6 +68,7 @@ Person / Family
 -> adaptive candidate ordering from weekly support
 -> multi-slot weekly composition over existing Meal Plan-Fit evidence
 -> same-day recomposition of mandatory daily nutrient upper bounds
+-> shared-Family multi-slot composition by reusing each Person's weekly projection
 -> Family MealEvent + Person-specific Servings
 ```
 
@@ -88,6 +90,7 @@ Key ADRs:
 - ADR-046 shared-family weekly support remains Person-specific
 - ADR-047 full-week planning consumes Meal Plan-Fit evidence
 - ADR-048 weekly planning rechecks daily nutrient limits across same-day slots
+- ADR-049 shared-family weekly planning reuses Person-specific weekly planning
 
 ## Core invariants
 
@@ -121,6 +124,8 @@ Preserve these rules:
 - Weekly minimum support is ranking/optimization pressure only; it is never an obligation for one meal slot.
 - Full-week planning must recheck constraints that can be violated only by the combination of several individually eligible choices.
 - Same-day daily nutrient coupling consumes structured Meal Plan-Fit rule evidence; it does not reload/reinterpret NutritionPlan rules or silently convert units.
+- Shared-Family multi-slot planning must project the shared choice through every Person's exact participant evaluation and Plan-Fit before Family aggregation.
+- Support for one Person can never rescue a weekly or daily hard failure for another Person.
 - Browser code presents server-authoritative nutrition/planning evidence.
 - Persisted timezones are valid IANA names.
 
@@ -201,9 +206,9 @@ ADR: `docs/decisions/ADR-046-shared-family-weekly-support-is-person-specific.md`
 
 ## Phase 8c — full-week multi-slot optimization — IN PROGRESS
 
-PR #51 merged the first deterministic one-Person/one-week foundation. It composes several already evaluated future meal slots without introducing another nutrition evaluator or classifier.
+PR #51 merged the deterministic one-Person/one-week foundation. PR #52 extended it with same-day recomposition of mandatory nutrient upper bounds.
 
-Input boundary:
+Person-level input boundary:
 
 ```text
 slot
@@ -212,29 +217,44 @@ slot
 -> structured rule/guideline evidence
 ```
 
-The merged foundation:
+The merged Person planner:
 
 - accepts only candidates already eligible in recommendation and Meal Plan-Fit;
-- preserves structured `candidate_matches` evidence from the existing weekly Meal Plan-Fit classifier;
-- preserves `unclassified_meal_count` when weekly progress is a lower bound;
-- rechecks mandatory weekly maxima over the whole selected combination, including unknown matches conservatively;
+- preserves structured weekly classification evidence and lower-bound uncertainty;
+- rechecks mandatory weekly maxima over the whole selected combination;
 - rewards confirmed mandatory weekly minimum deficits before advisory deficits;
-- caps support credit at the confirmed remaining deficit so repeated matching meals cannot over-count the target;
-- then compares minimum candidate score, average score, exact-repeat count and stable candidate keys;
-- refuses search spaces above an explicit deterministic combination limit instead of silently approximating.
+- caps minimum-support credit at confirmed remaining deficit;
+- recomposes mandatory same-day nutrient upper bounds against the common DailyNutritionState baseline;
+- keeps daily coupling isolated per date;
+- compares minimum candidate score, average score, exact-repeat count and stable candidate keys;
+- refuses search spaces above an explicit deterministic combination limit.
 
-Current increment: same-day daily nutrient coupling.
+Current increment: shared-Family multi-slot planning.
 
-For mandatory daily nutrient rules already evaluated by Meal Plan-Fit, several individually safe candidates for the same date are recomposed against their common `DailyNutritionState` baseline. Mandatory maximum/range-upper-bound/exact-target overshoot is rejected at combination level. Daily values are never summed across different dates. Missing safety evidence fails closed; inconsistent baselines or rule metadata are planning errors.
+A shared candidate keeps one participant evaluation and one Meal Plan-Fit per Person. For each proposed shared combination, the Family planner projects the selected shared meals into one singleton-candidate weekly plan per Person and calls the existing Person optimizer. The shared combination is feasible only when every Person projection is feasible.
 
-Daily minimums are deliberately not converted into a whole-day hard gate yet because planner input can represent only a subset of the day's remaining slots.
+Family ordering among feasible combinations is:
+
+```text
+mandatory-support participant coverage
+-> total mandatory supported occurrences
+-> advisory-support participant coverage
+-> total advisory supported occurrences
+-> minimum participant score across the week
+-> average participant score
+-> repeated shared-candidate count
+-> stable candidate-key sequence
+```
+
+This layer does not compile plans, recalculate DailyNutritionState, classify foods or implement another weekly evaluator.
 
 ADRs:
 
 - `docs/decisions/ADR-047-full-week-planning-consumes-meal-plan-fit-evidence.md`
 - `docs/decisions/ADR-048-weekly-planning-rechecks-daily-nutrient-limits.md`
+- `docs/decisions/ADR-049-shared-family-weekly-planning-reuses-person-planner.md`
 
-Next Phase 8c increments after this slice include shared-Family multi-slot fairness/Person-specific portions, richer across-week category/protein diversity, pantry/shopping/schedule coupling, scalable search and proposal acceptance/persistence.
+Next Phase 8c increments after this slice include API orchestration / proposal acceptance, richer across-week category/protein diversity, pantry/shopping/schedule coupling and scalable search.
 
 ## Frontend information architecture
 
@@ -278,7 +298,8 @@ Nutrition Plan, import, Plan-Fit and weekly guidance evidence belong to the sele
 8b extension. Shared-family participant-specific weekly adaptation        DONE (v1, PR #50)
 8c. Full-week multi-slot optimization                                     IN PROGRESS
 8c foundation. Person-specific multi-slot weekly composition              DONE (v1, PR #51)
-8c daily coupling. Same-day mandatory nutrient upper bounds               IN PROGRESS
+8c daily coupling. Same-day mandatory nutrient upper bounds               DONE (v1, PR #52)
+8c shared. Shared-Family multi-slot Person-specific planning              IN PROGRESS
 9. Feedback/learning refinement                                           PENDING
 ```
 
@@ -294,7 +315,7 @@ OCR/photo import remains a parallel capability gap, not a reason to create a sec
 - OCR/photo/scanned-PDF extraction is deferred;
 - full-week optimization currently has an explicit exhaustive-search cap;
 - daily minimum completion is not forced unless complete-day slot coverage becomes explicit;
-- shared-Family multi-slot optimization is not yet implemented;
+- shared-Family multi-slot planning is currently an in-memory service and not yet API-orchestrated;
 - pantry depletion, shopping and schedule coupling are not yet optimized jointly;
 - richer reviewed food-category taxonomy/equivalence is deferred;
 - qualitative guidance remains visible but is not automatically guessed/scored;
@@ -326,12 +347,12 @@ Never use `docker compose down -v` as a routine reset because the local PostgreS
 At a new session during this slice:
 
 1. resolve current `main`, branch head, open PR and schema head;
-2. confirm branch base is the verified post-PR-#51 main `94166de62b7d5ea2ec629bf4c2966ed170dd3795` unless main has legitimately advanced;
-3. read this file plus ADR-044 through ADR-048;
-4. verify the multi-slot planner consumes Meal Plan-Fit evidence and does not classify food or reinterpret NutritionPlan rules independently;
-5. verify combinations cannot exceed a mandatory weekly maximum, including lower-bound/unknown evidence;
-6. verify same-day combinations cannot exceed a mandatory daily nutrient upper bound already represented in Plan-Fit evidence;
-7. verify daily values are coupled per date and inconsistent DailyNutritionState baselines fail rather than being guessed;
+2. confirm branch base is the verified post-PR-#52 main `51cecf83858c7cd1a931cb205b141d360a43076a` unless main has legitimately advanced;
+3. read this file plus ADR-044 through ADR-049;
+4. verify the shared planner contains exactly one participant evaluation and Plan-Fit per Person/candidate/slot;
+5. verify every shared combination is projected through the existing Person weekly optimizer rather than a second frequency/daily evaluator;
+6. verify support for one Person cannot rescue another Person's weekly maximum or daily nutrient hard failure;
+7. verify Family ranking preserves support coverage before minimum-participant fairness and deterministic ties;
 8. inspect API CI and Web CI on the exact latest PR head; warnings count as failures;
 9. guarded squash-merge only after exact-head CI is green, PR head is unchanged and PR is mergeable;
 10. verify post-merge `main` before starting the next Phase 8c increment.
