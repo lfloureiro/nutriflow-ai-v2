@@ -46,6 +46,7 @@ class SharedWeeklyPlanExpectedChoice(BaseModel):
 
 
 class SharedWeeklyPlanAcceptCreate(SharedWeeklyPlanProposalCreate):
+    expected_fingerprint: str = Field(min_length=64, max_length=64)
     expected_choices: list[SharedWeeklyPlanExpectedChoice] = Field(min_length=1, max_length=28)
 
 
@@ -88,6 +89,7 @@ class SharedWeeklyPlanProposalRead(BaseModel):
     week_start: date
     week_end: date
     engine_version: str
+    proposal_fingerprint: str
     slot_engine_versions: dict[str, str]
     selected_plan: SharedWeeklyPlanSelectionRead | None
     evaluated_combinations: int
@@ -111,4 +113,5 @@ class SharedWeeklyPlanAcceptRead(BaseModel):
     week_start: date
     week_end: date
     engine_version: str
+    proposal_fingerprint: str
     choices: list[SharedWeeklyPlanMaterializedChoiceRead]
