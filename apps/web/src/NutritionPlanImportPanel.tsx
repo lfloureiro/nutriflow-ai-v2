@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "./api/client";
 import {
@@ -157,9 +157,13 @@ function proposalMeaning(
 }
 
 export default function NutritionPlanImportPanel({
+  onPlanActivated,
+  openRequestToken = 0,
   personId,
   planningDate,
 }: {
+  onPlanActivated?: () => void;
+  openRequestToken?: number;
   personId: string;
   planningDate: string;
 }) {
@@ -175,6 +179,16 @@ export default function NutritionPlanImportPanel({
   const [sourceReference, setSourceReference] = useState("");
   const [sourceText, setSourceText] = useState("");
   const [validFrom, setValidFrom] = useState(planningDate);
+
+  useEffect(() => {
+    if (openRequestToken <= 0) return;
+    setOpen(true);
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById("nutrition-import-title")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [openRequestToken]);
 
   const pending = session?.proposals.some((item) => item.confirmation_status === "proposed") ?? true;
   const confirmedCount = session?.proposals.filter((item) => item.confirmation_status === "confirmed").length ?? 0;
@@ -248,6 +262,7 @@ export default function NutritionPlanImportPanel({
         ...session,
         nutrition_plan: { ...session.nutrition_plan, status: "active" },
       });
+      onPlanActivated?.();
     } catch (caught: unknown) {
       setError(errorText(caught, copy.genericError, copy.aiUnavailable));
     } finally {
