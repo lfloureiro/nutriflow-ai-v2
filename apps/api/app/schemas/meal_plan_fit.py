@@ -56,6 +56,7 @@ class MealPlanFitRuleRead(BaseModel):
     priority: int
     observed_value: Decimal | None = None
     observed_unit: str | None = None
+    current_daily_value: Decimal | None = None
     projected_daily_value: Decimal | None = None
     target_min: Decimal | None = None
     target_max: Decimal | None = None
