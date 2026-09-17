@@ -96,9 +96,18 @@ def _candidate(composition: FoodCompositionSnapshot) -> dict[str, str]:
     }
 
 
-def test_shared_ranking_uses_person_specific_weekly_support(
+def _setup_family(
     db_session: Session,
-) -> None:
+    *,
+    fish_key: str = "dish:shared-fish",
+    beef_key: str = "dish:shared-beef",
+) -> tuple[
+    Family,
+    Person,
+    Person,
+    FoodCompositionSnapshot,
+    FoodCompositionSnapshot,
+]:
     family = Family(name="Shared weekly family", timezone="Europe/Lisbon")
     ana = Person(
         family=family,
@@ -118,14 +127,14 @@ def test_shared_ranking_uses_person_specific_weekly_support(
     fish = _food(
         db_session,
         family=family,
-        key="dish:shared-fish",
+        key=fish_key,
         name="Shared fish lunch",
         primary_protein="fish",
     )
     beef = _food(
         db_session,
         family=family,
-        key="dish:shared-beef",
+        key=beef_key,
         name="Shared beef lunch",
         primary_protein="red_meat",
     )
@@ -142,12 +151,24 @@ def test_shared_ranking_uses_person_specific_weekly_support(
                 computed_at=SCHEDULED_AT,
             )
         )
+    db_session.flush()
+    return family, ana, bruno, fish, beef
 
+
+def _activate_frequency_guideline(
+    db_session: Session,
+    *,
+    person: Person,
+    target_key: str,
+    minimum: int | None = None,
+    maximum: int | None = None,
+    mandatory: bool = True,
+) -> None:
     plan = create_nutrition_plan(
         db_session,
-        person=ana,
+        person=person,
         data=NutritionPlanCreate(
-            title="Ana weekly fish guidance",
+            title=f"{person.first_name} weekly {target_key} guidance",
             source_type="nutritionist",
             source_name="Dietitian",
             valid_from=date(2026, 9, 1),
@@ -159,11 +180,12 @@ def test_shared_ranking_uses_person_specific_weekly_support(
         data=NutritionPlanGuidelineCreate(
             guideline_type="frequency",
             target_type="food_category",
-            target_key="fish",
-            description="Fish at least three times per week",
+            target_key=target_key,
+            description=f"Weekly frequency for {target_key}",
             period="week",
-            minimum_occurrences=3,
-            is_mandatory=True,
+            minimum_occurrences=minimum,
+            maximum_occurrences=maximum,
+            is_mandatory=mandatory,
             priority=120,
         ),
     )
@@ -172,17 +194,16 @@ def test_shared_ranking_uses_person_specific_weekly_support(
         plan=plan,
         data=NutritionPlanUpdate(status="active"),
     )
-    bruno.food_preferences.append(
-        FoodPreference(
-            subject_type="food",
-            subject_key="dish:shared-beef",
-            preference_type="like",
-            intensity=5,
-            source="user",
-        )
-    )
-    db_session.commit()
 
+
+def _recommend(
+    db_session: Session,
+    *,
+    family: Family,
+    ana: Person,
+    bruno: Person,
+    candidates: list[FoodCompositionSnapshot],
+) -> dict[str, object]:
     assert family.id is not None
     assert ana.id is not None
     assert bruno.id is not None
@@ -191,7 +212,7 @@ def test_shared_ranking_uses_person_specific_weekly_support(
         "planning_date": PLANNING_DATE.isoformat(),
         "scheduled_at": SCHEDULED_AT.isoformat(),
         "meal_type": "lunch",
-        "candidates": [_candidate(beef), _candidate(fish)],
+        "candidates": [_candidate(candidate) for candidate in candidates],
         "has_kitchen": True,
         "source_kinds": ["home"],
     }
@@ -207,17 +228,207 @@ def test_shared_ranking_uses_person_specific_weekly_support(
         app.dependency_overrides.clear()
 
     assert response.status_code == 201
-    body = response.json()
+    return response.json()
+
+
+def _participant(option: dict[str, object], person: Person) -> dict[str, object]:
+    assert person.id is not None
+    participants = option["participants"]
+    assert isinstance(participants, list)
+    return next(
+        participant
+        for participant in participants
+        if participant["person_id"] == str(person.id)
+    )
+
+
+def test_shared_ranking_uses_person_specific_weekly_support(
+    db_session: Session,
+) -> None:
+    family, ana, bruno, fish, beef = _setup_family(db_session)
+    _activate_frequency_guideline(
+        db_session,
+        person=ana,
+        target_key="fish",
+        minimum=3,
+        mandatory=True,
+    )
+    bruno.food_preferences.append(
+        FoodPreference(
+            subject_type="food",
+            subject_key="dish:shared-beef",
+            preference_type="like",
+            intensity=5,
+            source="user",
+        )
+    )
+    db_session.commit()
+
+    body = _recommend(
+        db_session,
+        family=family,
+        ana=ana,
+        bruno=bruno,
+        candidates=[beef, fish],
+    )
+
     assert "+shared-weekly-frequency-v1" in body["engine_version"]
-    assert [option["candidate_key"] for option in body["options"]] == [
+    options = body["options"]
+    assert isinstance(options, list)
+    assert [option["candidate_key"] for option in options] == [
         "dish:shared-fish",
         "dish:shared-beef",
     ]
-    fish_option = body["options"][0]
+    fish_option = options[0]
     assert fish_option["eligible"] is True
-    ana_result = next(
-        participant
-        for participant in fish_option["participants"]
-        if participant["person_id"] == str(ana.id)
-    )
+    ana_result = _participant(fish_option, ana)
+    bruno_result = _participant(fish_option, bruno)
     assert "weekly_frequency_support:mandatory:1" in ana_result["explanation"]
+    assert not any(
+        marker.startswith("weekly_frequency_support:")
+        for marker in bruno_result["explanation"]
+    )
+
+
+def test_shared_ranking_distinguishes_advisory_weekly_support(
+    db_session: Session,
+) -> None:
+    family, ana, bruno, fish, beef = _setup_family(db_session)
+    _activate_frequency_guideline(
+        db_session,
+        person=ana,
+        target_key="fish",
+        minimum=3,
+        mandatory=False,
+    )
+    bruno.food_preferences.append(
+        FoodPreference(
+            subject_type="food",
+            subject_key="dish:shared-beef",
+            preference_type="like",
+            intensity=5,
+            source="user",
+        )
+    )
+    db_session.commit()
+
+    body = _recommend(
+        db_session,
+        family=family,
+        ana=ana,
+        bruno=bruno,
+        candidates=[beef, fish],
+    )
+
+    options = body["options"]
+    assert isinstance(options, list)
+    assert [option["candidate_key"] for option in options] == [
+        "dish:shared-fish",
+        "dish:shared-beef",
+    ]
+    ana_result = _participant(options[0], ana)
+    assert "weekly_frequency_support:advisory:1" in ana_result["explanation"]
+
+
+def test_weekly_support_never_rescues_another_participants_hard_failure(
+    db_session: Session,
+) -> None:
+    family, ana, bruno, fish, beef = _setup_family(db_session)
+    _activate_frequency_guideline(
+        db_session,
+        person=ana,
+        target_key="fish",
+        minimum=3,
+        mandatory=True,
+    )
+    _activate_frequency_guideline(
+        db_session,
+        person=bruno,
+        target_key="fish",
+        maximum=0,
+        mandatory=True,
+    )
+    db_session.commit()
+
+    body = _recommend(
+        db_session,
+        family=family,
+        ana=ana,
+        bruno=bruno,
+        candidates=[fish, beef],
+    )
+
+    options = body["options"]
+    assert isinstance(options, list)
+    by_key = {option["candidate_key"]: option for option in options}
+    fish_option = by_key["dish:shared-fish"]
+    assert fish_option["eligible"] is False
+    assert fish_option["rank"] is None
+    assert bruno.id is not None
+    assert (
+        f"person:{bruno.id}:plan_fit_guideline:frequency:food_category:fish:fail"
+        in fish_option["exclusion_reasons"]
+    )
+    ana_result = _participant(fish_option, ana)
+    assert "weekly_frequency_support:mandatory:1" in ana_result["explanation"]
+    assert by_key["dish:shared-beef"]["eligible"] is True
+    assert by_key["dish:shared-beef"]["rank"] == 1
+
+
+def test_equal_weekly_support_preserves_existing_family_fairness(
+    db_session: Session,
+) -> None:
+    family, ana, bruno, fish, beef = _setup_family(
+        db_session,
+        fish_key="dish:a-polarizing-fish",
+        beef_key="dish:z-balanced-beef",
+    )
+    _activate_frequency_guideline(
+        db_session,
+        person=ana,
+        target_key="fish",
+        minimum=3,
+        mandatory=True,
+    )
+    _activate_frequency_guideline(
+        db_session,
+        person=bruno,
+        target_key="red_meat",
+        minimum=3,
+        mandatory=True,
+    )
+    ana.food_preferences.append(
+        FoodPreference(
+            subject_type="food",
+            subject_key="dish:a-polarizing-fish",
+            preference_type="like",
+            intensity=5,
+            source="user",
+        )
+    )
+    bruno.food_preferences.append(
+        FoodPreference(
+            subject_type="food",
+            subject_key="dish:a-polarizing-fish",
+            preference_type="dislike",
+            intensity=5,
+            source="user",
+        )
+    )
+    db_session.commit()
+
+    body = _recommend(
+        db_session,
+        family=family,
+        ana=ana,
+        bruno=bruno,
+        candidates=[fish, beef],
+    )
+
+    options = body["options"]
+    assert isinstance(options, list)
+    assert [option["candidate_key"] for option in options] == [
+        "dish:z-balanced-beef",
+        "dish:a-polarizing-fish",
+    ]
+    assert options[0]["minimum_score"] > options[1]["minimum_score"]
