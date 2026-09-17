@@ -77,6 +77,24 @@ class SharedMealCandidateEvaluation:
     average_score: Decimal | None
     participant_evaluations: tuple[SharedMealParticipantEvaluation, ...]
     exclusion_reasons: tuple[str, ...]
+    weekly_mandatory_support_participants: int = 0
+    weekly_mandatory_support_total: int = 0
+    weekly_advisory_support_participants: int = 0
+    weekly_advisory_support_total: int = 0
+
+
+def shared_candidate_ranking_key(
+    evaluation: SharedMealCandidateEvaluation,
+) -> tuple[int, int, int, int, Decimal, Decimal, str]:
+    return (
+        -evaluation.weekly_mandatory_support_participants,
+        -evaluation.weekly_mandatory_support_total,
+        -evaluation.weekly_advisory_support_participants,
+        -evaluation.weekly_advisory_support_total,
+        -(evaluation.minimum_score or ZERO),
+        -(evaluation.average_score or ZERO),
+        evaluation.candidate_key,
+    )
 
 
 @dataclass(frozen=True)
@@ -327,11 +345,7 @@ def recommend_shared_family_meals(
 
     eligible_sorted = sorted(
         (evaluation for evaluation in provisional if evaluation.eligible),
-        key=lambda evaluation: (
-            -(evaluation.minimum_score or ZERO),
-            -(evaluation.average_score or ZERO),
-            evaluation.candidate_key,
-        ),
+        key=shared_candidate_ranking_key,
     )
     rank_by_key = {
         evaluation.candidate_key: rank
