@@ -3,7 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 from app.schemas.meal_type import MealType
 
@@ -12,6 +12,12 @@ NutritionPlanStatus = Literal["draft", "active", "inactive", "superseded"]
 NutritionPlanRuleKind = Literal["constraint", "target_component", "goal"]
 NutritionPlanGuidelineType = Literal["qualitative", "frequency"]
 GuidelineConfirmationStatus = Literal["proposed", "confirmed", "rejected"]
+NutritionPlanAuthorityState = Literal[
+    "active_plan",
+    "partial_plan_coverage",
+    "no_active_plan",
+    "plan_conflict",
+]
 
 
 class _ValidityModel(BaseModel):
@@ -242,6 +248,15 @@ class EffectiveNutritionPlanConflictRead(BaseModel):
     message: str
 
 
+class NutritionPlanAuthorityRead(BaseModel):
+    state: NutritionPlanAuthorityState
+    active_plans: list[NutritionPlanRead]
+    plan_rule_ids: list[str] = Field(default_factory=list)
+    plan_guideline_ids: list[uuid.UUID] = Field(default_factory=list)
+    unknown_evidence: list[str] = Field(default_factory=list)
+    explanation: list[str] = Field(default_factory=list)
+
+
 class EffectiveNutritionPlanRead(BaseModel):
     person_id: uuid.UUID
     effective_date: date
@@ -251,3 +266,47 @@ class EffectiveNutritionPlanRead(BaseModel):
     goals: list[EffectiveNutritionGoalRead]
     guidelines: list[EffectiveNutritionGuidelineRead]
     conflicts: list[EffectiveNutritionPlanConflictRead]
+
+    @computed_field
+    @property
+    def nutrition_plan_authority(self) -> NutritionPlanAuthorityRead:
+        plan_rule_ids = sorted(
+            rule.id for rule in self.numeric_rules if rule.source.plan_id is not None
+        )
+        plan_guideline_ids = sorted(
+            (guideline.id for guideline in self.guidelines if guideline.source.plan_id is not None),
+            key=str,
+        )
+        mandatory_conflict = any(
+            conflict.severity == "mandatory" for conflict in self.conflicts
+        )
+
+        if mandatory_conflict:
+            state: NutritionPlanAuthorityState = "plan_conflict"
+            explanation = [
+                "Active NutritionPlan guidance contains conflicting mandatory rules."
+            ]
+        elif not self.active_plans:
+            state = "no_active_plan"
+            explanation = [
+                "No active NutritionPlan applies to this Person, date and meal."
+            ]
+        elif not plan_rule_ids and not plan_guideline_ids:
+            state = "partial_plan_coverage"
+            explanation = [
+                "An active NutritionPlan exists, but it has no applicable meal rules or confirmed guidelines for this decision."
+            ]
+        else:
+            state = "active_plan"
+            explanation = [
+                "Active NutritionPlan guidance applies to this Person, date and meal."
+            ]
+
+        return NutritionPlanAuthorityRead(
+            state=state,
+            active_plans=self.active_plans,
+            plan_rule_ids=plan_rule_ids,
+            plan_guideline_ids=plan_guideline_ids,
+            unknown_evidence=[],
+            explanation=explanation,
+        )
