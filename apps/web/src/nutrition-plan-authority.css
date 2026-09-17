@@ -1,0 +1,185 @@
+.nutrition-authority {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+
+.nutrition-authority__header {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.nutrition-authority__header h3,
+.nutrition-authority__header p {
+  margin: 0;
+}
+
+.nutrition-authority__status {
+  flex: 0 0 auto;
+  padding: 0.42rem 0.68rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.75rem;
+  font-weight: 760;
+}
+
+.nutrition-authority--active_plan .nutrition-authority__status {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.nutrition-authority--partial_plan_coverage .nutrition-authority__status {
+  border-color: color-mix(in srgb, #b7791f 36%, var(--border));
+}
+
+.nutrition-authority--plan_conflict .nutrition-authority__status,
+.nutrition-authority--error .nutrition-authority__status {
+  border-color: color-mix(in srgb, #b42318 38%, var(--border));
+}
+
+.nutrition-authority__help {
+  max-width: 76ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.nutrition-authority__plans {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.nutrition-authority__plan {
+  display: grid;
+  gap: 0.55rem;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.nutrition-authority__plan > strong {
+  font-size: 0.92rem;
+}
+
+.nutrition-authority__plan dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.nutrition-authority__plan dl > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.nutrition-authority__plan dt {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 720;
+}
+
+.nutrition-authority__plan dd {
+  margin: 0;
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.nutrition-authority__coverage {
+  display: grid;
+  gap: 0.55rem;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.nutrition-authority__coverage > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 720;
+}
+
+.nutrition-authority__coverage > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.nutrition-authority__meal {
+  padding: 0.34rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.nutrition-authority__meal--active_plan {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.nutrition-authority__meal--partial_plan_coverage {
+  border-color: color-mix(in srgb, #b7791f 32%, var(--border));
+}
+
+.nutrition-authority__meal--plan_conflict {
+  border-color: color-mix(in srgb, #b42318 34%, var(--border));
+}
+
+.nutrition-authority__actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.nutrition-authority__loading {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.nutrition-authority--error {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.nutrition-authority--error h3,
+.nutrition-authority--error p {
+  margin-bottom: 0;
+}
+
+.nutrition-authority--error p {
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 620px) {
+  .nutrition-authority__header,
+  .nutrition-authority--error {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .nutrition-authority__status {
+    justify-self: start;
+  }
+
+  .nutrition-authority__plan dl {
+    grid-template-columns: 1fr;
+  }
+
+  .nutrition-authority__actions .button,
+  .nutrition-authority--error .button {
+    width: 100%;
+  }
+}
