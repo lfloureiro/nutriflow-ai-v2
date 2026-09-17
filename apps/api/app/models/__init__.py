@@ -17,6 +17,7 @@ from app.models.food_transformation_profile import FoodTransformationProfile
 from app.models.health_connection import HealthConnection
 from app.models.health_measurement import HealthMeasurement
 from app.models.meal import MealEvent, MealParticipant, Serving, ServingNutritionComponent
+from app.models.meal_transformation_application import MealTransformationApplication
 from app.models.meal_candidate_availability import (
     MealCandidateAvailability,
     MealCommercialOffer,
@@ -65,6 +66,7 @@ __all__ = [
     "MealRecommendationOption",
     "MealRecommendationRun",
     "MealSourceOpeningWindow",
+    "MealTransformationApplication",
     "NutritionConstraint",
     "NutritionGoal",
     "NutritionPlan",
