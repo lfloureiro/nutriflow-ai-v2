@@ -48,7 +48,6 @@ from app.services.recommendation_practical_plan_fit import (
 from app.services.recommendation_weekly_frequency import (
     RecommendationWeeklyFrequencyError,
     apply_weekly_frequency_to_recommendation,
-    evaluate_candidate_weekly_frequency_impacts,
 )
 
 
@@ -157,17 +156,9 @@ def create_practical_meal_recommendation_with_plan_fit(
             recommendation,
             feedback_signals=feedback_signals,
         )
-        weekly_impacts = evaluate_candidate_weekly_frequency_impacts(
-            session,
-            person_id=person.id,
-            family_id=person.family_id,
-            planning_date=data.planning_date,
-            meal_type=data.meal_type,
-            candidates=candidates,
-        )
         recommendation = apply_weekly_frequency_to_recommendation(
             recommendation,
-            impacts=weekly_impacts,
+            plan_fits=plan_fits,
         )
     except (
         CommercialAvailabilityError,
@@ -180,6 +171,7 @@ def create_practical_meal_recommendation_with_plan_fit(
     ) as exc:
         raise PracticalRecommendationApiError(str(exc)) from exc
 
+    weekly_frequency_mode = recommendation.engine_version.endswith("+weekly-frequency-v1")
     source_kinds = sorted(set(data.source_kinds))
     run = persist_recommendation_response(
         session,
@@ -191,7 +183,9 @@ def create_practical_meal_recommendation_with_plan_fit(
         context={
             "entrypoint": "practical-api",
             "nutrition_evaluator": "meal-plan-fit-v1",
-            "weekly_frequency_evaluator": "weekly-frequency-progress-v1",
+            "weekly_frequency_evaluator": (
+                "meal-plan-fit-weekly-frequency-v1" if weekly_frequency_mode else None
+            ),
             "candidate_composition_ids": [
                 str(candidate.composition_id) for candidate in data.candidates
             ],
