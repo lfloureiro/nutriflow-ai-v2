@@ -13,6 +13,7 @@ import { memberDisplayName } from "./FamilyHome";
 import type { Locale } from "./i18n";
 import { useI18n } from "./i18n";
 import MealPlanFitPanel from "./MealPlanFitPanel";
+import NutritionPlanAuthorityCard from "./NutritionPlanAuthorityCard";
 import NutritionPlanImportPanel from "./NutritionPlanImportPanel";
 import PersonProfileEditor from "./PersonProfileEditor";
 
@@ -263,6 +264,8 @@ export default function PersonOverview({
   const [dailyState, setDailyState] = useState<PlanningDailyNutritionState | null>(null);
   const [profileEditing, setProfileEditing] = useState(false);
   const [revision, setRevision] = useState(0);
+  const [planAuthorityRevision, setPlanAuthorityRevision] = useState(0);
+  const [planImportRequest, setPlanImportRequest] = useState(0);
   const meals = useMemo(
     () => personMeals(dashboard, member.person_id),
     [dashboard, member.person_id],
@@ -441,7 +444,18 @@ export default function PersonOverview({
             <DetailItem label={copy.breakfast} value={profile ? kcal(profile.standard_breakfast_kcal, locale) ?? copy.noData : copy.noData} />
             <DetailItem label={copy.goal} value={profile ? goalText(profile, locale) : copy.noData} />
           </div>
+          <NutritionPlanAuthorityCard
+            effectiveDate={dashboard.dashboard_date}
+            onImportRequested={() => setPlanImportRequest((current) => current + 1)}
+            personId={member.person_id}
+            revision={planAuthorityRevision}
+          />
           <NutritionPlanImportPanel
+            onPlanActivated={() => {
+              setPlanAuthorityRevision((current) => current + 1);
+              onDataChanged();
+            }}
+            openRequestToken={planImportRequest}
             personId={member.person_id}
             planningDate={dashboard.dashboard_date}
           />
