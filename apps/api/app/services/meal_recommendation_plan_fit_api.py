@@ -17,7 +17,6 @@ from app.services.meal_recommendation_plan_fit import (
 from app.services.recommendation_weekly_frequency import (
     RecommendationWeeklyFrequencyError,
     apply_weekly_frequency_to_recommendation,
-    evaluate_candidate_weekly_frequency_impacts,
 )
 
 
@@ -70,22 +69,14 @@ def create_meal_recommendation_with_plan_fit(
                 adverse_reactions=list(person.food_adverse_reactions),
                 planning_date=data.planning_date,
             )
-            weekly_impacts = evaluate_candidate_weekly_frequency_impacts(
-                session,
-                person_id=person.id,
-                family_id=person.family_id,
-                planning_date=data.planning_date,
-                meal_type=data.meal_type,
-                candidates=candidates,
-            )
             recommendation = apply_weekly_frequency_to_recommendation(
                 recommendation,
-                impacts=weekly_impacts,
+                plan_fits=plan_fits,
             )
         except (MealRecommendationPlanFitError, RecommendationWeeklyFrequencyError) as exc:
             raise MealRecommendationApiError(str(exc)) from exc
         fit_mode = True
-        weekly_frequency_mode = True
+        weekly_frequency_mode = recommendation.engine_version.endswith("+weekly-frequency-v1")
 
     return persist_recommendation_response(
         session,
@@ -98,7 +89,7 @@ def create_meal_recommendation_with_plan_fit(
             "entrypoint": "api",
             "nutrition_evaluator": "meal-plan-fit-v1" if fit_mode else "legacy-unscoped-v1",
             "weekly_frequency_evaluator": (
-                "weekly-frequency-progress-v1" if weekly_frequency_mode else None
+                "meal-plan-fit-weekly-frequency-v1" if weekly_frequency_mode else None
             ),
             "candidate_composition_ids": [
                 str(candidate.composition_id) for candidate in data.candidates
