@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.meal_recommendation import MealRecommendationCandidateInput
 from app.schemas.meal_transformation import MealTransformationOperationRead
@@ -82,6 +82,35 @@ class SharedWeeklyPlanSelectionRead(BaseModel):
     average_participant_score: Decimal
     repeated_candidate_count: int
     choices: list[SharedWeeklyPlanChoiceRead]
+
+
+class SharedWeeklyPlanSlotAcceptanceCreate(BaseModel):
+    proposal: SharedWeeklyPlanProposalCreate
+    slot_key: str = Field(min_length=1, max_length=120)
+    expected_candidate_key: str = Field(min_length=1, max_length=255)
+    expected_recipe_ingredient_id: uuid.UUID | None = None
+    expected_replacement_food_item_id: uuid.UUID | None = None
+
+    @model_validator(mode="after")
+    def validate_expected_transformation_shape(
+        self,
+    ) -> "SharedWeeklyPlanSlotAcceptanceCreate":
+        if (
+            self.expected_recipe_ingredient_id is None
+        ) != (
+            self.expected_replacement_food_item_id is None
+        ):
+            raise ValueError(
+                "expected transformation ingredient and replacement ids must be provided together."
+            )
+        return self
+
+
+class SharedWeeklyPlanSlotAcceptanceRead(BaseModel):
+    meal_event_id: uuid.UUID
+    status: str
+    candidate_key: str
+    transformation_application_id: uuid.UUID | None = None
 
 
 class SharedWeeklyPlanProposalRead(BaseModel):
