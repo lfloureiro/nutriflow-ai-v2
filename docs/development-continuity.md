@@ -278,6 +278,7 @@ ADRs:
 - `docs/decisions/ADR-048-weekly-planning-rechecks-daily-nutrient-limits.md`
 - `docs/decisions/ADR-049-shared-family-weekly-planning-reuses-person-planner.md`
 - `docs/decisions/ADR-050-weekly-planning-api-is-server-authoritative.md`
+- `docs/decisions/ADR-058-weekly-exact-repeat-diversity-is-soft.md`
 
 Next Phase 8c increments after this slice include proposal acceptance/materialization, richer across-week category/protein diversity, pantry/shopping/schedule coupling and scalable search.
 
