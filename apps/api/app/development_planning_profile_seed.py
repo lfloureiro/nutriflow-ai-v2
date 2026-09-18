@@ -10,6 +10,8 @@ from app.models.meal_candidate_planning_profile import MealCandidatePlanningProf
 
 PROFILE_NAMESPACE = uuid.UUID("91690f69-c0cc-4a4d-bcba-0f59ef0f0344")
 SOURCE_REFERENCE = "nutriflow-v2-development-planning-profiles"
+LOUREIRO_PROFILE_SOURCE = "legacy-v1"
+LOUREIRO_PROFILE_SOURCE_REFERENCE = "nutriflow-v1-loureiro-structured-planning-traits-v1"
 
 
 @dataclass(frozen=True)
