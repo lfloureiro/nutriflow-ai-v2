@@ -5,9 +5,9 @@ from math import prod
 
 from app.services.shared_weekly_multi_slot_planning import (
     ENGINE_VERSION as EXACT_ENGINE_VERSION,
-    EXACT_REPEAT_SCORE_PENALTY,
 )
 from app.services.shared_weekly_multi_slot_planning import (
+    EXACT_REPEAT_SCORE_PENALTY,
     SharedWeeklyMultiSlotPlanningError,
     SharedWeeklyMultiSlotPlanningResult,
     SharedWeeklyPlanChoice,
