@@ -6,6 +6,15 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.demo_seed import (
+    DEMO_FAMILY_ID,
+    DEMO_MARTA_ID,
+    DEMO_PERSON_ID,
+    seed_demo_dataset,
+)
+from app.development_breakfast_seed import seed_development_breakfast_catalog
+from app.development_plan_fit_seed import seed_development_plan_fit
+from app.development_transformation_seed import seed_development_transformations
 from app.main import app
 from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.family import Family
@@ -283,3 +292,87 @@ def test_weekly_proposal_rejects_duplicate_slot_keys_before_planning(
 
     assert response.status_code == 422
     assert "slot keys must be unique" in response.json()["detail"]
+
+
+
+def test_weekly_proposal_can_select_plan_adapted_variant_when_base_is_ineligible(
+    db_session: Session,
+) -> None:
+    demo = seed_demo_dataset(
+        db_session,
+        now=datetime(2026, 9, 15, 12, 0, tzinfo=UTC),
+    )
+    family = db_session.get(Family, DEMO_FAMILY_ID)
+    assert family is not None
+    seed_development_breakfast_catalog(db_session, families=(family,))
+    seed_development_transformations(db_session, families=(family,))
+    seed_development_plan_fit(db_session, person_id=DEMO_PERSON_ID)
+    db_session.commit()
+
+    recipe = db_session.scalar(
+        select(Recipe).where(
+            Recipe.recipe_key == "breakfast:recipe:yogurt-muesli-banana"
+        )
+    )
+    assert recipe is not None
+    composition = db_session.scalar(
+        select(RecipeCompositionSnapshot)
+        .where(RecipeCompositionSnapshot.recipe_id == recipe.id)
+        .order_by(RecipeCompositionSnapshot.computed_at.desc())
+    )
+    assert composition is not None
+    assert composition.id is not None
+
+    payload = {
+        "person_ids": [str(DEMO_PERSON_ID), str(DEMO_MARTA_ID)],
+        "slots": [
+            {
+                "slot_key": "tue-breakfast",
+                "planning_date": demo.planning_date.isoformat(),
+                "scheduled_at": "2026-09-15T08:30:00Z",
+                "meal_type": "breakfast",
+                "candidates": [
+                    {
+                        "candidate_kind": "recipe",
+                        "composition_id": str(composition.id),
+                        "quantity": "1",
+                        "quantity_unit": "serving",
+                    }
+                ],
+                "has_kitchen": True,
+                "source_kinds": ["home"],
+            }
+        ],
+        "max_combinations": 100,
+    }
+
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                f"/api/families/{DEMO_FAMILY_ID}/weekly-planning/proposals",
+                json=payload,
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["selected_plan"] is not None
+    choice = body["selected_plan"]["choices"][0]
+    assert choice["candidate_key"] == recipe.recipe_key
+    assert choice["transformation"] is not None
+    assert choice["transformation"]["kind"] == "plan_adapted"
+    assert (
+        choice["transformation"]["operation"]["replacement_food_name"]
+        == "Iogurte grego"
+    )
+    assert choice["transformation"]["plan_improvement_participants"] == 1
+    assert "weekly-transformations-v1" in body["slot_engine_versions"]["tue-breakfast"]
+
+    primary = next(
+        item
+        for item in choice["participants"]
+        if item["person_id"] == str(DEMO_PERSON_ID)
+    )
+    assert primary["score"] is not None
