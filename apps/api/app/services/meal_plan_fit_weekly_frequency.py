@@ -22,6 +22,7 @@ from app.services.weekly_frequency_progress import (
     WeeklyFrequencyProgressError,
     get_weekly_frequency_progress,
 )
+from app.services.weekly_planning_request_cache import current_weekly_planning_cache
 
 _SUPPORTED_TARGET_TYPES = frozenset(
     {
@@ -52,21 +53,39 @@ def _candidate_profile(
     family_id: uuid.UUID,
     candidate: MealCandidate,
 ) -> MealCandidatePlanningProfile | None:
+    kind: str | None = None
+    candidate_id: uuid.UUID | None = None
     if candidate.food_item is not None and candidate.food_item.id is not None:
-        return db.scalar(
+        kind = "food_item"
+        candidate_id = candidate.food_item.id
+    elif candidate.recipe is not None and candidate.recipe.id is not None:
+        kind = "recipe"
+        candidate_id = candidate.recipe.id
+    if kind is None or candidate_id is None:
+        return None
+
+    cache = current_weekly_planning_cache(db)
+    cache_key = (family_id, kind, candidate_id)
+    if cache is not None and cache_key in cache.candidate_profiles:
+        return cache.candidate_profiles[cache_key]
+
+    if kind == "food_item":
+        profile = db.scalar(
             select(MealCandidatePlanningProfile).where(
                 MealCandidatePlanningProfile.family_id == family_id,
-                MealCandidatePlanningProfile.food_item_id == candidate.food_item.id,
+                MealCandidatePlanningProfile.food_item_id == candidate_id,
             )
         )
-    if candidate.recipe is not None and candidate.recipe.id is not None:
-        return db.scalar(
+    else:
+        profile = db.scalar(
             select(MealCandidatePlanningProfile).where(
                 MealCandidatePlanningProfile.family_id == family_id,
-                MealCandidatePlanningProfile.recipe_id == candidate.recipe.id,
+                MealCandidatePlanningProfile.recipe_id == candidate_id,
             )
         )
-    return None
+    if cache is not None:
+        cache.candidate_profiles[cache_key] = profile
+    return profile
 
 
 def _candidate_match(
@@ -372,18 +391,38 @@ def apply_weekly_frequency_to_loaded_fit(
         family_id=person.family_id,
         candidate=candidate,
     )
+    cache = current_weekly_planning_cache(db)
+    effective_key = (person.id, planning_date, meal_type)
+    weekly_key = (person.id, planning_date)
     try:
-        effective = compile_effective_nutrition_plan(
-            db,
-            person_id=person.id,
-            on_date=planning_date,
-            meal_type=meal_type,
+        effective = (
+            cache.effective_plans.get(effective_key)
+            if cache is not None
+            else None
         )
-        weekly = get_weekly_frequency_progress(
-            db,
-            person_id=person.id,
-            anchor_date=planning_date,
+        if effective is None:
+            effective = compile_effective_nutrition_plan(
+                db,
+                person_id=person.id,
+                on_date=planning_date,
+                meal_type=meal_type,
+            )
+            if cache is not None:
+                cache.effective_plans[effective_key] = effective
+
+        weekly = (
+            cache.weekly_progress.get(weekly_key)
+            if cache is not None
+            else None
         )
+        if weekly is None:
+            weekly = get_weekly_frequency_progress(
+                db,
+                person_id=person.id,
+                anchor_date=planning_date,
+            )
+            if cache is not None:
+                cache.weekly_progress[weekly_key] = weekly
     except (NutritionPlanError, WeeklyFrequencyProgressError) as exc:
         raise MealPlanFitWeeklyFrequencyError(str(exc)) from exc
 
