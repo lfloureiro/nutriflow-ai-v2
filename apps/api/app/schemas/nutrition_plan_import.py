@@ -38,6 +38,15 @@ class NutritionPlanImportCreate(_ValidityModel):
     valid_until: date | None = None
 
 
+class NutritionPlanChatGPTPromptRead(BaseModel):
+    prompt: str
+
+
+class NutritionPlanChatGPTImportCreate(BaseModel):
+    plan: NutritionPlanImportCreate
+    response_text: str = Field(min_length=1)
+
+
 class NutritionPlanImportProposalCreate(_ValidityModel):
     source_statement: str = Field(min_length=1)
     proposal_type: NutritionPlanImportProposalType
