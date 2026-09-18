@@ -91,7 +91,7 @@ Shopping requirements are deterministic calculation results in this increment. T
 
 For FoodItem candidates, the recommended quantity is checked directly against stock.
 
-For Recipe candidates, the candidate quantity is scaled against the Recipe `yield_quantity` and `yield_unit`. Recipes without usable yield metadata cannot be evaluated as pantry candidates and fail explicitly rather than receiving an optimistic availability result.
+For Recipe candidates, the candidate quantity is scaled against the Recipe `yield_quantity` and `yield_unit` when available. A serving-based candidate may instead use explicit positive `serving_count` evidence, and a whole-recipe candidate may use the `recipe` unit directly. Recipes without any compatible scaling evidence still fail explicitly rather than receiving an optimistic availability result.
 
 The resulting practical profile only contributes explicit `is_available`. It does not infer preparation time, kitchen requirements or location. Those remain separate practical-source concerns.
 
