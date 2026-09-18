@@ -249,6 +249,62 @@ def _validated_proposals(
     return validated
 
 
+
+
+def create_chatgpt_assisted_nutrition_plan_import(
+    db: Session,
+    *,
+    person: Person,
+    data: NutritionPlanImportCreate,
+    response_text: str,
+) -> NutritionPlanImportSession:
+    raw_proposals, summary = _parse_chatgpt_response(response_text)
+    proposals = _validated_proposals(raw_proposals)
+
+    plan = NutritionPlan(
+        person_id=person.id,
+        lineage_id=uuid.uuid4(),
+        version=1,
+        title=data.title,
+        source_type=data.source_type,
+        source_name=data.source_name,
+        source_reference=data.source_reference,
+        original_text=data.source_text,
+        status="draft",
+        valid_from=data.valid_from,
+        valid_until=data.valid_until,
+    )
+    db.add(plan)
+    db.flush()
+
+    import_session = NutritionPlanImportSession(
+        person_id=person.id,
+        nutrition_plan_id=plan.id,
+        parser_name=CHATGPT_ASSISTED_PARSER_NAME,
+        parser_version=CHATGPT_ASSISTED_PARSER_VERSION,
+        status="review",
+        source_text=data.source_text,
+        parse_summary=summary,
+    )
+    db.add(import_session)
+    db.flush()
+
+    for ordinal, proposal_data in enumerate(proposals, start=1):
+        values = proposal_data.model_dump()
+        values["confidence"] = Decimal(str(values["confidence"]))
+        db.add(
+            NutritionPlanImportProposal(
+                import_session_id=import_session.id,
+                ordinal=ordinal,
+                **values,
+            )
+        )
+
+    db.commit()
+    return (
+        get_nutrition_plan_import(db, person_id=person.id, import_id=import_session.id)
+        or import_session
+    )
 def create_ai_nutrition_plan_import(
     db: Session,
     *,
