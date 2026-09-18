@@ -110,6 +110,71 @@ def test_ai_import_stays_draft_and_requires_human_review(
 
 
 def test_ai_import_requires_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(nutrition_plan_ai_import.settings, "openai_api_key", None)
     with pytest.raises(NutritionPlanAIImportError, match="OPENAI_API_KEY"):
         nutrition_plan_ai_import._call_openai("Preferir legumes.")
+
+
+def test_ai_import_uses_application_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self) -> bytes:
+            return (
+                b'{"output_text":"{\\\"proposals\\\":[{'
+                b'\\\"source_statement\\\":\\\"Preferir legumes\\\",'
+                b'\\\"proposal_type\\\":\\\"qualitative_guideline\\\",'
+                b'\\\"target_type\\\":\\\"food_category\\\",'
+                b'\\\"target_key\\\":\\\"vegetables\\\",'
+                b'\\\"operator\\\":null,'
+                b'\\\"value_min\\\":null,'
+                b'\\\"value_max\\\":null,'
+                b'\\\"value_target\\\":null,'
+                b'\\\"unit\\\":null,'
+                b'\\\"description\\\":\\\"Preferir legumes.\\\",'
+                b'\\\"meal_type\\\":null,'
+                b'\\\"period\\\":null,'
+                b'\\\"minimum_occurrences\\\":null,'
+                b'\\\"maximum_occurrences\\\":null,'
+                b'\\\"severity\\\":\\\"advisory\\\",'
+                b'\\\"is_mandatory\\\":false,'
+                b'\\\"priority\\\":100,'
+                b'\\\"confidence\\\":0.9,'
+                b'\\\"parser_note\\\":null}],'
+                b'\\\"summary\\\":\\\"Uma recomendacao.\\\"}"}'
+            )
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        captured["authorization"] = request.get_header("Authorization")
+        captured["timeout"] = timeout
+        captured["payload"] = request.data
+        return FakeResponse()
+
+    monkeypatch.setattr(nutrition_plan_ai_import.settings, "openai_api_key", "test-key")
+    monkeypatch.setattr(
+        nutrition_plan_ai_import.settings,
+        "openai_base_url",
+        "https://example.invalid/v1",
+    )
+    monkeypatch.setattr(
+        nutrition_plan_ai_import.settings,
+        "nutriflow_nutrition_plan_ai_model",
+        "test-model",
+    )
+    monkeypatch.setattr(nutrition_plan_ai_import, "urlopen", fake_urlopen)
+
+    proposals, summary, model = nutrition_plan_ai_import._call_openai("Preferir legumes.")
+
+    assert model == "test-model"
+    assert summary == "Uma recomendacao."
+    assert proposals[0]["target_key"] == "vegetables"
+    assert captured["url"] == "https://example.invalid/v1/responses"
+    assert captured["authorization"] == "Bearer test-key"
+    assert b'"model": "test-model"' in captured["payload"]
