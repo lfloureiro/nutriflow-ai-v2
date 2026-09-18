@@ -337,12 +337,7 @@ def compute_shared_practical_recommendation_with_contexts(
     tuple[SharedMealParticipantContext, ...],
 ]:
     """Return shared recommendation evidence plus the exact Person contexts used to score it."""
-    result, offers, _ = _compute_shared_recommendation(
-        session,
-        family=family,
-        data=data,
-    )
-    return result, offers
+    return _compute_shared_recommendation(session, family=family, data=data)
 
 
 def compute_shared_practical_recommendation(
@@ -352,7 +347,12 @@ def compute_shared_practical_recommendation(
     data: SharedPracticalRecommendationCreate,
 ) -> tuple[SharedFamilyMealRecommendationResult, list[CommercialOfferSnapshot]]:
     """Return the server-authoritative domain result for internal orchestration."""
-    return _compute_shared_recommendation(session, family=family, data=data)
+    result, offers, _ = _compute_shared_recommendation(
+        session,
+        family=family,
+        data=data,
+    )
+    return result, offers
 
 
 def create_shared_practical_recommendation(
