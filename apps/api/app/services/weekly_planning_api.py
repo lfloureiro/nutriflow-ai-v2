@@ -582,6 +582,26 @@ def _compute_shared_weekly_plan_uncached(
             if result.selected_plan is not None
             else None
         ),
+        adjacent_category_repeats=(
+            result.selected_plan.adjacent_category_repeat_count
+            if result.selected_plan is not None
+            else None
+        ),
+        adjacent_protein_repeats=(
+            result.selected_plan.adjacent_protein_repeat_count
+            if result.selected_plan is not None
+            else None
+        ),
+        distinct_categories=(
+            result.selected_plan.distinct_main_categories
+            if result.selected_plan is not None
+            else None
+        ),
+        distinct_proteins=(
+            result.selected_plan.distinct_main_proteins
+            if result.selected_plan is not None
+            else None
+        ),
         rejected_weekly_max=result.rejected_by_person_weekly_maximum,
         rejected_daily_limit=result.rejected_by_person_daily_limit,
         truncated=result.search_truncated,
