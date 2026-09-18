@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.demo_seed import DEMO_PERSON_ID, seed_demo_dataset
 from app.main import app
 from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.family import Family
@@ -400,3 +401,38 @@ def test_bootstrap_rejects_naive_scheduled_at(db_session: Session) -> None:
 
     assert response.status_code == 422
     assert response.json()["detail"] == "scheduled_at must be timezone-aware."
+
+
+
+def test_bootstrap_preserves_current_demo_state_when_ensure_state_is_true(
+    db_session: Session,
+) -> None:
+    seeded = seed_demo_dataset(
+        db_session,
+        now=datetime(2026, 9, 15, 12, 0, tzinfo=UTC),
+    )
+    original = db_session.get(DailyNutritionState, seeded.daily_nutrition_state_id)
+    assert original is not None
+    original_component_keys = {component.target_key for component in original.components}
+    assert {"protein", "fiber", "sodium"} <= original_component_keys
+
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                f"/api/persons/{DEMO_PERSON_ID}/planning-bootstrap",
+                params={
+                    "scheduled_at": "2026-09-15T08:30:00Z",
+                    "ensure_state": "true",
+                },
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    state = response.json()["daily_nutrition_state"]
+    assert state["id"] == str(seeded.daily_nutrition_state_id)
+    assert state["calculation_version"] == "demo-seed-v1"
+    assert {
+        component["target_key"] for component in state["components"]
+    } >= {"protein", "fiber", "sodium"}
