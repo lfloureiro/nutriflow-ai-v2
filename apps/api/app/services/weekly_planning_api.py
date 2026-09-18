@@ -211,6 +211,8 @@ def _transformed_weekly_candidate(
         weekly_mandatory_support_total=mandatory_total,
         weekly_advisory_support_participants=advisory_participants,
         weekly_advisory_support_total=advisory_total,
+        planning_category=original.evaluation.planning_category,
+        primary_protein=original.evaluation.primary_protein,
     )
     return SharedWeeklyPlanningCandidate(
         evaluation=shared_evaluation,
