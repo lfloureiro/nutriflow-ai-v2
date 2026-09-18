@@ -293,6 +293,7 @@ def test_transformed_meal_is_visible_but_read_only_in_standard_planner(
     assert recipe.compositions
 
     source_ingredient = recipe.ingredients[0]
+    source_food_item = source_ingredient.food_item
     replacement = FoodItem(
         family=family,
         catalog_key=f"test:replacement:{uuid.uuid4()}",
@@ -337,13 +338,13 @@ def test_transformed_meal_is_visible_but_read_only_in_standard_planner(
         recipe=recipe,
         source_recipe_composition_snapshot=recipe.compositions[-1],
         recipe_ingredient=source_ingredient,
-        source_food_item=source_ingredient.food_item,
+        source_food_item=source_food_item,
         replacement_food_item=replacement,
         sort_order=0,
         operation_type="replace_ingredient",
         transformation_kind="plan_adapted",
         substitution_group="test-group",
-        source_food_name=source_ingredient.food_item.name,
+        source_food_name=source_food_item.name,
         source_quantity=source_ingredient.quantity,
         source_unit=source_ingredient.unit,
         replacement_food_name=replacement.name,
@@ -370,7 +371,7 @@ def test_transformed_meal_is_visible_but_read_only_in_standard_planner(
             "id": str(application.id),
             "transformation_kind": "plan_adapted",
             "operation_type": "replace_ingredient",
-            "source_food_name": source_ingredient.food_item.name,
+            "source_food_name": source_food_item.name,
             "replacement_food_name": replacement.name,
         }
     ]
