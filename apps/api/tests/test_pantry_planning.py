@@ -352,6 +352,69 @@ def test_pantry_profiles_scale_recipe_candidate_against_recipe_yield(
     assert by_key["recipe:half-batch"].is_available is True
 
 
+
+def test_pantry_profiles_scale_serving_based_recipe_without_yield_metadata(
+    db_session: Session,
+) -> None:
+    family = _persist_family(db_session, "Serving-count Pantry Family")
+    milk = _persist_food(db_session, family, key="food:milk-serving", name="Milk")
+    _add_stock(
+        db_session,
+        family,
+        milk,
+        stock_key="milk-serving-stock",
+        quantity="200.0000",
+        unit="ml",
+    )
+
+    recipe = Recipe(
+        family=family,
+        recipe_key="recipe:serving-count",
+        name="Serving-count recipe",
+        yield_quantity=None,
+        yield_unit=None,
+        serving_count=Decimal("1.0000"),
+        source="test",
+    )
+    recipe.ingredients = [
+        RecipeIngredient(
+            food_item=milk,
+            quantity=Decimal("200.0000"),
+            unit="ml",
+            sort_order=0,
+        )
+    ]
+    composition = RecipeCompositionSnapshot(
+        recipe=recipe,
+        reference_quantity=Decimal("1.0000"),
+        reference_unit="serving",
+        energy_kcal=Decimal("120.0000"),
+        composition_version="test-v1",
+        calculation_version="test-v1",
+        computed_at=AS_OF - timedelta(days=1),
+    )
+    db_session.add(composition)
+    db_session.flush()
+
+    candidate = build_recipe_candidate(
+        composition,
+        quantity=Decimal("1.0000"),
+        quantity_unit="serving",
+    )
+
+    if family.id is None:
+        raise AssertionError("Family must be persisted.")
+    profiles = build_pantry_stock_practical_profiles(
+        db_session,
+        family_id=family.id,
+        candidates=[candidate],
+        as_of=AS_OF,
+    )
+
+    assert len(profiles) == 1
+    assert profiles[0].candidate_key == "recipe:serving-count"
+    assert profiles[0].is_available is True
+
 def test_pantry_evaluation_rejects_catalog_item_from_another_family(
     db_session: Session,
 ) -> None:
