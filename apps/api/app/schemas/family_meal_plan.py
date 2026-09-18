@@ -58,6 +58,14 @@ class MealPlanParticipantRead(BaseModel):
     energy_consumed_kcal: Decimal | None
 
 
+class MealPlanTransformationRead(BaseModel):
+    id: uuid.UUID
+    transformation_kind: str
+    operation_type: str
+    source_food_name: str
+    replacement_food_name: str
+
+
 class MealPlanEntryRead(BaseModel):
     id: uuid.UUID
     meal_type: MealType
@@ -69,6 +77,7 @@ class MealPlanEntryRead(BaseModel):
     recipe_name: str | None
     location: str | None
     notes: str | None
+    transformations: list[MealPlanTransformationRead]
     participants: list[MealPlanParticipantRead]
 
 

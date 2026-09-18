@@ -20,6 +20,7 @@ from app.schemas.family_meal_plan import (
     MealPlanParticipantRead,
     MealPlanParticipantWrite,
     MealPlanSlotRead,
+    MealPlanTransformationRead,
 )
 from app.schemas.meal_type import MEAL_TYPES, MealType
 from app.services.meal_suitability import (
@@ -89,6 +90,7 @@ def _event_options():
         selectinload(MealEvent.participants)
         .selectinload(MealParticipant.servings)
         .selectinload(Serving.recipe),
+        selectinload(MealEvent.transformation_applications),
     )
 
 
@@ -125,6 +127,16 @@ def _entry_read(event: MealEvent, family_timezone: ZoneInfo) -> MealPlanEntryRea
         recipe_name=recipe.name if recipe is not None else None,
         location=event.location,
         notes=event.notes,
+        transformations=[
+            MealPlanTransformationRead(
+                id=application.id,
+                transformation_kind=application.transformation_kind,
+                operation_type=application.operation_type,
+                source_food_name=application.source_food_name,
+                replacement_food_name=application.replacement_food_name,
+            )
+            for application in event.transformation_applications
+        ],
         participants=[
             MealPlanParticipantRead(
                 person_id=participant.person_id,
@@ -411,6 +423,10 @@ def update_meal_plan_entry(
     event = _get_event(db, family.id, meal_event_id)
     if event.status != "planned":
         raise MealPlanEntryLockedError("Only planned MealEvents can be edited.")
+    if event.transformation_applications:
+        raise MealPlanEntryLockedError(
+            "Transformed MealEvents are read-only in the standard meal-plan editor."
+        )
 
     fields = data.model_fields_set
     local = event.scheduled_at.astimezone(ZoneInfo(family.timezone))

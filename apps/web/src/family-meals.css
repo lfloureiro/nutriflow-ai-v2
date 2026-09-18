@@ -274,3 +274,65 @@
     justify-self: start;
   }
 }
+
+
+.meal-plan-entry__transformation {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.meal-plan-entry__transformation b {
+  color: var(--accent-strong);
+  font-weight: 760;
+}
+
+.meal-plan-transformation-detail {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+
+.meal-plan-transformation-detail > p {
+  margin: 0;
+  max-width: 72ch;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.meal-plan-transformation-operation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.meal-plan-transformation-operation strong {
+  font-size: 0.82rem;
+}
+
+.meal-plan-transformation-badge {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.28rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.meal-plan-transformation-badge--plan_adapted {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}

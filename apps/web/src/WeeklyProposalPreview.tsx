@@ -606,7 +606,13 @@ export default function WeeklyProposalPreview({
                               </em>
                             </span>
                             <strong>{label}</strong>
-                            {choice?.transformation ? (
+                            {entry?.transformations[0] ? (
+                              <small className="weekly-grid-transformation">
+                                {entry.transformations[0].transformation_kind === "plan_adapted"
+                                  ? copy.planAdapted
+                                  : copy.preferenceVariant}
+                              </small>
+                            ) : choice?.transformation ? (
                               <small className="weekly-grid-transformation">
                                 {choice.transformation.kind === "plan_adapted"
                                   ? copy.planAdapted
@@ -697,27 +703,45 @@ export default function WeeklyProposalPreview({
               </div>
 
               {selectedEntry ? (
-                <div className="weekly-person-detail-list">
-                  {selectedEntry.participants.map((participant) => (
-                    <article className="weekly-person-detail" key={participant.person_id}>
-                      <div className="weekly-person-detail__heading">
+                <>
+                  {selectedEntry.transformations.map((transformation) => (
+                    <div className="weekly-transformation-summary" key={transformation.id}>
+                      <span className="weekly-transformation-summary__kind">
+                        {transformation.transformation_kind === "plan_adapted"
+                          ? copy.planAdapted
+                          : copy.preferenceVariant}
+                      </span>
+                      <div>
+                        <small>{copy.substitution}</small>
                         <strong>
-                          {[participant.first_name, participant.last_name]
-                            .filter(Boolean)
-                            .join(" ")}
+                          {transformation.source_food_name} →{" "}
+                          {transformation.replacement_food_name}
                         </strong>
-                        <span>
-                          {participant.quantity !== null
-                            ? `${participant.quantity} ${participant.unit ?? ""}`
-                            : "—"}
-                          {participant.energy_kcal !== null
-                            ? ` · ${participant.energy_kcal} kcal`
-                            : ""}
-                        </span>
                       </div>
-                    </article>
+                    </div>
                   ))}
-                </div>
+                  <div className="weekly-person-detail-list">
+                    {selectedEntry.participants.map((participant) => (
+                      <article className="weekly-person-detail" key={participant.person_id}>
+                        <div className="weekly-person-detail__heading">
+                          <strong>
+                            {[participant.first_name, participant.last_name]
+                              .filter(Boolean)
+                              .join(" ")}
+                          </strong>
+                          <span>
+                            {participant.quantity !== null
+                              ? `${participant.quantity} ${participant.unit ?? ""}`
+                              : "—"}
+                            {participant.energy_kcal !== null
+                              ? ` · ${participant.energy_kcal} kcal`
+                              : ""}
+                          </span>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </>
               ) : selectedChoice ? (
                 <>
                   {selectedChoice.transformation ? (
