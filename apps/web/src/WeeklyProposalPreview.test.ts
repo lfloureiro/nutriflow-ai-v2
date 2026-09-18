@@ -6,7 +6,7 @@ import type {
   SharedWeeklyPlanProposalRequest,
 } from "./api/weeklyPlanningTypes";
 import {
-  acceptanceRequestForChoice,
+  weeklyPlanRequest,
   addCalendarDays,
   isWeekendDate,
   mealEntryFor,
@@ -102,7 +102,7 @@ describe("weekly matrix plan overlay", () => {
 });
 
 
-describe("weekly acceptance identity", () => {
+describe("weekly application identity", () => {
   const proposal: SharedWeeklyPlanProposalRequest = {
     person_ids: ["person-1", "person-2"],
     slots: [],
@@ -123,17 +123,23 @@ describe("weekly acceptance identity", () => {
     transformation: null,
   };
 
-  it("accepts a base recipe using only its candidate identity", () => {
-    expect(acceptanceRequestForChoice(proposal, baseChoice)).toEqual({
-      proposal,
-      slot_key: baseChoice.slot_key,
-      expected_candidate_key: baseChoice.candidate_key,
+  it("pins every reviewed base candidate by slot", () => {
+    expect(weeklyPlanRequest(proposal, [baseChoice])).toEqual({
+      ...proposal,
+      expected_choices: [
+        {
+          slot_key: baseChoice.slot_key,
+          candidate_key: baseChoice.candidate_key,
+        },
+      ],
     });
   });
 
-  it("pins the exact reviewed ingredient replacement for an adapted recipe", () => {
+  it("pins the exact reviewed ingredient replacement for adapted recipes", () => {
     const transformed: SharedWeeklyPlanChoice = {
       ...baseChoice,
+      slot_key: "2026-09-16:breakfast",
+      planning_date: "2026-09-16",
       transformation: {
         kind: "plan_adapted",
         recipe_id: "recipe-id",
@@ -156,12 +162,20 @@ describe("weekly acceptance identity", () => {
       },
     };
 
-    expect(acceptanceRequestForChoice(proposal, transformed)).toEqual({
-      proposal,
-      slot_key: transformed.slot_key,
-      expected_candidate_key: transformed.candidate_key,
-      expected_recipe_ingredient_id: "ingredient-id",
-      expected_replacement_food_item_id: "replacement-id",
+    expect(weeklyPlanRequest(proposal, [baseChoice, transformed])).toEqual({
+      ...proposal,
+      expected_choices: [
+        {
+          slot_key: baseChoice.slot_key,
+          candidate_key: baseChoice.candidate_key,
+        },
+        {
+          slot_key: transformed.slot_key,
+          candidate_key: transformed.candidate_key,
+          recipe_ingredient_id: "ingredient-id",
+          replacement_food_item_id: "replacement-id",
+        },
+      ],
     });
   });
 });
