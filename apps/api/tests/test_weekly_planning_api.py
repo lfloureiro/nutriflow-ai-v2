@@ -25,6 +25,7 @@ from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.family import Family
 from app.models.food_catalog import Recipe, RecipeCompositionSnapshot
 from app.models.meal import MealEvent, Serving
+from app.models.meal_candidate_availability import MealCandidateAvailability
 from app.models.meal_transformation_application import MealTransformationApplication
 from app.models.person import Person
 from app.schemas.nutrition_plan import (
@@ -234,6 +235,74 @@ def test_weekly_proposal_returns_selected_shared_plan_without_meal_events(
     meal_count = db_session.scalar(select(func.count()).select_from(MealEvent))
     assert meal_count == 0
 
+
+
+def test_weekly_proposal_skips_unavailable_slot_but_plans_remaining_slots(
+    db_session: Session,
+) -> None:
+    family, ana, bruno, recipe, composition = _setup(db_session, "partial-unavailable")
+    assert family.id is not None
+    assert recipe.id is not None
+
+    db_session.add(
+        MealCandidateAvailability(
+            family_id=family.id,
+            recipe_id=recipe.id,
+            candidate_kind="recipe",
+            source_kind="delivery",
+            source_key="test:delivery:unavailable",
+            requires_kitchen=False,
+            is_available=False,
+            source="test",
+        )
+    )
+    db_session.flush()
+
+    unavailable_lunch = _slot(
+        "thu-lunch-unavailable",
+        scheduled_at=LUNCH_AT,
+        meal_type="lunch",
+        composition=composition,
+    )
+    unavailable_lunch["source_kinds"] = ["delivery"]
+    unavailable_lunch["has_kitchen"] = False
+
+    response = _post(
+        db_session,
+        family,
+        ana=ana,
+        bruno=bruno,
+        slots=[
+            unavailable_lunch,
+            _slot(
+                "thu-dinner-available",
+                scheduled_at=DINNER_AT,
+                meal_type="dinner",
+                composition=composition,
+            ),
+        ],
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["selected_plan"] is not None
+    assert [
+        choice["slot_key"] for choice in body["selected_plan"]["choices"]
+    ] == ["thu-dinner-available"]
+    assert body["skipped_slots"] == [
+        {
+            "slot_key": "thu-lunch-unavailable",
+            "planning_date": PLANNING_DATE.isoformat(),
+            "meal_type": "lunch",
+            "reason": "no_eligible_candidates",
+            "exclusion_reasons": [
+                f"person:{ana.id}:candidate_unavailable",
+                f"person:{bruno.id}:candidate_unavailable",
+            ],
+        }
+    ]
+    assert body["search_space_size"] == 1
+    assert body["feasible_combinations"] == 1
 
 
 def test_weekly_proposal_skips_transformation_service_when_recipe_has_no_variants(
