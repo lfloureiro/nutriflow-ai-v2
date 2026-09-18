@@ -30,6 +30,7 @@ from app.services.meal_recommendation_api import (
 )
 from app.services.nutrition_plan import NutritionPlanError, compile_effective_nutrition_plan
 from app.services.serving_nutrition import UnsupportedUnitConversionError, convert_quantity
+from app.services.weekly_planning_request_cache import current_weekly_planning_cache
 
 ZERO = Decimal(0)
 ONE = Decimal(1)
@@ -463,13 +464,21 @@ def evaluate_meal_plan_fit(
     )
     candidate = candidates[0]
 
+    cache = current_weekly_planning_cache(db)
+    effective_key = (person.id, data.planning_date, data.meal_type)
     try:
-        effective_plan: EffectiveNutritionPlanRead = compile_effective_nutrition_plan(
-            db,
-            person_id=person.id,
-            on_date=data.planning_date,
-            meal_type=data.meal_type,
+        effective_plan: EffectiveNutritionPlanRead | None = (
+            cache.effective_plans.get(effective_key) if cache is not None else None
         )
+        if effective_plan is None:
+            effective_plan = compile_effective_nutrition_plan(
+                db,
+                person_id=person.id,
+                on_date=data.planning_date,
+                meal_type=data.meal_type,
+            )
+            if cache is not None:
+                cache.effective_plans[effective_key] = effective_plan
     except NutritionPlanError as exc:
         raise MealPlanFitError(str(exc)) from exc
 
