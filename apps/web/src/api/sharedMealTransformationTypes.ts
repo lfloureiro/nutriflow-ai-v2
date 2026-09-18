@@ -57,3 +57,24 @@ export type SharedMealTransformationResult = {
   proposals: SharedMealTransformationProposal[];
   limitations: string[];
 };
+
+
+export type SharedMealTransformationPlanRequest =
+  SharedMealTransformationRequest & {
+    recipe_ingredient_id: string;
+    replacement_food_item_id: string;
+    scheduled_at: string;
+    title?: string | null;
+    location?: string | null;
+    notes?: string | null;
+  };
+
+export type SharedMealTransformationPlan = {
+  meal_event_id: string;
+  transformation_application_id: string;
+  status: string;
+  transformation_kind: SharedMealTransformationKind;
+  recipe_id: string;
+  person_ids: string[];
+  serving_ids: string[];
+};

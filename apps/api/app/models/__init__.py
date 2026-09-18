@@ -23,6 +23,7 @@ from app.models.meal_candidate_availability import (
     MealSourceOpeningWindow,
 )
 from app.models.meal_candidate_planning_profile import MealCandidatePlanningProfile
+from app.models.meal_transformation_application import MealTransformationApplication
 from app.models.nutrition_constraint import NutritionConstraint
 from app.models.nutrition_goal import NutritionGoal
 from app.models.nutrition_plan import NutritionPlan, NutritionPlanGuideline, NutritionPlanRule
@@ -65,6 +66,7 @@ __all__ = [
     "MealRecommendationOption",
     "MealRecommendationRun",
     "MealSourceOpeningWindow",
+    "MealTransformationApplication",
     "NutritionConstraint",
     "NutritionGoal",
     "NutritionPlan",

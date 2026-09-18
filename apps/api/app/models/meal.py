@@ -27,6 +27,7 @@ if TYPE_CHECKING:
         Recipe,
         RecipeCompositionSnapshot,
     )
+    from app.models.meal_transformation_application import MealTransformationApplication
     from app.models.person import Person
 
 
@@ -101,6 +102,11 @@ class MealEvent(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     replaces_meal_event: Mapped["MealEvent | None"] = relationship(
         remote_side="MealEvent.id",
         foreign_keys=[replaces_meal_event_id],
+    )
+    transformation_applications: Mapped[list["MealTransformationApplication"]] = relationship(
+        back_populates="meal_event",
+        cascade="all, delete-orphan",
+        order_by="MealTransformationApplication.sort_order",
     )
 
 

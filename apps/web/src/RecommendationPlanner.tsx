@@ -12,6 +12,7 @@ import { getRecommendationBootstrap } from "./api/recommendationClient";
 import { discoverRestaurants } from "./api/restaurantDiscoveryClient";
 import type { RestaurantDiscovery } from "./api/restaurantDiscoveryTypes";
 import type { Recipe } from "./api/recipeTypes";
+import type { SharedMealTransformationPlan } from "./api/sharedMealTransformationTypes";
 import {
   planSharedPracticalRecommendation,
   requestSharedPracticalRecommendation,
@@ -227,6 +228,7 @@ type BusyState =
   | { kind: "recommend" }
   | { kind: "single-decision"; optionId: string }
   | { kind: "shared-plan"; key: string }
+  | { kind: "shared-transformation-plan"; key: string }
   | null;
 
 type OfferLike = Pick<
@@ -504,24 +506,36 @@ function SharedResultCard({
   sources,
   peopleById,
   planned,
+  transformationPlanned,
   busy,
+  transformationBusy,
   onPlan,
+  onTransformationBusyChange,
+  onTransformationPlanned,
   familyId,
+  location,
   mealType,
   planningDate,
   recipeId,
+  scheduledAt,
 }: {
   option: SharedRecommendationOption;
   run: SharedPracticalRecommendation;
   sources: RecommendationSource[];
   peopleById: Map<string, Person>;
   planned: SharedPracticalPlan | undefined;
+  transformationPlanned: SharedMealTransformationPlan | undefined;
   busy: boolean;
+  transformationBusy: boolean;
   onPlan: (option: SharedRecommendationOption) => void;
+  onTransformationBusyChange: (busy: boolean) => void;
+  onTransformationPlanned: (plan: SharedMealTransformationPlan) => void;
   familyId: string;
+  location: string | null;
   mealType: RecommendationMealType;
   planningDate: string;
   recipeId: string | null;
+  scheduledAt: string;
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
@@ -558,16 +572,29 @@ function SharedResultCard({
       <OfferList offers={offers} />
       <SharedTransformationPreview
         familyId={familyId}
+        location={location}
+        mealPlanned={Boolean(planned || transformationPlanned)}
         mealType={mealType}
+        onPlanned={onTransformationPlanned}
+        onPlanningChange={onTransformationBusyChange}
         option={option}
+        planning={transformationBusy}
         planningDate={planningDate}
         recipeId={recipeId}
+        scheduledAt={scheduledAt}
       />
-      {planned ? (
+      {planned || transformationPlanned ? (
         <div className="decision-result" role="status"><strong>{copy.planned}</strong></div>
       ) : (
         <div className="button-row">
-          <button className="button primary" disabled={busy} onClick={() => onPlan(option)} type="button">{copy.accept}</button>
+          <button
+            className="button primary"
+            disabled={busy || transformationBusy}
+            onClick={() => onPlan(option)}
+            type="button"
+          >
+            {copy.accept}
+          </button>
         </div>
       )}
     </article>
@@ -636,6 +663,9 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
   const [results, setResults] = useState<DayResult[]>([]);
   const [decisions, setDecisions] = useState<Record<string, RecommendationDecision>>({});
   const [sharedPlans, setSharedPlans] = useState<Record<string, SharedPracticalPlan>>({});
+  const [transformationPlans, setTransformationPlans] = useState<
+    Record<string, SharedMealTransformationPlan>
+  >({});
   const [busy, setBusy] = useState<BusyState>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -878,6 +908,7 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
     setError(null);
     setDecisions({});
     setSharedPlans({});
+    setTransformationPlans({});
     setResults([]);
     if (people.length === 0) {
       setError(copy.noPeople);
@@ -1104,15 +1135,34 @@ export default function RecommendationPlanner({ familyId }: { familyId: string }
                             busy={busy?.kind === "shared-plan" && busy.key === key}
                             familyId={familyId}
                             key={option.candidate_key}
+                            location={day.request?.location ?? null}
                             mealType={mealType}
                             onPlan={(selected) => void planShared(day, selected)}
+                            onTransformationBusyChange={(isBusy) =>
+                              setBusy(
+                                isBusy
+                                  ? { kind: "shared-transformation-plan", key }
+                                  : null,
+                              )
+                            }
+                            onTransformationPlanned={(plan) =>
+                              setTransformationPlans((current) => ({
+                                ...current,
+                                [key]: plan,
+                              }))
+                            }
                             option={option}
                             peopleById={peopleById}
                             planned={sharedPlans[key]}
                             planningDate={day.date}
                             recipeId={recipesByKey.get(option.candidate_key)?.id ?? null}
                             run={day.run as SharedPracticalRecommendation}
+                            scheduledAt={day.request?.scheduled_at ?? scheduledIso(day.scheduledLocal)}
                             sources={day.sources}
+                            transformationBusy={
+                              busy?.kind === "shared-transformation-plan" && busy.key === key
+                            }
+                            transformationPlanned={transformationPlans[key]}
                           />
                         );
                       })}

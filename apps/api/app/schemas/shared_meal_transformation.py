@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -74,3 +74,22 @@ class SharedMealTransformationRead(BaseModel):
     baseline: list[SharedMealTransformationBaselineRead]
     proposals: list[SharedMealTransformationProposalRead]
     limitations: list[str]
+
+
+class SharedMealTransformationPlanCreate(SharedMealTransformationCreate):
+    recipe_ingredient_id: uuid.UUID
+    replacement_food_item_id: uuid.UUID
+    scheduled_at: datetime
+    title: str | None = Field(default=None, max_length=160)
+    location: str | None = Field(default=None, max_length=160)
+    notes: str | None = Field(default=None, max_length=2000)
+
+
+class SharedMealTransformationPlanRead(BaseModel):
+    meal_event_id: uuid.UUID
+    transformation_application_id: uuid.UUID
+    status: str
+    transformation_kind: SharedMealTransformationKind
+    recipe_id: uuid.UUID
+    person_ids: list[uuid.UUID]
+    serving_ids: list[uuid.UUID]

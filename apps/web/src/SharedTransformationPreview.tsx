@@ -1,8 +1,14 @@
 import { useState } from "react";
 
 import { ApiError } from "./api/client";
-import { proposeSharedMealTransformations } from "./api/sharedMealTransformationClient";
-import type { SharedMealTransformationResult } from "./api/sharedMealTransformationTypes";
+import {
+  planSharedMealTransformation,
+  proposeSharedMealTransformations,
+} from "./api/sharedMealTransformationClient";
+import type {
+  SharedMealTransformationPlan,
+  SharedMealTransformationResult,
+} from "./api/sharedMealTransformationTypes";
 import type { SharedRecommendationOption } from "./api/sharedRecommendationTypes";
 import type { PlanningMealType } from "./api/types";
 import { useI18n } from "./i18n";
@@ -21,8 +27,10 @@ const COPY = {
     preferenceImprovement: "preferência melhorada",
     preferenceImprovements: "preferências melhoradas",
     none: "Não foi encontrada uma adaptação segura que melhore esta receita para o grupo.",
-    note: "Pré-visualização: ainda não altera a receita nem o plano semanal.",
-    error: "Não foi possível avaliar adaptações para esta receita.",
+    note: "A aplicação volta a validar plano, segurança e preferências antes de criar a refeição.",
+    add: "Adicionar adaptação ao plano",
+    adding: "A adicionar adaptação…",
+    error: "Não foi possível avaliar ou aplicar a adaptação.",
   },
   en: {
     preview: "Preview adaptation",
@@ -37,8 +45,10 @@ const COPY = {
     preferenceImprovement: "preference improvement",
     preferenceImprovements: "preference improvements",
     none: "No safe adaptation was found that improves this recipe for the group.",
-    note: "Preview only: this does not change the recipe or weekly plan yet.",
-    error: "Could not evaluate adaptations for this recipe.",
+    note: "Applying revalidates plan, safety and preferences before creating the meal.",
+    add: "Add adaptation to plan",
+    adding: "Adding adaptation…",
+    error: "Could not evaluate or apply this adaptation.",
   },
 } as const;
 
@@ -51,15 +61,27 @@ function errorText(error: unknown, fallback: string): string {
 export default function SharedTransformationPreview({
   familyId,
   mealType,
+  location,
+  mealPlanned,
+  onPlanned,
+  onPlanningChange,
   option,
+  planning,
   planningDate,
   recipeId,
+  scheduledAt,
 }: {
   familyId: string;
+  location: string | null;
+  mealPlanned: boolean;
   mealType: PlanningMealType;
+  onPlanned: (plan: SharedMealTransformationPlan) => void;
+  onPlanningChange: (busy: boolean) => void;
   option: SharedRecommendationOption;
+  planning: boolean;
   planningDate: string;
   recipeId: string | null;
+  scheduledAt: string;
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
@@ -70,6 +92,13 @@ export default function SharedTransformationPreview({
 
   if (!recipeId || option.candidate_kind !== "recipe") return null;
   const resolvedRecipeId: string = recipeId;
+
+  const participants = option.participants.map((participant) => ({
+    person_id: participant.person_id,
+    daily_nutrition_state_id: null,
+    quantity: participant.quantity,
+    quantity_unit: participant.quantity_unit,
+  }));
 
   async function togglePreview() {
     if (open) {
@@ -86,12 +115,7 @@ export default function SharedTransformationPreview({
         planning_date: planningDate,
         meal_type: mealType,
         recipe_id: resolvedRecipeId,
-        participants: option.participants.map((participant) => ({
-          person_id: participant.person_id,
-          daily_nutrition_state_id: null,
-          quantity: participant.quantity,
-          quantity_unit: participant.quantity_unit,
-        })),
+        participants,
         max_proposals: 3,
       });
       setResult(response);
@@ -102,11 +126,37 @@ export default function SharedTransformationPreview({
     }
   }
 
+
+  async function applyProposal(
+    proposal: SharedMealTransformationResult["proposals"][number],
+  ) {
+    onPlanningChange(true);
+    setError(null);
+    try {
+      const planned = await planSharedMealTransformation(familyId, {
+        planning_date: planningDate,
+        meal_type: mealType,
+        recipe_id: resolvedRecipeId,
+        participants,
+        recipe_ingredient_id: proposal.operation.recipe_ingredient_id,
+        replacement_food_item_id: proposal.operation.replacement_food_item_id,
+        scheduled_at: scheduledAt,
+        title: option.candidate_name,
+        location,
+      });
+      onPlanned(planned);
+    } catch (caught: unknown) {
+      setError(errorText(caught, copy.error));
+    } finally {
+      onPlanningChange(false);
+    }
+  }
+
   return (
     <div className="shared-transformation-preview">
       <button
         className="button ghost"
-        disabled={busy}
+        disabled={busy || planning}
         onClick={() => void togglePreview()}
         type="button"
       >
@@ -152,6 +202,16 @@ export default function SharedTransformationPreview({
                     ? `${planCount} ${planCount === 1 ? copy.planImprovement : copy.planImprovements}`
                     : `${preferenceCount} ${preferenceCount === 1 ? copy.preferenceImprovement : copy.preferenceImprovements}`}
                 </small>
+                {!mealPlanned ? (
+                  <button
+                    className="button primary"
+                    disabled={planning}
+                    onClick={() => void applyProposal(proposal)}
+                    type="button"
+                  >
+                    {planning ? copy.adding : copy.add}
+                  </button>
+                ) : null}
               </article>
             );
           })}
