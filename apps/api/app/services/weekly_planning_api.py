@@ -575,6 +575,11 @@ def _compute_shared_weekly_plan_uncached(
         search_space=result.search_space_size,
         evaluated=result.evaluated_combinations,
         feasible=result.feasible_combinations,
+        repeated=(
+            result.selected_plan.repeated_candidate_count
+            if result.selected_plan is not None
+            else None
+        ),
         rejected_weekly_max=result.rejected_by_person_weekly_maximum,
         rejected_daily_limit=result.rejected_by_person_daily_limit,
         truncated=result.search_truncated,
