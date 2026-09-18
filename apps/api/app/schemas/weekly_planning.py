@@ -70,7 +70,7 @@ class SharedWeeklyPlanChoiceRead(BaseModel):
     minimum_score: Decimal | None
     average_score: Decimal | None
     participants: list[SharedWeeklyPlanParticipantRead]
-    transformations: list[SharedWeeklyPlanTransformationRead] = Field(default_factory=list)
+    transformation: SharedWeeklyPlanTransformationRead | None = None
 
 
 class SharedWeeklyPlanSelectionRead(BaseModel):
