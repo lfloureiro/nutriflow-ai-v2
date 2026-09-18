@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     default_locale: str = "pt-PT"
     default_timezone: str = "Europe/Lisbon"
 
+    openai_api_key: str | None = None
+    openai_base_url: str = "https://api.openai.com/v1"
+    nutriflow_nutrition_plan_ai_model: str = "gpt-5.6-luna"
+
     restaurant_discovery_enabled: bool = True
     restaurant_google_places_enabled: bool = True
     restaurant_google_places_url: str = "https://places.googleapis.com/v1/places:searchText"
