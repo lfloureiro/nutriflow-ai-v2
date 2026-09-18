@@ -37,10 +37,10 @@ from app.services.nutrition_plan import (
     create_nutrition_plan,
     update_nutrition_plan,
 )
+from app.services.shared_meal_transformation import propose_shared_meal_transformations
 from app.services.shared_practical_recommendation_api import (
     compute_shared_practical_recommendation_with_contexts,
 )
-from app.services.shared_meal_transformation import propose_shared_meal_transformations
 from app.services.weekly_planning_api import _planning_slot
 
 PLANNING_DATE = date(2026, 9, 17)
