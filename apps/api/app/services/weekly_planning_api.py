@@ -231,7 +231,7 @@ def _transformation_candidates(
             planning_date=planning_date,
             engine_version=engine_version,
         )
-        if candidate is None or not candidate.evaluation.eligible:
+        if candidate is None:
             continue
         candidates.append(candidate)
         metadata[candidate.selection_key] = SharedWeeklyPlanTransformationRead(
