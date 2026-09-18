@@ -31,6 +31,7 @@ from app.services.meal_recommendation_api import (
 from app.services.nutrition_plan import NutritionPlanError, compile_effective_nutrition_plan
 from app.services.serving_nutrition import UnsupportedUnitConversionError, convert_quantity
 from app.services.weekly_planning_request_cache import current_weekly_planning_cache
+from app.services.weekly_debug import weekly_debug, weekly_debug_span
 
 ZERO = Decimal(0)
 ONE = Decimal(1)
@@ -443,6 +444,16 @@ def evaluate_meal_plan_fit(
     person_id: uuid.UUID,
     data: MealPlanFitCreate,
 ) -> MealPlanFitRead:
+    weekly_debug(
+        "PLANFIT",
+        "candidate-start",
+        person=person_id,
+        date=data.planning_date,
+        meal_type=data.meal_type,
+        composition=data.candidate.composition_id,
+        quantity=data.candidate.quantity,
+        unit=data.candidate.quantity_unit,
+    )
     person = _load_person(db, person_id)
     daily_state = _load_daily_state(
         db,
@@ -471,14 +482,29 @@ def evaluate_meal_plan_fit(
             cache.effective_plans.get(effective_key) if cache is not None else None
         )
         if effective_plan is None:
-            effective_plan = compile_effective_nutrition_plan(
-                db,
-                person_id=person.id,
-                on_date=data.planning_date,
+            with weekly_debug_span(
+                "PLANFIT",
+                "compile-effective-plan",
+                person=person.id,
+                date=data.planning_date,
                 meal_type=data.meal_type,
-            )
+            ):
+                effective_plan = compile_effective_nutrition_plan(
+                    db,
+                    person_id=person.id,
+                    on_date=data.planning_date,
+                    meal_type=data.meal_type,
+                )
             if cache is not None:
                 cache.effective_plans[effective_key] = effective_plan
+        else:
+            weekly_debug(
+                "PLANFIT",
+                "cache-hit-effective-plan",
+                person=person.id,
+                date=data.planning_date,
+                meal_type=data.meal_type,
+            )
     except NutritionPlanError as exc:
         raise MealPlanFitError(str(exc)) from exc
 
@@ -572,6 +598,16 @@ def evaluate_meal_plan_fit(
             "Qualitative and weekly-frequency guidelines are displayed but not included in fit_score v1."
         )
 
+    weekly_debug(
+        "PLANFIT",
+        "candidate-ready",
+        person=person.id,
+        candidate=candidate.key,
+        status=status,
+        eligible=eligible,
+        rules=len(rule_results),
+        guidelines=len(guideline_results),
+    )
     return MealPlanFitRead(
         person_id=person.id,
         planning_date=data.planning_date,
