@@ -1,31 +1,207 @@
 import uuid
+from dataclasses import replace
 from datetime import timedelta
 
 from sqlalchemy.orm import Session
 
 from app.models.family import Family
+from app.models.food_catalog import FoodItem
+from app.schemas.shared_meal_transformation import (
+    SharedMealTransformationCreate,
+    SharedMealTransformationParticipantCreate,
+)
 from app.schemas.shared_practical_recommendation import SharedPracticalRecommendationCreate
 from app.schemas.weekly_planning import (
     SharedWeeklyPlanChoiceRead,
     SharedWeeklyPlanningSlotCreate,
     SharedWeeklyPlanParticipantRead,
     SharedWeeklyPlanProposalCreate,
+    SharedWeeklyPlanTransformationRead,
     SharedWeeklyPlanProposalRead,
     SharedWeeklyPlanSelectionRead,
+)
+from app.services.meal_recommendation import CandidateEvaluation
+from app.services.serving_nutrition import NutrientSnapshot, NutritionSnapshot
+from app.services.shared_family_meal import SharedMealParticipantEvaluation
+from app.services.shared_meal_transformation import (
+    _transformed_subjects,
+    propose_shared_meal_transformations,
 )
 from app.services.shared_practical_recommendation_api import (
     compute_shared_practical_recommendation,
 )
 from app.services.shared_weekly_multi_slot_planning import (
     SharedWeeklyMultiSlotPlanningError,
+    SharedWeeklyPlanChoice,
     SharedWeeklyPlanningCandidate,
     SharedWeeklyPlanningSlot,
+    _evaluate_choices,
+    _ranking_key,
 )
 from app.services.shared_weekly_search import optimize_shared_weekly_slots_scalable
 
 
 class WeeklyPlanningApiError(ValueError):
     pass
+
+
+def _transformed_candidate_for_week(
+    session: Session,
+    *,
+    original: SharedWeeklyPlanningCandidate,
+    proposal,
+) -> SharedWeeklyPlanningCandidate | None:
+    evaluation = original.evaluation
+    by_person = {item.person_id: item for item in proposal.participant_results}
+    transformed_participants: list[SharedMealParticipantEvaluation] = []
+
+    for participant in evaluation.participant_evaluations:
+        person_id = participant.person.id
+        candidate = participant.evaluation.candidate
+        if person_id is None or candidate.recipe is None:
+            return None
+        transformed = by_person.get(person_id)
+        if transformed is None or not transformed.after_fit.eligible:
+            return None
+
+        replacement = session.get(
+            FoodItem,
+            proposal.operation.replacement_food_item_id,
+        )
+        if replacement is None:
+            return None
+
+        nutrition = NutritionSnapshot(
+            energy_kcal=transformed.after_fit.candidate.nutrition.energy_kcal,
+            nutrients={
+                key: NutrientSnapshot(value=value.value, unit=value.unit)
+                for key, value in transformed.after_fit.candidate.nutrition.nutrients.items()
+            },
+        )
+        transformed_candidate = replace(
+            candidate,
+            nutrition=nutrition,
+            subjects=_transformed_subjects(
+                candidate.recipe,
+                source_ingredient_id=proposal.operation.recipe_ingredient_id,
+                replacement=replacement,
+            ),
+        )
+        transformed_evaluation = replace(
+            participant.evaluation,
+            candidate=transformed_candidate,
+            eligible=True,
+            exclusion_reasons=(),
+            explanation=(
+                *participant.evaluation.explanation,
+                f"weekly_transformation:{proposal.kind}",
+            ),
+        )
+        transformed_participants.append(
+            replace(
+                participant,
+                evaluation=transformed_evaluation,
+                plan_fit=transformed.after_fit,
+            )
+        )
+
+    return SharedWeeklyPlanningCandidate(
+        evaluation=replace(
+            evaluation,
+            eligible=True,
+            participant_evaluations=tuple(transformed_participants),
+            exclusion_reasons=(),
+        ),
+        plan_fits=tuple(
+            by_person[participant.person.id].after_fit
+            for participant in evaluation.participant_evaluations
+            if participant.person.id is not None
+        ),
+    )
+
+
+def _weekly_transformations_for_choice(
+    session: Session,
+    *,
+    family: Family,
+    choice: SharedWeeklyPlanChoice,
+    all_choices: tuple[SharedWeeklyPlanChoice, ...],
+    participant_ids: tuple[uuid.UUID, ...],
+    base_plan,
+) -> list[SharedWeeklyPlanTransformationRead]:
+    evaluation = choice.candidate.evaluation
+    if evaluation.candidate_kind != "recipe":
+        return []
+    first_participant = evaluation.participant_evaluations[0]
+    recipe = first_participant.evaluation.candidate.recipe
+    if recipe is None or recipe.id is None:
+        return []
+
+    participants = []
+    for participant in evaluation.participant_evaluations:
+        person_id = participant.person.id
+        if person_id is None:
+            return []
+        fit = participant.plan_fit
+        participants.append(
+            SharedMealTransformationParticipantCreate(
+                person_id=person_id,
+                daily_nutrition_state_id=(
+                    fit.daily_nutrition_state_id if fit is not None else None
+                ),
+                quantity=participant.portion.quantity,
+                quantity_unit=participant.portion.quantity_unit,
+            )
+        )
+
+    transformed = propose_shared_meal_transformations(
+        session,
+        family_id=family.id,
+        data=SharedMealTransformationCreate(
+            planning_date=choice.planning_date,
+            meal_type=choice.meal_type,
+            recipe_id=recipe.id,
+            participants=participants,
+            max_proposals=3,
+        ),
+    )
+
+    result: list[SharedWeeklyPlanTransformationRead] = []
+    for proposal in transformed.proposals:
+        candidate = _transformed_candidate_for_week(
+            session,
+            original=choice.candidate,
+            proposal=proposal,
+        )
+        if candidate is None:
+            continue
+        transformed_choices = tuple(
+            replace(item, candidate=candidate)
+            if item.slot_key == choice.slot_key
+            else item
+            for item in all_choices
+        )
+        transformed_plan, _, _ = _evaluate_choices(
+            transformed_choices,
+            participant_ids,
+        )
+        if transformed_plan is None:
+            continue
+        if _ranking_key(transformed_plan) > _ranking_key(base_plan):
+            continue
+        result.append(
+            SharedWeeklyPlanTransformationRead(
+                kind=proposal.kind,
+                recipe_id=recipe.id,
+                operation=proposal.operation,
+                plan_improvement_participants=proposal.plan_improvement_participants,
+                preference_improvement_participants=(
+                    proposal.preference_improvement_participants
+                ),
+                explanation=list(proposal.explanation),
+            )
+        )
+    return result
 
 
 def _planning_slot(
@@ -161,6 +337,14 @@ def propose_shared_weekly_plan(
                     minimum_score=choice.candidate.evaluation.minimum_score,
                     average_score=choice.candidate.evaluation.average_score,
                     participants=participant_reads,
+                    transformations=_weekly_transformations_for_choice(
+                        session,
+                        family=family,
+                        choice=choice,
+                        all_choices=result.selected_plan.choices,
+                        participant_ids=result.participant_ids,
+                        base_plan=result.selected_plan,
+                    ),
                 )
             )
         selected_read = SharedWeeklyPlanSelectionRead(
