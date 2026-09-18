@@ -201,6 +201,45 @@ def test_large_search_space_uses_bounded_deterministic_search() -> None:
     assert len(result.selected_plan.choices) == 7
 
 
+def test_bounded_search_avoids_repeating_near_equivalent_favorite() -> None:
+    slots = []
+    for offset in range(6):
+        planning_date = MONDAY + timedelta(days=offset)
+        favorite = _candidate(
+            "favorite",
+            planning_date=planning_date,
+            score="1.0",
+        )
+        alternative = _candidate(
+            f"alternative:{offset}",
+            planning_date=planning_date,
+            score="0.9",
+        )
+        slots.append(
+            SharedWeeklyPlanningSlot(
+                slot_key=f"dinner:{offset}",
+                planning_date=planning_date,
+                meal_type="lunch",
+                candidates=(favorite, alternative),
+            )
+        )
+
+    result = optimize_shared_weekly_slots_scalable(
+        tuple(slots),
+        max_combinations=len(slots),
+    )
+
+    assert result.search_strategy == "bounded"
+    assert result.search_truncated is True
+    assert result.selected_plan is not None
+    selected = [
+        choice.candidate.evaluation.candidate_key
+        for choice in result.selected_plan.choices
+    ]
+    assert selected.count("favorite") == 1
+    assert result.selected_plan.repeated_candidate_count == 0
+
+
 def test_bounded_search_keeps_person_weekly_maximum_as_hard_gate() -> None:
     result = optimize_shared_weekly_slots_scalable(
         _slots(7, constrained=True),
