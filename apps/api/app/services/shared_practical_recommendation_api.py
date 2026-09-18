@@ -24,7 +24,10 @@ from app.services.meal_energy_allocation import (
     size_candidate_for_meal,
 )
 from app.services.meal_recommendation import MealCandidate
-from app.services.meal_recommendation_api import load_recommendation_inputs
+from app.services.meal_recommendation_api import (
+    load_recommendation_inputs,
+    load_recommendation_person_state,
+)
 from app.services.planning_bootstrap_api import get_planning_bootstrap
 from app.services.practical_recommendation_api import (
     _build_practical_channels,
@@ -228,28 +231,43 @@ def _compute_shared_recommendation(
                 "planning_date must match every selected Person's local planning date."
             )
 
-        with weekly_debug_span(
-            "PRACTICAL",
-            "load-recommendation-inputs",
-            person=person_id,
-            candidates=len(data.candidates),
-            meal_type=data.meal_type,
-        ):
-            person, state, candidates = load_recommendation_inputs(
-                session,
-                person_id=person_id,
-                daily_nutrition_state_id=state_read.id,
-                planning_date=data.planning_date,
-                candidates=data.candidates,
+        if index == 0:
+            with weekly_debug_span(
+                "PRACTICAL",
+                "load-recommendation-inputs",
+                person=person_id,
+                candidates=len(data.candidates),
                 meal_type=data.meal_type,
-            )
+            ):
+                person, state, candidates = load_recommendation_inputs(
+                    session,
+                    person_id=person_id,
+                    daily_nutrition_state_id=state_read.id,
+                    planning_date=data.planning_date,
+                    candidates=data.candidates,
+                    meal_type=data.meal_type,
+                )
+            first_candidates = candidates
+        else:
+            with weekly_debug_span(
+                "PRACTICAL",
+                "load-person-state",
+                person=person_id,
+                meal_type=data.meal_type,
+            ):
+                person, state = load_recommendation_person_state(
+                    session,
+                    person_id=person_id,
+                    daily_nutrition_state_id=state_read.id,
+                    planning_date=data.planning_date,
+                )
+
         if person.family_id != family.id:
             raise SharedPracticalRecommendationApiError(
                 "All selected Persons must belong to this Family."
             )
 
         if index == 0:
-            first_candidates = candidates
             practical_data = PracticalMealRecommendationCreate(
                 daily_nutrition_state_id=state_read.id,
                 planning_date=data.planning_date,
