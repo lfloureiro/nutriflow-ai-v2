@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 import app.services.meal_plan_fit as meal_plan_fit_service
 import app.services.meal_plan_fit_weekly_frequency as weekly_fit_service
+import app.services.meal_recommendation_api as meal_recommendation_api_service
 import app.services.planning_bootstrap_api as planning_bootstrap_service
 import app.services.shared_meal_transformation as shared_transformation_service
 import app.services.weekly_planning_api as weekly_planning_service
@@ -368,6 +369,7 @@ def test_weekly_proposal_reuses_request_scoped_plan_context(
         "ensure_state": 0,
         "compile_effective": 0,
         "weekly_progress": 0,
+        "candidate_catalogue_loads": 0,
     }
     friday_date = date(2026, 9, 18)
     friday_at = datetime(2026, 9, 18, 12, 0, tzinfo=UTC)
@@ -398,10 +400,15 @@ def test_weekly_proposal_reuses_request_scoped_plan_context(
         unexpected_plan_fit_candidate_reload,
     )
 
+    original_candidate_loader = meal_recommendation_api_service._load_candidates
     original_ensure_state = planning_bootstrap_service._ensure_daily_state
     original_base_compile = meal_plan_fit_service.compile_effective_nutrition_plan
     original_weekly_compile = weekly_fit_service.compile_effective_nutrition_plan
     original_weekly_progress = weekly_fit_service.get_weekly_frequency_progress
+
+    def counted_candidate_loader(*args, **kwargs):
+        calls["candidate_catalogue_loads"] += 1
+        return original_candidate_loader(*args, **kwargs)
 
     def counted_ensure_state(*args, **kwargs):
         calls["ensure_state"] += 1
@@ -419,6 +426,11 @@ def test_weekly_proposal_reuses_request_scoped_plan_context(
         calls["weekly_progress"] += 1
         return original_weekly_progress(*args, **kwargs)
 
+    monkeypatch.setattr(
+        meal_recommendation_api_service,
+        "_load_candidates",
+        counted_candidate_loader,
+    )
     monkeypatch.setattr(
         planning_bootstrap_service,
         "_ensure_daily_state",
@@ -474,6 +486,7 @@ def test_weekly_proposal_reuses_request_scoped_plan_context(
     assert calls["ensure_state"] == 4
     assert calls["compile_effective"] == 6
     assert calls["weekly_progress"] == 2
+    assert calls["candidate_catalogue_loads"] == 3
 
 def test_weekly_proposal_rechecks_one_person_weekly_maximum_across_slots(
     db_session: Session,
