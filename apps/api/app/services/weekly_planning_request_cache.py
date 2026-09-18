@@ -13,6 +13,7 @@ class WeeklyPlanningRequestCache:
     effective_plans: dict[tuple[object, object, str], Any] = field(default_factory=dict)
     weekly_progress: dict[tuple[object, object], Any] = field(default_factory=dict)
     candidate_profiles: dict[tuple[object, str, object], Any] = field(default_factory=dict)
+    transformable_recipes: dict[tuple[object, object], bool] = field(default_factory=dict)
 
 
 def current_weekly_planning_cache(session: Session) -> WeeklyPlanningRequestCache | None:
