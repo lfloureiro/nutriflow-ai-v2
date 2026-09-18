@@ -1,3 +1,4 @@
+import json
 from datetime import date
 
 from fastapi.testclient import TestClient
@@ -210,10 +211,7 @@ def test_chatgpt_assisted_import_api_builds_prompt_and_accepts_validated_respons
                 f"/api/persons/{person.id}/nutrition-plan-imports/chatgpt",
                 json={
                     "plan": payload,
-                    "response_text": __import__("json").dumps(
-                        response_payload,
-                        ensure_ascii=False,
-                    ),
+                    "response_text": json.dumps(response_payload, ensure_ascii=False),
                 },
             )
             assert import_response.status_code == 201
