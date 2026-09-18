@@ -58,6 +58,7 @@ def _fit(
     key: str,
     *,
     planning_date: date,
+    meal_type: str = "lunch",
     maximum_guideline_id: uuid.UUID | None = None,
     maximum: int | None = None,
     matches: bool | None = None,
@@ -82,7 +83,7 @@ def _fit(
     return MealPlanFitRead.model_construct(
         person_id=person_id,
         planning_date=planning_date,
-        meal_type="lunch",
+        meal_type=meal_type,
         candidate=MealPlanFitCandidateRead.model_construct(key=key),
         eligible=True,
         rule_results=[],
@@ -95,6 +96,7 @@ def _candidate(
     *,
     planning_date: date,
     score: str,
+    meal_type: str = "lunch",
     planning_category: str | None = None,
     primary_protein: str | None = None,
     maximum_guideline_id: uuid.UUID | None = None,
@@ -143,6 +145,7 @@ def _candidate(
                 person_id,
                 key,
                 planning_date=planning_date,
+                meal_type=meal_type,
                 maximum_guideline_id=maximum_guideline_id if person_id == ANA_ID else None,
                 maximum=maximum,
                 matches=matches if person_id == ANA_ID else None,
@@ -334,6 +337,7 @@ def test_bounded_search_interleaves_structured_meal_categories() -> None:
             f"meat:{offset}",
             planning_date=planning_date,
             score="1.0",
+            meal_type="dinner",
             planning_category="meat",
             primary_protein="beef",
         )
@@ -341,6 +345,7 @@ def test_bounded_search_interleaves_structured_meal_categories() -> None:
             f"fish:{offset}",
             planning_date=planning_date,
             score="0.9",
+            meal_type="dinner",
             planning_category="fish",
             primary_protein="hake" if offset % 2 else "cod",
         )
