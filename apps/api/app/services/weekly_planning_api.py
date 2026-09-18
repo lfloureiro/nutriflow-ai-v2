@@ -54,6 +54,8 @@ from app.services.shared_weekly_multi_slot_planning import (
 )
 from app.services.shared_weekly_search import (
     ENGINE_VERSION as SEARCH_ENGINE_VERSION,
+)
+from app.services.shared_weekly_search import (
     SharedWeeklySearchResult,
     optimize_shared_weekly_slots_scalable,
 )
