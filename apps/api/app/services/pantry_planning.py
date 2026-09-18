@@ -263,22 +263,31 @@ def _recipe_candidate_batch_multiplier(candidate: MealCandidate) -> Decimal:
     recipe = candidate.recipe
     if recipe is None:
         raise PantryPlanningError(f"Candidate {candidate.key!r} is not a Recipe candidate.")
-    if recipe.yield_quantity is None or recipe.yield_unit is None:
-        raise PantryPlanningError(
-            f"Recipe {recipe.recipe_key!r} needs yield quantity/unit for pantry candidate scaling."
-        )
-    try:
-        requested_yield = convert_quantity(
-            candidate.quantity,
-            candidate.quantity_unit,
-            recipe.yield_unit,
-        )
-    except UnsupportedUnitConversionError as exc:
-        raise PantryUnitConversionError(
-            f"Cannot scale Recipe {recipe.recipe_key!r} from candidate unit "
-            f"{candidate.quantity_unit!r} to yield unit {recipe.yield_unit!r}."
-        ) from exc
-    return requested_yield / recipe.yield_quantity
+
+    if recipe.yield_quantity is not None and recipe.yield_unit is not None:
+        try:
+            requested_yield = convert_quantity(
+                candidate.quantity,
+                candidate.quantity_unit,
+                recipe.yield_unit,
+            )
+        except UnsupportedUnitConversionError as exc:
+            raise PantryUnitConversionError(
+                f"Cannot scale Recipe {recipe.recipe_key!r} from candidate unit "
+                f"{candidate.quantity_unit!r} to yield unit {recipe.yield_unit!r}."
+            ) from exc
+        return requested_yield / recipe.yield_quantity
+
+    if recipe.serving_count is not None and candidate.quantity_unit == "serving":
+        return candidate.quantity / recipe.serving_count
+
+    if candidate.quantity_unit == "recipe":
+        return candidate.quantity
+
+    raise PantryPlanningError(
+        f"Recipe {recipe.recipe_key!r} needs yield quantity/unit or compatible "
+        "serving-count evidence for pantry candidate scaling."
+    )
 
 
 def build_pantry_stock_practical_profiles(
