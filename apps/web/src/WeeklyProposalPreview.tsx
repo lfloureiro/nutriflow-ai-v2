@@ -495,7 +495,7 @@ export default function WeeklyProposalPreview({
         const shoppingList = await refreshShoppingList(familyId, effectiveWeekStart, 7);
         setShoppingSummary(shoppingRefreshSummary(shoppingList));
       } catch (shoppingError: unknown) {
-        setShoppingWarning(`${copy.shoppingRefreshFailed} ${errorText(shoppingError)}`);
+        setShoppingWarning(errorText(shoppingError));
       }
     } catch (caught: unknown) {
       setError(errorText(caught));
@@ -603,7 +603,7 @@ export default function WeeklyProposalPreview({
       {shoppingWarning ? (
         <div className="error-banner" role="alert">
           <strong>{copy.shoppingRefreshFailed}</strong>
-          <span>{shoppingWarning.replace(`${copy.shoppingRefreshFailed} `, "")}</span>
+          <span>{shoppingWarning}</span>
         </div>
       ) : null}
       {proposal ? (
