@@ -17,9 +17,10 @@ from app.schemas.weekly_planning import (
     SharedWeeklyPlanParticipantRead,
     SharedWeeklyPlanProposalCreate,
     SharedWeeklyPlanProposalRead,
-    SharedWeeklyPlanTransformationRead,
     SharedWeeklyPlanSelectionRead,
+    SharedWeeklyPlanTransformationRead,
 )
+from app.services.recommendation_weekly_frequency import weekly_support_counts
 from app.services.serving_nutrition import NutrientSnapshot, NutritionSnapshot
 from app.services.shared_family_meal import (
     SharedMealCandidateEvaluation,
@@ -30,7 +31,6 @@ from app.services.shared_family_meal import (
 from app.services.shared_family_meal_plan_fit import (
     _evaluate_participant_candidate,
 )
-from app.services.recommendation_weekly_frequency import weekly_support_counts
 from app.services.shared_meal_transformation import (
     _transformed_subjects,
     propose_shared_meal_transformations,
