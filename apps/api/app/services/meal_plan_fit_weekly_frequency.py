@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import date, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -399,7 +399,8 @@ def apply_weekly_frequency_to_loaded_fit(
     )
     cache = current_weekly_planning_cache(db)
     effective_key = (person.id, planning_date, meal_type)
-    weekly_key = (person.id, planning_date)
+    week_start = planning_date - timedelta(days=planning_date.weekday())
+    weekly_key = (person.id, week_start)
     try:
         effective = (
             cache.effective_plans.get(effective_key)
