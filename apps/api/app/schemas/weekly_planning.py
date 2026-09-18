@@ -1,8 +1,9 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.meal_recommendation import MealRecommendationCandidateInput
 from app.schemas.meal_transformation import MealTransformationOperationRead
@@ -99,3 +100,48 @@ class SharedWeeklyPlanProposalRead(BaseModel):
     search_strategy: str
     search_space_size: int
     search_truncated: bool
+
+
+
+class SharedWeeklyPlanExpectedChoiceCreate(BaseModel):
+    slot_key: str = Field(min_length=1, max_length=120)
+    candidate_key: str = Field(min_length=1, max_length=255)
+    recipe_ingredient_id: uuid.UUID | None = None
+    replacement_food_item_id: uuid.UUID | None = None
+
+    @model_validator(mode="after")
+    def validate_transformation_identity(self) -> "SharedWeeklyPlanExpectedChoiceCreate":
+        if (self.recipe_ingredient_id is None) != (self.replacement_food_item_id is None):
+            raise ValueError(
+                "A weekly transformed choice requires both recipe_ingredient_id "
+                "and replacement_food_item_id."
+            )
+        return self
+
+
+class SharedWeeklyPlanCreate(SharedWeeklyPlanProposalCreate):
+    expected_choices: list[SharedWeeklyPlanExpectedChoiceCreate] = Field(
+        min_length=1,
+        max_length=28,
+    )
+
+    @model_validator(mode="after")
+    def validate_expected_choices(self) -> "SharedWeeklyPlanCreate":
+        slot_keys = [item.slot_key for item in self.expected_choices]
+        if len(slot_keys) != len(set(slot_keys)):
+            raise ValueError("Each expected weekly slot may appear only once.")
+        return self
+
+
+class SharedWeeklyPlanMaterializedChoiceRead(BaseModel):
+    slot_key: str
+    meal_event_id: uuid.UUID
+    candidate_key: str
+    transformation_application_id: uuid.UUID | None = None
+    serving_ids: list[uuid.UUID]
+
+
+class SharedWeeklyPlanRead(BaseModel):
+    family_id: uuid.UUID
+    status: Literal["planned"]
+    choices: list[SharedWeeklyPlanMaterializedChoiceRead]

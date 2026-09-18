@@ -19,7 +19,8 @@ from app.main import app
 from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.family import Family
 from app.models.food_catalog import Recipe, RecipeCompositionSnapshot
-from app.models.meal import MealEvent
+from app.models.meal import MealEvent, Serving
+from app.models.meal_transformation_application import MealTransformationApplication
 from app.models.person import Person
 from app.schemas.nutrition_plan import (
     NutritionPlanCreate,
@@ -377,3 +378,335 @@ def test_weekly_proposal_can_select_plan_adapted_variant_when_base_is_ineligible
     )
     assert primary["score"] is not None
 
+
+
+
+def _expected_choices_from_proposal(body: dict[str, object]) -> list[dict[str, str]]:
+    selected = body["selected_plan"]
+    assert isinstance(selected, dict)
+    choices = selected["choices"]
+    assert isinstance(choices, list)
+    result: list[dict[str, str]] = []
+    for raw_choice in choices:
+        assert isinstance(raw_choice, dict)
+        choice = {
+            "slot_key": str(raw_choice["slot_key"]),
+            "candidate_key": str(raw_choice["candidate_key"]),
+        }
+        transformation = raw_choice.get("transformation")
+        if isinstance(transformation, dict):
+            operation = transformation["operation"]
+            assert isinstance(operation, dict)
+            choice["recipe_ingredient_id"] = str(operation["recipe_ingredient_id"])
+            choice["replacement_food_item_id"] = str(
+                operation["replacement_food_item_id"]
+            )
+        result.append(choice)
+    return result
+
+
+def _plan_payload(
+    *,
+    person_ids: list[str],
+    slots: list[dict[str, object]],
+    proposal_body: dict[str, object],
+) -> dict[str, object]:
+    return {
+        "person_ids": person_ids,
+        "slots": slots,
+        "max_combinations": 100,
+        "expected_choices": _expected_choices_from_proposal(proposal_body),
+    }
+
+
+def test_weekly_plan_materializes_normal_shared_choice_atomically(
+    db_session: Session,
+) -> None:
+    family, ana, bruno, recipe, composition = _setup(db_session, "materialize")
+    assert family.id is not None
+    assert ana.id is not None
+    assert bruno.id is not None
+    slots = [
+        _slot(
+            "thu-lunch",
+            scheduled_at=LUNCH_AT,
+            meal_type="lunch",
+            composition=composition,
+        )
+    ]
+
+    proposal = _post(
+        db_session,
+        family,
+        ana=ana,
+        bruno=bruno,
+        slots=slots,
+    )
+    assert proposal.status_code == 201
+    proposal_body = proposal.json()
+    assert proposal_body["selected_plan"] is not None
+
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                f"/api/families/{family.id}/weekly-planning/plan",
+                json=_plan_payload(
+                    person_ids=[str(ana.id), str(bruno.id)],
+                    slots=slots,
+                    proposal_body=proposal_body,
+                ),
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["status"] == "planned"
+    assert len(body["choices"]) == 1
+    choice = body["choices"][0]
+    assert choice["slot_key"] == "thu-lunch"
+    assert choice["candidate_key"] == recipe.recipe_key
+    assert choice["transformation_application_id"] is None
+    assert len(choice["serving_ids"]) == 2
+
+    event_count = db_session.scalar(select(func.count()).select_from(MealEvent))
+    serving_count = db_session.scalar(select(func.count()).select_from(Serving))
+    assert event_count == 1
+    assert serving_count == 2
+
+
+def test_weekly_plan_rejects_stale_selection_without_persisting(
+    db_session: Session,
+) -> None:
+    family, ana, bruno, _, composition = _setup(db_session, "stale")
+    assert family.id is not None
+    assert ana.id is not None
+    assert bruno.id is not None
+    slots = [
+        _slot(
+            "thu-lunch",
+            scheduled_at=LUNCH_AT,
+            meal_type="lunch",
+            composition=composition,
+        )
+    ]
+
+    proposal = _post(
+        db_session,
+        family,
+        ana=ana,
+        bruno=bruno,
+        slots=slots,
+    )
+    assert proposal.status_code == 201
+    payload = _plan_payload(
+        person_ids=[str(ana.id), str(bruno.id)],
+        slots=slots,
+        proposal_body=proposal.json(),
+    )
+    expected = payload["expected_choices"]
+    assert isinstance(expected, list)
+    assert isinstance(expected[0], dict)
+    expected[0]["candidate_key"] = "stale:candidate"
+
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                f"/api/families/{family.id}/weekly-planning/plan",
+                json=payload,
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert "selection changed" in response.json()["detail"]
+    event_count = db_session.scalar(select(func.count()).select_from(MealEvent))
+    assert event_count == 0
+
+
+def test_weekly_plan_rolls_back_earlier_slot_when_later_slot_conflicts(
+    db_session: Session,
+) -> None:
+    family, ana, bruno, _, composition = _setup(db_session, "atomic-conflict")
+    assert family.id is not None
+    assert ana.id is not None
+    assert bruno.id is not None
+    slots = [
+        _slot(
+            "thu-lunch",
+            scheduled_at=LUNCH_AT,
+            meal_type="lunch",
+            composition=composition,
+        ),
+        _slot(
+            "thu-dinner",
+            scheduled_at=DINNER_AT,
+            meal_type="dinner",
+            composition=composition,
+        ),
+    ]
+
+    proposal = _post(
+        db_session,
+        family,
+        ana=ana,
+        bruno=bruno,
+        slots=slots,
+    )
+    assert proposal.status_code == 201
+    proposal_body = proposal.json()
+    assert proposal_body["selected_plan"] is not None
+
+    conflict = MealEvent(
+        family_id=family.id,
+        meal_type="dinner",
+        title="Existing dinner",
+        scheduled_at=DINNER_AT,
+        timezone=family.timezone,
+        status="planned",
+        source="manual",
+    )
+    db_session.add(conflict)
+    db_session.commit()
+    assert conflict.id is not None
+
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                f"/api/families/{family.id}/weekly-planning/plan",
+                json=_plan_payload(
+                    person_ids=[str(ana.id), str(bruno.id)],
+                    slots=slots,
+                    proposal_body=proposal_body,
+                ),
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert "already planned" in response.json()["detail"]
+    events = list(
+        db_session.scalars(
+            select(MealEvent).where(MealEvent.family_id == family.id)
+        ).all()
+    )
+    assert [event.id for event in events] == [conflict.id]
+
+
+def test_weekly_plan_materializes_selected_transformation(
+    db_session: Session,
+) -> None:
+    demo = seed_demo_dataset(
+        db_session,
+        now=datetime(2026, 9, 15, 12, 0, tzinfo=UTC),
+    )
+    family = db_session.get(Family, DEMO_FAMILY_ID)
+    assert family is not None
+    seed_development_breakfast_catalog(db_session, families=(family,))
+    seed_development_transformations(db_session, families=(family,))
+    seed_development_plan_fit(db_session, person_id=DEMO_PERSON_ID)
+    db_session.commit()
+
+    seeded_breakfast = db_session.scalar(
+        select(MealEvent).where(
+            MealEvent.family_id == DEMO_FAMILY_ID,
+            MealEvent.meal_type == "breakfast",
+        )
+    )
+    assert seeded_breakfast is not None
+    seeded_breakfast.status = "cancelled"
+    db_session.commit()
+
+    recipe = db_session.scalar(
+        select(Recipe).where(
+            Recipe.recipe_key == "breakfast:recipe:yogurt-muesli-banana"
+        )
+    )
+    assert recipe is not None
+    composition = db_session.scalar(
+        select(RecipeCompositionSnapshot)
+        .where(RecipeCompositionSnapshot.recipe_id == recipe.id)
+        .order_by(RecipeCompositionSnapshot.computed_at.desc())
+    )
+    assert composition is not None
+    assert composition.id is not None
+
+    slots = [
+        {
+            "slot_key": "tue-breakfast",
+            "planning_date": demo.planning_date.isoformat(),
+            "scheduled_at": "2026-09-15T08:30:00Z",
+            "meal_type": "breakfast",
+            "candidates": [
+                {
+                    "candidate_kind": "recipe",
+                    "composition_id": str(composition.id),
+                    "quantity": "1",
+                    "quantity_unit": "serving",
+                }
+            ],
+            "has_kitchen": True,
+            "source_kinds": ["home"],
+        }
+    ]
+    proposal_payload = {
+        "person_ids": [str(DEMO_PERSON_ID), str(DEMO_MARTA_ID)],
+        "slots": slots,
+        "max_combinations": 100,
+    }
+
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    try:
+        with TestClient(app) as client:
+            proposal = client.post(
+                f"/api/families/{DEMO_FAMILY_ID}/weekly-planning/proposals",
+                json=proposal_payload,
+            )
+            assert proposal.status_code == 201
+            proposal_body = proposal.json()
+            assert proposal_body["selected_plan"] is not None
+            selected = proposal_body["selected_plan"]["choices"][0]
+            assert selected["transformation"] is not None
+
+            response = client.post(
+                f"/api/families/{DEMO_FAMILY_ID}/weekly-planning/plan",
+                json={
+                    **proposal_payload,
+                    "expected_choices": _expected_choices_from_proposal(
+                        proposal_body
+                    ),
+                },
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["status"] == "planned"
+    assert len(body["choices"]) == 1
+    planned_choice = body["choices"][0]
+    assert planned_choice["candidate_key"] == recipe.recipe_key
+    assert planned_choice["transformation_application_id"] is not None
+    assert len(planned_choice["serving_ids"]) == 2
+
+    application = db_session.get(
+        MealTransformationApplication,
+        planned_choice["transformation_application_id"],
+    )
+    assert application is not None
+    assert application.recipe_id == recipe.id
+    assert application.transformation_kind == "plan_adapted"
+
+    servings = list(
+        db_session.scalars(
+            select(Serving).where(
+                Serving.id.in_(planned_choice["serving_ids"])
+            )
+        ).all()
+    )
+    assert len(servings) == 2
+    assert all(serving.recipe_id == recipe.id for serving in servings)
+    assert all(serving.nutrition_source == "transformed" for serving in servings)
