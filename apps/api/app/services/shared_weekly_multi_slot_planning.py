@@ -65,6 +65,10 @@ class SharedWeeklyPlanEvaluation:
     minimum_participant_score: Decimal
     average_participant_score: Decimal
     repeated_candidate_count: int
+    adjacent_category_repeat_count: int
+    adjacent_protein_repeat_count: int
+    distinct_main_categories: int
+    distinct_main_proteins: int
 
 
 @dataclass(frozen=True)
@@ -265,6 +269,30 @@ def _evaluate_choices(
     minimum_scores = tuple(plan.minimum_score for plan in person_plans)
     average_scores = tuple(plan.average_score for plan in person_plans)
     candidate_keys = tuple(choice.candidate.evaluation.candidate_key for choice in choices)
+    main_traits = [
+        (
+            choice.candidate.evaluation.planning_category,
+            choice.candidate.evaluation.primary_protein,
+        )
+        for choice in choices
+        if choice.meal_type in {"lunch", "dinner"}
+        and (
+            choice.candidate.evaluation.planning_category is not None
+            or choice.candidate.evaluation.primary_protein is not None
+        )
+    ]
+    known_categories = [category for category, _ in main_traits if category is not None]
+    known_proteins = [protein for _, protein in main_traits if protein is not None]
+    adjacent_category_repeat_count = sum(
+        1
+        for previous, current in zip(known_categories, known_categories[1:], strict=False)
+        if previous == current
+    )
+    adjacent_protein_repeat_count = sum(
+        1
+        for previous, current in zip(known_proteins, known_proteins[1:], strict=False)
+        if previous == current
+    )
 
     return (
         SharedWeeklyPlanEvaluation(
@@ -278,6 +306,10 @@ def _evaluate_choices(
                 sum(average_scores, start=Decimal(0)) / Decimal(len(average_scores))
             ),
             repeated_candidate_count=len(candidate_keys) - len(set(candidate_keys)),
+            adjacent_category_repeat_count=adjacent_category_repeat_count,
+            adjacent_protein_repeat_count=adjacent_protein_repeat_count,
+            distinct_main_categories=len(set(known_categories)),
+            distinct_main_proteins=len(set(known_proteins)),
         ),
         False,
         False,
@@ -286,17 +318,18 @@ def _evaluate_choices(
 
 def _ranking_key(plan: SharedWeeklyPlanEvaluation) -> tuple[object, ...]:
     selection_keys = tuple(choice.candidate.selection_key for choice in plan.choices)
-    repeat_penalty = EXACT_REPEAT_SCORE_PENALTY * plan.repeated_candidate_count
-    diversity_adjusted_minimum = plan.minimum_participant_score - repeat_penalty
-    diversity_adjusted_average = plan.average_participant_score - repeat_penalty
     return (
         -plan.mandatory_support_participants,
         -plan.mandatory_support_total,
         -plan.advisory_support_participants,
         -plan.advisory_support_total,
-        -diversity_adjusted_minimum,
-        -diversity_adjusted_average,
         plan.repeated_candidate_count,
+        plan.adjacent_category_repeat_count,
+        plan.adjacent_protein_repeat_count,
+        -plan.distinct_main_categories,
+        -plan.distinct_main_proteins,
+        -plan.minimum_participant_score,
+        -plan.average_participant_score,
         selection_keys,
     )
 
