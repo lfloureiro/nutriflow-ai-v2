@@ -1,0 +1,807 @@
+import { useEffect, useMemo, useState } from "react";
+
+import { ApiError, getFamilyMealPlan } from "./api/client";
+import type { FamilyMealPlan, MealPlanEntry, MealType } from "./api/mealPlanTypes";
+import { getRecommendationBootstrap } from "./api/recommendationClient";
+import {
+  acceptSharedWeeklyPlanSlot,
+  requestSharedWeeklyPlanProposal,
+} from "./api/weeklyPlanningClient";
+import type {
+  SharedWeeklyPlanChoice,
+  SharedWeeklyPlanProposal,
+  SharedWeeklyPlanProposalRequest,
+  SharedWeeklyPlanSlotAcceptanceRequest,
+  SharedWeeklyPlanningSlotRequest,
+} from "./api/weeklyPlanningTypes";
+import type { Person } from "./api/types";
+import { useI18n, type Locale } from "./i18n";
+import { scheduledIso } from "./planning";
+import {
+  recommendationCandidates,
+  recommendationDeliveryProviderKeys,
+  recommendationScheduledLocal,
+  recommendationSourceKinds,
+  type RecommendationSource,
+} from "./recommendationPlanning";
+import "./weekly-matrix.css";
+
+const ALL_MEAL_TYPES: MealType[] = ["breakfast", "lunch", "snack", "dinner"];
+const PREVIEW_MAX_COMBINATIONS = 256;
+
+type BusyStage = "catalogue" | "planning";
+type DecisionBusy = "accept" | "reject" | null;
+type RejectedBySlot = Record<string, string[]>;
+
+const COPY = {
+  "pt-PT": {
+    eyebrow: "Semana",
+    title: "Plano semanal",
+    help: "Vê a semana inteira numa grelha. Escolhe um dia e depois uma refeição para chegar ao detalhe por pessoa.",
+    generate: "Gerar proposta",
+    regenerate: "Recalcular proposta",
+    preparing: "A preparar opções…",
+    optimizing: "A optimizar semana…",
+    loading: "A carregar semana…",
+    preview: "Proposta NutriFlow — aceita cada refeição para a guardar no plano.",
+    noPeople: "São necessárias pelo menos duas pessoas para a proposta familiar.",
+    noCandidates: "Não existem opções compatíveis para os tempos de refeição ainda em aberto.",
+    noOpenSlots: "Esta semana já tem todos os tempos de refeição planeados.",
+    noPlan: "Não foi encontrada uma combinação semanal compatível com todas as regras obrigatórias.",
+    error: "Não foi possível calcular a proposta semanal",
+    exact: "Pesquisa exacta",
+    bounded: "Pesquisa optimizada",
+    boundedHelp: "Foi avaliado um subconjunto determinístico sem relaxar regras obrigatórias.",
+    dayDetail: "Dia",
+    chooseMeal: "Escolhe uma refeição para abrir o detalhe.",
+    mealDetail: "Refeição",
+    planned: "Planeada",
+    proposed: "Proposta",
+    planAdapted: "Adaptada ao plano",
+    preferenceVariant: "Variante por preferência",
+    substitution: "Substituição",
+    rejectRecipe: "Recusar receita e procurar alternativa",
+    empty: "Sem refeição",
+    pending: "Por decidir",
+    nutritionReason: "Porque encaixa",
+    noExplanation: "Sem explicação adicional para esta pessoa.",
+    accept: "Aceitar e guardar",
+    accepting: "A validar e guardar…",
+    reject: "Recusar e procurar alternativa",
+    rejecting: "A procurar alternativa…",
+    accepted: "A refeição foi guardada no plano.",
+    weekdayLunchPending: "Almoço de dia útil: primeiro devem ser usadas sobras reais do jantar anterior; sem sobras, só entra uma opção Uber Eats/Glovo com disponibilidade conhecida. Ainda não existe uma opção automática segura para este slot.",
+    unavailableSlot: "Não existem opções disponíveis para este slot com a política actual.",
+    leftoversNotice: "As sobras ainda não são inventadas pelo planeador: só serão propostas quando houver quantidade reservada do jantar anterior.",
+    breakfast: "Pequeno-almoço",
+    lunch: "Almoço",
+    snack: "Lanche",
+    dinner: "Jantar",
+  },
+  en: {
+    eyebrow: "Week",
+    title: "Weekly plan",
+    help: "See the whole week in one grid. Choose a day and then a meal to reach Person-specific detail.",
+    generate: "Generate proposal",
+    regenerate: "Recalculate proposal",
+    preparing: "Preparing options…",
+    optimizing: "Optimizing week…",
+    loading: "Loading week…",
+    preview: "NutriFlow proposal — accept each meal to save it to the plan.",
+    noPeople: "At least two people are required for a Family proposal.",
+    noCandidates: "There are no compatible options for the remaining open meal slots.",
+    noOpenSlots: "Every meal slot is already planned for this week.",
+    noPlan: "No weekly combination compatible with every mandatory rule was found.",
+    error: "The weekly proposal could not be calculated",
+    exact: "Exact search",
+    bounded: "Optimized search",
+    boundedHelp: "A deterministic subset was evaluated without relaxing mandatory rules.",
+    dayDetail: "Day",
+    chooseMeal: "Choose a meal to open its detail.",
+    mealDetail: "Meal",
+    planned: "Planned",
+    proposed: "Proposal",
+    planAdapted: "Adapted to plan",
+    preferenceVariant: "Preference variant",
+    substitution: "Substitution",
+    rejectRecipe: "Reject recipe and find alternative",
+    empty: "No meal",
+    pending: "Pending",
+    nutritionReason: "Why it fits",
+    noExplanation: "No additional explanation for this Person.",
+    accept: "Accept and save",
+    accepting: "Validating and saving…",
+    reject: "Reject and find alternative",
+    rejecting: "Finding alternative…",
+    accepted: "The meal was saved to the plan.",
+    weekdayLunchPending: "Weekday lunch: real leftovers from the previous dinner come first; without leftovers, only an Uber Eats/Glovo option with known availability is allowed. There is no safe automatic option for this slot yet.",
+    unavailableSlot: "No options are available for this slot under the current policy.",
+    leftoversNotice: "The planner does not invent leftovers: they will only be proposed when quantity has been reserved from the previous dinner.",
+    breakfast: "Breakfast",
+    lunch: "Lunch",
+    snack: "Snack",
+    dinner: "Dinner",
+  },
+} as const;
+
+function errorText(error: unknown): string {
+  if (error instanceof ApiError) return `${error.message} (HTTP ${error.status})`;
+  return error instanceof Error ? error.message : String(error);
+}
+
+export function addCalendarDays(isoDate: string, days: number): string {
+  const value = new Date(`${isoDate}T00:00:00Z`);
+  if (Number.isNaN(value.getTime())) throw new Error("Invalid ISO calendar date.");
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+export function isWeekendDate(isoDate: string): boolean {
+  const weekday = new Date(`${isoDate}T00:00:00Z`).getUTCDay();
+  return weekday === 0 || weekday === 6;
+}
+
+export function weeklySourcesFor(
+  planningDate: string,
+  mealType: MealType,
+): RecommendationSource[] {
+  if (mealType === "breakfast" || mealType === "snack") return ["cooked"];
+  if (isWeekendDate(planningDate)) return ["cooked", "restaurant"];
+  if (mealType === "lunch") return ["uber_eats", "glovo"];
+  return ["cooked"];
+}
+
+function slotKey(planningDate: string, mealType: MealType): string {
+  return `${planningDate}:${mealType}`;
+}
+
+function formatDate(value: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale, {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(`${value}T00:00:00Z`));
+}
+
+function formatGridDay(value: string, locale: Locale): { weekday: string; date: string } {
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return {
+    weekday: new Intl.DateTimeFormat(locale, {
+      weekday: "short",
+      timeZone: "UTC",
+    }).format(parsed),
+    date: new Intl.DateTimeFormat(locale, {
+      day: "numeric",
+      month: "short",
+      timeZone: "UTC",
+    }).format(parsed),
+  };
+}
+
+function displayName(person: Person): string {
+  return [person.first_name, person.last_name].filter(Boolean).join(" ");
+}
+
+function mealLabel(mealType: MealType, locale: Locale): string {
+  return COPY[locale][mealType];
+}
+
+function entryName(entry: MealPlanEntry): string {
+  return entry.recipe_name ?? entry.title ?? "—";
+}
+
+export function mealEntryFor(
+  plan: FamilyMealPlan,
+  planningDate: string,
+  mealType: MealType,
+): MealPlanEntry | null {
+  const day = plan.days.find((candidate) => candidate.date === planningDate);
+  const slot = day?.slots.find((candidate) => candidate.meal_type === mealType);
+  return slot?.meals[0] ?? null;
+}
+
+export function choicesByDate(
+  choices: SharedWeeklyPlanChoice[],
+): Map<string, SharedWeeklyPlanChoice[]> {
+  const grouped = new Map<string, SharedWeeklyPlanChoice[]>();
+  for (const choice of choices) {
+    const current = grouped.get(choice.planning_date) ?? [];
+    current.push(choice);
+    current.sort(
+      (left, right) =>
+        ALL_MEAL_TYPES.indexOf(left.meal_type) - ALL_MEAL_TYPES.indexOf(right.meal_type),
+    );
+    grouped.set(choice.planning_date, current);
+  }
+  return grouped;
+}
+
+export function acceptanceRequestForChoice(
+  proposal: SharedWeeklyPlanProposalRequest,
+  choice: SharedWeeklyPlanChoice,
+): SharedWeeklyPlanSlotAcceptanceRequest {
+  return {
+    proposal,
+    slot_key: choice.slot_key,
+    expected_candidate_key: choice.candidate_key,
+    ...(choice.transformation
+      ? {
+          expected_recipe_ingredient_id:
+            choice.transformation.operation.recipe_ingredient_id,
+          expected_replacement_food_item_id:
+            choice.transformation.operation.replacement_food_item_id,
+        }
+      : {}),
+  };
+}
+
+
+function choiceFor(
+  choices: Map<string, SharedWeeklyPlanChoice[]>,
+  planningDate: string,
+  mealType: MealType,
+): SharedWeeklyPlanChoice | null {
+  return choices.get(planningDate)?.find((choice) => choice.meal_type === mealType) ?? null;
+}
+
+function sourceKindsFor(sources: RecommendationSource[]): string[] {
+  const kinds = [...recommendationSourceKinds(sources)];
+  if (sources.includes("cooked") && !kinds.includes("pantry")) kinds.push("pantry");
+  return kinds;
+}
+
+export default function WeeklyProposalPreview({
+  familyId,
+  weekStart,
+  people,
+  plan: suppliedPlan,
+  onEdit,
+}: {
+  familyId: string;
+  weekStart?: string;
+  people: Person[];
+  plan?: FamilyMealPlan;
+  onEdit?: (planningDate: string, mealType: MealType, entry: MealPlanEntry | null) => void;
+}) {
+  const { locale } = useI18n();
+  const copy = COPY[locale];
+  const [loadedPlan, setLoadedPlan] = useState<FamilyMealPlan | null>(null);
+  const [refreshedPlan, setRefreshedPlan] = useState<FamilyMealPlan | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [proposal, setProposal] = useState<SharedWeeklyPlanProposal | null>(null);
+  const [proposalRequest, setProposalRequest] = useState<SharedWeeklyPlanProposalRequest | null>(null);
+  const [skippedSlots, setSkippedSlots] = useState<Record<string, string>>({});
+  const [rejectedBySlot, setRejectedBySlot] = useState<RejectedBySlot>({});
+  const [busy, setBusy] = useState(false);
+  const [busyStage, setBusyStage] = useState<BusyStage | null>(null);
+  const [decisionBusy, setDecisionBusy] = useState<DecisionBusy>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedMealType, setSelectedMealType] = useState<MealType | null>(null);
+  const plan = refreshedPlan ?? suppliedPlan ?? loadedPlan;
+  const effectiveWeekStart = refreshedPlan?.start_date ?? suppliedPlan?.start_date ?? weekStart;
+
+  useEffect(() => {
+    setRefreshedPlan(null);
+    setProposal(null);
+    setProposalRequest(null);
+    setRejectedBySlot({});
+    setSkippedSlots({});
+    setNotice(null);
+  }, [familyId, weekStart]);
+
+  useEffect(() => {
+    if (suppliedPlan || !weekStart) return;
+    let cancelled = false;
+    setLoadError(null);
+    void getFamilyMealPlan(familyId, weekStart, 7)
+      .then((result) => {
+        if (!cancelled) setLoadedPlan(result);
+      })
+      .catch((caught: unknown) => {
+        if (!cancelled) setLoadError(errorText(caught));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [familyId, suppliedPlan, weekStart]);
+
+  const peopleById = useMemo(
+    () => new Map(people.map((person) => [person.id, person])),
+    [people],
+  );
+  const grouped = useMemo(
+    () => choicesByDate(proposal?.selected_plan?.choices ?? []),
+    [proposal],
+  );
+  const weekDates = useMemo(
+    () =>
+      effectiveWeekStart
+        ? Array.from({ length: 7 }, (_, dayOffset) =>
+            addCalendarDays(effectiveWeekStart, dayOffset),
+          )
+        : [],
+    [effectiveWeekStart],
+  );
+  const selectedEntry =
+    plan && selectedDate && selectedMealType
+      ? mealEntryFor(plan, selectedDate, selectedMealType)
+      : null;
+  const selectedChoice =
+    selectedDate && selectedMealType
+      ? choiceFor(grouped, selectedDate, selectedMealType)
+      : null;
+  const selectedSlotKey =
+    selectedDate && selectedMealType ? slotKey(selectedDate, selectedMealType) : null;
+  const selectedSkippedReason = selectedSlotKey ? skippedSlots[selectedSlotKey] ?? null : null;
+
+  async function generateProposal(
+    rejectedOverride: RejectedBySlot = rejectedBySlot,
+    resetSelection = true,
+  ) {
+    setBusy(true);
+    setBusyStage("catalogue");
+    setError(null);
+    setNotice(null);
+    setProposal(null);
+    if (resetSelection) setSelectedMealType(null);
+    try {
+      if (!plan) throw new Error(copy.loading);
+      if (people.length < 2) throw new Error(copy.noPeople);
+      const firstPerson = people[0];
+      if (!firstPerson) throw new Error(copy.noPeople);
+
+      const targets = weekDates.flatMap((planningDate) =>
+        ALL_MEAL_TYPES.flatMap((mealType) =>
+          mealEntryFor(plan, planningDate, mealType) === null
+            ? [{ planningDate, mealType }]
+            : [],
+        ),
+      );
+      if (targets.length === 0) throw new Error(copy.noOpenSlots);
+
+      const planningDates = [...new Set(targets.map((target) => target.planningDate))];
+      const catalogueEntries = await Promise.all(
+        planningDates.map(async (planningDate) => {
+          const bootstrapScheduledAt = scheduledIso(
+            recommendationScheduledLocal(planningDate, "lunch"),
+          );
+          const bootstrap = await getRecommendationBootstrap(
+            firstPerson.id,
+            bootstrapScheduledAt,
+            { ensureState: false },
+          );
+          return [planningDate, bootstrap.candidates] as const;
+        }),
+      );
+      const catalogues = new Map(catalogueEntries);
+      const skipped: Record<string, string> = {};
+      const slots: SharedWeeklyPlanningSlotRequest[] = [];
+
+      for (const { planningDate, mealType } of targets) {
+        const key = slotKey(planningDate, mealType);
+        const sources = weeklySourcesFor(planningDate, mealType);
+        const rejected = new Set(rejectedOverride[key] ?? []);
+        const catalogue = (catalogues.get(planningDate) ?? []).filter(
+          (candidate) => !rejected.has(candidate.catalog_key),
+        );
+        const candidates = recommendationCandidates(catalogue, sources, mealType);
+        if (candidates.length === 0) {
+          skipped[key] =
+            mealType === "lunch" && !isWeekendDate(planningDate)
+              ? copy.weekdayLunchPending
+              : copy.unavailableSlot;
+          continue;
+        }
+
+        const sourceKinds = sourceKindsFor(sources);
+        const commercial = sources.some((source) => source !== "cooked");
+        slots.push({
+          slot_key: key,
+          planning_date: planningDate,
+          scheduled_at: scheduledIso(recommendationScheduledLocal(planningDate, mealType)),
+          meal_type: mealType,
+          candidates,
+          location: commercial ? null : "Casa",
+          available_minutes: null,
+          has_kitchen: sources.includes("cooked"),
+          source_kinds: sourceKinds,
+          delivery_provider_keys: recommendationDeliveryProviderKeys(sources),
+          provisional_history: [],
+          auto_size_portions: true,
+        });
+      }
+      setSkippedSlots(skipped);
+      if (slots.length === 0) throw new Error(copy.noCandidates);
+
+      const request: SharedWeeklyPlanProposalRequest = {
+        person_ids: people.map((person) => person.id),
+        slots,
+        max_combinations: PREVIEW_MAX_COMBINATIONS,
+      };
+      setProposalRequest(request);
+      setBusyStage("planning");
+      const result = await requestSharedWeeklyPlanProposal(familyId, request);
+      setProposal(result);
+    } catch (caught: unknown) {
+      setError(errorText(caught));
+    } finally {
+      setBusy(false);
+      setBusyStage(null);
+    }
+  }
+
+  async function acceptSelectedChoice() {
+    if (!selectedChoice || !proposalRequest || !effectiveWeekStart) return;
+    setDecisionBusy("accept");
+    setError(null);
+    setNotice(null);
+    try {
+      await acceptSharedWeeklyPlanSlot(
+        familyId,
+        acceptanceRequestForChoice(proposalRequest, selectedChoice),
+      );
+      const updated = await getFamilyMealPlan(familyId, effectiveWeekStart, 7);
+      setRefreshedPlan(updated);
+      setProposalRequest((current) =>
+        current
+          ? {
+              ...current,
+              slots: current.slots.filter((slot) => slot.slot_key !== selectedChoice.slot_key),
+            }
+          : null,
+      );
+      setProposal((current) => {
+        if (!current?.selected_plan) return current;
+        return {
+          ...current,
+          selected_plan: {
+            ...current.selected_plan,
+            choices: current.selected_plan.choices.filter(
+              (choice) => choice.slot_key !== selectedChoice.slot_key,
+            ),
+          },
+        };
+      });
+      setNotice(copy.accepted);
+    } catch (caught: unknown) {
+      setError(errorText(caught));
+    } finally {
+      setDecisionBusy(null);
+    }
+  }
+
+  async function rejectSelectedChoice() {
+    if (!selectedChoice) return;
+    const key = selectedChoice.slot_key;
+    const existing = rejectedBySlot[key] ?? [];
+    const next: RejectedBySlot = {
+      ...rejectedBySlot,
+      [key]: [...new Set([...existing, selectedChoice.candidate_key])],
+    };
+    setRejectedBySlot(next);
+    setDecisionBusy("reject");
+    setError(null);
+    setNotice(null);
+    try {
+      await generateProposal(next, false);
+    } finally {
+      setDecisionBusy(null);
+    }
+  }
+
+  function selectDay(planningDate: string) {
+    setSelectedDate(planningDate);
+    setSelectedMealType(null);
+  }
+
+  function selectMeal(planningDate: string, mealType: MealType) {
+    setSelectedDate(planningDate);
+    setSelectedMealType(mealType);
+  }
+
+  return (
+    <section className="meal-plan-editor weekly-proposal-preview">
+      <div className="meal-plan-editor__heading">
+        <div>
+          <span className="eyebrow">{copy.eyebrow}</span>
+          <h2>{copy.title}</h2>
+          <p>{copy.help}</p>
+        </div>
+        <button
+          className="button primary"
+          disabled={busy || decisionBusy !== null || people.length < 2 || !plan}
+          onClick={() => void generateProposal()}
+          type="button"
+        >
+          {busy
+            ? busyStage === "catalogue"
+              ? copy.preparing
+              : copy.optimizing
+            : proposal
+              ? copy.regenerate
+              : copy.generate}
+        </button>
+      </div>
+
+      {people.length < 2 ? <div className="family-meals-empty-day">{copy.noPeople}</div> : null}
+      {loadError ? (
+        <div className="error-banner" role="alert">
+          <strong>{copy.error}</strong><span>{loadError}</span>
+        </div>
+      ) : null}
+      {error ? (
+        <div className="error-banner" role="alert">
+          <strong>{copy.error}</strong><span>{error}</span>
+        </div>
+      ) : null}
+      {notice ? <div className="decision-result" role="status"><strong>{notice}</strong></div> : null}
+      {proposal ? (
+        <div className="decision-result" role="status">
+          <strong>{copy.preview}</strong>
+          <span>
+            {proposal.search_strategy === "exact" ? copy.exact : copy.bounded}
+            {proposal.search_truncated ? ` · ${copy.boundedHelp}` : ""}
+          </span>
+        </div>
+      ) : null}
+      {proposal && !proposal.selected_plan ? (
+        <div className="family-meals-empty-day">{copy.noPlan}</div>
+      ) : null}
+
+      {!plan ? (
+        <div className="shell-loading" role="status">{copy.loading}</div>
+      ) : (
+        <>
+          <div className="weekly-calendar-scroll">
+            <div className="weekly-day-grid" role="grid" aria-label={copy.title}>
+              {weekDates.map((planningDate) => {
+                const gridDay = formatGridDay(planningDate, locale);
+                return (
+                  <article
+                    className={`weekly-grid-day ${selectedDate === planningDate ? "selected" : ""}`}
+                    key={planningDate}
+                  >
+                    <button
+                      className="weekly-grid-day__date-button"
+                      onClick={() => selectDay(planningDate)}
+                      type="button"
+                    >
+                      <strong>{gridDay.weekday}</strong>
+                      <small>{gridDay.date}</small>
+                    </button>
+                    <div className="weekly-grid-day__meals">
+                      {ALL_MEAL_TYPES.map((mealType) => {
+                        const entry = mealEntryFor(plan, planningDate, mealType);
+                        const choice = choiceFor(grouped, planningDate, mealType);
+                        const pendingReason = skippedSlots[slotKey(planningDate, mealType)];
+                        const state = entry ? "planned" : choice ? "proposed" : "empty";
+                        const label = entry
+                          ? entryName(entry)
+                          : choice?.candidate_name ?? (pendingReason ? copy.pending : copy.empty);
+                        return (
+                          <button
+                            aria-pressed={
+                              selectedDate === planningDate && selectedMealType === mealType
+                            }
+                            className={`weekly-grid-meal is-${state} ${
+                              selectedDate === planningDate && selectedMealType === mealType
+                                ? "selected"
+                                : ""
+                            }`}
+                            key={mealType}
+                            onClick={() => selectMeal(planningDate, mealType)}
+                            type="button"
+                          >
+                            <span className="weekly-grid-meal__label">
+                              <small>{mealLabel(mealType, locale)}</small>
+                              <em>
+                                {entry
+                                  ? copy.planned
+                                  : choice
+                                    ? copy.proposed
+                                    : pendingReason
+                                      ? copy.pending
+                                      : copy.empty}
+                              </em>
+                            </span>
+                            <strong>{label}</strong>
+                            {choice?.transformation ? (
+                              <small className="weekly-grid-transformation">
+                                {choice.transformation.kind === "plan_adapted"
+                                  ? copy.planAdapted
+                                  : copy.preferenceVariant}
+                              </small>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+
+          {selectedDate ? (
+            <section className="weekly-day-detail">
+              <div className="weekly-section-heading">
+                <div>
+                  <span className="eyebrow">{copy.dayDetail}</span>
+                  <h3>{formatDate(selectedDate, locale)}</h3>
+                  <p>{copy.chooseMeal}</p>
+                </div>
+              </div>
+              <div className="weekly-day-meals">
+                {ALL_MEAL_TYPES.map((mealType) => {
+                  const entry = mealEntryFor(plan, selectedDate, mealType);
+                  const choice = choiceFor(grouped, selectedDate, mealType);
+                  const pendingReason = skippedSlots[slotKey(selectedDate, mealType)];
+                  return (
+                    <button
+                      aria-pressed={selectedMealType === mealType}
+                      className={`weekly-day-meal ${selectedMealType === mealType ? "selected" : ""}`}
+                      key={mealType}
+                      onClick={() => setSelectedMealType(mealType)}
+                      type="button"
+                    >
+                      <span>
+                        <small>{mealLabel(mealType, locale)}</small>
+                        <strong>
+                          {entry
+                            ? entryName(entry)
+                            : choice?.candidate_name ?? (pendingReason ? copy.pending : copy.empty)}
+                        </strong>
+                      </span>
+                      <span className="weekly-day-meal__meta">
+                        {entry
+                          ? copy.planned
+                          : choice
+                            ? copy.proposed
+                            : pendingReason
+                              ? copy.pending
+                              : copy.empty}
+                        <span aria-hidden="true"> ›</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
+
+          {selectedDate && selectedMealType ? (
+            <section className="weekly-meal-detail">
+              <div className="weekly-section-heading weekly-meal-detail__heading">
+                <div>
+                  <span className="eyebrow">{copy.mealDetail}</span>
+                  <h3>
+                    {selectedEntry
+                      ? entryName(selectedEntry)
+                      : selectedChoice?.candidate_name ?? mealLabel(selectedMealType, locale)}
+                  </h3>
+                  <p>
+                    {formatDate(selectedDate, locale)} · {mealLabel(selectedMealType, locale)}
+                  </p>
+                </div>
+                {onEdit && selectedEntry ? (
+                  <button
+                    className="button ghost"
+                    disabled={selectedEntry.status !== "planned"}
+                    onClick={() => onEdit(selectedDate, selectedMealType, selectedEntry)}
+                    type="button"
+                  >
+                    {copy.planned}
+                  </button>
+                ) : null}
+              </div>
+
+              {selectedEntry ? (
+                <div className="weekly-person-detail-list">
+                  {selectedEntry.participants.map((participant) => (
+                    <article className="weekly-person-detail" key={participant.person_id}>
+                      <div className="weekly-person-detail__heading">
+                        <strong>
+                          {[participant.first_name, participant.last_name]
+                            .filter(Boolean)
+                            .join(" ")}
+                        </strong>
+                        <span>
+                          {participant.quantity !== null
+                            ? `${participant.quantity} ${participant.unit ?? ""}`
+                            : "—"}
+                          {participant.energy_kcal !== null
+                            ? ` · ${participant.energy_kcal} kcal`
+                            : ""}
+                        </span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : selectedChoice ? (
+                <>
+                  {selectedChoice.transformation ? (
+                    <div className="weekly-transformation-summary">
+                      <span className="weekly-transformation-summary__kind">
+                        {selectedChoice.transformation.kind === "plan_adapted"
+                          ? copy.planAdapted
+                          : copy.preferenceVariant}
+                      </span>
+                      <div>
+                        <small>{copy.substitution}</small>
+                        <strong>
+                          {selectedChoice.transformation.operation.source_food_name} →{" "}
+                          {selectedChoice.transformation.operation.replacement_food_name}
+                        </strong>
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="weekly-person-detail-list">
+                    {selectedChoice.participants.map((participant) => {
+                      const person = peopleById.get(participant.person_id);
+                      return (
+                        <article className="weekly-person-detail" key={participant.person_id}>
+                          <div className="weekly-person-detail__heading">
+                            <strong>{person ? displayName(person) : participant.person_id}</strong>
+                            <span>
+                              {participant.quantity} {participant.quantity_unit}
+                              {participant.energy_kcal !== null
+                                ? ` · ${participant.energy_kcal} kcal`
+                                : ""}
+                            </span>
+                          </div>
+                          <div className="weekly-person-detail__reason">
+                            <small>{copy.nutritionReason}</small>
+                            {participant.explanation.length > 0 ? (
+                              <ul className="compact-list">
+                                {participant.explanation.slice(0, 4).map((message) => (
+                                  <li key={message}>{message}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="muted compact">{copy.noExplanation}</p>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                  <div className="meal-plan-editor__actions">
+                    <button
+                      className="button primary"
+                      disabled={busy || decisionBusy !== null || proposalRequest === null}
+                      onClick={() => void acceptSelectedChoice()}
+                      type="button"
+                    >
+                      {decisionBusy === "accept" ? copy.accepting : copy.accept}
+                    </button>
+                    <button
+                      className="button ghost"
+                      disabled={busy || decisionBusy !== null}
+                      onClick={() => void rejectSelectedChoice()}
+                      type="button"
+                    >
+                      {decisionBusy === "reject" ? copy.rejecting : copy.rejectRecipe}
+                    </button>
+                  </div>
+                </>
+              ) : selectedSkippedReason ? (
+                <div className="family-meals-empty-day">
+                  <strong>{copy.pending}</strong>
+                  <p>{selectedSkippedReason}</p>
+                  {selectedMealType === "lunch" && !isWeekendDate(selectedDate) ? (
+                    <p className="muted compact">{copy.leftoversNotice}</p>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="family-meals-empty-day">{copy.empty}</div>
+              )}
+            </section>
+          ) : null}
+        </>
+      )}
+    </section>
+  );
+}
