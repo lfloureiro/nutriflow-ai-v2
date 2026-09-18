@@ -625,19 +625,21 @@ def _compute_shared_weekly_plan(
     family: Family,
     data: SharedWeeklyPlanProposalCreate,
 ) -> _ComputedWeeklyPlan:
-    with weekly_debug_span(
-        "WEEKLY",
-        "proposal",
-        family=family.id,
-        slots=len(data.slots),
-        people=len(data.person_ids),
+    with (
+        weekly_debug_span(
+            "WEEKLY",
+            "proposal",
+            family=family.id,
+            slots=len(data.slots),
+            people=len(data.person_ids),
+        ),
+        weekly_planning_cache_scope(session),
     ):
-        with weekly_planning_cache_scope(session):
-            return _compute_shared_weekly_plan_uncached(
-                session,
-                family=family,
-                data=data,
-            )
+        return _compute_shared_weekly_plan_uncached(
+            session,
+            family=family,
+            data=data,
+        )
 
 def propose_shared_weekly_plan(
     session: Session,
