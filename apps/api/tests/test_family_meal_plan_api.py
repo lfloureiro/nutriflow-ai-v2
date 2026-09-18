@@ -301,6 +301,9 @@ def test_transformed_meal_is_visible_but_read_only_in_standard_planner(
         source="test",
         is_active=True,
     )
+    db_session.add(replacement)
+    db_session.flush()
+
     event = MealEvent(
         family=family,
         meal_type="dinner",
@@ -349,7 +352,7 @@ def test_transformed_meal_is_visible_but_read_only_in_standard_planner(
         engine_version="test-transformation-v1",
         evidence={"classification": "plan_adapted"},
     )
-    db_session.add_all([replacement, event, application])
+    db_session.add_all([event, application])
     db_session.commit()
 
     plan = _request(
