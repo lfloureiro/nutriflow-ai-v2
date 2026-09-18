@@ -2,7 +2,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
-from itertools import product
+from itertools import pairwise, product
 from math import prod
 
 from app.schemas.meal_plan_fit import MealPlanFitRead
@@ -285,12 +285,12 @@ def _evaluate_choices(
     known_proteins = [protein for _, protein in main_traits if protein is not None]
     adjacent_category_repeat_count = sum(
         1
-        for previous, current in zip(known_categories, known_categories[1:], strict=False)
+        for previous, current in pairwise(known_categories)
         if previous == current
     )
     adjacent_protein_repeat_count = sum(
         1
-        for previous, current in zip(known_proteins, known_proteins[1:], strict=False)
+        for previous, current in pairwise(known_proteins)
         if previous == current
     )
 
