@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.food_adverse_reaction import FoodAdverseReaction
-from app.models.person import Person
 from app.models.food_preference import FoodPreference
+from app.models.person import Person
 from app.schemas.meal_plan_fit import MealPlanFitCreate, MealPlanFitRead
 from app.schemas.meal_recommendation import MealRecommendationCandidateInput
 from app.schemas.meal_type import MealType
