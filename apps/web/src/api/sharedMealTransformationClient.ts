@@ -1,5 +1,7 @@
 import { ApiError, buildApiUrl } from "./client";
 import type {
+  SharedMealTransformationPlan,
+  SharedMealTransformationPlanRequest,
   SharedMealTransformationRequest,
   SharedMealTransformationResult,
 } from "./sharedMealTransformationTypes";
@@ -18,6 +20,10 @@ async function responseError(response: Response): Promise<string> {
 
 export function sharedMealTransformationPath(familyId: string): string {
   return `/api/families/${encodeURIComponent(familyId)}/meal-transformations/proposals`;
+}
+
+export function sharedMealTransformationPlanPath(familyId: string): string {
+  return `/api/families/${encodeURIComponent(familyId)}/meal-transformations/plan`;
 }
 
 export async function proposeSharedMealTransformations(
@@ -39,4 +45,26 @@ export async function proposeSharedMealTransformations(
     throw new ApiError(await responseError(response), response.status);
   }
   return (await response.json()) as SharedMealTransformationResult;
+}
+
+
+export async function planSharedMealTransformation(
+  familyId: string,
+  payload: SharedMealTransformationPlanRequest,
+): Promise<SharedMealTransformationPlan> {
+  const response = await fetch(
+    buildApiUrl(sharedMealTransformationPlanPath(familyId)),
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+  if (!response.ok) {
+    throw new ApiError(await responseError(response), response.status);
+  }
+  return (await response.json()) as SharedMealTransformationPlan;
 }
