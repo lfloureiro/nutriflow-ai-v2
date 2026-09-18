@@ -205,7 +205,8 @@ Implemented:
 - safe transformed Recipe variants participating directly in weekly optimization;
 - atomic weekly materialization with stale-selection and slot-conflict protection;
 - Monday-Sunday Week view with progressive disclosure and local rejection/recalculation;
-- persisted transformation provenance visible after the weekly plan is applied.
+- persisted transformation provenance visible after the weekly plan is applied;
+- server-authoritative unavailable slots remain explicit pending gaps instead of invalidating the rest of an otherwise feasible week.
 
 Current coupling increment:
 
