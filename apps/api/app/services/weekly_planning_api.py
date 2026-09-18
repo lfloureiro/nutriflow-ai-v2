@@ -22,6 +22,7 @@ from app.schemas.weekly_planning import (
     SharedWeeklyPlanProposalRead,
     SharedWeeklyPlanRead,
     SharedWeeklyPlanSelectionRead,
+    SharedWeeklyPlanSkippedSlotRead,
     SharedWeeklyPlanTransformationRead,
 )
 from app.services.recommendation_weekly_frequency import weekly_support_counts
@@ -52,6 +53,7 @@ from app.services.shared_weekly_multi_slot_planning import (
     SharedWeeklyPlanningSlot,
 )
 from app.services.shared_weekly_search import (
+    ENGINE_VERSION as SEARCH_ENGINE_VERSION,
     SharedWeeklySearchResult,
     optimize_shared_weekly_slots_scalable,
 )
@@ -477,6 +479,7 @@ def _compute_shared_weekly_plan_uncached(
         max_combinations=data.max_combinations,
     )
     planning_slots: list[SharedWeeklyPlanningSlot] = []
+    skipped_slots: list[SharedWeeklyPlanSkippedSlotRead] = []
     slot_engine_versions: dict[str, str] = {}
     transformations_by_slot: dict[
         str,
@@ -498,23 +501,69 @@ def _compute_shared_weekly_plan_uncached(
                 person_ids=data.person_ids,
                 slot=slot,
             )
-        planning_slots.append(planning_slot)
+        eligible_candidates = tuple(
+            candidate
+            for candidate in planning_slot.candidates
+            if candidate.evaluation.eligible
+            and all(fit.eligible for fit in candidate.plan_fits)
+        )
         slot_engine_versions[slot.slot_key] = engine_version
         transformations_by_slot[slot.slot_key] = transformation_metadata
-
-    try:
-        with weekly_debug_span(
-            "SEARCH",
-            "weekly-optimization",
-            slots=len(planning_slots),
-            max_combinations=data.max_combinations,
-        ):
-            result = optimize_shared_weekly_slots_scalable(
-                tuple(planning_slots),
-                max_combinations=data.max_combinations,
+        if not eligible_candidates:
+            exclusion_reasons = sorted(
+                {
+                    reason
+                    for candidate in planning_slot.candidates
+                    for reason in candidate.evaluation.exclusion_reasons
+                }
             )
-    except SharedWeeklyMultiSlotPlanningError as exc:
-        raise WeeklyPlanningApiError(str(exc)) from exc
+            skipped_slots.append(
+                SharedWeeklyPlanSkippedSlotRead(
+                    slot_key=slot.slot_key,
+                    planning_date=slot.planning_date,
+                    meal_type=slot.meal_type,
+                    reason="no_eligible_candidates",
+                    exclusion_reasons=exclusion_reasons,
+                )
+            )
+            weekly_debug(
+                "WEEKLY",
+                "slot-skipped",
+                slot=slot.slot_key,
+                reason="no_eligible_candidates",
+            )
+            continue
+        planning_slots.append(planning_slot)
+
+    if planning_slots:
+        try:
+            with weekly_debug_span(
+                "SEARCH",
+                "weekly-optimization",
+                slots=len(planning_slots),
+                skipped=len(skipped_slots),
+                max_combinations=data.max_combinations,
+            ):
+                result = optimize_shared_weekly_slots_scalable(
+                    tuple(planning_slots),
+                    max_combinations=data.max_combinations,
+                )
+        except SharedWeeklyMultiSlotPlanningError as exc:
+            raise WeeklyPlanningApiError(str(exc)) from exc
+    else:
+        result = SharedWeeklySearchResult(
+            engine_version=SEARCH_ENGINE_VERSION,
+            family_id=family.id,
+            participant_ids=tuple(data.person_ids),
+            selected_plan=None,
+            evaluated_combinations=0,
+            feasible_combinations=0,
+            rejected_by_person_weekly_maximum=0,
+            rejected_by_person_daily_limit=0,
+            search_strategy="bounded",
+            search_space_size=0,
+            search_truncated=False,
+        )
 
     weekly_debug(
         "SEARCH",
@@ -601,6 +650,7 @@ def _compute_shared_weekly_plan_uncached(
         engine_version=result.engine_version,
         slot_engine_versions=slot_engine_versions,
         selected_plan=selected_read,
+        skipped_slots=skipped_slots,
         evaluated_combinations=result.evaluated_combinations,
         feasible_combinations=result.feasible_combinations,
         rejected_by_person_weekly_maximum=result.rejected_by_person_weekly_maximum,
