@@ -296,10 +296,11 @@ def _evaluate_rule(
         return _rule_result(
             rule,
             scope="meal" if rule.meal_type is not None else "daily",
-            status="unknown",
+            status="not_evaluated",
             explanation=(
                 f"Plan-Fit v1 cannot yet evaluate target type {rule.target_type!r} "
-                "from composition evidence."
+                "from meal-composition evidence. The rule remains visible as partial "
+                "plan coverage but does not by itself make every candidate ineligible."
             ),
         )
 
@@ -399,6 +400,14 @@ def _evaluate_rule(
         projected_daily_value=projected,
         explanation=explanation,
     )
+
+
+def _mandatory_unknown_rule_blocks(result: MealPlanFitRuleRead) -> bool:
+    if not result.is_mandatory or result.status not in {"unknown", "not_evaluated"}:
+        return False
+    if result.target_type == "nutrient":
+        return True
+    return result.target_type in _CANDIDATE_TARGET_TYPES and result.operator == "exclude"
 
 
 def _mandatory_reaction_issues(
@@ -538,9 +547,9 @@ def evaluate_loaded_meal_plan_fit(
         result.is_mandatory and result.status == "fail" for result in rule_results
     )
     mandatory_unknown = any(
-        result.is_mandatory and result.status in {"unknown", "not_evaluated"}
+        _mandatory_unknown_rule_blocks(result)
         for result in rule_results
-    ) or any(guideline.is_mandatory for guideline in guideline_results)
+    )
 
     scored = [
         result.score
@@ -585,7 +594,16 @@ def evaluate_loaded_meal_plan_fit(
         explanation.append("The effective plan contains conflicting mandatory numeric guidance.")
     if mandatory_unknown:
         explanation.append(
-            "At least one mandatory rule cannot be evaluated safely with the available evidence/context."
+            "At least one mandatory machine-evaluable nutrition rule cannot be evaluated safely with the available evidence/context."
+        )
+    if any(
+        result.is_mandatory
+        and result.status == "not_evaluated"
+        and not _mandatory_unknown_rule_blocks(result)
+        for result in rule_results
+    ) or any(guideline.is_mandatory for guideline in guideline_results):
+        explanation.append(
+            "Mandatory guidance outside the current machine-evaluable Meal Plan-Fit scope remains visible as partial plan coverage and does not by itself veto every meal candidate."
         )
     if fit_score is not None:
         explanation.append(
