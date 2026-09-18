@@ -387,6 +387,17 @@ def test_weekly_proposal_reuses_request_scoped_plan_context(
         )
     db_session.flush()
 
+    def unexpected_plan_fit_candidate_reload(*args, **kwargs):
+        raise AssertionError(
+            "Weekly shared Plan-Fit must reuse candidates already loaded by the recommendation path."
+        )
+
+    monkeypatch.setattr(
+        meal_plan_fit_service,
+        "_load_candidates",
+        unexpected_plan_fit_candidate_reload,
+    )
+
     original_ensure_state = planning_bootstrap_service._ensure_daily_state
     original_base_compile = meal_plan_fit_service.compile_effective_nutrition_plan
     original_weekly_compile = weekly_fit_service.compile_effective_nutrition_plan
