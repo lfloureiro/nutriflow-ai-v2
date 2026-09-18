@@ -373,12 +373,20 @@ def test_weekly_proposal_can_select_plan_adapted_variant_when_base_is_ineligible
         auto_size_portions=slot_model.auto_size_portions,
         max_results=None,
     )
-    shared_result, _, _ = compute_shared_practical_recommendation_with_contexts(
+    shared_result, _, shared_contexts = compute_shared_practical_recommendation_with_contexts(
         db_session,
         family=family,
         data=shared_request,
     )
     shared_evaluation = shared_result.evaluations[0]
+    assert len(shared_contexts) == 2
+    assert {
+        context.person.id for context in shared_contexts
+    } == {DEMO_PERSON_ID, DEMO_MARTA_ID}
+    assert all(
+        participant.evaluation.candidate.recipe is not None
+        for participant in shared_evaluation.participant_evaluations
+    )
     transformation_participants = [
         SharedMealTransformationParticipantCreate(
             person_id=participant.person.id,
@@ -418,6 +426,14 @@ def test_weekly_proposal_can_select_plan_adapted_variant_when_base_is_ineligible
             for item in direct_transformations.baseline
         ],
     }
+    assert all(
+        db_session.get(
+            type(shared_evaluation.participant_evaluations[0].evaluation.candidate.recipe.ingredients[0].food_item),
+            proposal.operation.replacement_food_item_id,
+        )
+        is not None
+        for proposal in direct_transformations.proposals
+    )
     assert any(
         all(result.after_fit.eligible for result in proposal.participant_results)
         for proposal in direct_transformations.proposals
