@@ -392,11 +392,6 @@ def apply_weekly_frequency_to_loaded_fit(
             "Base Plan-Fit evidence does not match the loaded candidate."
         )
 
-    profile = _candidate_profile(
-        db,
-        family_id=person.family_id,
-        candidate=candidate,
-    )
     cache = current_weekly_planning_cache(db)
     effective_key = (person.id, planning_date, meal_type)
     week_start = planning_date - timedelta(days=planning_date.weekday())
@@ -432,6 +427,38 @@ def apply_weekly_frequency_to_loaded_fit(
                 meal_type=meal_type,
             )
 
+    except NutritionPlanError as exc:
+        raise MealPlanFitWeeklyFrequencyError(str(exc)) from exc
+
+    weekly_guidelines = [
+        guideline
+        for guideline in effective.guidelines
+        if guideline.guideline_type == "frequency" and guideline.period == "week"
+    ]
+    if not weekly_guidelines:
+        weekly_debug(
+            "PLANFIT",
+            "skip-weekly-progress-no-guidance",
+            person=person.id,
+            date=planning_date,
+            meal_type=meal_type,
+        )
+        if not effective.guidelines:
+            return base_fit
+        return _recompute_fit(
+            base_fit,
+            guideline_results=[
+                _qualitative_result(guideline)
+                for guideline in effective.guidelines
+            ],
+        )
+
+    profile = _candidate_profile(
+        db,
+        family_id=person.family_id,
+        candidate=candidate,
+    )
+    try:
         weekly = (
             cache.weekly_progress.get(weekly_key)
             if cache is not None
@@ -458,7 +485,7 @@ def apply_weekly_frequency_to_loaded_fit(
                 person=person.id,
                 date=planning_date,
             )
-    except (NutritionPlanError, WeeklyFrequencyProgressError) as exc:
+    except WeeklyFrequencyProgressError as exc:
         raise MealPlanFitWeeklyFrequencyError(str(exc)) from exc
 
     progress_by_id = {item.guideline_id: item for item in weekly.guidelines}
