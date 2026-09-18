@@ -79,7 +79,9 @@ Implemented in PR #39:
 - DailyNutritionState supplied explicitly or auto-selected for Person/date;
 - projected daily totals include existing state plus candidate contribution;
 - daily minimum/range rules can return `support`;
-- mandatory daily rules with missing context/evidence fail closed as `unknown`;
+- mandatory machine-evaluable nutrient rules with missing context/evidence fail closed as `unknown`;
+- mandatory guidance outside the current meal-evaluable scope (for example lifestyle, supplement, timing or unsupported qualitative directives) remains visible as partial coverage instead of becoming a universal meal veto;
+- mandatory weekly maxima still fail closed when safe remaining capacity cannot be established from structured evidence; weekly minima remain support signals rather than per-meal gates;
 - mandatory adverse reactions remain independent hard gates;
 - mandatory plan conflicts block eligibility;
 - overall status is independent from numeric score;
