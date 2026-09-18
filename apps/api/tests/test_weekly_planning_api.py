@@ -485,8 +485,81 @@ def test_weekly_proposal_reuses_request_scoped_plan_context(
     assert response.status_code == 201
     assert calls["ensure_state"] == 4
     assert calls["compile_effective"] == 6
-    assert calls["weekly_progress"] == 2
+    assert calls["weekly_progress"] == 0
     assert calls["candidate_catalogue_loads"] == 3
+
+def test_weekly_progress_is_loaded_once_per_guided_person_for_the_week(
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    family, ana, bruno, recipe, composition = _setup(db_session, "weekly-progress-cache")
+    _activate_recipe_maximum(
+        db_session,
+        person=ana,
+        recipe=recipe,
+        maximum=10,
+    )
+
+    friday_date = date(2026, 9, 18)
+    friday_at = datetime(2026, 9, 18, 12, 0, tzinfo=UTC)
+    for person in (ana, bruno):
+        db_session.add(
+            DailyNutritionState(
+                person=person,
+                state_date=friday_date,
+                timezone="Europe/Lisbon",
+                energy_consumed_kcal=Decimal(1000),
+                energy_planned_kcal=Decimal(0),
+                energy_remaining_min_kcal=Decimal(400),
+                energy_remaining_max_kcal=Decimal(800),
+                calculation_version="weekly-progress-cache-friday",
+                computed_at=friday_at,
+            )
+        )
+    db_session.commit()
+
+    calls = 0
+    original = weekly_fit_service.get_weekly_frequency_progress
+
+    def counted_weekly_progress(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(
+        weekly_fit_service,
+        "get_weekly_frequency_progress",
+        counted_weekly_progress,
+    )
+
+    friday_slot = _slot(
+        "fri-lunch-weekly-cache",
+        scheduled_at=friday_at,
+        meal_type="lunch",
+        composition=composition,
+    )
+    friday_slot["planning_date"] = friday_date.isoformat()
+
+    response = _post(
+        db_session,
+        family,
+        ana=ana,
+        bruno=bruno,
+        slots=[
+            _slot(
+                "thu-lunch-weekly-cache",
+                scheduled_at=LUNCH_AT,
+                meal_type="lunch",
+                composition=composition,
+            ),
+            friday_slot,
+        ],
+    )
+
+    assert response.status_code == 201
+    assert response.json()["selected_plan"] is not None
+    assert calls == 1
+
 
 def test_weekly_proposal_rechecks_one_person_weekly_maximum_across_slots(
     db_session: Session,
