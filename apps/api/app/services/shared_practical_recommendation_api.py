@@ -183,7 +183,11 @@ def _compute_shared_recommendation(
     *,
     family: Family,
     data: SharedPracticalRecommendationCreate,
-) -> tuple[SharedFamilyMealRecommendationResult, list[CommercialOfferSnapshot]]:
+) -> tuple[
+    SharedFamilyMealRecommendationResult,
+    list[CommercialOfferSnapshot],
+    tuple[SharedMealParticipantContext, ...],
+]:
     if len(data.person_ids) != len(set(data.person_ids)):
         raise SharedPracticalRecommendationApiError(
             "Each Person can appear only once in a shared recommendation."
@@ -318,6 +322,25 @@ def _compute_shared_recommendation(
     result = apply_feedback_to_shared_recommendation(
         result,
         feedback_signals_by_person=feedback_signals_by_person,
+    )
+    return result, offers, contexts
+
+
+def compute_shared_practical_recommendation_with_contexts(
+    session: Session,
+    *,
+    family: Family,
+    data: SharedPracticalRecommendationCreate,
+) -> tuple[
+    SharedFamilyMealRecommendationResult,
+    list[CommercialOfferSnapshot],
+    tuple[SharedMealParticipantContext, ...],
+]:
+    """Return shared recommendation evidence plus the exact Person contexts used to score it."""
+    result, offers, _ = _compute_shared_recommendation(
+        session,
+        family=family,
+        data=data,
     )
     return result, offers
 
