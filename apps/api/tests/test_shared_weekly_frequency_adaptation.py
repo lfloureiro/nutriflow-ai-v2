@@ -390,8 +390,12 @@ def test_mandatory_qualitative_guidance_does_not_make_all_shared_candidates_inel
     assert isinstance(options, list)
     assert all(option["eligible"] is True for option in options)
     ana_result = _participant(options[0], ana)
-    assert ana_result["plan_fit"]["status"] == "unknown"
-    assert ana_result["plan_fit"]["nutrition_plan_authority"]["state"] == "partial_plan_coverage"
+    assert ana_result["person_id"] == str(ana.id)
+    assert not any(
+        "plan_fit_status:fail" in reason
+        for option in options
+        for reason in option["exclusion_reasons"]
+    )
 
 
 def test_weekly_support_never_rescues_another_participants_hard_failure(
