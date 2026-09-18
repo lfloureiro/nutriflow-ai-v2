@@ -253,7 +253,11 @@ def _planning_slot(
     family: Family,
     person_ids: list[uuid.UUID],
     slot: SharedWeeklyPlanningSlotCreate,
-) -> tuple[SharedWeeklyPlanningSlot, str]:
+) -> tuple[
+    SharedWeeklyPlanningSlot,
+    str,
+    dict[str, SharedWeeklyPlanTransformationRead],
+]:
     request = SharedPracticalRecommendationCreate(
         person_ids=person_ids,
         planning_date=slot.planning_date,
@@ -269,13 +273,19 @@ def _planning_slot(
         auto_size_portions=slot.auto_size_portions,
         max_results=None,
     )
-    recommendation, _ = compute_shared_practical_recommendation(
+    recommendation, _, contexts = compute_shared_practical_recommendation_with_contexts(
         session,
         family=family,
         data=request,
     )
+    contexts_by_person_id = {
+        context.person.id: context
+        for context in contexts
+        if context.person.id is not None
+    }
 
     candidates: list[SharedWeeklyPlanningCandidate] = []
+    transformation_metadata: dict[str, SharedWeeklyPlanTransformationRead] = {}
     for evaluation in recommendation.evaluations:
         plan_fits = []
         for participant in evaluation.participant_evaluations:
@@ -284,12 +294,28 @@ def _planning_slot(
                     "Server-authoritative Person Plan-Fit evidence is missing from a shared candidate."
                 )
             plan_fits.append(participant.plan_fit)
-        candidates.append(
-            SharedWeeklyPlanningCandidate(
-                evaluation=evaluation,
-                plan_fits=tuple(plan_fits),
-            )
+
+        base_candidate = SharedWeeklyPlanningCandidate(
+            evaluation=evaluation,
+            plan_fits=tuple(plan_fits),
         )
+        candidates.append(base_candidate)
+
+        transformed_candidates, transformed_metadata = _transformation_candidates(
+            session,
+            family=family,
+            original=base_candidate,
+            contexts_by_person_id=contexts_by_person_id,
+            planning_date=slot.planning_date,
+            meal_type=slot.meal_type,
+            engine_version=recommendation.engine_version,
+        )
+        candidates.extend(transformed_candidates)
+        transformation_metadata.update(transformed_metadata)
+
+    engine_version = recommendation.engine_version
+    if transformation_metadata:
+        engine_version = f"{engine_version}+weekly-transformations-v1"
 
     return (
         SharedWeeklyPlanningSlot(
@@ -298,7 +324,8 @@ def _planning_slot(
             meal_type=slot.meal_type,
             candidates=tuple(candidates),
         ),
-        recommendation.engine_version,
+        engine_version,
+        transformation_metadata,
     )
 
 
@@ -320,9 +347,13 @@ def propose_shared_weekly_plan(
 
     planning_slots: list[SharedWeeklyPlanningSlot] = []
     slot_engine_versions: dict[str, str] = {}
+    transformations_by_slot: dict[
+        str,
+        dict[str, SharedWeeklyPlanTransformationRead],
+    ] = {}
     slots_by_key = {slot.slot_key: slot for slot in data.slots}
     for slot in data.slots:
-        planning_slot, engine_version = _planning_slot(
+        planning_slot, engine_version, transformation_metadata = _planning_slot(
             session,
             family=family,
             person_ids=data.person_ids,
@@ -330,6 +361,7 @@ def propose_shared_weekly_plan(
         )
         planning_slots.append(planning_slot)
         slot_engine_versions[slot.slot_key] = engine_version
+        transformations_by_slot[slot.slot_key] = transformation_metadata
 
     try:
         result = optimize_shared_weekly_slots_scalable(
@@ -380,13 +412,8 @@ def propose_shared_weekly_plan(
                     minimum_score=choice.candidate.evaluation.minimum_score,
                     average_score=choice.candidate.evaluation.average_score,
                     participants=participant_reads,
-                    transformations=_weekly_transformations_for_choice(
-                        session,
-                        family=family,
-                        choice=choice,
-                        all_choices=result.selected_plan.choices,
-                        participant_ids=result.participant_ids,
-                        base_plan=result.selected_plan,
+                    transformation=transformations_by_slot[choice.slot_key].get(
+                        choice.candidate.selection_key
                     ),
                 )
             )
