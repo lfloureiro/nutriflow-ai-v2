@@ -112,6 +112,47 @@ Rules:
 """
 
 
+def build_chatgpt_nutrition_plan_prompt(source_text: str) -> str:
+    schema = json.dumps(_response_schema(), ensure_ascii=False, indent=2)
+    return (
+        "You are helping NutriFlow interpret a nutritionist plan.\n\n"
+        f"{_INSTRUCTIONS}\n"
+        "Return ONLY one JSON object. Do not use Markdown fences and do not add commentary.\n"
+        "The JSON must match this schema exactly:\n\n"
+        f"{schema}\n\n"
+        "SOURCE TEXT START\n"
+        f"{source_text.strip()}\n"
+        "SOURCE TEXT END\n"
+    )
+
+
+def _parse_chatgpt_response(response_text: str) -> tuple[list[dict[str, object]], str]:
+    text = response_text.strip()
+    fence = "`" * 3
+    if text.startswith(fence):
+        lines = text.splitlines()
+        if len(lines) >= 3 and lines[-1].strip() == fence:
+            lines = lines[1:-1]
+            if lines and lines[0].strip().casefold() == "json":
+                lines = lines[1:]
+            text = "\n".join(lines).strip()
+    try:
+        structured = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise NutritionPlanAIImportError(
+            "The ChatGPT response is not valid JSON. Paste only the JSON response."
+        ) from exc
+    if not isinstance(structured, dict):
+        raise NutritionPlanAIImportError("The ChatGPT response must be one JSON object.")
+    proposals = structured.get("proposals")
+    summary = structured.get("summary")
+    if not isinstance(proposals, list) or not isinstance(summary, str):
+        raise NutritionPlanAIImportError(
+            "The ChatGPT response must contain proposals and summary."
+        )
+    return proposals, summary
+
+
 def _output_text(payload: dict[str, object]) -> str:
     direct = payload.get("output_text")
     if isinstance(direct, str) and direct.strip():
