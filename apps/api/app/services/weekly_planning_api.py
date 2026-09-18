@@ -36,12 +36,12 @@ from app.services.shared_family_meal import (
 from app.services.shared_family_meal_plan_fit import (
     _evaluate_participant_candidate,
 )
+from app.services.shared_family_meal_planning import materialize_shared_family_recommendation
 from app.services.shared_meal_transformation import (
     _transformed_subjects,
     materialize_selected_shared_meal_transformation,
     propose_shared_meal_transformations,
 )
-from app.services.shared_family_meal_planning import materialize_shared_family_recommendation
 from app.services.shared_practical_recommendation_api import (
     compute_shared_practical_recommendation_with_contexts,
 )
