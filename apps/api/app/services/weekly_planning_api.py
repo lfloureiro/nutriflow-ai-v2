@@ -402,6 +402,40 @@ def _planning_slot(
         candidates.extend(transformed_candidates)
         transformation_metadata.update(transformed_metadata)
 
+    eligible_candidates = [
+        candidate
+        for candidate in candidates
+        if candidate.evaluation.eligible and all(fit.eligible for fit in candidate.plan_fits)
+    ]
+    shared_eligible = sum(1 for candidate in candidates if candidate.evaluation.eligible)
+    plan_eligible = sum(
+        1 for candidate in candidates if all(fit.eligible for fit in candidate.plan_fits)
+    )
+    weekly_debug(
+        "WEEKLY",
+        "slot-ready",
+        slot=slot.slot_key,
+        candidates=len(candidates),
+        eligible=len(eligible_candidates),
+        shared_eligible=shared_eligible,
+        plan_eligible=plan_eligible,
+        transformations=len(transformation_metadata),
+    )
+    if not eligible_candidates:
+        reasons = sorted(
+            {
+                reason
+                for candidate in candidates
+                for reason in candidate.evaluation.exclusion_reasons
+            }
+        )
+        weekly_debug(
+            "WEEKLY",
+            "slot-no-eligible-candidates",
+            slot=slot.slot_key,
+            reasons="|".join(reasons[:12]) if reasons else "none",
+        )
+
     engine_version = recommendation.engine_version
     if transformation_metadata:
         engine_version = f"{engine_version}+weekly-transformations-v1"
@@ -481,6 +515,19 @@ def _compute_shared_weekly_plan_uncached(
             )
     except SharedWeeklyMultiSlotPlanningError as exc:
         raise WeeklyPlanningApiError(str(exc)) from exc
+
+    weekly_debug(
+        "SEARCH",
+        "result",
+        selected=result.selected_plan is not None,
+        strategy=result.search_strategy,
+        search_space=result.search_space_size,
+        evaluated=result.evaluated_combinations,
+        feasible=result.feasible_combinations,
+        rejected_weekly_max=result.rejected_by_person_weekly_maximum,
+        rejected_daily_limit=result.rejected_by_person_daily_limit,
+        truncated=result.search_truncated,
+    )
 
     if result.family_id != family.id:
         raise WeeklyPlanningApiError(
