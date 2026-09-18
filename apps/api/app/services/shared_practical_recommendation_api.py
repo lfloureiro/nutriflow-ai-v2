@@ -204,6 +204,7 @@ def _compute_shared_recommendation(
             person_id=person_id,
             scheduled_at=data.scheduled_at,
             ensure_state=True,
+            include_candidates=False,
         )
         if bootstrap.family_id != family.id:
             raise SharedPracticalRecommendationApiError(
