@@ -33,19 +33,29 @@ export type SharedWeeklyPlanTransformation = {
   explanation: string[];
 };
 
-export type SharedWeeklyPlanSlotAcceptanceRequest = {
-  proposal: SharedWeeklyPlanProposalRequest;
+export type SharedWeeklyPlanExpectedChoice = {
   slot_key: string;
-  expected_candidate_key: string;
-  expected_recipe_ingredient_id?: string | null;
-  expected_replacement_food_item_id?: string | null;
+  candidate_key: string;
+  recipe_ingredient_id?: string | null;
+  replacement_food_item_id?: string | null;
 };
 
-export type SharedWeeklyPlanSlotAcceptance = {
+export type SharedWeeklyPlanRequest = SharedWeeklyPlanProposalRequest & {
+  expected_choices: SharedWeeklyPlanExpectedChoice[];
+};
+
+export type SharedWeeklyPlanMaterializedChoice = {
+  slot_key: string;
   meal_event_id: string;
-  status: string;
   candidate_key: string;
   transformation_application_id: string | null;
+  serving_ids: string[];
+};
+
+export type SharedWeeklyPlan = {
+  family_id: string;
+  status: "planned";
+  choices: SharedWeeklyPlanMaterializedChoice[];
 };
 
 export type SharedWeeklyPlanParticipant = {
