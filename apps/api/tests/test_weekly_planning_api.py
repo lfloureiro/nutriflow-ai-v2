@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
@@ -334,13 +334,14 @@ def test_weekly_proposal_can_select_plan_adapted_variant_when_base_is_ineligible
     assert composition is not None
     assert composition.id is not None
 
+    planning_date = demo.planning_date + timedelta(days=1)
     payload = {
         "person_ids": [str(DEMO_PERSON_ID), str(DEMO_MARTA_ID)],
         "slots": [
             {
-                "slot_key": "tue-breakfast",
-                "planning_date": demo.planning_date.isoformat(),
-                "scheduled_at": "2026-09-15T08:30:00Z",
+                "slot_key": "wed-breakfast",
+                "planning_date": planning_date.isoformat(),
+                "scheduled_at": "2026-09-16T08:30:00Z",
                 "meal_type": "breakfast",
                 "candidates": [
                     {
