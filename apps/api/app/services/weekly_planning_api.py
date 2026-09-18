@@ -54,6 +54,7 @@ from app.services.shared_weekly_search import (
     SharedWeeklySearchResult,
     optimize_shared_weekly_slots_scalable,
 )
+from app.services.weekly_planning_request_cache import weekly_planning_cache_scope
 
 
 class WeeklyPlanningApiError(ValueError):
@@ -367,7 +368,7 @@ def _planning_slot(
     )
 
 
-def _compute_shared_weekly_plan(
+def _compute_shared_weekly_plan_uncached(
     session: Session,
     *,
     family: Family,
@@ -497,6 +498,20 @@ def _compute_shared_weekly_plan(
         slot_engine_versions=slot_engine_versions,
     )
 
+
+
+def _compute_shared_weekly_plan(
+    session: Session,
+    *,
+    family: Family,
+    data: SharedWeeklyPlanProposalCreate,
+) -> _ComputedWeeklyPlan:
+    with weekly_planning_cache_scope(session):
+        return _compute_shared_weekly_plan_uncached(
+            session,
+            family=family,
+            data=data,
+        )
 
 def propose_shared_weekly_plan(
     session: Session,
