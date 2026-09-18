@@ -27,6 +27,9 @@ from app.schemas.nutrition_plan import (
     NutritionPlanGuidelineCreate,
     NutritionPlanUpdate,
 )
+import app.services.meal_plan_fit as meal_plan_fit_service
+import app.services.meal_plan_fit_weekly_frequency as weekly_fit_service
+import app.services.planning_bootstrap_api as planning_bootstrap_service
 from app.services.nutrition_plan import (
     add_nutrition_plan_guideline,
     create_nutrition_plan,
@@ -229,6 +232,86 @@ def test_weekly_proposal_returns_selected_shared_plan_without_meal_events(
     meal_count = db_session.scalar(select(func.count()).select_from(MealEvent))
     assert meal_count == 0
 
+
+
+def test_weekly_proposal_reuses_request_scoped_plan_context(
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    family, ana, bruno, _, composition = _setup(db_session, "request-cache")
+
+    calls = {
+        "ensure_state": 0,
+        "compile_effective": 0,
+        "weekly_progress": 0,
+    }
+    original_ensure_state = planning_bootstrap_service._ensure_daily_state
+    original_base_compile = meal_plan_fit_service.compile_effective_nutrition_plan
+    original_weekly_compile = weekly_fit_service.compile_effective_nutrition_plan
+    original_weekly_progress = weekly_fit_service.get_weekly_frequency_progress
+
+    def counted_ensure_state(*args, **kwargs):
+        calls["ensure_state"] += 1
+        return original_ensure_state(*args, **kwargs)
+
+    def counted_base_compile(*args, **kwargs):
+        calls["compile_effective"] += 1
+        return original_base_compile(*args, **kwargs)
+
+    def counted_weekly_compile(*args, **kwargs):
+        calls["compile_effective"] += 1
+        return original_weekly_compile(*args, **kwargs)
+
+    def counted_weekly_progress(*args, **kwargs):
+        calls["weekly_progress"] += 1
+        return original_weekly_progress(*args, **kwargs)
+
+    monkeypatch.setattr(
+        planning_bootstrap_service,
+        "_ensure_daily_state",
+        counted_ensure_state,
+    )
+    monkeypatch.setattr(
+        meal_plan_fit_service,
+        "compile_effective_nutrition_plan",
+        counted_base_compile,
+    )
+    monkeypatch.setattr(
+        weekly_fit_service,
+        "compile_effective_nutrition_plan",
+        counted_weekly_compile,
+    )
+    monkeypatch.setattr(
+        weekly_fit_service,
+        "get_weekly_frequency_progress",
+        counted_weekly_progress,
+    )
+
+    response = _post(
+        db_session,
+        family,
+        ana=ana,
+        bruno=bruno,
+        slots=[
+            _slot(
+                "thu-lunch-cache",
+                scheduled_at=LUNCH_AT,
+                meal_type="lunch",
+                composition=composition,
+            ),
+            _slot(
+                "thu-dinner-cache",
+                scheduled_at=DINNER_AT,
+                meal_type="dinner",
+                composition=composition,
+            ),
+        ],
+    )
+
+    assert response.status_code == 201
+    assert calls["ensure_state"] == 2
+    assert calls["compile_effective"] == 4
+    assert calls["weekly_progress"] == 2
 
 def test_weekly_proposal_rechecks_one_person_weekly_maximum_across_slots(
     db_session: Session,
