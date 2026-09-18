@@ -19,11 +19,13 @@ from app.schemas.meal_plan_fit import MealPlanFitCreate
 from app.schemas.meal_recommendation import MealRecommendationCandidateInput
 from app.schemas.nutrition_plan import (
     NutritionPlanCreate,
+    NutritionPlanGuidelineCreate,
     NutritionPlanRuleCreate,
     NutritionPlanUpdate,
 )
 from app.services.meal_plan_fit import evaluate_meal_plan_fit
 from app.services.nutrition_plan import (
+    add_nutrition_plan_guideline,
     add_nutrition_plan_rule,
     create_nutrition_plan,
     update_nutrition_plan,
@@ -212,6 +214,108 @@ def test_plan_fit_combines_meal_rule_with_daily_mandatory_limit(
     assert sodium.status == "fail"
     assert sodium.observed_value == Decimal("400.0000")
     assert sodium.projected_daily_value == Decimal("1100.0000")
+
+
+def test_plan_fit_keeps_unsupported_mandatory_rule_visible_without_universal_veto(
+    db_session: Session,
+) -> None:
+    person = _person(db_session)
+    composition = _dish(db_session, person)
+    plan = create_nutrition_plan(
+        db_session,
+        person=person,
+        data=NutritionPlanCreate(
+            title="Lifestyle plan",
+            source_type="nutritionist",
+            status="draft",
+            valid_from=date(2026, 9, 1),
+        ),
+    )
+    activity = NutritionConstraint(
+        person_id=person.id,
+        constraint_type="activity_target",
+        target_type="activity",
+        target_key="daily_steps",
+        operator="min",
+        value_min=Decimal(8000),
+        unit="steps/day",
+        severity="required",
+        is_mandatory=True,
+        source="nutritionist",
+    )
+    db_session.add(activity)
+    db_session.commit()
+    add_nutrition_plan_rule(
+        db_session,
+        plan=plan,
+        data=NutritionPlanRuleCreate(
+            rule_kind="constraint",
+            reference_id=activity.id,
+            source_statement="Pelo menos 8000 passos por dia.",
+        ),
+    )
+    update_nutrition_plan(
+        db_session,
+        plan=plan,
+        data=NutritionPlanUpdate(status="active"),
+    )
+
+    result = evaluate_meal_plan_fit(
+        db_session,
+        person_id=person.id,
+        data=_request(composition),
+    )
+
+    assert result.eligible is True
+    rule = next(item for item in result.rule_results if item.target_key == "daily_steps")
+    assert rule.status == "not_evaluated"
+    assert result.nutrition_plan_authority.state == "partial_plan_coverage"
+    assert any("does not by itself veto" in text for text in result.explanation)
+
+
+def test_plan_fit_keeps_mandatory_qualitative_guideline_visible_without_universal_veto(
+    db_session: Session,
+) -> None:
+    person = _person(db_session)
+    composition = _dish(db_session, person)
+    plan = create_nutrition_plan(
+        db_session,
+        person=person,
+        data=NutritionPlanCreate(
+            title="Qualitative plan",
+            source_type="nutritionist",
+            status="draft",
+            valid_from=date(2026, 9, 1),
+        ),
+    )
+    add_nutrition_plan_guideline(
+        db_session,
+        plan=plan,
+        data=NutritionPlanGuidelineCreate(
+            guideline_type="qualitative",
+            target_type="food_category",
+            target_key="cereals",
+            description="Evitar cereais refinados.",
+            is_mandatory=True,
+            priority=120,
+        ),
+    )
+    update_nutrition_plan(
+        db_session,
+        plan=plan,
+        data=NutritionPlanUpdate(status="active"),
+    )
+
+    result = evaluate_meal_plan_fit(
+        db_session,
+        person_id=person.id,
+        data=_request(composition),
+    )
+
+    assert result.eligible is True
+    assert len(result.guideline_results) == 1
+    assert result.guideline_results[0].status == "not_evaluated"
+    assert result.nutrition_plan_authority.state == "partial_plan_coverage"
 
 
 def test_plan_fit_fails_closed_when_mandatory_daily_context_is_missing(
