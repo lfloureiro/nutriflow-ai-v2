@@ -23,6 +23,7 @@ from app.services.weekly_frequency_progress import (
     get_weekly_frequency_progress,
 )
 from app.services.weekly_planning_request_cache import current_weekly_planning_cache
+from app.services.weekly_debug import weekly_debug, weekly_debug_span
 
 _SUPPORTED_TARGET_TYPES = frozenset(
     {
@@ -67,6 +68,11 @@ def _candidate_profile(
     cache = current_weekly_planning_cache(db)
     cache_key = (family_id, kind, candidate_id)
     if cache is not None and cache_key in cache.candidate_profiles:
+        weekly_debug(
+            "PLANFIT",
+            "cache-hit-candidate-profile",
+            candidate=candidate.key,
+        )
         return cache.candidate_profiles[cache_key]
 
     if kind == "food_item":
@@ -401,14 +407,29 @@ def apply_weekly_frequency_to_loaded_fit(
             else None
         )
         if effective is None:
-            effective = compile_effective_nutrition_plan(
-                db,
-                person_id=person.id,
-                on_date=planning_date,
+            with weekly_debug_span(
+                "PLANFIT",
+                "weekly-compile-effective-plan",
+                person=person.id,
+                date=planning_date,
                 meal_type=meal_type,
-            )
+            ):
+                effective = compile_effective_nutrition_plan(
+                    db,
+                    person_id=person.id,
+                    on_date=planning_date,
+                    meal_type=meal_type,
+                )
             if cache is not None:
                 cache.effective_plans[effective_key] = effective
+        else:
+            weekly_debug(
+                "PLANFIT",
+                "cache-hit-weekly-effective-plan",
+                person=person.id,
+                date=planning_date,
+                meal_type=meal_type,
+            )
 
         weekly = (
             cache.weekly_progress.get(weekly_key)
@@ -416,13 +437,26 @@ def apply_weekly_frequency_to_loaded_fit(
             else None
         )
         if weekly is None:
-            weekly = get_weekly_frequency_progress(
-                db,
-                person_id=person.id,
-                anchor_date=planning_date,
-            )
+            with weekly_debug_span(
+                "PLANFIT",
+                "weekly-frequency-progress",
+                person=person.id,
+                date=planning_date,
+            ):
+                weekly = get_weekly_frequency_progress(
+                    db,
+                    person_id=person.id,
+                    anchor_date=planning_date,
+                )
             if cache is not None:
                 cache.weekly_progress[weekly_key] = weekly
+        else:
+            weekly_debug(
+                "PLANFIT",
+                "cache-hit-weekly-progress",
+                person=person.id,
+                date=planning_date,
+            )
     except (NutritionPlanError, WeeklyFrequencyProgressError) as exc:
         raise MealPlanFitWeeklyFrequencyError(str(exc)) from exc
 
