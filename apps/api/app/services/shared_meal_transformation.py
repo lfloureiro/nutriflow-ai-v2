@@ -5,8 +5,11 @@ from decimal import ROUND_HALF_UP, Decimal
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from app.models.family import Family
 from app.models.food_catalog import FoodItem, Recipe, RecipeIngredient
 from app.models.food_transformation_profile import FoodTransformationProfile
+from app.models.meal import MealEvent, MealParticipant, Serving, ServingNutritionComponent
+from app.models.meal_transformation_application import MealTransformationApplication
 from app.models.person import Person
 from app.schemas.meal_plan_fit import MealPlanFitCreate, MealPlanFitRead
 from app.schemas.meal_recommendation import MealRecommendationCandidateInput
@@ -15,9 +18,12 @@ from app.schemas.shared_meal_transformation import (
     SharedMealTransformationBaselineRead,
     SharedMealTransformationCreate,
     SharedMealTransformationParticipantRead,
+    SharedMealTransformationPlanCreate,
+    SharedMealTransformationPlanRead,
     SharedMealTransformationProposalRead,
     SharedMealTransformationRead,
 )
+from app.services.meal_slot import assert_meal_slot_available
 from app.services.meal_plan_fit import (
     MealPlanFitError,
     _load_daily_state,
@@ -539,3 +545,229 @@ def propose_shared_meal_transformations(
         proposals=proposals[: data.max_proposals],
         limitations=limitations,
     )
+
+
+TRANSFORMATION_APPLICATION_VERSION = "shared-meal-transformation-application-v1"
+
+
+def _selected_materialization_proposal(
+    result: SharedMealTransformationRead,
+    data: SharedMealTransformationPlanCreate,
+) -> SharedMealTransformationProposalRead:
+    matches = [
+        proposal
+        for proposal in result.proposals
+        if proposal.operation.recipe_ingredient_id == data.recipe_ingredient_id
+        and proposal.operation.replacement_food_item_id == data.replacement_food_item_id
+    ]
+    if len(matches) != 1:
+        raise MealTransformationError(
+            "The selected transformation is no longer available or safe for this Family meal."
+        )
+    return matches[0]
+
+
+def _transformation_evidence(
+    proposal: SharedMealTransformationProposalRead,
+) -> dict[str, object]:
+    return {
+        "classification": proposal.kind,
+        "explanation": list(proposal.explanation),
+        "plan_improvement_participants": proposal.plan_improvement_participants,
+        "preference_improvement_participants": proposal.preference_improvement_participants,
+        "minimum_plan_score_delta": (
+            str(proposal.minimum_plan_score_delta)
+            if proposal.minimum_plan_score_delta is not None
+            else None
+        ),
+        "average_plan_score_delta": (
+            str(proposal.average_plan_score_delta)
+            if proposal.average_plan_score_delta is not None
+            else None
+        ),
+        "minimum_preference_delta": str(proposal.minimum_preference_delta),
+        "average_preference_delta": str(proposal.average_preference_delta),
+        "participants": [
+            {
+                "person_id": str(participant.person_id),
+                "plan_score_delta": (
+                    str(participant.plan_score_delta)
+                    if participant.plan_score_delta is not None
+                    else None
+                ),
+                "plan_improved_rule_ids": list(participant.plan_improved_rule_ids),
+                "plan_worsened_rule_ids": list(participant.plan_worsened_rule_ids),
+                "preference_delta": str(participant.preference_delta),
+                "after_fit_status": participant.after_fit.status,
+                "after_fit_score": (
+                    str(participant.after_fit.fit_score)
+                    if participant.after_fit.fit_score is not None
+                    else None
+                ),
+                "nutrition_plan_authority": (
+                    participant.after_fit.nutrition_plan_authority.model_dump(mode="json")
+                ),
+            }
+            for participant in proposal.participant_results
+        ],
+    }
+
+
+def _planned_transformed_serving(
+    *,
+    meal_participant: MealParticipant,
+    recipe: Recipe,
+    participant: SharedMealTransformationParticipantRead,
+    source_reference: str,
+) -> Serving:
+    candidate = participant.after_fit.candidate
+    serving = Serving(
+        meal_participant=meal_participant,
+        recipe=recipe,
+        item_type="recipe",
+        item_key=recipe.recipe_key,
+        item_name=recipe.name,
+        status="planned",
+        quantity_planned=candidate.quantity,
+        quantity_unit=candidate.quantity_unit,
+        energy_planned_kcal=candidate.nutrition.energy_kcal,
+        nutrition_source="transformed",
+        nutrition_calculation_version=TRANSFORMATION_APPLICATION_VERSION,
+        source_reference=source_reference,
+    )
+    serving.nutrition_components[:] = [
+        ServingNutritionComponent(
+            nutrient_key=nutrient_key,
+            planned_value=nutrient.value,
+            served_value=None,
+            consumed_value=None,
+            unit=nutrient.unit,
+        )
+        for nutrient_key, nutrient in sorted(candidate.nutrition.nutrients.items())
+    ]
+    return serving
+
+
+def plan_shared_meal_transformation(
+    db: Session,
+    *,
+    family_id: uuid.UUID,
+    data: SharedMealTransformationPlanCreate,
+) -> SharedMealTransformationPlanRead:
+    family = db.get(Family, family_id)
+    if family is None:
+        raise MealTransformationNotFoundError("Family not found.")
+
+    proposal_request = SharedMealTransformationCreate(
+        planning_date=data.planning_date,
+        meal_type=data.meal_type,
+        recipe_id=data.recipe_id,
+        participants=data.participants,
+        max_proposals=10,
+    )
+    result = propose_shared_meal_transformations(
+        db,
+        family_id=family_id,
+        data=proposal_request,
+    )
+    proposal = _selected_materialization_proposal(result, data)
+
+    try:
+        recipe = get_family_visible_recipe_model(db, family_id, data.recipe_id)
+    except RecipeNotFoundError as exc:
+        raise MealTransformationNotFoundError(str(exc)) from exc
+    composition = _latest_recipe_composition(recipe)
+    if composition is None or composition.id is None:
+        raise MealTransformationError(
+            "Recipe has no persisted nutrition composition to materialize safely."
+        )
+
+    assert_meal_slot_available(
+        db,
+        family_id=family_id,
+        family_timezone=family.timezone,
+        scheduled_at=data.scheduled_at,
+        meal_type=data.meal_type,
+    )
+
+    event = MealEvent(
+        family_id=family_id,
+        meal_type=data.meal_type,
+        title=data.title or recipe.name,
+        scheduled_at=data.scheduled_at,
+        timezone=family.timezone,
+        status="planned",
+        location=data.location,
+        source="recommendation",
+        source_reference=f"meal-transformation:{TRANSFORMATION_APPLICATION_VERSION}",
+        notes=data.notes,
+    )
+    application = MealTransformationApplication(
+        meal_event=event,
+        recipe=recipe,
+        source_recipe_composition_snapshot=composition,
+        recipe_ingredient_id=proposal.operation.recipe_ingredient_id,
+        source_food_item_id=proposal.operation.source_food_item_id,
+        replacement_food_item_id=proposal.operation.replacement_food_item_id,
+        sort_order=0,
+        operation_type=proposal.operation.operation_type,
+        transformation_kind=proposal.kind,
+        substitution_group=proposal.operation.substitution_group,
+        source_food_name=proposal.operation.source_food_name,
+        source_quantity=proposal.operation.source_quantity,
+        source_unit=proposal.operation.source_unit,
+        replacement_food_name=proposal.operation.replacement_food_name,
+        replacement_quantity=proposal.operation.replacement_quantity,
+        replacement_unit=proposal.operation.replacement_unit,
+        engine_version=TRANSFORMATION_APPLICATION_VERSION,
+        evidence=_transformation_evidence(proposal),
+        notes=None,
+    )
+    db.add(event)
+    db.flush()
+
+    source_reference = f"meal-transformation:{application.id}"
+    serving_ids: list[uuid.UUID] = []
+    person_ids: list[uuid.UUID] = []
+    for participant_result in proposal.participant_results:
+        person = db.get(Person, participant_result.person_id)
+        if person is None or person.family_id != family_id:
+            raise MealTransformationError(
+                "A transformation participant no longer belongs to this Family."
+            )
+        meal_participant = MealParticipant(
+            meal_event=event,
+            person=person,
+            status="planned",
+        )
+        serving = _planned_transformed_serving(
+            meal_participant=meal_participant,
+            recipe=recipe,
+            participant=participant_result,
+            source_reference=source_reference,
+        )
+        db.add(meal_participant)
+        db.add(serving)
+        person_ids.append(person.id)
+
+    db.flush()
+    for meal_participant in event.participants:
+        for serving in meal_participant.servings:
+            if serving.id is not None:
+                serving_ids.append(serving.id)
+
+    if event.id is None or application.id is None:
+        raise MealTransformationError(
+            "Shared transformation application was not fully persisted."
+        )
+    response = SharedMealTransformationPlanRead(
+        meal_event_id=event.id,
+        transformation_application_id=application.id,
+        status=event.status,
+        transformation_kind=proposal.kind,
+        recipe_id=recipe.id,
+        person_ids=person_ids,
+        serving_ids=serving_ids,
+    )
+    db.commit()
+    return response
