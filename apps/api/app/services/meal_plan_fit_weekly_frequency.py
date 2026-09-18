@@ -14,7 +14,11 @@ from app.schemas.meal_plan_fit import (
 from app.schemas.meal_type import MealType
 from app.schemas.nutrition_plan import EffectiveNutritionGuidelineRead
 from app.schemas.weekly_frequency_progress import WeeklyFrequencyGuidelineProgressRead
-from app.services.meal_plan_fit import MealPlanFitError, evaluate_meal_plan_fit
+from app.services.meal_plan_fit import (
+    MealPlanFitError,
+    _mandatory_unknown_rule_blocks,
+    evaluate_meal_plan_fit,
+)
 from app.services.meal_recommendation import MealCandidate
 from app.services.meal_recommendation_api import _load_candidates
 from app.services.nutrition_plan import NutritionPlanError, compile_effective_nutrition_plan
@@ -295,6 +299,15 @@ def _qualitative_result(guideline: EffectiveNutritionGuidelineRead) -> MealPlanF
     )
 
 
+def _mandatory_unknown_guideline_blocks(result: MealPlanFitGuidelineRead) -> bool:
+    if not result.is_mandatory or result.status not in {"unknown", "not_evaluated"}:
+        return False
+    return (
+        result.guideline_type == "frequency"
+        and result.maximum_occurrences is not None
+    )
+
+
 def _recompute_fit(
     base_fit: MealPlanFitRead,
     *,
@@ -309,10 +322,10 @@ def _recompute_fit(
         result.is_mandatory and result.status == "fail" for result in guideline_results
     )
     mandatory_unknown = any(
-        result.is_mandatory and result.status in {"unknown", "not_evaluated"}
+        _mandatory_unknown_rule_blocks(result)
         for result in base_fit.rule_results
     ) or any(
-        result.is_mandatory and result.status in {"unknown", "not_evaluated"}
+        _mandatory_unknown_guideline_blocks(result)
         for result in guideline_results
     )
 
@@ -345,7 +358,7 @@ def _recompute_fit(
     ]
     if mandatory_unknown:
         explanation.append(
-            "At least one mandatory rule or guideline cannot be evaluated safely with the available evidence/context."
+            "At least one mandatory machine-evaluable rule or weekly maximum cannot be evaluated safely with the available evidence/context."
         )
     if any(result.guideline_type == "frequency" for result in guideline_results):
         explanation.append(
