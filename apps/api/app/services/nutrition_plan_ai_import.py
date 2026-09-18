@@ -1,5 +1,4 @@
 import json
-import os
 import uuid
 from decimal import Decimal
 from urllib.error import HTTPError, URLError
@@ -8,6 +7,7 @@ from urllib.request import Request, urlopen
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.nutrition_plan import NutritionPlan
 from app.models.nutrition_plan_import import (
     NutritionPlanImportProposal,
@@ -131,13 +131,14 @@ def _output_text(payload: dict[str, object]) -> str:
 
 
 def _call_openai(source_text: str) -> tuple[list[dict[str, object]], str, str]:
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    api_key = (settings.openai_api_key or "").strip()
     if not api_key:
         raise NutritionPlanAIImportError(
-            "AI interpretation is not configured. Set OPENAI_API_KEY or use deterministic review."
+            "AI interpretation is not configured. Add OPENAI_API_KEY to the NutriFlow .env "
+            "file and restart the API."
         )
-    model = os.getenv("NUTRIFLOW_NUTRITION_PLAN_AI_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
-    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+    model = settings.nutriflow_nutrition_plan_ai_model.strip() or DEFAULT_MODEL
+    base_url = settings.openai_base_url.rstrip("/")
     request_payload = {
         "model": model,
         "store": False,
