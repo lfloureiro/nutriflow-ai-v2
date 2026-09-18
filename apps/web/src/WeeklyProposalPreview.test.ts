@@ -12,6 +12,7 @@ import {
   isWeekendDate,
   mealEntryFor,
   weeklySourcesFor,
+  weeklySkippedSlotMessages,
   shoppingRefreshSummary,
 } from "./WeeklyProposalPreview";
 
@@ -54,6 +55,28 @@ describe("weekly meal source policy", () => {
 
   it("keeps weekday dinner as a home-cooked family meal", () => {
     expect(weeklySourcesFor("2026-09-17", "dinner")).toEqual(["cooked"]);
+  });
+});
+
+describe("server-authoritative unavailable weekly slots", () => {
+  it("keeps an unavailable weekday delivery lunch visibly pending", () => {
+    expect(
+      weeklySkippedSlotMessages(
+        [
+          {
+            slot_key: "2026-09-15:lunch",
+            planning_date: "2026-09-15",
+            meal_type: "lunch",
+            reason: "no_eligible_candidates",
+            exclusion_reasons: ["candidate_unavailable"],
+          },
+        ],
+        "pt-PT",
+      ),
+    ).toEqual({
+      "2026-09-15:lunch":
+        "Almoço de dia útil: primeiro devem ser usadas sobras reais do jantar anterior; sem sobras, só entra uma opção Uber Eats/Glovo com disponibilidade conhecida. Ainda não existe uma opção automática segura para este slot.",
+    });
   });
 });
 
