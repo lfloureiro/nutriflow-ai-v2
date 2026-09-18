@@ -16,6 +16,14 @@ export type MealPlanParticipant = {
   energy_consumed_kcal: string | null;
 };
 
+export type MealPlanTransformation = {
+  id: string;
+  transformation_kind: "plan_adapted" | "preference_variant";
+  operation_type: string;
+  source_food_name: string;
+  replacement_food_name: string;
+};
+
 export type MealPlanEntry = {
   id: string;
   meal_type: MealType;
@@ -27,6 +35,7 @@ export type MealPlanEntry = {
   recipe_name: string | null;
   location: string | null;
   notes: string | null;
+  transformations: MealPlanTransformation[];
   participants: MealPlanParticipant[];
 };
 
