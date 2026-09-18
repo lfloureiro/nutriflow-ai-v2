@@ -49,6 +49,7 @@ from app.services.shared_family_meal_plan_fit import (
     recommend_shared_family_meals_with_plan_fit,
 )
 from app.services.shared_family_meal_planning import materialize_shared_family_recommendation
+from app.services.weekly_debug import weekly_debug, weekly_debug_span
 
 
 class SharedPracticalRecommendationApiError(ValueError):
@@ -199,13 +200,20 @@ def _compute_shared_recommendation(
     offers: list[CommercialOfferSnapshot] = []
 
     for index, person_id in enumerate(data.person_ids):
-        bootstrap = get_planning_bootstrap(
-            session,
-            person_id=person_id,
-            scheduled_at=data.scheduled_at,
-            ensure_state=True,
-            include_candidates=False,
-        )
+        with weekly_debug_span(
+            "PRACTICAL",
+            "bootstrap-person",
+            person=person_id,
+            date=data.planning_date,
+            meal_type=data.meal_type,
+        ):
+            bootstrap = get_planning_bootstrap(
+                session,
+                person_id=person_id,
+                scheduled_at=data.scheduled_at,
+                ensure_state=True,
+                include_candidates=False,
+            )
         if bootstrap.family_id != family.id:
             raise SharedPracticalRecommendationApiError(
                 "All selected Persons must belong to this Family."
@@ -220,14 +228,21 @@ def _compute_shared_recommendation(
                 "planning_date must match every selected Person's local planning date."
             )
 
-        person, state, candidates = load_recommendation_inputs(
-            session,
-            person_id=person_id,
-            daily_nutrition_state_id=state_read.id,
-            planning_date=data.planning_date,
-            candidates=data.candidates,
+        with weekly_debug_span(
+            "PRACTICAL",
+            "load-recommendation-inputs",
+            person=person_id,
+            candidates=len(data.candidates),
             meal_type=data.meal_type,
-        )
+        ):
+            person, state, candidates = load_recommendation_inputs(
+                session,
+                person_id=person_id,
+                daily_nutrition_state_id=state_read.id,
+                planning_date=data.planning_date,
+                candidates=data.candidates,
+                meal_type=data.meal_type,
+            )
         if person.family_id != family.id:
             raise SharedPracticalRecommendationApiError(
                 "All selected Persons must belong to this Family."
@@ -250,13 +265,19 @@ def _compute_shared_recommendation(
                 auto_size_portions=False,
                 max_results=data.max_results,
             )
-            channels, offers = _build_practical_channels(
-                session,
-                family_id=family.id,
-                candidates=candidates,
-                data=practical_data,
-            )
-            practical_profiles = _merge_source_channels(candidates, channels)
+            with weekly_debug_span(
+                "PRACTICAL",
+                "source-channels",
+                candidates=len(candidates),
+                sources=",".join(sorted(set(data.source_kinds))),
+            ):
+                channels, offers = _build_practical_channels(
+                    session,
+                    family_id=family.id,
+                    candidates=candidates,
+                    data=practical_data,
+                )
+                practical_profiles = _merge_source_channels(candidates, channels)
 
         loaded.append((person, state))
 
@@ -287,42 +308,73 @@ def _compute_shared_recommendation(
     if data.auto_size_portions:
         engine_version = f"{engine_version}+{PORTION_VERSION}"
     try:
-        proposals = _candidate_proposals(
-            first_candidates,
-            loaded,
-            meal_type=data.meal_type,
-            auto_size_portions=data.auto_size_portions,
-        )
+        with weekly_debug_span(
+            "PRACTICAL",
+            "candidate-proposals",
+            candidates=len(first_candidates),
+            people=len(loaded),
+            auto_size=data.auto_size_portions,
+        ):
+            proposals = _candidate_proposals(
+                first_candidates,
+                loaded,
+                meal_type=data.meal_type,
+                auto_size_portions=data.auto_size_portions,
+            )
     except MealEnergyAllocationError as exc:
         raise SharedPracticalRecommendationApiError(str(exc)) from exc
 
-    result = recommend_shared_family_meals_with_plan_fit(
-        session,
-        participants=contexts,
-        proposals=proposals,
-        planning_date=data.planning_date,
+    with weekly_debug_span(
+        "PLANFIT",
+        "shared-family",
+        people=len(contexts),
+        candidates=len(proposals),
+        date=data.planning_date,
         meal_type=data.meal_type,
-        engine_version=engine_version,
-    )
-    result = apply_diversity_to_shared_recommendation(
-        session,
-        family_id=family.id,
-        planning_date=data.planning_date,
-        meal_type=data.meal_type,
-        recommendation=result,
-        provisional_history=data.provisional_history,
-    )
-    feedback_signals_by_person = {
-        person.id: load_person_feedback_signals(
+    ):
+        result = recommend_shared_family_meals_with_plan_fit(
             session,
-            person_id=person.id,
+            participants=contexts,
+            proposals=proposals,
             planning_date=data.planning_date,
+            meal_type=data.meal_type,
+            engine_version=engine_version,
         )
-        for person, _ in loaded
-    }
+    with weekly_debug_span(
+        "PRACTICAL",
+        "diversity",
+        candidates=len(result.evaluations),
+    ):
+        result = apply_diversity_to_shared_recommendation(
+            session,
+            family_id=family.id,
+            planning_date=data.planning_date,
+            meal_type=data.meal_type,
+            recommendation=result,
+            provisional_history=data.provisional_history,
+        )
+    with weekly_debug_span(
+        "PRACTICAL",
+        "feedback-signals",
+        people=len(loaded),
+    ):
+        feedback_signals_by_person = {
+            person.id: load_person_feedback_signals(
+                session,
+                person_id=person.id,
+                planning_date=data.planning_date,
+            )
+            for person, _ in loaded
+        }
     result = apply_feedback_to_shared_recommendation(
         result,
         feedback_signals_by_person=feedback_signals_by_person,
+    )
+    weekly_debug(
+        "PRACTICAL",
+        "recommendation-ready",
+        evaluations=len(result.evaluations),
+        offers=len(offers),
     )
     return result, offers, contexts
 
