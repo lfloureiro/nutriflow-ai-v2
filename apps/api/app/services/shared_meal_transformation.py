@@ -24,7 +24,6 @@ from app.schemas.shared_meal_transformation import (
     SharedMealTransformationProposalRead,
     SharedMealTransformationRead,
 )
-from app.services.meal_slot import assert_meal_slot_available
 from app.services.meal_plan_fit import (
     MealPlanFitError,
     _load_daily_state,
@@ -36,6 +35,7 @@ from app.services.meal_recommendation import (
     _preference_score,
     build_recipe_candidate,
 )
+from app.services.meal_slot import assert_meal_slot_available
 from app.services.meal_transformation import (
     SCORE_QUANTUM,
     ZERO,
