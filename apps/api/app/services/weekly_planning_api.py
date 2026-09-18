@@ -22,6 +22,7 @@ from app.schemas.weekly_planning import (
     SharedWeeklyPlanProposalRead,
     SharedWeeklyPlanRead,
     SharedWeeklyPlanSelectionRead,
+    SharedWeeklyPlanSkippedSlotRead,
     SharedWeeklyPlanTransformationRead,
 )
 from app.services.recommendation_weekly_frequency import weekly_support_counts
@@ -38,6 +39,7 @@ from app.services.shared_family_meal_plan_fit import (
 )
 from app.services.shared_family_meal_planning import materialize_shared_family_recommendation
 from app.services.shared_meal_transformation import (
+    _load_variants,
     _transformed_subjects,
     materialize_selected_shared_meal_transformation,
     propose_shared_meal_transformations,
@@ -51,8 +53,16 @@ from app.services.shared_weekly_multi_slot_planning import (
     SharedWeeklyPlanningSlot,
 )
 from app.services.shared_weekly_search import (
+    ENGINE_VERSION as SEARCH_ENGINE_VERSION,
+)
+from app.services.shared_weekly_search import (
     SharedWeeklySearchResult,
     optimize_shared_weekly_slots_scalable,
+)
+from app.services.weekly_debug import weekly_debug, weekly_debug_span
+from app.services.weekly_planning_request_cache import (
+    current_weekly_planning_cache,
+    weekly_planning_cache_scope,
 )
 
 
@@ -201,6 +211,8 @@ def _transformed_weekly_candidate(
         weekly_mandatory_support_total=mandatory_total,
         weekly_advisory_support_participants=advisory_participants,
         weekly_advisory_support_total=advisory_total,
+        planning_category=original.evaluation.planning_category,
+        primary_protein=original.evaluation.primary_protein,
     )
     return SharedWeeklyPlanningCandidate(
         evaluation=shared_evaluation,
@@ -235,6 +247,31 @@ def _transformation_candidates(
     if recipe is None or recipe.id is None:
         return [], {}
 
+    request_cache = current_weekly_planning_cache(session)
+    transformable_key = (family.id, recipe.id)
+    has_variants = (
+        request_cache.transformable_recipes.get(transformable_key)
+        if request_cache is not None
+        else None
+    )
+    if has_variants is None:
+        variants, _ = _load_variants(
+            session,
+            family_id=family.id,
+            recipe=recipe,
+        )
+        has_variants = bool(variants)
+        if request_cache is not None:
+            request_cache.transformable_recipes[transformable_key] = has_variants
+    if not has_variants:
+        weekly_debug(
+            "TRANSFORM",
+            "skip-no-variants",
+            candidate=evaluation.candidate_key,
+            recipe=recipe.id,
+        )
+        return [], {}
+
     participants: list[SharedMealTransformationParticipantCreate] = []
     for participant in evaluation.participant_evaluations:
         person_id = participant.person.id
@@ -262,6 +299,11 @@ def _transformation_candidates(
             participants=participants,
             max_proposals=3,
         ),
+        baseline_fits_by_person={
+            participant.person.id: participant.plan_fit
+            for participant in evaluation.participant_evaluations
+            if participant.person.id is not None and participant.plan_fit is not None
+        },
     )
 
     candidates: list[SharedWeeklyPlanningCandidate] = []
@@ -311,11 +353,20 @@ def _planning_slot(
         auto_size_portions=slot.auto_size_portions,
         max_results=None,
     )
-    recommendation, _, contexts = compute_shared_practical_recommendation_with_contexts(
-        session,
-        family=family,
-        data=request,
-    )
+    with weekly_debug_span(
+        "WEEKLY",
+        "slot-recommendation",
+        slot=slot.slot_key,
+        date=slot.planning_date,
+        meal_type=slot.meal_type,
+        candidates=len(slot.candidates),
+        people=len(person_ids),
+    ):
+        recommendation, _, contexts = compute_shared_practical_recommendation_with_contexts(
+            session,
+            family=family,
+            data=request,
+        )
     contexts_by_person_id = {
         context.person.id: context
         for context in contexts
@@ -339,17 +390,57 @@ def _planning_slot(
         )
         candidates.append(base_candidate)
 
-        transformed_candidates, transformed_metadata = _transformation_candidates(
-            session,
-            family=family,
-            original=base_candidate,
-            contexts_by_person_id=contexts_by_person_id,
-            planning_date=slot.planning_date,
-            meal_type=slot.meal_type,
-            engine_version=recommendation.engine_version,
-        )
+        with weekly_debug_span(
+            "TRANSFORM",
+            "candidate",
+            slot=slot.slot_key,
+            candidate=evaluation.candidate_key,
+        ):
+            transformed_candidates, transformed_metadata = _transformation_candidates(
+                session,
+                family=family,
+                original=base_candidate,
+                contexts_by_person_id=contexts_by_person_id,
+                planning_date=slot.planning_date,
+                meal_type=slot.meal_type,
+                engine_version=recommendation.engine_version,
+            )
         candidates.extend(transformed_candidates)
         transformation_metadata.update(transformed_metadata)
+
+    eligible_candidates = [
+        candidate
+        for candidate in candidates
+        if candidate.evaluation.eligible and all(fit.eligible for fit in candidate.plan_fits)
+    ]
+    shared_eligible = sum(1 for candidate in candidates if candidate.evaluation.eligible)
+    plan_eligible = sum(
+        1 for candidate in candidates if all(fit.eligible for fit in candidate.plan_fits)
+    )
+    weekly_debug(
+        "WEEKLY",
+        "slot-ready",
+        slot=slot.slot_key,
+        candidates=len(candidates),
+        eligible=len(eligible_candidates),
+        shared_eligible=shared_eligible,
+        plan_eligible=plan_eligible,
+        transformations=len(transformation_metadata),
+    )
+    if not eligible_candidates:
+        reasons = sorted(
+            {
+                reason
+                for candidate in candidates
+                for reason in candidate.evaluation.exclusion_reasons
+            }
+        )
+        weekly_debug(
+            "WEEKLY",
+            "slot-no-eligible-candidates",
+            slot=slot.slot_key,
+            reasons="|".join(reasons[:12]) if reasons else "none",
+        )
 
     engine_version = recommendation.engine_version
     if transformation_metadata:
@@ -367,7 +458,7 @@ def _planning_slot(
     )
 
 
-def _compute_shared_weekly_plan(
+def _compute_shared_weekly_plan_uncached(
     session: Session,
     *,
     family: Family,
@@ -383,7 +474,16 @@ def _compute_shared_weekly_plan(
     if len(slot_keys) != len(set(slot_keys)):
         raise WeeklyPlanningApiError("Weekly planning slot keys must be unique.")
 
+    weekly_debug(
+        "WEEKLY",
+        "proposal-input",
+        family=family.id,
+        slots=len(data.slots),
+        people=len(data.person_ids),
+        max_combinations=data.max_combinations,
+    )
     planning_slots: list[SharedWeeklyPlanningSlot] = []
+    skipped_slots: list[SharedWeeklyPlanSkippedSlotRead] = []
     slot_engine_versions: dict[str, str] = {}
     transformations_by_slot: dict[
         str,
@@ -391,23 +491,121 @@ def _compute_shared_weekly_plan(
     ] = {}
     slots_by_key = {slot.slot_key: slot for slot in data.slots}
     for slot in data.slots:
-        planning_slot, engine_version, transformation_metadata = _planning_slot(
-            session,
-            family=family,
-            person_ids=data.person_ids,
-            slot=slot,
+        with weekly_debug_span(
+            "WEEKLY",
+            "slot",
+            slot=slot.slot_key,
+            date=slot.planning_date,
+            meal_type=slot.meal_type,
+            candidates=len(slot.candidates),
+        ):
+            planning_slot, engine_version, transformation_metadata = _planning_slot(
+                session,
+                family=family,
+                person_ids=data.person_ids,
+                slot=slot,
+            )
+        eligible_candidates = tuple(
+            candidate
+            for candidate in planning_slot.candidates
+            if candidate.evaluation.eligible
+            and all(fit.eligible for fit in candidate.plan_fits)
         )
-        planning_slots.append(planning_slot)
         slot_engine_versions[slot.slot_key] = engine_version
         transformations_by_slot[slot.slot_key] = transformation_metadata
+        if not eligible_candidates:
+            exclusion_reasons = sorted(
+                {
+                    reason
+                    for candidate in planning_slot.candidates
+                    for reason in candidate.evaluation.exclusion_reasons
+                }
+            )
+            skipped_slots.append(
+                SharedWeeklyPlanSkippedSlotRead(
+                    slot_key=slot.slot_key,
+                    planning_date=slot.planning_date,
+                    meal_type=slot.meal_type,
+                    reason="no_eligible_candidates",
+                    exclusion_reasons=exclusion_reasons,
+                )
+            )
+            weekly_debug(
+                "WEEKLY",
+                "slot-skipped",
+                slot=slot.slot_key,
+                reason="no_eligible_candidates",
+            )
+            continue
+        planning_slots.append(planning_slot)
 
-    try:
-        result = optimize_shared_weekly_slots_scalable(
-            tuple(planning_slots),
-            max_combinations=data.max_combinations,
+    if planning_slots:
+        try:
+            with weekly_debug_span(
+                "SEARCH",
+                "weekly-optimization",
+                slots=len(planning_slots),
+                skipped=len(skipped_slots),
+                max_combinations=data.max_combinations,
+            ):
+                result = optimize_shared_weekly_slots_scalable(
+                    tuple(planning_slots),
+                    max_combinations=data.max_combinations,
+                )
+        except SharedWeeklyMultiSlotPlanningError as exc:
+            raise WeeklyPlanningApiError(str(exc)) from exc
+    else:
+        result = SharedWeeklySearchResult(
+            engine_version=SEARCH_ENGINE_VERSION,
+            family_id=family.id,
+            participant_ids=tuple(data.person_ids),
+            selected_plan=None,
+            evaluated_combinations=0,
+            feasible_combinations=0,
+            rejected_by_person_weekly_maximum=0,
+            rejected_by_person_daily_limit=0,
+            search_strategy="bounded",
+            search_space_size=0,
+            search_truncated=False,
         )
-    except SharedWeeklyMultiSlotPlanningError as exc:
-        raise WeeklyPlanningApiError(str(exc)) from exc
+
+    weekly_debug(
+        "SEARCH",
+        "result",
+        selected=result.selected_plan is not None,
+        strategy=result.search_strategy,
+        search_space=result.search_space_size,
+        evaluated=result.evaluated_combinations,
+        feasible=result.feasible_combinations,
+        repeated=(
+            result.selected_plan.repeated_candidate_count
+            if result.selected_plan is not None
+            else None
+        ),
+        adjacent_category_repeats=(
+            result.selected_plan.adjacent_category_repeat_count
+            if result.selected_plan is not None
+            else None
+        ),
+        adjacent_protein_repeats=(
+            result.selected_plan.adjacent_protein_repeat_count
+            if result.selected_plan is not None
+            else None
+        ),
+        distinct_categories=(
+            result.selected_plan.distinct_main_categories
+            if result.selected_plan is not None
+            else None
+        ),
+        distinct_proteins=(
+            result.selected_plan.distinct_main_proteins
+            if result.selected_plan is not None
+            else None
+        ),
+        rejected_weekly_max=result.rejected_by_person_weekly_maximum,
+        rejected_daily_limit=result.rejected_by_person_daily_limit,
+        truncated=result.search_truncated,
+    )
 
     if result.family_id != family.id:
         raise WeeklyPlanningApiError(
@@ -481,6 +679,7 @@ def _compute_shared_weekly_plan(
         engine_version=result.engine_version,
         slot_engine_versions=slot_engine_versions,
         selected_plan=selected_read,
+        skipped_slots=skipped_slots,
         evaluated_combinations=result.evaluated_combinations,
         feasible_combinations=result.feasible_combinations,
         rejected_by_person_weekly_maximum=result.rejected_by_person_weekly_maximum,
@@ -497,6 +696,29 @@ def _compute_shared_weekly_plan(
         slot_engine_versions=slot_engine_versions,
     )
 
+
+
+def _compute_shared_weekly_plan(
+    session: Session,
+    *,
+    family: Family,
+    data: SharedWeeklyPlanProposalCreate,
+) -> _ComputedWeeklyPlan:
+    with (
+        weekly_debug_span(
+            "WEEKLY",
+            "proposal",
+            family=family.id,
+            slots=len(data.slots),
+            people=len(data.person_ids),
+        ),
+        weekly_planning_cache_scope(session),
+    ):
+        return _compute_shared_weekly_plan_uncached(
+            session,
+            family=family,
+            data=data,
+        )
 
 def propose_shared_weekly_plan(
     session: Session,

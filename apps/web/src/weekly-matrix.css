@@ -7,16 +7,15 @@
 }
 
 .weekly-calendar-scroll {
-  overflow-x: auto;
-  padding-bottom: 0.35rem;
-  scrollbar-width: thin;
+  overflow-x: hidden;
+  padding-bottom: 0.1rem;
 }
 
 .weekly-calendar-scroll .weekly-day-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(132px, 1fr));
-  gap: 0.45rem;
-  min-width: 970px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.35rem;
+  min-width: 0;
 }
 
 .weekly-calendar-scroll .weekly-grid-day {
@@ -257,6 +256,18 @@
 }
 
 @media (max-width: 900px) {
+  .weekly-calendar-scroll {
+    overflow-x: auto;
+    padding-bottom: 0.35rem;
+    scrollbar-width: thin;
+  }
+
+  .weekly-calendar-scroll .weekly-day-grid {
+    grid-template-columns: repeat(7, minmax(118px, 1fr));
+    gap: 0.4rem;
+    min-width: 850px;
+  }
+
   .weekly-day-meals {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

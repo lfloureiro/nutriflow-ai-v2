@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { FamilyMealPlan } from "./api/mealPlanTypes";
+import type { ShoppingList } from "./api/pantryShoppingTypes";
 import type {
   SharedWeeklyPlanChoice,
   SharedWeeklyPlanProposalRequest,
@@ -11,6 +12,8 @@ import {
   isWeekendDate,
   mealEntryFor,
   weeklySourcesFor,
+  weeklySkippedSlotMessages,
+  shoppingRefreshSummary,
 } from "./WeeklyProposalPreview";
 
 describe("weekly proposal calendar dates", () => {
@@ -52,6 +55,28 @@ describe("weekly meal source policy", () => {
 
   it("keeps weekday dinner as a home-cooked family meal", () => {
     expect(weeklySourcesFor("2026-09-17", "dinner")).toEqual(["cooked"]);
+  });
+});
+
+describe("server-authoritative unavailable weekly slots", () => {
+  it("keeps an unavailable weekday delivery lunch visibly pending", () => {
+    expect(
+      weeklySkippedSlotMessages(
+        [
+          {
+            slot_key: "2026-09-15:lunch",
+            planning_date: "2026-09-15",
+            meal_type: "lunch",
+            reason: "no_eligible_candidates",
+            exclusion_reasons: ["candidate_unavailable"],
+          },
+        ],
+        "pt-PT",
+      ),
+    ).toEqual({
+      "2026-09-15:lunch":
+        "Almoço de dia útil: primeiro devem ser usadas sobras reais do jantar anterior; sem sobras, só entra uma opção Uber Eats/Glovo com disponibilidade conhecida. Ainda não existe uma opção automática segura para este slot.",
+    });
   });
 });
 
@@ -177,6 +202,80 @@ describe("weekly application identity", () => {
           replacement_food_item_id: "replacement-id",
         },
       ],
+    });
+  });
+});
+
+
+describe("weekly shopping refresh summary", () => {
+  const list: ShoppingList = {
+    id: "shopping-list",
+    family_id: "family",
+    title: "Compras",
+    status: "active",
+    planning_start: "2026-09-14",
+    planning_end: "2026-09-20",
+    generated_at: "2026-09-14T08:00:00Z",
+    requirements: [],
+    planning_issues: ["Recipe missing safe yield evidence"],
+    items: [
+      {
+        id: "auto-needed",
+        food_item_id: "food-1",
+        name: "Espinafres",
+        quantity: "300",
+        unit: "g",
+        item_source: "automatic",
+        status: "needed",
+        notes: null,
+        sort_order: 0,
+      },
+      {
+        id: "auto-purchased",
+        food_item_id: "food-2",
+        name: "Tomate",
+        quantity: "500",
+        unit: "g",
+        item_source: "automatic",
+        status: "purchased",
+        notes: null,
+        sort_order: 1,
+      },
+      {
+        id: "manual-needed",
+        food_item_id: null,
+        name: "Guardanapos",
+        quantity: null,
+        unit: null,
+        item_source: "manual",
+        status: "needed",
+        notes: null,
+        sort_order: 10000,
+      },
+    ],
+    created_at: "2026-09-14T08:00:00Z",
+    updated_at: "2026-09-14T08:00:00Z",
+  };
+
+  it("counts only automatic ingredients that are still needed", () => {
+    expect(shoppingRefreshSummary(list)).toEqual({
+      automaticNeeded: 1,
+      planningIssues: 1,
+    });
+  });
+
+  it("reports zero when all automatic requirements are already covered", () => {
+    expect(
+      shoppingRefreshSummary({
+        ...list,
+        planning_issues: [],
+        items: list.items.map((item) =>
+          item.item_source === "automatic" ? { ...item, status: "purchased" as const } : item,
+        ),
+      }),
+    ).toEqual({
+      automaticNeeded: 0,
+      planningIssues: 0,
     });
   });
 });

@@ -83,6 +83,8 @@ class SharedMealCandidateEvaluation:
     weekly_mandatory_support_total: int = 0
     weekly_advisory_support_participants: int = 0
     weekly_advisory_support_total: int = 0
+    planning_category: str | None = None
+    primary_protein: str | None = None
 
 
 def shared_candidate_ranking_key(

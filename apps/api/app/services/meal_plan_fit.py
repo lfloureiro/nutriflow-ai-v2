@@ -30,6 +30,8 @@ from app.services.meal_recommendation_api import (
 )
 from app.services.nutrition_plan import NutritionPlanError, compile_effective_nutrition_plan
 from app.services.serving_nutrition import UnsupportedUnitConversionError, convert_quantity
+from app.services.weekly_debug import weekly_debug, weekly_debug_span
+from app.services.weekly_planning_request_cache import current_weekly_planning_cache
 
 ZERO = Decimal(0)
 ONE = Decimal(1)
@@ -436,47 +438,78 @@ def _candidate_read(candidate: MealCandidate) -> MealPlanFitCandidateRead:
     )
 
 
-def evaluate_meal_plan_fit(
+def evaluate_loaded_meal_plan_fit(
     db: Session,
     *,
-    person_id: uuid.UUID,
-    data: MealPlanFitCreate,
+    person: Person,
+    daily_state: DailyNutritionState | None,
+    candidate: MealCandidate,
+    planning_date: date,
+    meal_type: str,
 ) -> MealPlanFitRead:
-    person = _load_person(db, person_id)
-    daily_state = _load_daily_state(
-        db,
-        person_id=person.id,
-        planning_date=data.planning_date,
-        state_id=data.daily_nutrition_state_id,
+    if person.id is None or person.family_id is None:
+        raise MealPlanFitError("Plan-Fit requires a persisted Person and Family.")
+    if daily_state is not None:
+        if daily_state.person_id != person.id:
+            raise MealPlanFitError("DailyNutritionState belongs to a different Person.")
+        if daily_state.state_date != planning_date:
+            raise MealPlanFitError(
+                "DailyNutritionState state_date must match planning_date."
+            )
+
+    composition_id = None
+    if candidate.food_composition is not None:
+        composition_id = candidate.food_composition.id
+    elif candidate.recipe_composition is not None:
+        composition_id = candidate.recipe_composition.id
+    weekly_debug(
+        "PLANFIT",
+        "candidate-start",
+        person=person.id,
+        date=planning_date,
+        meal_type=meal_type,
+        composition=composition_id,
+        quantity=candidate.quantity,
+        unit=candidate.quantity_unit,
     )
 
-    candidates = _load_candidates(
-        db,
-        family_id=person.family_id,
-        inputs=[data.candidate],
-    )
-    _validate_candidate_meal_types(
-        db,
-        family_id=person.family_id,
-        meal_type=data.meal_type,
-        candidates=candidates,
-    )
-    candidate = candidates[0]
-
+    cache = current_weekly_planning_cache(db)
+    effective_key = (person.id, planning_date, meal_type)
     try:
-        effective_plan: EffectiveNutritionPlanRead = compile_effective_nutrition_plan(
-            db,
-            person_id=person.id,
-            on_date=data.planning_date,
-            meal_type=data.meal_type,
+        effective_plan: EffectiveNutritionPlanRead | None = (
+            cache.effective_plans.get(effective_key) if cache is not None else None
         )
+        if effective_plan is None:
+            with weekly_debug_span(
+                "PLANFIT",
+                "compile-effective-plan",
+                person=person.id,
+                date=planning_date,
+                meal_type=meal_type,
+            ):
+                effective_plan = compile_effective_nutrition_plan(
+                    db,
+                    person_id=person.id,
+                    on_date=planning_date,
+                    meal_type=meal_type,
+                )
+            if cache is not None:
+                cache.effective_plans[effective_key] = effective_plan
+        else:
+            weekly_debug(
+                "PLANFIT",
+                "cache-hit-effective-plan",
+                person=person.id,
+                date=planning_date,
+                meal_type=meal_type,
+            )
     except NutritionPlanError as exc:
         raise MealPlanFitError(str(exc)) from exc
 
     safety_issues = _mandatory_reaction_issues(
         list(person.food_adverse_reactions),
         candidate=candidate,
-        planning_date=data.planning_date,
+        planning_date=planning_date,
     )
     rule_results = [
         _evaluate_rule(rule, candidate=candidate, daily_state=daily_state)
@@ -563,10 +596,20 @@ def evaluate_meal_plan_fit(
             "Qualitative and weekly-frequency guidelines are displayed but not included in fit_score v1."
         )
 
+    weekly_debug(
+        "PLANFIT",
+        "candidate-ready",
+        person=person.id,
+        candidate=candidate.key,
+        status=status,
+        eligible=eligible,
+        rules=len(rule_results),
+        guidelines=len(guideline_results),
+    )
     return MealPlanFitRead(
         person_id=person.id,
-        planning_date=data.planning_date,
-        meal_type=data.meal_type,
+        planning_date=planning_date,
+        meal_type=meal_type,
         daily_nutrition_state_id=daily_state.id if daily_state is not None else None,
         candidate=_candidate_read(candidate),
         eligible=eligible,
@@ -578,4 +621,38 @@ def evaluate_meal_plan_fit(
         rule_results=rule_results,
         guideline_results=guideline_results,
         explanation=explanation,
+    )
+
+
+def evaluate_meal_plan_fit(
+    db: Session,
+    *,
+    person_id: uuid.UUID,
+    data: MealPlanFitCreate,
+) -> MealPlanFitRead:
+    person = _load_person(db, person_id)
+    daily_state = _load_daily_state(
+        db,
+        person_id=person.id,
+        planning_date=data.planning_date,
+        state_id=data.daily_nutrition_state_id,
+    )
+    candidates = _load_candidates(
+        db,
+        family_id=person.family_id,
+        inputs=[data.candidate],
+    )
+    _validate_candidate_meal_types(
+        db,
+        family_id=person.family_id,
+        meal_type=data.meal_type,
+        candidates=candidates,
+    )
+    return evaluate_loaded_meal_plan_fit(
+        db,
+        person=person,
+        daily_state=daily_state,
+        candidate=candidates[0],
+        planning_date=data.planning_date,
+        meal_type=data.meal_type,
     )

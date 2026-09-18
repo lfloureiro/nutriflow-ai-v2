@@ -92,6 +92,14 @@ export type SharedWeeklyPlanSelection = {
   choices: SharedWeeklyPlanChoice[];
 };
 
+export type SharedWeeklyPlanSkippedSlot = {
+  slot_key: string;
+  planning_date: string;
+  meal_type: WeeklyPlanningMealType;
+  reason: "no_eligible_candidates";
+  exclusion_reasons: string[];
+};
+
 export type SharedWeeklyPlanProposal = {
   family_id: string;
   participant_ids: string[];
@@ -100,6 +108,7 @@ export type SharedWeeklyPlanProposal = {
   engine_version: string;
   slot_engine_versions: Record<string, string>;
   selected_plan: SharedWeeklyPlanSelection | null;
+  skipped_slots: SharedWeeklyPlanSkippedSlot[];
   evaluated_combinations: number;
   feasible_combinations: number;
   rejected_by_person_weekly_maximum: number;
