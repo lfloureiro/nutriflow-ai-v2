@@ -26,12 +26,21 @@ from app.schemas.nutrition_plan import (
     NutritionPlanGuidelineCreate,
     NutritionPlanUpdate,
 )
+from app.schemas.shared_meal_transformation import (
+    SharedMealTransformationCreate,
+    SharedMealTransformationParticipantCreate,
+)
+from app.schemas.shared_practical_recommendation import SharedPracticalRecommendationCreate
 from app.schemas.weekly_planning import SharedWeeklyPlanningSlotCreate
 from app.services.nutrition_plan import (
     add_nutrition_plan_guideline,
     create_nutrition_plan,
     update_nutrition_plan,
 )
+from app.services.shared_practical_recommendation_api import (
+    compute_shared_practical_recommendation_with_contexts,
+)
+from app.services.shared_meal_transformation import propose_shared_meal_transformations
 from app.services.weekly_planning_api import _planning_slot
 
 PLANNING_DATE = date(2026, 9, 17)
@@ -349,6 +358,85 @@ def test_weekly_proposal_can_select_plan_adapted_variant_when_base_is_ineligible
     }
 
     slot_model = SharedWeeklyPlanningSlotCreate.model_validate(payload["slots"][0])
+    shared_request = SharedPracticalRecommendationCreate(
+        person_ids=[DEMO_PERSON_ID, DEMO_MARTA_ID],
+        planning_date=slot_model.planning_date,
+        scheduled_at=slot_model.scheduled_at,
+        meal_type=slot_model.meal_type,
+        candidates=slot_model.candidates,
+        location=slot_model.location,
+        available_minutes=slot_model.available_minutes,
+        has_kitchen=slot_model.has_kitchen,
+        source_kinds=slot_model.source_kinds,
+        delivery_provider_keys=slot_model.delivery_provider_keys,
+        provisional_history=slot_model.provisional_history,
+        auto_size_portions=slot_model.auto_size_portions,
+        max_results=None,
+    )
+    shared_result, _, _ = compute_shared_practical_recommendation_with_contexts(
+        db_session,
+        family=family,
+        data=shared_request,
+    )
+    shared_evaluation = shared_result.evaluations[0]
+    transformation_participants = [
+        SharedMealTransformationParticipantCreate(
+            person_id=participant.person.id,
+            daily_nutrition_state_id=participant.plan_fit.daily_nutrition_state_id,
+            quantity=participant.portion.quantity,
+            quantity_unit=participant.portion.quantity_unit,
+        )
+        for participant in shared_evaluation.participant_evaluations
+        if participant.person.id is not None and participant.plan_fit is not None
+    ]
+    direct_transformations = propose_shared_meal_transformations(
+        db_session,
+        family_id=DEMO_FAMILY_ID,
+        data=SharedMealTransformationCreate(
+            planning_date=slot_model.planning_date,
+            meal_type=slot_model.meal_type,
+            recipe_id=recipe.id,
+            participants=transformation_participants,
+            max_proposals=3,
+        ),
+    )
+    assert direct_transformations.proposals, {
+        "participant_states": [
+            {
+                "person_id": str(item.person_id),
+                "state_id": str(item.daily_nutrition_state_id),
+            }
+            for item in transformation_participants
+        ],
+        "limitations": direct_transformations.limitations,
+        "baseline": [
+            {
+                "person_id": str(item.person_id),
+                "eligible": item.fit.eligible,
+                "status": item.fit.status,
+            }
+            for item in direct_transformations.baseline
+        ],
+    }
+    assert any(
+        all(result.after_fit.eligible for result in proposal.participant_results)
+        for proposal in direct_transformations.proposals
+    ), [
+        {
+            "replacement": proposal.operation.replacement_food_name,
+            "participants": [
+                {
+                    "person_id": str(result.person_id),
+                    "before_eligible": result.before_fit.eligible,
+                    "after_eligible": result.after_fit.eligible,
+                    "after_status": result.after_fit.status,
+                    "after_safety": result.after_fit.safety_issues,
+                }
+                for result in proposal.participant_results
+            ],
+        }
+        for proposal in direct_transformations.proposals
+    ]
     planning_slot, slot_engine_version, metadata = _planning_slot(
         db_session,
         family=family,
