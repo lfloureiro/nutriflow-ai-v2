@@ -318,18 +318,39 @@ def _evaluate_choices(
 
 def _ranking_key(plan: SharedWeeklyPlanEvaluation) -> tuple[object, ...]:
     selection_keys = tuple(choice.candidate.selection_key for choice in plan.choices)
+    has_structured_traits = any(
+        choice.candidate.evaluation.planning_category is not None
+        or choice.candidate.evaluation.primary_protein is not None
+        for choice in plan.choices
+        if choice.meal_type in {"lunch", "dinner"}
+    )
+    if has_structured_traits:
+        return (
+            -plan.mandatory_support_participants,
+            -plan.mandatory_support_total,
+            -plan.advisory_support_participants,
+            -plan.advisory_support_total,
+            plan.repeated_candidate_count,
+            plan.adjacent_category_repeat_count,
+            plan.adjacent_protein_repeat_count,
+            -plan.distinct_main_categories,
+            -plan.distinct_main_proteins,
+            -plan.minimum_participant_score,
+            -plan.average_participant_score,
+            selection_keys,
+        )
+
+    repeat_penalty = EXACT_REPEAT_SCORE_PENALTY * plan.repeated_candidate_count
+    diversity_adjusted_minimum = plan.minimum_participant_score - repeat_penalty
+    diversity_adjusted_average = plan.average_participant_score - repeat_penalty
     return (
         -plan.mandatory_support_participants,
         -plan.mandatory_support_total,
         -plan.advisory_support_participants,
         -plan.advisory_support_total,
+        -diversity_adjusted_minimum,
+        -diversity_adjusted_average,
         plan.repeated_candidate_count,
-        plan.adjacent_category_repeat_count,
-        plan.adjacent_protein_repeat_count,
-        -plan.distinct_main_categories,
-        -plan.distinct_main_proteins,
-        -plan.minimum_participant_score,
-        -plan.average_participant_score,
         selection_keys,
     )
 
