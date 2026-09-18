@@ -215,7 +215,7 @@ def test_weekly_proposal_returns_selected_shared_plan_without_meal_events(
     assert body["week_end"] == "2026-09-20"
     assert body["evaluated_combinations"] == 1
     assert body["feasible_combinations"] == 1
-    assert body["selected_plan"] is not None
+    assert body["selected_plan"] is not None, body
     choice = body["selected_plan"]["choices"][0]
     assert choice["slot_key"] == "thu-lunch"
     assert choice["candidate_key"] == recipe.recipe_key
