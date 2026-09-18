@@ -153,3 +153,76 @@ def test_nutrition_plan_import_api_review_apply_and_activate(db_session: Session
             assert edit_after_apply.status_code == 422
     finally:
         app.dependency_overrides.clear()
+
+def test_chatgpt_assisted_import_api_builds_prompt_and_accepts_validated_response(
+    db_session: Session,
+) -> None:
+    person = _person(db_session)
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    payload = {
+        "title": "Plano ChatGPT",
+        "source_type": "nutritionist",
+        "source_name": "Nutricionista API",
+        "source_reference": "plano.pdf",
+        "source_text": "Ao pequeno-almoço consumir pelo menos 30 g de proteína.",
+        "valid_from": "2026-09-15",
+        "valid_until": None,
+    }
+    response_payload = {
+        "proposals": [
+            {
+                "source_statement": "consumir pelo menos 30 g de proteína",
+                "proposal_type": "numeric_rule",
+                "target_type": "nutrient",
+                "target_key": "protein",
+                "operator": "min",
+                "value_min": 30,
+                "value_max": None,
+                "value_target": None,
+                "unit": "g",
+                "description": None,
+                "meal_type": "breakfast",
+                "period": None,
+                "minimum_occurrences": None,
+                "maximum_occurrences": None,
+                "severity": "required",
+                "is_mandatory": True,
+                "priority": 100,
+                "confidence": 0.97,
+                "parser_note": "Explicit numeric minimum.",
+            }
+        ],
+        "summary": "Uma recomendação estruturada.",
+    }
+
+    try:
+        with TestClient(app) as client:
+            prompt_response = client.post(
+                f"/api/persons/{person.id}/nutrition-plan-imports/chatgpt/prompt",
+                json=payload,
+            )
+            assert prompt_response.status_code == 200
+            prompt = prompt_response.json()["prompt"]
+            assert "SOURCE TEXT START" in prompt
+            assert "30 g de proteína" in prompt
+
+            import_response = client.post(
+                f"/api/persons/{person.id}/nutrition-plan-imports/chatgpt",
+                json={
+                    "plan": payload,
+                    "response_text": __import__("json").dumps(
+                        response_payload,
+                        ensure_ascii=False,
+                    ),
+                },
+            )
+            assert import_response.status_code == 201
+            imported = import_response.json()
+            assert imported["parser_name"] == "chatgpt-assisted"
+            assert imported["status"] == "review"
+            assert imported["nutrition_plan"]["status"] == "draft"
+            assert imported["proposals"][0]["confirmation_status"] == "proposed"
+            assert imported["proposals"][0]["target_key"] == "protein"
+    finally:
+        app.dependency_overrides.clear()
+
