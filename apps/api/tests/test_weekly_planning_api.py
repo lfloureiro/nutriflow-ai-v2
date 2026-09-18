@@ -315,10 +315,12 @@ def test_weekly_proposal_skips_unavailable_slot_but_plans_remaining_slots(
             "planning_date": PLANNING_DATE.isoformat(),
             "meal_type": "lunch",
             "reason": "no_eligible_candidates",
-            "exclusion_reasons": [
-                f"person:{ana.id}:candidate_unavailable",
-                f"person:{bruno.id}:candidate_unavailable",
-            ],
+            "exclusion_reasons": sorted(
+                [
+                    f"person:{ana.id}:candidate_unavailable",
+                    f"person:{bruno.id}:candidate_unavailable",
+                ]
+            ),
         }
     ]
     assert body["search_space_size"] == 1
