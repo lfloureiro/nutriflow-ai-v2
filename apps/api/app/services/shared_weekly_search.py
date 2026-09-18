@@ -46,7 +46,7 @@ def _candidate_hint_key(candidate: SharedWeeklyPlanningCandidate) -> tuple[objec
         rank,
         -(minimum_score if minimum_score is not None else 0),
         -(average_score if average_score is not None else 0),
-        evaluation.candidate_key,
+        candidate.selection_key,
     )
 
 
@@ -147,7 +147,7 @@ def optimize_shared_weekly_slots_scalable(
                             previous_key,
                             _candidate_hint_key(candidate),
                             tuple(
-                                item.candidate.evaluation.candidate_key for item in choices
+                                item.candidate.selection_key for item in choices
                             ),
                         ),
                         choices,

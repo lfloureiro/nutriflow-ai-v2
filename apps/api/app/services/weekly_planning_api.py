@@ -1,9 +1,15 @@
 import uuid
+from dataclasses import replace
 from datetime import timedelta
 
 from sqlalchemy.orm import Session
 
 from app.models.family import Family
+from app.models.food_catalog import FoodItem
+from app.schemas.shared_meal_transformation import (
+    SharedMealTransformationCreate,
+    SharedMealTransformationParticipantCreate,
+)
 from app.schemas.shared_practical_recommendation import SharedPracticalRecommendationCreate
 from app.schemas.weekly_planning import (
     SharedWeeklyPlanChoiceRead,
@@ -12,9 +18,25 @@ from app.schemas.weekly_planning import (
     SharedWeeklyPlanProposalCreate,
     SharedWeeklyPlanProposalRead,
     SharedWeeklyPlanSelectionRead,
+    SharedWeeklyPlanTransformationRead,
+)
+from app.services.recommendation_weekly_frequency import weekly_support_counts
+from app.services.serving_nutrition import NutrientSnapshot, NutritionSnapshot
+from app.services.shared_family_meal import (
+    SharedMealCandidateEvaluation,
+    SharedMealParticipantEvaluation,
+    _participant_exclusions,
+    _score_summary,
+)
+from app.services.shared_family_meal_plan_fit import (
+    _evaluate_participant_candidate,
+)
+from app.services.shared_meal_transformation import (
+    _transformed_subjects,
+    propose_shared_meal_transformations,
 )
 from app.services.shared_practical_recommendation_api import (
-    compute_shared_practical_recommendation,
+    compute_shared_practical_recommendation_with_contexts,
 )
 from app.services.shared_weekly_multi_slot_planning import (
     SharedWeeklyMultiSlotPlanningError,
@@ -28,13 +50,214 @@ class WeeklyPlanningApiError(ValueError):
     pass
 
 
+def _transformation_variant_key(
+    candidate_key: str,
+    *,
+    recipe_ingredient_id: uuid.UUID,
+    replacement_food_item_id: uuid.UUID,
+) -> str:
+    return (
+        f"{candidate_key}::replace:"
+        f"{recipe_ingredient_id}:{replacement_food_item_id}"
+    )
+
+
+def _transformed_weekly_candidate(
+    session: Session,
+    *,
+    original: SharedWeeklyPlanningCandidate,
+    contexts_by_person_id,
+    proposal,
+    planning_date,
+    engine_version: str,
+) -> SharedWeeklyPlanningCandidate | None:
+    by_person = {item.person_id: item for item in proposal.participant_results}
+    transformed_participants: list[SharedMealParticipantEvaluation] = []
+    plan_fits = []
+
+    for participant in original.evaluation.participant_evaluations:
+        person_id = participant.person.id
+        source_candidate = participant.evaluation.candidate
+        if person_id is None or source_candidate.recipe is None:
+            return None
+        transformed = by_person.get(person_id)
+        context = contexts_by_person_id.get(person_id)
+        if transformed is None or context is None or not transformed.after_fit.eligible:
+            return None
+
+        replacement = session.get(
+            FoodItem,
+            proposal.operation.replacement_food_item_id,
+        )
+        if replacement is None:
+            return None
+
+        transformed_candidate = replace(
+            source_candidate,
+            nutrition=NutritionSnapshot(
+                energy_kcal=transformed.after_fit.candidate.nutrition.energy_kcal,
+                nutrients={
+                    key: NutrientSnapshot(value=value.value, unit=value.unit)
+                    for key, value in transformed.after_fit.candidate.nutrition.nutrients.items()
+                },
+            ),
+            subjects=_transformed_subjects(
+                source_candidate.recipe,
+                source_ingredient_id=proposal.operation.recipe_ingredient_id,
+                replacement=replacement,
+            ),
+        )
+        evaluation = _evaluate_participant_candidate(
+            context,
+            transformed_candidate,
+            plan_fits={source_candidate.key: transformed.after_fit},
+            planning_date=planning_date,
+            engine_version=f"{engine_version}+shared-transformation-v1",
+        )
+        transformed_participants.append(
+            SharedMealParticipantEvaluation(
+                person=participant.person,
+                portion=participant.portion,
+                evaluation=evaluation,
+                plan_fit=transformed.after_fit,
+            )
+        )
+        plan_fits.append(transformed.after_fit)
+
+    participant_tuple = tuple(transformed_participants)
+    if not participant_tuple:
+        return None
+    minimum_score, average_score = _score_summary(participant_tuple)
+    eligible = all(item.evaluation.eligible for item in participant_tuple)
+
+    mandatory_participants = 0
+    mandatory_total = 0
+    advisory_participants = 0
+    advisory_total = 0
+    for fit in plan_fits:
+        mandatory, advisory = weekly_support_counts(fit)
+        if mandatory:
+            mandatory_participants += 1
+            mandatory_total += mandatory
+        if advisory:
+            advisory_participants += 1
+            advisory_total += advisory
+
+    shared_evaluation = SharedMealCandidateEvaluation(
+        candidate_key=original.evaluation.candidate_key,
+        candidate_name=original.evaluation.candidate_name,
+        candidate_kind=original.evaluation.candidate_kind,
+        eligible=eligible,
+        rank=None,
+        minimum_score=minimum_score,
+        average_score=average_score,
+        participant_evaluations=participant_tuple,
+        exclusion_reasons=_participant_exclusions(participant_tuple),
+        weekly_mandatory_support_participants=mandatory_participants,
+        weekly_mandatory_support_total=mandatory_total,
+        weekly_advisory_support_participants=advisory_participants,
+        weekly_advisory_support_total=advisory_total,
+    )
+    return SharedWeeklyPlanningCandidate(
+        evaluation=shared_evaluation,
+        plan_fits=tuple(plan_fits),
+        variant_key=_transformation_variant_key(
+            original.evaluation.candidate_key,
+            recipe_ingredient_id=proposal.operation.recipe_ingredient_id,
+            replacement_food_item_id=proposal.operation.replacement_food_item_id,
+        ),
+    )
+
+
+def _transformation_candidates(
+    session: Session,
+    *,
+    family: Family,
+    original: SharedWeeklyPlanningCandidate,
+    contexts_by_person_id,
+    planning_date,
+    meal_type,
+    engine_version: str,
+) -> tuple[
+    list[SharedWeeklyPlanningCandidate],
+    dict[str, SharedWeeklyPlanTransformationRead],
+]:
+    evaluation = original.evaluation
+    if evaluation.candidate_kind != "recipe":
+        return [], {}
+
+    first = evaluation.participant_evaluations[0]
+    recipe = first.evaluation.candidate.recipe
+    if recipe is None or recipe.id is None:
+        return [], {}
+
+    participants: list[SharedMealTransformationParticipantCreate] = []
+    for participant in evaluation.participant_evaluations:
+        person_id = participant.person.id
+        if person_id is None:
+            return [], {}
+        fit = participant.plan_fit
+        participants.append(
+            SharedMealTransformationParticipantCreate(
+                person_id=person_id,
+                daily_nutrition_state_id=(
+                    fit.daily_nutrition_state_id if fit is not None else None
+                ),
+                quantity=participant.portion.quantity,
+                quantity_unit=participant.portion.quantity_unit,
+            )
+        )
+
+    transformed = propose_shared_meal_transformations(
+        session,
+        family_id=family.id,
+        data=SharedMealTransformationCreate(
+            planning_date=planning_date,
+            meal_type=meal_type,
+            recipe_id=recipe.id,
+            participants=participants,
+            max_proposals=3,
+        ),
+    )
+
+    candidates: list[SharedWeeklyPlanningCandidate] = []
+    metadata: dict[str, SharedWeeklyPlanTransformationRead] = {}
+    for proposal in transformed.proposals:
+        candidate = _transformed_weekly_candidate(
+            session,
+            original=original,
+            contexts_by_person_id=contexts_by_person_id,
+            proposal=proposal,
+            planning_date=planning_date,
+            engine_version=engine_version,
+        )
+        if candidate is None:
+            continue
+        candidates.append(candidate)
+        metadata[candidate.selection_key] = SharedWeeklyPlanTransformationRead(
+            kind=proposal.kind,
+            recipe_id=recipe.id,
+            operation=proposal.operation,
+            plan_improvement_participants=proposal.plan_improvement_participants,
+            preference_improvement_participants=(
+                proposal.preference_improvement_participants
+            ),
+            explanation=list(proposal.explanation),
+        )
+    return candidates, metadata
+
+
 def _planning_slot(
     session: Session,
     *,
     family: Family,
     person_ids: list[uuid.UUID],
     slot: SharedWeeklyPlanningSlotCreate,
-) -> tuple[SharedWeeklyPlanningSlot, str]:
+) -> tuple[
+    SharedWeeklyPlanningSlot,
+    str,
+    dict[str, SharedWeeklyPlanTransformationRead],
+]:
     request = SharedPracticalRecommendationCreate(
         person_ids=person_ids,
         planning_date=slot.planning_date,
@@ -50,13 +273,19 @@ def _planning_slot(
         auto_size_portions=slot.auto_size_portions,
         max_results=None,
     )
-    recommendation, _ = compute_shared_practical_recommendation(
+    recommendation, _, contexts = compute_shared_practical_recommendation_with_contexts(
         session,
         family=family,
         data=request,
     )
+    contexts_by_person_id = {
+        context.person.id: context
+        for context in contexts
+        if context.person.id is not None
+    }
 
     candidates: list[SharedWeeklyPlanningCandidate] = []
+    transformation_metadata: dict[str, SharedWeeklyPlanTransformationRead] = {}
     for evaluation in recommendation.evaluations:
         plan_fits = []
         for participant in evaluation.participant_evaluations:
@@ -65,12 +294,28 @@ def _planning_slot(
                     "Server-authoritative Person Plan-Fit evidence is missing from a shared candidate."
                 )
             plan_fits.append(participant.plan_fit)
-        candidates.append(
-            SharedWeeklyPlanningCandidate(
-                evaluation=evaluation,
-                plan_fits=tuple(plan_fits),
-            )
+
+        base_candidate = SharedWeeklyPlanningCandidate(
+            evaluation=evaluation,
+            plan_fits=tuple(plan_fits),
         )
+        candidates.append(base_candidate)
+
+        transformed_candidates, transformed_metadata = _transformation_candidates(
+            session,
+            family=family,
+            original=base_candidate,
+            contexts_by_person_id=contexts_by_person_id,
+            planning_date=slot.planning_date,
+            meal_type=slot.meal_type,
+            engine_version=recommendation.engine_version,
+        )
+        candidates.extend(transformed_candidates)
+        transformation_metadata.update(transformed_metadata)
+
+    engine_version = recommendation.engine_version
+    if transformation_metadata:
+        engine_version = f"{engine_version}+weekly-transformations-v1"
 
     return (
         SharedWeeklyPlanningSlot(
@@ -79,7 +324,8 @@ def _planning_slot(
             meal_type=slot.meal_type,
             candidates=tuple(candidates),
         ),
-        recommendation.engine_version,
+        engine_version,
+        transformation_metadata,
     )
 
 
@@ -101,9 +347,13 @@ def propose_shared_weekly_plan(
 
     planning_slots: list[SharedWeeklyPlanningSlot] = []
     slot_engine_versions: dict[str, str] = {}
+    transformations_by_slot: dict[
+        str,
+        dict[str, SharedWeeklyPlanTransformationRead],
+    ] = {}
     slots_by_key = {slot.slot_key: slot for slot in data.slots}
     for slot in data.slots:
-        planning_slot, engine_version = _planning_slot(
+        planning_slot, engine_version, transformation_metadata = _planning_slot(
             session,
             family=family,
             person_ids=data.person_ids,
@@ -111,6 +361,7 @@ def propose_shared_weekly_plan(
         )
         planning_slots.append(planning_slot)
         slot_engine_versions[slot.slot_key] = engine_version
+        transformations_by_slot[slot.slot_key] = transformation_metadata
 
     try:
         result = optimize_shared_weekly_slots_scalable(
@@ -161,6 +412,9 @@ def propose_shared_weekly_plan(
                     minimum_score=choice.candidate.evaluation.minimum_score,
                     average_score=choice.candidate.evaluation.average_score,
                     participants=participant_reads,
+                    transformation=transformations_by_slot[choice.slot_key].get(
+                        choice.candidate.selection_key
+                    ),
                 )
             )
         selected_read = SharedWeeklyPlanSelectionRead(

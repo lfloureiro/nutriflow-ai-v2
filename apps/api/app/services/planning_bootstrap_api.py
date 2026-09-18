@@ -219,10 +219,11 @@ def _ensure_daily_state(
 
 def _preserve_synthetic_demo_state(state: DailyNutritionState) -> bool:
     inputs = state.calculation_inputs or {}
-    return (
-        state.calculation_version == "demo-energy-budget-v1"
-        and inputs.get("source") == "synthetic-development-demo"
-    )
+    marker = (state.calculation_version, inputs.get("source"))
+    return marker in {
+        ("demo-seed-v1", "development-demo-seed"),
+        ("demo-energy-budget-v1", "synthetic-development-demo"),
+    }
 
 
 def _daily_state_read(state: DailyNutritionState) -> PlanningDailyNutritionStateRead:

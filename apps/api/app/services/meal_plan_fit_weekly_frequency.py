@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -10,6 +11,7 @@ from app.schemas.meal_plan_fit import (
     MealPlanFitGuidelineRead,
     MealPlanFitRead,
 )
+from app.schemas.meal_type import MealType
 from app.schemas.nutrition_plan import EffectiveNutritionGuidelineRead
 from app.schemas.weekly_frequency_progress import WeeklyFrequencyGuidelineProgressRead
 from app.services.meal_plan_fit import MealPlanFitError, evaluate_meal_plan_fit
@@ -339,39 +341,48 @@ def _recompute_fit(
     )
 
 
-def evaluate_meal_plan_fit_with_weekly_frequency(
+def apply_weekly_frequency_to_loaded_fit(
     db: Session,
     *,
-    person_id: uuid.UUID,
-    data: MealPlanFitCreate,
+    person: Person,
+    candidate: MealCandidate,
+    planning_date: date,
+    meal_type: MealType,
+    base_fit: MealPlanFitRead,
 ) -> MealPlanFitRead:
-    base_fit = evaluate_meal_plan_fit(db, person_id=person_id, data=data)
-    person = db.get(Person, person_id)
-    if person is None:
-        raise MealPlanFitWeeklyFrequencyError("Person not found.")
-    candidates = _load_candidates(
-        db,
-        family_id=person.family_id,
-        inputs=[data.candidate],
-    )
-    candidate = candidates[0]
+    if person.id is None or person.family_id is None:
+        raise MealPlanFitWeeklyFrequencyError(
+            "Weekly Plan-Fit requires a persisted Person and Family."
+        )
+    if base_fit.person_id != person.id:
+        raise MealPlanFitWeeklyFrequencyError(
+            "Base Plan-Fit belongs to a different Person."
+        )
+    if base_fit.planning_date != planning_date or base_fit.meal_type != meal_type:
+        raise MealPlanFitWeeklyFrequencyError(
+            "Base Plan-Fit belongs to a different planning slot."
+        )
+    if base_fit.candidate.key != candidate.key:
+        raise MealPlanFitWeeklyFrequencyError(
+            "Base Plan-Fit evidence does not match the loaded candidate."
+        )
+
     profile = _candidate_profile(
         db,
         family_id=person.family_id,
         candidate=candidate,
     )
-
     try:
         effective = compile_effective_nutrition_plan(
             db,
-            person_id=person_id,
-            on_date=data.planning_date,
-            meal_type=data.meal_type,
+            person_id=person.id,
+            on_date=planning_date,
+            meal_type=meal_type,
         )
         weekly = get_weekly_frequency_progress(
             db,
-            person_id=person_id,
-            anchor_date=data.planning_date,
+            person_id=person.id,
+            anchor_date=planning_date,
         )
     except (NutritionPlanError, WeeklyFrequencyProgressError) as exc:
         raise MealPlanFitWeeklyFrequencyError(str(exc)) from exc
@@ -391,3 +402,29 @@ def evaluate_meal_plan_fit_with_weekly_frequency(
         else:
             results.append(_qualitative_result(guideline))
     return _recompute_fit(base_fit, guideline_results=results)
+
+
+def evaluate_meal_plan_fit_with_weekly_frequency(
+    db: Session,
+    *,
+    person_id: uuid.UUID,
+    data: MealPlanFitCreate,
+) -> MealPlanFitRead:
+    base_fit = evaluate_meal_plan_fit(db, person_id=person_id, data=data)
+    person = db.get(Person, person_id)
+    if person is None:
+        raise MealPlanFitWeeklyFrequencyError("Person not found.")
+    candidates = _load_candidates(
+        db,
+        family_id=person.family_id,
+        inputs=[data.candidate],
+    )
+    candidate = candidates[0]
+    return apply_weekly_frequency_to_loaded_fit(
+        db,
+        person=person,
+        candidate=candidate,
+        planning_date=data.planning_date,
+        meal_type=data.meal_type,
+        base_fit=base_fit,
+    )

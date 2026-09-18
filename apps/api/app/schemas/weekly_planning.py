@@ -5,6 +5,7 @@ from decimal import Decimal
 from pydantic import BaseModel, Field
 
 from app.schemas.meal_recommendation import MealRecommendationCandidateInput
+from app.schemas.meal_transformation import MealTransformationOperationRead
 from app.schemas.meal_type import MealType
 from app.schemas.practical_recommendation import (
     PracticalSourceKind,
@@ -49,6 +50,15 @@ class SharedWeeklyPlanParticipantRead(BaseModel):
     explanation: list[str]
 
 
+class SharedWeeklyPlanTransformationRead(BaseModel):
+    kind: str
+    recipe_id: uuid.UUID
+    operation: MealTransformationOperationRead
+    plan_improvement_participants: int
+    preference_improvement_participants: int
+    explanation: list[str]
+
+
 class SharedWeeklyPlanChoiceRead(BaseModel):
     slot_key: str
     planning_date: date
@@ -60,6 +70,7 @@ class SharedWeeklyPlanChoiceRead(BaseModel):
     minimum_score: Decimal | None
     average_score: Decimal | None
     participants: list[SharedWeeklyPlanParticipantRead]
+    transformation: SharedWeeklyPlanTransformationRead | None = None
 
 
 class SharedWeeklyPlanSelectionRead(BaseModel):

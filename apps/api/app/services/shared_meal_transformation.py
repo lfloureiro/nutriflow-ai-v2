@@ -28,7 +28,10 @@ from app.services.meal_plan_fit import (
     MealPlanFitError,
     _load_daily_state,
     _load_person,
-    evaluate_meal_plan_fit,
+)
+from app.services.meal_plan_fit_weekly_frequency import (
+    apply_weekly_frequency_to_loaded_fit,
+    evaluate_meal_plan_fit_with_weekly_frequency,
 )
 from app.services.meal_recommendation import (
     MealCandidate,
@@ -342,7 +345,7 @@ def _participant_contexts(
             ),
         )
         try:
-            baseline_fit = evaluate_meal_plan_fit(
+            baseline_fit = evaluate_meal_plan_fit_with_weekly_frequency(
                 db,
                 person_id=person.id,
                 data=baseline_input,
@@ -427,13 +430,21 @@ def propose_shared_meal_transformations(
                 planning_date=data.planning_date,
                 state_id=participant.state_id,
             )
-            after_fit = _evaluate_loaded_candidate(
+            base_after_fit = _evaluate_loaded_candidate(
                 db,
                 person=participant.person,
                 candidate=candidate,
                 planning_date=data.planning_date,
                 meal_type=data.meal_type,
                 daily_state=daily_state,
+            )
+            after_fit = apply_weekly_frequency_to_loaded_fit(
+                db,
+                person=participant.person,
+                candidate=candidate,
+                planning_date=data.planning_date,
+                meal_type=data.meal_type,
+                base_fit=base_after_fit,
             )
             improved_ids, worsened_ids = _plan_rule_changes(
                 participant.baseline_fit,
