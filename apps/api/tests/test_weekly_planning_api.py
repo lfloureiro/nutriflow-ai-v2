@@ -440,7 +440,7 @@ def test_accept_weekly_transformation_materializes_exact_reviewed_variant(
         body["transformation_application_id"],
     )
     assert application is not None
-    assert application.meal_event_id == body["meal_event_id"]
+    assert str(application.meal_event_id) == body["meal_event_id"]
     assert application.transformation_kind == "plan_adapted"
     assert application.replacement_food_name == "Iogurte grego"
 
