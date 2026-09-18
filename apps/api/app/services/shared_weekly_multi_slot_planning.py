@@ -21,6 +21,7 @@ from app.services.weekly_multi_slot_planning import (
 )
 
 ENGINE_VERSION = "shared-weekly-multi-slot-v1"
+EXACT_REPEAT_SCORE_PENALTY = Decimal("0.2500")
 
 
 class SharedWeeklyMultiSlotPlanningError(ValueError):
@@ -285,13 +286,16 @@ def _evaluate_choices(
 
 def _ranking_key(plan: SharedWeeklyPlanEvaluation) -> tuple[object, ...]:
     selection_keys = tuple(choice.candidate.selection_key for choice in plan.choices)
+    repeat_penalty = EXACT_REPEAT_SCORE_PENALTY * plan.repeated_candidate_count
+    diversity_adjusted_minimum = plan.minimum_participant_score - repeat_penalty
+    diversity_adjusted_average = plan.average_participant_score - repeat_penalty
     return (
         -plan.mandatory_support_participants,
         -plan.mandatory_support_total,
         -plan.advisory_support_participants,
         -plan.advisory_support_total,
-        -plan.minimum_participant_score,
-        -plan.average_participant_score,
+        -diversity_adjusted_minimum,
+        -diversity_adjusted_average,
         plan.repeated_candidate_count,
         selection_keys,
     )
