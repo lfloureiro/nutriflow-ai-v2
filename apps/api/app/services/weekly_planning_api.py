@@ -1,5 +1,5 @@
 import uuid
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import timedelta
 
 from sqlalchemy.orm import Session
@@ -9,20 +9,25 @@ from app.models.food_catalog import FoodItem
 from app.schemas.shared_meal_transformation import (
     SharedMealTransformationCreate,
     SharedMealTransformationParticipantCreate,
+    SharedMealTransformationProposalRead,
 )
 from app.schemas.shared_practical_recommendation import SharedPracticalRecommendationCreate
 from app.schemas.weekly_planning import (
     SharedWeeklyPlanChoiceRead,
+    SharedWeeklyPlanCreate,
+    SharedWeeklyPlanMaterializedChoiceRead,
     SharedWeeklyPlanningSlotCreate,
     SharedWeeklyPlanParticipantRead,
     SharedWeeklyPlanProposalCreate,
     SharedWeeklyPlanProposalRead,
+    SharedWeeklyPlanRead,
     SharedWeeklyPlanSelectionRead,
     SharedWeeklyPlanTransformationRead,
 )
 from app.services.recommendation_weekly_frequency import weekly_support_counts
 from app.services.serving_nutrition import NutrientSnapshot, NutritionSnapshot
 from app.services.shared_family_meal import (
+    SharedFamilyMealRecommendationResult,
     SharedMealCandidateEvaluation,
     SharedMealParticipantEvaluation,
     _participant_exclusions,
@@ -33,8 +38,10 @@ from app.services.shared_family_meal_plan_fit import (
 )
 from app.services.shared_meal_transformation import (
     _transformed_subjects,
+    materialize_selected_shared_meal_transformation,
     propose_shared_meal_transformations,
 )
+from app.services.shared_family_meal_planning import materialize_shared_family_recommendation
 from app.services.shared_practical_recommendation_api import (
     compute_shared_practical_recommendation_with_contexts,
 )
@@ -43,11 +50,48 @@ from app.services.shared_weekly_multi_slot_planning import (
     SharedWeeklyPlanningCandidate,
     SharedWeeklyPlanningSlot,
 )
-from app.services.shared_weekly_search import optimize_shared_weekly_slots_scalable
+from app.services.shared_weekly_search import (
+    SharedWeeklySearchResult,
+    optimize_shared_weekly_slots_scalable,
+)
 
 
 class WeeklyPlanningApiError(ValueError):
     pass
+
+
+class WeeklyPlanningStaleError(WeeklyPlanningApiError):
+    pass
+
+
+@dataclass(frozen=True)
+class _WeeklyTransformationEvidence:
+    recipe_id: uuid.UUID
+    proposal: SharedMealTransformationProposalRead
+
+    def as_read(self) -> SharedWeeklyPlanTransformationRead:
+        return SharedWeeklyPlanTransformationRead(
+            kind=self.proposal.kind,
+            recipe_id=self.recipe_id,
+            operation=self.proposal.operation,
+            plan_improvement_participants=self.proposal.plan_improvement_participants,
+            preference_improvement_participants=(
+                self.proposal.preference_improvement_participants
+            ),
+            explanation=list(self.proposal.explanation),
+        )
+
+
+@dataclass(frozen=True)
+class _ComputedWeeklyPlan:
+    read: SharedWeeklyPlanProposalRead
+    result: SharedWeeklySearchResult
+    transformations_by_slot: dict[
+        str,
+        dict[str, _WeeklyTransformationEvidence],
+    ]
+    slots_by_key: dict[str, SharedWeeklyPlanningSlotCreate]
+    slot_engine_versions: dict[str, str]
 
 
 def _transformation_variant_key(
@@ -180,7 +224,7 @@ def _transformation_candidates(
     engine_version: str,
 ) -> tuple[
     list[SharedWeeklyPlanningCandidate],
-    dict[str, SharedWeeklyPlanTransformationRead],
+    dict[str, _WeeklyTransformationEvidence],
 ]:
     evaluation = original.evaluation
     if evaluation.candidate_kind != "recipe":
@@ -221,7 +265,7 @@ def _transformation_candidates(
     )
 
     candidates: list[SharedWeeklyPlanningCandidate] = []
-    metadata: dict[str, SharedWeeklyPlanTransformationRead] = {}
+    metadata: dict[str, _WeeklyTransformationEvidence] = {}
     for proposal in transformed.proposals:
         candidate = _transformed_weekly_candidate(
             session,
@@ -234,15 +278,9 @@ def _transformation_candidates(
         if candidate is None:
             continue
         candidates.append(candidate)
-        metadata[candidate.selection_key] = SharedWeeklyPlanTransformationRead(
-            kind=proposal.kind,
+        metadata[candidate.selection_key] = _WeeklyTransformationEvidence(
             recipe_id=recipe.id,
-            operation=proposal.operation,
-            plan_improvement_participants=proposal.plan_improvement_participants,
-            preference_improvement_participants=(
-                proposal.preference_improvement_participants
-            ),
-            explanation=list(proposal.explanation),
+            proposal=proposal,
         )
     return candidates, metadata
 
@@ -256,7 +294,7 @@ def _planning_slot(
 ) -> tuple[
     SharedWeeklyPlanningSlot,
     str,
-    dict[str, SharedWeeklyPlanTransformationRead],
+    dict[str, _WeeklyTransformationEvidence],
 ]:
     request = SharedPracticalRecommendationCreate(
         person_ids=person_ids,
@@ -285,7 +323,7 @@ def _planning_slot(
     }
 
     candidates: list[SharedWeeklyPlanningCandidate] = []
-    transformation_metadata: dict[str, SharedWeeklyPlanTransformationRead] = {}
+    transformation_metadata: dict[str, _WeeklyTransformationEvidence] = {}
     for evaluation in recommendation.evaluations:
         plan_fits = []
         for participant in evaluation.participant_evaluations:
@@ -329,12 +367,12 @@ def _planning_slot(
     )
 
 
-def propose_shared_weekly_plan(
+def _compute_shared_weekly_plan(
     session: Session,
     *,
     family: Family,
     data: SharedWeeklyPlanProposalCreate,
-) -> SharedWeeklyPlanProposalRead:
+) -> _ComputedWeeklyPlan:
     if family.id is None:
         raise WeeklyPlanningApiError("Weekly planning requires a persisted Family.")
     if len(data.person_ids) != len(set(data.person_ids)):
@@ -349,7 +387,7 @@ def propose_shared_weekly_plan(
     slot_engine_versions: dict[str, str] = {}
     transformations_by_slot: dict[
         str,
-        dict[str, SharedWeeklyPlanTransformationRead],
+        dict[str, _WeeklyTransformationEvidence],
     ] = {}
     slots_by_key = {slot.slot_key: slot for slot in data.slots}
     for slot in data.slots:
@@ -412,8 +450,15 @@ def propose_shared_weekly_plan(
                     minimum_score=choice.candidate.evaluation.minimum_score,
                     average_score=choice.candidate.evaluation.average_score,
                     participants=participant_reads,
-                    transformation=transformations_by_slot[choice.slot_key].get(
-                        choice.candidate.selection_key
+                    transformation=(
+                        evidence.as_read()
+                        if (
+                            evidence := transformations_by_slot[choice.slot_key].get(
+                                choice.candidate.selection_key
+                            )
+                        )
+                        is not None
+                        else None
                     ),
                 )
             )
@@ -428,7 +473,7 @@ def propose_shared_weekly_plan(
             choices=choice_reads,
         )
 
-    return SharedWeeklyPlanProposalRead(
+    read = SharedWeeklyPlanProposalRead(
         family_id=family.id,
         participant_ids=list(result.participant_ids),
         week_start=week_start,
@@ -443,4 +488,152 @@ def propose_shared_weekly_plan(
         search_strategy=result.search_strategy,
         search_space_size=result.search_space_size,
         search_truncated=result.search_truncated,
+    )
+    return _ComputedWeeklyPlan(
+        read=read,
+        result=result,
+        transformations_by_slot=transformations_by_slot,
+        slots_by_key=slots_by_key,
+        slot_engine_versions=slot_engine_versions,
+    )
+
+
+def propose_shared_weekly_plan(
+    session: Session,
+    *,
+    family: Family,
+    data: SharedWeeklyPlanProposalCreate,
+) -> SharedWeeklyPlanProposalRead:
+    return _compute_shared_weekly_plan(
+        session,
+        family=family,
+        data=data,
+    ).read
+
+
+def _actual_transformation_ids(
+    evidence: _WeeklyTransformationEvidence | None,
+) -> tuple[uuid.UUID | None, uuid.UUID | None]:
+    if evidence is None:
+        return None, None
+    return (
+        evidence.proposal.operation.recipe_ingredient_id,
+        evidence.proposal.operation.replacement_food_item_id,
+    )
+
+
+def materialize_shared_weekly_plan(
+    session: Session,
+    *,
+    family: Family,
+    data: SharedWeeklyPlanCreate,
+) -> SharedWeeklyPlanRead:
+    computed = _compute_shared_weekly_plan(
+        session,
+        family=family,
+        data=data,
+    )
+    selected = computed.result.selected_plan
+    if selected is None:
+        raise WeeklyPlanningStaleError(
+            "The weekly proposal is no longer feasible."
+        )
+
+    expected_by_slot = {item.slot_key: item for item in data.expected_choices}
+    selected_slots = {choice.slot_key for choice in selected.choices}
+    if set(expected_by_slot) != selected_slots:
+        raise WeeklyPlanningStaleError(
+            "The weekly proposal selection changed since preview."
+        )
+
+    for choice in selected.choices:
+        expected = expected_by_slot[choice.slot_key]
+        evidence = computed.transformations_by_slot[choice.slot_key].get(
+            choice.candidate.selection_key
+        )
+        recipe_ingredient_id, replacement_food_item_id = _actual_transformation_ids(
+            evidence
+        )
+        if (
+            expected.candidate_key != choice.candidate.evaluation.candidate_key
+            or expected.recipe_ingredient_id != recipe_ingredient_id
+            or expected.replacement_food_item_id != replacement_food_item_id
+        ):
+            raise WeeklyPlanningStaleError(
+                "The weekly proposal selection changed since preview."
+            )
+
+    materialized: list[SharedWeeklyPlanMaterializedChoiceRead] = []
+    for choice in selected.choices:
+        request_slot = computed.slots_by_key[choice.slot_key]
+        evidence = computed.transformations_by_slot[choice.slot_key].get(
+            choice.candidate.selection_key
+        )
+        if evidence is not None:
+            planned = materialize_selected_shared_meal_transformation(
+                session,
+                family_id=family.id,
+                recipe_id=evidence.recipe_id,
+                planning_date=choice.planning_date,
+                meal_type=choice.meal_type,
+                scheduled_at=request_slot.scheduled_at,
+                proposal=evidence.proposal,
+                title=choice.candidate.evaluation.candidate_name,
+                location=request_slot.location,
+            )
+            materialized.append(
+                SharedWeeklyPlanMaterializedChoiceRead(
+                    slot_key=choice.slot_key,
+                    meal_event_id=planned.meal_event_id,
+                    candidate_key=choice.candidate.evaluation.candidate_key,
+                    transformation_application_id=(
+                        planned.transformation_application_id
+                    ),
+                    serving_ids=planned.serving_ids,
+                )
+            )
+            continue
+
+        recommendation = SharedFamilyMealRecommendationResult(
+            engine_version=computed.slot_engine_versions[choice.slot_key],
+            evaluations=(choice.candidate.evaluation,),
+        )
+        planned = materialize_shared_family_recommendation(
+            session,
+            recommendation=recommendation,
+            candidate_key=choice.candidate.evaluation.candidate_key,
+            scheduled_at=request_slot.scheduled_at,
+            timezone=family.timezone,
+            meal_type=choice.meal_type,
+            location=request_slot.location,
+        )
+        session.flush()
+        if planned.meal_event.id is None:
+            raise WeeklyPlanningApiError(
+                "A weekly MealEvent was not persisted."
+            )
+        serving_ids = [
+            participant.serving.id
+            for participant in planned.participants
+            if participant.serving.id is not None
+        ]
+        if len(serving_ids) != len(planned.participants):
+            raise WeeklyPlanningApiError(
+                "Weekly servings were not fully persisted."
+            )
+        materialized.append(
+            SharedWeeklyPlanMaterializedChoiceRead(
+                slot_key=choice.slot_key,
+                meal_event_id=planned.meal_event.id,
+                candidate_key=choice.candidate.evaluation.candidate_key,
+                transformation_application_id=None,
+                serving_ids=serving_ids,
+            )
+        )
+
+    session.commit()
+    return SharedWeeklyPlanRead(
+        family_id=family.id,
+        status="planned",
+        choices=materialized,
     )
