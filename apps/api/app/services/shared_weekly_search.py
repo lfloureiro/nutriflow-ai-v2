@@ -8,6 +8,7 @@ from app.services.shared_weekly_multi_slot_planning import (
     ENGINE_VERSION as EXACT_ENGINE_VERSION,
 )
 from app.services.shared_weekly_multi_slot_planning import (
+    EXACT_REPEAT_SCORE_PENALTY,
     SharedWeeklyMultiSlotPlanningError,
     SharedWeeklyMultiSlotPlanningResult,
     SharedWeeklyPlanChoice,
@@ -61,16 +62,36 @@ def _candidate_hint_key(
         evaluation.primary_protein is not None
         and evaluation.primary_protein == previous_main_protein
     )
+    has_structured_traits = (
+        evaluation.planning_category is not None
+        or evaluation.primary_protein is not None
+    )
+    if has_structured_traits:
+        return (
+            -evaluation.weekly_mandatory_support_participants,
+            -evaluation.weekly_mandatory_support_total,
+            -evaluation.weekly_advisory_support_participants,
+            -evaluation.weekly_advisory_support_total,
+            repeat_count,
+            adjacent_category_repeat,
+            adjacent_protein_repeat,
+            -(evaluation.minimum_score or Decimal(0)),
+            -(evaluation.average_score or Decimal(0)),
+            rank,
+            candidate.selection_key,
+        )
+
+    repeat_penalty = EXACT_REPEAT_SCORE_PENALTY * repeat_count
+    minimum_score = (evaluation.minimum_score or Decimal(0)) - repeat_penalty
+    average_score = (evaluation.average_score or Decimal(0)) - repeat_penalty
     return (
         -evaluation.weekly_mandatory_support_participants,
         -evaluation.weekly_mandatory_support_total,
         -evaluation.weekly_advisory_support_participants,
         -evaluation.weekly_advisory_support_total,
+        -minimum_score,
+        -average_score,
         repeat_count,
-        adjacent_category_repeat,
-        adjacent_protein_repeat,
-        -(evaluation.minimum_score or Decimal(0)),
-        -(evaluation.average_score or Decimal(0)),
         rank,
         candidate.selection_key,
     )
