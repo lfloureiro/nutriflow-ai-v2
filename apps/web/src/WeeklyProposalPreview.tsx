@@ -4,14 +4,14 @@ import { ApiError, getFamilyMealPlan } from "./api/client";
 import type { FamilyMealPlan, MealPlanEntry, MealType } from "./api/mealPlanTypes";
 import { getRecommendationBootstrap } from "./api/recommendationClient";
 import {
-  acceptSharedWeeklyPlanSlot,
+  materializeSharedWeeklyPlan,
   requestSharedWeeklyPlanProposal,
 } from "./api/weeklyPlanningClient";
 import type {
   SharedWeeklyPlanChoice,
   SharedWeeklyPlanProposal,
   SharedWeeklyPlanProposalRequest,
-  SharedWeeklyPlanSlotAcceptanceRequest,
+  SharedWeeklyPlanRequest,
   SharedWeeklyPlanningSlotRequest,
 } from "./api/weeklyPlanningTypes";
 import type { Person } from "./api/types";
@@ -30,7 +30,7 @@ const ALL_MEAL_TYPES: MealType[] = ["breakfast", "lunch", "snack", "dinner"];
 const PREVIEW_MAX_COMBINATIONS = 256;
 
 type BusyStage = "catalogue" | "planning";
-type DecisionBusy = "accept" | "reject" | null;
+type DecisionBusy = "apply" | "reject" | null;
 type RejectedBySlot = Record<string, string[]>;
 
 const COPY = {
@@ -43,7 +43,7 @@ const COPY = {
     preparing: "A preparar opções…",
     optimizing: "A optimizar semana…",
     loading: "A carregar semana…",
-    preview: "Proposta NutriFlow — aceita cada refeição para a guardar no plano.",
+    preview: "Proposta NutriFlow — revê a semana e aplica-a de uma só vez quando estiver correcta.",
     noPeople: "São necessárias pelo menos duas pessoas para a proposta familiar.",
     noCandidates: "Não existem opções compatíveis para os tempos de refeição ainda em aberto.",
     noOpenSlots: "Esta semana já tem todos os tempos de refeição planeados.",
@@ -65,11 +65,11 @@ const COPY = {
     pending: "Por decidir",
     nutritionReason: "Porque encaixa",
     noExplanation: "Sem explicação adicional para esta pessoa.",
-    accept: "Aceitar e guardar",
-    accepting: "A validar e guardar…",
+    applyWeek: "Aplicar semana",
+    applyingWeek: "A validar e aplicar semana…",
     reject: "Recusar e procurar alternativa",
     rejecting: "A procurar alternativa…",
-    accepted: "A refeição foi guardada no plano.",
+    accepted: "A semana foi guardada no plano.",
     weekdayLunchPending: "Almoço de dia útil: primeiro devem ser usadas sobras reais do jantar anterior; sem sobras, só entra uma opção Uber Eats/Glovo com disponibilidade conhecida. Ainda não existe uma opção automática segura para este slot.",
     unavailableSlot: "Não existem opções disponíveis para este slot com a política actual.",
     leftoversNotice: "As sobras ainda não são inventadas pelo planeador: só serão propostas quando houver quantidade reservada do jantar anterior.",
@@ -87,7 +87,7 @@ const COPY = {
     preparing: "Preparing options…",
     optimizing: "Optimizing week…",
     loading: "Loading week…",
-    preview: "NutriFlow proposal — accept each meal to save it to the plan.",
+    preview: "NutriFlow proposal — review the week and apply it atomically when it is correct.",
     noPeople: "At least two people are required for a Family proposal.",
     noCandidates: "There are no compatible options for the remaining open meal slots.",
     noOpenSlots: "Every meal slot is already planned for this week.",
@@ -109,11 +109,11 @@ const COPY = {
     pending: "Pending",
     nutritionReason: "Why it fits",
     noExplanation: "No additional explanation for this Person.",
-    accept: "Accept and save",
-    accepting: "Validating and saving…",
+    applyWeek: "Apply week",
+    applyingWeek: "Validating and applying week…",
     reject: "Reject and find alternative",
     rejecting: "Finding alternative…",
-    accepted: "The meal was saved to the plan.",
+    accepted: "The week was saved to the plan.",
     weekdayLunchPending: "Weekday lunch: real leftovers from the previous dinner come first; without leftovers, only an Uber Eats/Glovo option with known availability is allowed. There is no safe automatic option for this slot yet.",
     unavailableSlot: "No options are available for this slot under the current policy.",
     leftoversNotice: "The planner does not invent leftovers: they will only be proposed when quantity has been reserved from the previous dinner.",
@@ -217,22 +217,24 @@ export function choicesByDate(
   return grouped;
 }
 
-export function acceptanceRequestForChoice(
+export function weeklyPlanRequest(
   proposal: SharedWeeklyPlanProposalRequest,
-  choice: SharedWeeklyPlanChoice,
-): SharedWeeklyPlanSlotAcceptanceRequest {
+  choices: SharedWeeklyPlanChoice[],
+): SharedWeeklyPlanRequest {
   return {
-    proposal,
-    slot_key: choice.slot_key,
-    expected_candidate_key: choice.candidate_key,
-    ...(choice.transformation
-      ? {
-          expected_recipe_ingredient_id:
-            choice.transformation.operation.recipe_ingredient_id,
-          expected_replacement_food_item_id:
-            choice.transformation.operation.replacement_food_item_id,
-        }
-      : {}),
+    ...proposal,
+    expected_choices: choices.map((choice) => ({
+      slot_key: choice.slot_key,
+      candidate_key: choice.candidate_key,
+      ...(choice.transformation
+        ? {
+            recipe_ingredient_id:
+              choice.transformation.operation.recipe_ingredient_id,
+            replacement_food_item_id:
+              choice.transformation.operation.replacement_food_item_id,
+          }
+        : {}),
+    })),
   };
 }
 
@@ -433,38 +435,22 @@ export default function WeeklyProposalPreview({
     }
   }
 
-  async function acceptSelectedChoice() {
-    if (!selectedChoice || !proposalRequest || !effectiveWeekStart) return;
-    setDecisionBusy("accept");
+  async function applyWeek() {
+    if (!proposalRequest || !proposal?.selected_plan || !effectiveWeekStart) return;
+    setDecisionBusy("apply");
     setError(null);
     setNotice(null);
     try {
-      await acceptSharedWeeklyPlanSlot(
+      await materializeSharedWeeklyPlan(
         familyId,
-        acceptanceRequestForChoice(proposalRequest, selectedChoice),
+        weeklyPlanRequest(proposalRequest, proposal.selected_plan.choices),
       );
       const updated = await getFamilyMealPlan(familyId, effectiveWeekStart, 7);
       setRefreshedPlan(updated);
-      setProposalRequest((current) =>
-        current
-          ? {
-              ...current,
-              slots: current.slots.filter((slot) => slot.slot_key !== selectedChoice.slot_key),
-            }
-          : null,
-      );
-      setProposal((current) => {
-        if (!current?.selected_plan) return current;
-        return {
-          ...current,
-          selected_plan: {
-            ...current.selected_plan,
-            choices: current.selected_plan.choices.filter(
-              (choice) => choice.slot_key !== selectedChoice.slot_key,
-            ),
-          },
-        };
-      });
+      setProposal(null);
+      setProposalRequest(null);
+      setRejectedBySlot({});
+      setSkippedSlots({});
       setNotice(copy.accepted);
     } catch (caught: unknown) {
       setError(errorText(caught));
@@ -510,20 +496,32 @@ export default function WeeklyProposalPreview({
           <h2>{copy.title}</h2>
           <p>{copy.help}</p>
         </div>
-        <button
-          className="button primary"
-          disabled={busy || decisionBusy !== null || people.length < 2 || !plan}
-          onClick={() => void generateProposal()}
-          type="button"
-        >
-          {busy
-            ? busyStage === "catalogue"
-              ? copy.preparing
-              : copy.optimizing
-            : proposal
-              ? copy.regenerate
-              : copy.generate}
-        </button>
+        <div className="meal-plan-editor__actions">
+          {proposal?.selected_plan ? (
+            <button
+              className="button primary"
+              disabled={busy || decisionBusy !== null || proposalRequest === null}
+              onClick={() => void applyWeek()}
+              type="button"
+            >
+              {decisionBusy === "apply" ? copy.applyingWeek : copy.applyWeek}
+            </button>
+          ) : null}
+          <button
+            className={proposal?.selected_plan ? "button ghost" : "button primary"}
+            disabled={busy || decisionBusy !== null || people.length < 2 || !plan}
+            onClick={() => void generateProposal()}
+            type="button"
+          >
+            {busy
+              ? busyStage === "catalogue"
+                ? copy.preparing
+                : copy.optimizing
+              : proposal
+                ? copy.regenerate
+                : copy.generate}
+          </button>
+        </div>
       </div>
 
       {people.length < 2 ? <div className="family-meals-empty-day">{copy.noPeople}</div> : null}
@@ -769,14 +767,6 @@ export default function WeeklyProposalPreview({
                     })}
                   </div>
                   <div className="meal-plan-editor__actions">
-                    <button
-                      className="button primary"
-                      disabled={busy || decisionBusy !== null || proposalRequest === null}
-                      onClick={() => void acceptSelectedChoice()}
-                      type="button"
-                    >
-                      {decisionBusy === "accept" ? copy.accepting : copy.accept}
-                    </button>
                     <button
                       className="button ghost"
                       disabled={busy || decisionBusy !== null}
