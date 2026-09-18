@@ -11,6 +11,7 @@ import type {
   SharedWeeklyPlanChoice,
   SharedWeeklyPlanProposal,
   SharedWeeklyPlanProposalRequest,
+  SharedWeeklyPlanSlotAcceptanceRequest,
   SharedWeeklyPlanningSlotRequest,
 } from "./api/weeklyPlanningTypes";
 import type { Person } from "./api/types";
@@ -216,6 +217,26 @@ export function choicesByDate(
   return grouped;
 }
 
+export function acceptanceRequestForChoice(
+  proposal: SharedWeeklyPlanProposalRequest,
+  choice: SharedWeeklyPlanChoice,
+): SharedWeeklyPlanSlotAcceptanceRequest {
+  return {
+    proposal,
+    slot_key: choice.slot_key,
+    expected_candidate_key: choice.candidate_key,
+    ...(choice.transformation
+      ? {
+          expected_recipe_ingredient_id:
+            choice.transformation.operation.recipe_ingredient_id,
+          expected_replacement_food_item_id:
+            choice.transformation.operation.replacement_food_item_id,
+        }
+      : {}),
+  };
+}
+
+
 function choiceFor(
   choices: Map<string, SharedWeeklyPlanChoice[]>,
   planningDate: string,
@@ -418,19 +439,10 @@ export default function WeeklyProposalPreview({
     setError(null);
     setNotice(null);
     try {
-      await acceptSharedWeeklyPlanSlot(familyId, {
-        proposal: proposalRequest,
-        slot_key: selectedChoice.slot_key,
-        expected_candidate_key: selectedChoice.candidate_key,
-        ...(selectedChoice.transformation
-          ? {
-              expected_recipe_ingredient_id:
-                selectedChoice.transformation.operation.recipe_ingredient_id,
-              expected_replacement_food_item_id:
-                selectedChoice.transformation.operation.replacement_food_item_id,
-            }
-          : {}),
-      });
+      await acceptSharedWeeklyPlanSlot(
+        familyId,
+        acceptanceRequestForChoice(proposalRequest, selectedChoice),
+      );
       const updated = await getFamilyMealPlan(familyId, effectiveWeekStart, 7);
       setRefreshedPlan(updated);
       setProposalRequest((current) =>
