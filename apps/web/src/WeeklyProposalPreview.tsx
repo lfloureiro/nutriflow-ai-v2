@@ -467,6 +467,15 @@ export default function WeeklyProposalPreview({
       setProposalRequest(request);
       setBusyStage("planning");
       const result = await requestSharedWeeklyPlanProposal(familyId, request);
+      const serverSkipped = Object.fromEntries(
+        result.skipped_slots.map((slot) => [
+          slot.slot_key,
+          slot.meal_type === "lunch" && !isWeekendDate(slot.planning_date)
+            ? copy.weekdayLunchPending
+            : copy.unavailableSlot,
+        ]),
+      );
+      setSkippedSlots({ ...skipped, ...serverSkipped });
       setProposal(result);
     } catch (caught: unknown) {
       setError(errorText(caught));
