@@ -11,6 +11,8 @@ from app.development_breakfast_seed import seed_development_breakfast_catalog
 from app.main import app
 from app.models.family import Family
 from app.models.food_catalog import FoodCompositionSnapshot, FoodItem, Recipe
+from app.models.meal import MealEvent, MealParticipant, Serving
+from app.models.meal_transformation_application import MealTransformationApplication
 from app.models.person import Person
 
 PLAN_DATE = "2026-08-23"
@@ -274,3 +276,114 @@ def test_family_meal_plan_accepts_shared_breakfast_and_enforces_slot(
     )
     assert wrong_update.status_code == 422
     assert "not suitable for meal type 'lunch'" in wrong_update.json()["detail"]
+
+
+
+def test_transformed_meal_is_visible_but_read_only_in_standard_planner(
+    db_session: Session,
+) -> None:
+    family = Family(name="Transformed planner", timezone="Europe/Lisbon")
+    ana = Person(family=family, first_name="Ana", timezone="Europe/Lisbon")
+    db_session.add(family)
+    db_session.flush()
+    recipe_id = _recipe(db_session, family)
+    recipe = db_session.get(Recipe, uuid.UUID(recipe_id))
+    assert recipe is not None
+    assert recipe.ingredients
+    assert recipe.compositions
+
+    source_ingredient = recipe.ingredients[0]
+    replacement = FoodItem(
+        family=family,
+        catalog_key=f"test:replacement:{uuid.uuid4()}",
+        name="Ingrediente alternativo",
+        food_kind="ingredient",
+        source="test",
+        is_active=True,
+    )
+    event = MealEvent(
+        family=family,
+        meal_type="dinner",
+        title=recipe.name,
+        scheduled_at=datetime(2026, 8, 23, 19, 0, tzinfo=UTC),
+        timezone=family.timezone,
+        status="planned",
+        source="recommendation",
+        source_reference="meal-transformation:test",
+    )
+    participant = MealParticipant(
+        meal_event=event,
+        person=ana,
+        status="planned",
+    )
+    Serving(
+        meal_participant=participant,
+        recipe=recipe,
+        item_type="recipe",
+        item_key=recipe.recipe_key,
+        item_name=recipe.name,
+        status="planned",
+        quantity_planned=Decimal(250),
+        quantity_unit="g",
+        energy_planned_kcal=Decimal(275),
+        nutrition_source="transformed",
+        source_reference="meal-transformation:test",
+    )
+    application = MealTransformationApplication(
+        meal_event=event,
+        recipe=recipe,
+        source_recipe_composition_snapshot=recipe.compositions[-1],
+        recipe_ingredient=source_ingredient,
+        source_food_item=source_ingredient.food_item,
+        replacement_food_item=replacement,
+        sort_order=0,
+        operation_type="replace_ingredient",
+        transformation_kind="plan_adapted",
+        substitution_group="test-group",
+        source_food_name=source_ingredient.food_item.name,
+        source_quantity=source_ingredient.quantity,
+        source_unit=source_ingredient.unit,
+        replacement_food_name=replacement.name,
+        replacement_quantity=source_ingredient.quantity,
+        replacement_unit=source_ingredient.unit,
+        engine_version="test-transformation-v1",
+        evidence={"classification": "plan_adapted"},
+    )
+    db_session.add_all([replacement, event, application])
+    db_session.commit()
+
+    plan = _request(
+        db_session,
+        "GET",
+        f"/api/families/{family.id}/meal-plan",
+        params={"start_date": PLAN_DATE, "days": 1},
+    )
+    assert plan.status_code == 200
+    dinner = plan.json()["days"][0]["slots"][3]["meals"][0]
+    assert dinner["id"] == str(event.id)
+    assert dinner["recipe_name"] == recipe.name
+    assert dinner["transformations"] == [
+        {
+            "id": str(application.id),
+            "transformation_kind": "plan_adapted",
+            "operation_type": "replace_ingredient",
+            "source_food_name": source_ingredient.food_item.name,
+            "replacement_food_name": replacement.name,
+        }
+    ]
+
+    update = _request(
+        db_session,
+        "PATCH",
+        f"/api/families/{family.id}/meal-plan/{event.id}",
+        json={"location": "Outro local"},
+    )
+    assert update.status_code == 409
+    assert "read-only" in update.json()["detail"]
+
+    removed = _request(
+        db_session,
+        "DELETE",
+        f"/api/families/{family.id}/meal-plan/{event.id}",
+    )
+    assert removed.status_code == 204
