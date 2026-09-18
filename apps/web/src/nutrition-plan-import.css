@@ -75,6 +75,25 @@
   flex-wrap: wrap;
 }
 
+.nutrition-import__chatgpt {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border-subtle, #dfe5da);
+  border-radius: 14px;
+  background: var(--surface-soft, #f5f8f1);
+}
+
+.nutrition-import__chatgpt > p {
+  margin: 0;
+}
+
+.nutrition-import__chatgpt-prompt {
+  min-height: 220px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+}
+
 .nutrition-import__hint,
 .nutrition-import__summary,
 .nutrition-import__source,

@@ -23,6 +23,12 @@ The AI path never confirms, applies or activates recommendations automatically. 
 
 When AI is unavailable, the existing deterministic parser remains usable.
 
+## ChatGPT-assisted mode without API credentials
+
+When the user has ChatGPT access but no OpenAI API key, NutriFlow can generate a copyable prompt from the extracted document text and the import JSON schema. The user runs that prompt in ChatGPT and pastes the JSON response back into NutriFlow. The pasted response is parsed and validated server-side before any import session is created.
+
+This mode does not automate the ChatGPT web application, store session cookies, or bypass the human review boundary. Invalid JSON or proposal shapes fail closed.
+
 ## Current input boundary
 
 The first browser slice accepts pasted text. PDF, DOCX and image extraction will feed the same source-text/import-session contract in a follow-up, so document formats do not bypass review or provenance.
