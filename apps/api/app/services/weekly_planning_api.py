@@ -564,72 +564,74 @@ def materialize_shared_weekly_plan(
             )
 
     materialized: list[SharedWeeklyPlanMaterializedChoiceRead] = []
-    for choice in selected.choices:
-        request_slot = computed.slots_by_key[choice.slot_key]
-        evidence = computed.transformations_by_slot[choice.slot_key].get(
-            choice.candidate.selection_key
-        )
-        if evidence is not None:
-            planned = materialize_selected_shared_meal_transformation(
+    with session.begin_nested():
+        for choice in selected.choices:
+            request_slot = computed.slots_by_key[choice.slot_key]
+            evidence = computed.transformations_by_slot[choice.slot_key].get(
+                choice.candidate.selection_key
+            )
+            if evidence is not None:
+                planned = materialize_selected_shared_meal_transformation(
+                    session,
+                    family_id=family.id,
+                    recipe_id=evidence.recipe_id,
+                    planning_date=choice.planning_date,
+                    meal_type=choice.meal_type,
+                    scheduled_at=request_slot.scheduled_at,
+                    proposal=evidence.proposal,
+                    title=choice.candidate.evaluation.candidate_name,
+                    location=request_slot.location,
+                )
+                materialized.append(
+                    SharedWeeklyPlanMaterializedChoiceRead(
+                        slot_key=choice.slot_key,
+                        meal_event_id=planned.meal_event_id,
+                        candidate_key=choice.candidate.evaluation.candidate_key,
+                        transformation_application_id=(
+                            planned.transformation_application_id
+                        ),
+                        serving_ids=planned.serving_ids,
+                    )
+                )
+                continue
+
+            recommendation = SharedFamilyMealRecommendationResult(
+                engine_version=computed.slot_engine_versions[choice.slot_key],
+                evaluations=(choice.candidate.evaluation,),
+            )
+            planned = materialize_shared_family_recommendation(
                 session,
-                family_id=family.id,
-                recipe_id=evidence.recipe_id,
-                planning_date=choice.planning_date,
-                meal_type=choice.meal_type,
+                recommendation=recommendation,
+                candidate_key=choice.candidate.evaluation.candidate_key,
                 scheduled_at=request_slot.scheduled_at,
-                proposal=evidence.proposal,
-                title=choice.candidate.evaluation.candidate_name,
+                timezone=family.timezone,
+                meal_type=choice.meal_type,
                 location=request_slot.location,
             )
+            session.flush()
+            if planned.meal_event.id is None:
+                raise WeeklyPlanningApiError(
+                    "A weekly MealEvent was not persisted."
+                )
+            serving_ids = [
+                participant.serving.id
+                for participant in planned.participants
+                if participant.serving.id is not None
+            ]
+            if len(serving_ids) != len(planned.participants):
+                raise WeeklyPlanningApiError(
+                    "Weekly servings were not fully persisted."
+                )
             materialized.append(
                 SharedWeeklyPlanMaterializedChoiceRead(
                     slot_key=choice.slot_key,
-                    meal_event_id=planned.meal_event_id,
+                    meal_event_id=planned.meal_event.id,
                     candidate_key=choice.candidate.evaluation.candidate_key,
-                    transformation_application_id=(
-                        planned.transformation_application_id
-                    ),
-                    serving_ids=planned.serving_ids,
+                    transformation_application_id=None,
+                    serving_ids=serving_ids,
                 )
             )
-            continue
 
-        recommendation = SharedFamilyMealRecommendationResult(
-            engine_version=computed.slot_engine_versions[choice.slot_key],
-            evaluations=(choice.candidate.evaluation,),
-        )
-        planned = materialize_shared_family_recommendation(
-            session,
-            recommendation=recommendation,
-            candidate_key=choice.candidate.evaluation.candidate_key,
-            scheduled_at=request_slot.scheduled_at,
-            timezone=family.timezone,
-            meal_type=choice.meal_type,
-            location=request_slot.location,
-        )
-        session.flush()
-        if planned.meal_event.id is None:
-            raise WeeklyPlanningApiError(
-                "A weekly MealEvent was not persisted."
-            )
-        serving_ids = [
-            participant.serving.id
-            for participant in planned.participants
-            if participant.serving.id is not None
-        ]
-        if len(serving_ids) != len(planned.participants):
-            raise WeeklyPlanningApiError(
-                "Weekly servings were not fully persisted."
-            )
-        materialized.append(
-            SharedWeeklyPlanMaterializedChoiceRead(
-                slot_key=choice.slot_key,
-                meal_event_id=planned.meal_event.id,
-                candidate_key=choice.candidate.evaluation.candidate_key,
-                transformation_application_id=None,
-                serving_ids=serving_ids,
-            )
-        )
 
     session.commit()
     return SharedWeeklyPlanRead(
