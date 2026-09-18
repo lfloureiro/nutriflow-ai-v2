@@ -30,6 +30,8 @@ from app.schemas.nutrition_plan import (
 import app.services.meal_plan_fit as meal_plan_fit_service
 import app.services.meal_plan_fit_weekly_frequency as weekly_fit_service
 import app.services.planning_bootstrap_api as planning_bootstrap_service
+import app.services.shared_meal_transformation as shared_transformation_service
+import app.services.weekly_planning_api as weekly_planning_service
 from app.services.nutrition_plan import (
     add_nutrition_plan_guideline,
     create_nutrition_plan,
@@ -234,6 +236,40 @@ def test_weekly_proposal_returns_selected_shared_plan_without_meal_events(
 
 
 
+def test_weekly_proposal_skips_transformation_service_when_recipe_has_no_variants(
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    family, ana, bruno, _, composition = _setup(db_session, "no-transform-variants")
+
+    def unexpected_transformation(*args, **kwargs):
+        raise AssertionError("Transformation service must not run without configured variants.")
+
+    monkeypatch.setattr(
+        weekly_planning_service,
+        "propose_shared_meal_transformations",
+        unexpected_transformation,
+    )
+
+    response = _post(
+        db_session,
+        family,
+        ana=ana,
+        bruno=bruno,
+        slots=[
+            _slot(
+                "thu-lunch-no-transform",
+                scheduled_at=LUNCH_AT,
+                meal_type="lunch",
+                composition=composition,
+            )
+        ],
+    )
+
+    assert response.status_code == 201
+    assert response.json()["selected_plan"] is not None
+
+
 def test_weekly_proposal_reuses_request_scoped_plan_context(
     db_session: Session,
     monkeypatch,
@@ -381,6 +417,7 @@ def test_weekly_proposal_rejects_duplicate_slot_keys_before_planning(
 
 def test_weekly_proposal_can_select_plan_adapted_variant_when_base_is_ineligible(
     db_session: Session,
+    monkeypatch,
 ) -> None:
     demo = seed_demo_dataset(
         db_session,
@@ -392,6 +429,15 @@ def test_weekly_proposal_can_select_plan_adapted_variant_when_base_is_ineligible
     seed_development_transformations(db_session, families=(family,))
     seed_development_plan_fit(db_session, person_id=DEMO_PERSON_ID)
     db_session.commit()
+
+    def unexpected_baseline_recompute(*args, **kwargs):
+        raise AssertionError("Weekly transformation must reuse existing baseline Plan-Fit.")
+
+    monkeypatch.setattr(
+        shared_transformation_service,
+        "evaluate_meal_plan_fit_with_weekly_frequency",
+        unexpected_baseline_recompute,
+    )
 
     recipe = db_session.scalar(
         select(Recipe).where(
