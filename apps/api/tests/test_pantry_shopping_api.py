@@ -261,8 +261,11 @@ def test_shopping_refresh_uses_persisted_replacement_for_transformed_meal(
         source="recommendation",
         source_reference="meal-transformation:test",
     )
+    db_session.add(event)
+    db_session.flush()
     participant = MealParticipant(meal_event=event, person=ana, status="planned")
-    Serving(
+    db_session.add(participant)
+    serving = Serving(
         meal_participant=participant,
         recipe=recipe,
         item_type="recipe",
@@ -274,6 +277,7 @@ def test_shopping_refresh_uses_persisted_replacement_for_transformed_meal(
         nutrition_source="transformed",
         source_reference="meal-transformation:test",
     )
+    db_session.add(serving)
     application = MealTransformationApplication(
         meal_event=event,
         recipe=recipe,
@@ -294,7 +298,7 @@ def test_shopping_refresh_uses_persisted_replacement_for_transformed_meal(
         engine_version="test-transformation-v1",
         evidence={"classification": "plan_adapted"},
     )
-    db_session.add_all([event, application])
+    db_session.add(application)
     db_session.commit()
 
     pantry = _request(
