@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.family import Family
 from app.models.food_catalog import FoodItem, Recipe, RecipeIngredient
 from app.models.meal import MealEvent, MealParticipant, Serving
+from app.models.meal_transformation_application import MealTransformationApplication
 from app.models.pantry_stock import PantryStockLot
 from app.models.shopping_list import ShoppingList, ShoppingListItem
 from app.schemas.pantry_shopping import (
@@ -187,7 +188,72 @@ def _serving_options():
         selectinload(Serving.recipe)
         .selectinload(Recipe.ingredients)
         .selectinload(RecipeIngredient.food_item),
+        selectinload(Serving.meal_participant)
+        .selectinload(MealParticipant.meal_event)
+        .selectinload(MealEvent.transformation_applications)
+        .selectinload(MealTransformationApplication.replacement_food_item),
     )
+
+
+def _effective_serving_ingredients(
+    serving: Serving,
+    recipe: Recipe,
+) -> list[tuple[FoodItem, Decimal, str]]:
+    applications = serving.meal_participant.meal_event.transformation_applications
+    if not applications:
+        return [
+            (ingredient.food_item, ingredient.quantity, ingredient.unit)
+            for ingredient in recipe.ingredients
+        ]
+
+    by_ingredient: dict[uuid.UUID, MealTransformationApplication] = {}
+    for application in applications:
+        if application.recipe_id != recipe.id:
+            raise PantryShoppingError(
+                f"MealEvent {application.meal_event_id} has transformation provenance "
+                "for a different Recipe."
+            )
+        if application.operation_type != "replace_ingredient":
+            raise PantryShoppingError(
+                f"Transformation application {application.id} uses unsupported "
+                f"shopping operation {application.operation_type!r}."
+            )
+        if application.recipe_ingredient_id is None:
+            raise PantryShoppingError(
+                f"Transformation application {application.id} has no source ingredient identity."
+            )
+        if application.replacement_food_item is None:
+            raise PantryShoppingError(
+                f"Transformation application {application.id} has no replacement FoodItem."
+            )
+        if application.recipe_ingredient_id in by_ingredient:
+            raise PantryShoppingError(
+                "Multiple persisted replacements target the same Recipe ingredient; "
+                "shopping requirements cannot be derived safely."
+            )
+        by_ingredient[application.recipe_ingredient_id] = application
+
+    recipe_ingredient_ids = {ingredient.id for ingredient in recipe.ingredients}
+    if any(ingredient_id not in recipe_ingredient_ids for ingredient_id in by_ingredient):
+        raise PantryShoppingError(
+            f"MealEvent {serving.meal_participant.meal_event_id} contains a transformation "
+            "whose source ingredient is no longer part of the base Recipe."
+        )
+
+    effective: list[tuple[FoodItem, Decimal, str]] = []
+    for ingredient in recipe.ingredients:
+        application = by_ingredient.get(ingredient.id)
+        if application is None:
+            effective.append((ingredient.food_item, ingredient.quantity, ingredient.unit))
+            continue
+        effective.append(
+            (
+                application.replacement_food_item,
+                application.replacement_quantity,
+                application.replacement_unit,
+            )
+        )
+    return effective
 
 
 def _batch_multiplier(serving: Serving, recipe: Recipe) -> Decimal:
@@ -247,26 +313,26 @@ def _aggregate_planned_ingredients(
             continue
         try:
             multiplier = _batch_multiplier(serving, recipe)
+            effective_ingredients = _effective_serving_ingredients(serving, recipe)
         except PantryShoppingError as exc:
             issues.append(str(exc))
             continue
 
-        for ingredient in recipe.ingredients:
-            food = ingredient.food_item
+        for food, ingredient_quantity, ingredient_unit in effective_ingredients:
             if food.id in invalid_food_ids:
                 continue
-            required = ingredient.quantity * multiplier
+            required = ingredient_quantity * multiplier
             existing = grouped.get(food.id)
             if existing is None:
-                grouped[food.id] = (food, required, ingredient.unit)
+                grouped[food.id] = (food, required, ingredient_unit)
                 continue
             existing_food, existing_quantity, existing_unit = existing
             try:
-                converted = convert_quantity(required, ingredient.unit, existing_unit)
+                converted = convert_quantity(required, ingredient_unit, existing_unit)
             except UnsupportedUnitConversionError:
                 issues.append(
                     f"Ingredient {food.name!r} uses incompatible planned units "
-                    f"{ingredient.unit!r} and {existing_unit!r}."
+                    f"{ingredient_unit!r} and {existing_unit!r}."
                 )
                 invalid_food_ids.add(food.id)
                 grouped.pop(food.id, None)
