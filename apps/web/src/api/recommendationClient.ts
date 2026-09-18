@@ -16,11 +16,16 @@ async function responseError(response: Response): Promise<string> {
 export async function getRecommendationBootstrap(
   personId: string,
   scheduledAt: string,
+  options: { ensureState?: boolean; signal?: AbortSignal } = {},
 ): Promise<PlanningBootstrap> {
-  const query = new URLSearchParams({ scheduled_at: scheduledAt, ensure_state: "true" });
+  const query = new URLSearchParams({
+    scheduled_at: scheduledAt,
+    ensure_state: String(options.ensureState ?? true),
+  });
   const path = `/api/persons/${encodeURIComponent(personId)}/planning-bootstrap?${query.toString()}`;
   const response = await fetch(buildApiUrl(path), {
     headers: { Accept: "application/json" },
+    signal: options.signal,
   });
   if (!response.ok) {
     throw new ApiError(await responseError(response), response.status);
