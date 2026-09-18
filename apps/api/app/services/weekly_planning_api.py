@@ -54,6 +54,7 @@ from app.services.shared_weekly_search import (
     SharedWeeklySearchResult,
     optimize_shared_weekly_slots_scalable,
 )
+from app.services.weekly_debug import weekly_debug, weekly_debug_span
 from app.services.weekly_planning_request_cache import weekly_planning_cache_scope
 
 
@@ -312,11 +313,20 @@ def _planning_slot(
         auto_size_portions=slot.auto_size_portions,
         max_results=None,
     )
-    recommendation, _, contexts = compute_shared_practical_recommendation_with_contexts(
-        session,
-        family=family,
-        data=request,
-    )
+    with weekly_debug_span(
+        "WEEKLY",
+        "slot-recommendation",
+        slot=slot.slot_key,
+        date=slot.planning_date,
+        meal_type=slot.meal_type,
+        candidates=len(slot.candidates),
+        people=len(person_ids),
+    ):
+        recommendation, _, contexts = compute_shared_practical_recommendation_with_contexts(
+            session,
+            family=family,
+            data=request,
+        )
     contexts_by_person_id = {
         context.person.id: context
         for context in contexts
@@ -340,15 +350,21 @@ def _planning_slot(
         )
         candidates.append(base_candidate)
 
-        transformed_candidates, transformed_metadata = _transformation_candidates(
-            session,
-            family=family,
-            original=base_candidate,
-            contexts_by_person_id=contexts_by_person_id,
-            planning_date=slot.planning_date,
-            meal_type=slot.meal_type,
-            engine_version=recommendation.engine_version,
-        )
+        with weekly_debug_span(
+            "TRANSFORM",
+            "candidate",
+            slot=slot.slot_key,
+            candidate=evaluation.candidate_key,
+        ):
+            transformed_candidates, transformed_metadata = _transformation_candidates(
+                session,
+                family=family,
+                original=base_candidate,
+                contexts_by_person_id=contexts_by_person_id,
+                planning_date=slot.planning_date,
+                meal_type=slot.meal_type,
+                engine_version=recommendation.engine_version,
+            )
         candidates.extend(transformed_candidates)
         transformation_metadata.update(transformed_metadata)
 
@@ -384,6 +400,14 @@ def _compute_shared_weekly_plan_uncached(
     if len(slot_keys) != len(set(slot_keys)):
         raise WeeklyPlanningApiError("Weekly planning slot keys must be unique.")
 
+    weekly_debug(
+        "WEEKLY",
+        "proposal-input",
+        family=family.id,
+        slots=len(data.slots),
+        people=len(data.person_ids),
+        max_combinations=data.max_combinations,
+    )
     planning_slots: list[SharedWeeklyPlanningSlot] = []
     slot_engine_versions: dict[str, str] = {}
     transformations_by_slot: dict[
@@ -392,21 +416,35 @@ def _compute_shared_weekly_plan_uncached(
     ] = {}
     slots_by_key = {slot.slot_key: slot for slot in data.slots}
     for slot in data.slots:
-        planning_slot, engine_version, transformation_metadata = _planning_slot(
-            session,
-            family=family,
-            person_ids=data.person_ids,
-            slot=slot,
-        )
+        with weekly_debug_span(
+            "WEEKLY",
+            "slot",
+            slot=slot.slot_key,
+            date=slot.planning_date,
+            meal_type=slot.meal_type,
+            candidates=len(slot.candidates),
+        ):
+            planning_slot, engine_version, transformation_metadata = _planning_slot(
+                session,
+                family=family,
+                person_ids=data.person_ids,
+                slot=slot,
+            )
         planning_slots.append(planning_slot)
         slot_engine_versions[slot.slot_key] = engine_version
         transformations_by_slot[slot.slot_key] = transformation_metadata
 
     try:
-        result = optimize_shared_weekly_slots_scalable(
-            tuple(planning_slots),
+        with weekly_debug_span(
+            "SEARCH",
+            "weekly-optimization",
+            slots=len(planning_slots),
             max_combinations=data.max_combinations,
-        )
+        ):
+            result = optimize_shared_weekly_slots_scalable(
+                tuple(planning_slots),
+                max_combinations=data.max_combinations,
+            )
     except SharedWeeklyMultiSlotPlanningError as exc:
         raise WeeklyPlanningApiError(str(exc)) from exc
 
@@ -506,12 +544,19 @@ def _compute_shared_weekly_plan(
     family: Family,
     data: SharedWeeklyPlanProposalCreate,
 ) -> _ComputedWeeklyPlan:
-    with weekly_planning_cache_scope(session):
-        return _compute_shared_weekly_plan_uncached(
-            session,
-            family=family,
-            data=data,
-        )
+    with weekly_debug_span(
+        "WEEKLY",
+        "proposal",
+        family=family.id,
+        slots=len(data.slots),
+        people=len(data.person_ids),
+    ):
+        with weekly_planning_cache_scope(session):
+            return _compute_shared_weekly_plan_uncached(
+                session,
+                family=family,
+                data=data,
+            )
 
 def propose_shared_weekly_plan(
     session: Session,
