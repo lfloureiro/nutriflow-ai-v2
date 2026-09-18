@@ -12,6 +12,7 @@ import {
 import type {
   SharedWeeklyPlanChoice,
   SharedWeeklyPlanProposal,
+  SharedWeeklyPlanSkippedSlot,
   SharedWeeklyPlanProposalRequest,
   SharedWeeklyPlanRequest,
   SharedWeeklyPlanningSlotRequest,
@@ -181,6 +182,21 @@ export function weeklySourcesFor(
   if (isWeekendDate(planningDate)) return ["cooked", "restaurant"];
   if (mealType === "lunch") return ["uber_eats", "glovo"];
   return ["cooked"];
+}
+
+export function weeklySkippedSlotMessages(
+  slots: SharedWeeklyPlanSkippedSlot[],
+  locale: Locale,
+): Record<string, string> {
+  const copy = COPY[locale];
+  return Object.fromEntries(
+    slots.map((slot) => [
+      slot.slot_key,
+      slot.meal_type === "lunch" && !isWeekendDate(slot.planning_date)
+        ? copy.weekdayLunchPending
+        : copy.unavailableSlot,
+    ]),
+  );
 }
 
 function slotKey(planningDate: string, mealType: MealType): string {
@@ -467,13 +483,9 @@ export default function WeeklyProposalPreview({
       setProposalRequest(request);
       setBusyStage("planning");
       const result = await requestSharedWeeklyPlanProposal(familyId, request);
-      const serverSkipped = Object.fromEntries(
-        result.skipped_slots.map((slot) => [
-          slot.slot_key,
-          slot.meal_type === "lunch" && !isWeekendDate(slot.planning_date)
-            ? copy.weekdayLunchPending
-            : copy.unavailableSlot,
-        ]),
+      const serverSkipped = weeklySkippedSlotMessages(
+        result.skipped_slots,
+        locale,
       );
       setSkippedSlots({ ...skipped, ...serverSkipped });
       setProposal(result);
