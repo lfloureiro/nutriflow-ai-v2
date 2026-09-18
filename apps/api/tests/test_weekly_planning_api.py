@@ -26,11 +26,13 @@ from app.schemas.nutrition_plan import (
     NutritionPlanGuidelineCreate,
     NutritionPlanUpdate,
 )
+from app.schemas.weekly_planning import SharedWeeklyPlanningSlotCreate
 from app.services.nutrition_plan import (
     add_nutrition_plan_guideline,
     create_nutrition_plan,
     update_nutrition_plan,
 )
+from app.services.weekly_planning_api import _planning_slot
 
 PLANNING_DATE = date(2026, 9, 17)
 LUNCH_AT = datetime(2026, 9, 17, 12, 0, tzinfo=UTC)
@@ -345,6 +347,46 @@ def test_weekly_proposal_can_select_plan_adapted_variant_when_base_is_ineligible
         ],
         "max_combinations": 100,
     }
+
+    slot_model = SharedWeeklyPlanningSlotCreate.model_validate(payload["slots"][0])
+    planning_slot, slot_engine_version, metadata = _planning_slot(
+        db_session,
+        family=family,
+        person_ids=[DEMO_PERSON_ID, DEMO_MARTA_ID],
+        slot=slot_model,
+    )
+    variants = [
+        candidate
+        for candidate in planning_slot.candidates
+        if candidate.variant_key is not None
+    ]
+    assert variants, {
+        "slot_engine_version": slot_engine_version,
+        "candidate_count": len(planning_slot.candidates),
+        "metadata": list(metadata),
+    }
+    assert any(candidate.evaluation.eligible for candidate in variants), [
+        {
+            "variant_key": candidate.variant_key,
+            "eligible": candidate.evaluation.eligible,
+            "exclusion_reasons": candidate.evaluation.exclusion_reasons,
+            "participants": [
+                {
+                    "person_id": str(participant.person.id),
+                    "eligible": participant.evaluation.eligible,
+                    "score": participant.evaluation.score,
+                    "exclusion_reasons": participant.evaluation.exclusion_reasons,
+                    "plan_fit_eligible": (
+                        participant.plan_fit.eligible
+                        if participant.plan_fit is not None
+                        else None
+                    ),
+                }
+                for participant in candidate.evaluation.participant_evaluations
+            ],
+        }
+        for candidate in variants
+    ]
 
     app.dependency_overrides[get_db] = _override_db(db_session)
     try:
