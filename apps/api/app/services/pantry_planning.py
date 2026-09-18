@@ -23,6 +23,10 @@ class PantryUnitConversionError(PantryPlanningError):
     pass
 
 
+class PantryCandidateScalingError(PantryPlanningError):
+    pass
+
+
 @dataclass(frozen=True)
 class FoodPantryAssessment:
     food_item_id: uuid.UUID
@@ -284,7 +288,7 @@ def _recipe_candidate_batch_multiplier(candidate: MealCandidate) -> Decimal:
     if candidate.quantity_unit == "recipe":
         return candidate.quantity
 
-    raise PantryPlanningError(
+    raise PantryCandidateScalingError(
         f"Recipe {recipe.recipe_key!r} needs yield quantity/unit or compatible "
         "serving-count evidence for pantry candidate scaling."
     )
@@ -311,12 +315,22 @@ def build_pantry_stock_practical_profiles(
             )
             is_available = assessment.is_sufficient
         elif candidate.recipe is not None:
+            try:
+                batch_multiplier = _recipe_candidate_batch_multiplier(candidate)
+            except PantryCandidateScalingError:
+                profiles.append(
+                    CandidatePracticalProfile(
+                        candidate_key=candidate.key,
+                        is_available=False,
+                    )
+                )
+                continue
             assessment = evaluate_recipe_pantry_sufficiency(
                 session,
                 family_id=family_id,
                 recipe=candidate.recipe,
                 as_of=as_of,
-                batch_multiplier=_recipe_candidate_batch_multiplier(candidate),
+                batch_multiplier=batch_multiplier,
             )
             is_available = assessment.is_sufficient
         else:
