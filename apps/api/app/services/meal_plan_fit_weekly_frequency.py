@@ -18,12 +18,12 @@ from app.services.meal_plan_fit import MealPlanFitError, evaluate_meal_plan_fit
 from app.services.meal_recommendation import MealCandidate
 from app.services.meal_recommendation_api import _load_candidates
 from app.services.nutrition_plan import NutritionPlanError, compile_effective_nutrition_plan
+from app.services.weekly_debug import weekly_debug, weekly_debug_span
 from app.services.weekly_frequency_progress import (
     WeeklyFrequencyProgressError,
     get_weekly_frequency_progress,
 )
 from app.services.weekly_planning_request_cache import current_weekly_planning_cache
-from app.services.weekly_debug import weekly_debug, weekly_debug_span
 
 _SUPPORTED_TARGET_TYPES = frozenset(
     {
