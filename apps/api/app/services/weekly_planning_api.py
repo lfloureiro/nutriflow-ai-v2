@@ -38,6 +38,7 @@ from app.services.shared_family_meal_plan_fit import (
 )
 from app.services.shared_family_meal_planning import materialize_shared_family_recommendation
 from app.services.shared_meal_transformation import (
+    _load_variants,
     _transformed_subjects,
     materialize_selected_shared_meal_transformation,
     propose_shared_meal_transformations,
@@ -55,7 +56,10 @@ from app.services.shared_weekly_search import (
     optimize_shared_weekly_slots_scalable,
 )
 from app.services.weekly_debug import weekly_debug, weekly_debug_span
-from app.services.weekly_planning_request_cache import weekly_planning_cache_scope
+from app.services.weekly_planning_request_cache import (
+    current_weekly_planning_cache,
+    weekly_planning_cache_scope,
+)
 
 
 class WeeklyPlanningApiError(ValueError):
@@ -237,6 +241,31 @@ def _transformation_candidates(
     if recipe is None or recipe.id is None:
         return [], {}
 
+    request_cache = current_weekly_planning_cache(session)
+    transformable_key = (family.id, recipe.id)
+    has_variants = (
+        request_cache.transformable_recipes.get(transformable_key)
+        if request_cache is not None
+        else None
+    )
+    if has_variants is None:
+        variants, _ = _load_variants(
+            session,
+            family_id=family.id,
+            recipe=recipe,
+        )
+        has_variants = bool(variants)
+        if request_cache is not None:
+            request_cache.transformable_recipes[transformable_key] = has_variants
+    if not has_variants:
+        weekly_debug(
+            "TRANSFORM",
+            "skip-no-variants",
+            candidate=evaluation.candidate_key,
+            recipe=recipe.id,
+        )
+        return [], {}
+
     participants: list[SharedMealTransformationParticipantCreate] = []
     for participant in evaluation.participant_evaluations:
         person_id = participant.person.id
@@ -264,6 +293,11 @@ def _transformation_candidates(
             participants=participants,
             max_proposals=3,
         ),
+        baseline_fits_by_person={
+            participant.person.id: participant.plan_fit
+            for participant in evaluation.participant_evaluations
+            if participant.person.id is not None and participant.plan_fit is not None
+        },
     )
 
     candidates: list[SharedWeeklyPlanningCandidate] = []
