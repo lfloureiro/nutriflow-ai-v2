@@ -42,6 +42,7 @@ const COPY = {
     loading: "A carregar plano…",
     add: "Adicionar",
     edit: "Alterar",
+    view: "Ver",
     empty: "Sem refeição planeada",
     recipe: "Receita",
     chooseRecipe: "Escolher receita",
@@ -63,6 +64,10 @@ const COPY = {
     prepared: "Preparada",
     served: "Servida",
     locked: "Já não pode ser alterada no planeamento",
+    transformedLocked: "Esta refeição foi adaptada automaticamente. Para preservar a transformação e a sua proveniência, o editor normal é apenas de leitura.",
+    planAdapted: "Adaptada ao plano",
+    preferenceVariant: "Variante por preferência",
+    replace: "Substituição",
     error: "Não foi possível concluir a operação",
   },
   en: {
@@ -75,6 +80,7 @@ const COPY = {
     loading: "Loading meal plan…",
     add: "Add",
     edit: "Edit",
+    view: "View",
     empty: "No meal planned",
     recipe: "Recipe",
     chooseRecipe: "Choose recipe",
@@ -96,6 +102,10 @@ const COPY = {
     prepared: "Prepared",
     served: "Served",
     locked: "This meal can no longer be changed in planning",
+    transformedLocked: "This meal was automatically adapted. To preserve the transformation and its provenance, the standard editor is read-only.",
+    planAdapted: "Adapted to plan",
+    preferenceVariant: "Preference variant",
+    replace: "Replacement",
     error: "The operation could not be completed",
   },
 } as const;
@@ -165,6 +175,13 @@ function entryParticipants(entry: MealPlanEntry): string {
   return entry.participants
     .map((participant) => [participant.first_name, participant.last_name].filter(Boolean).join(" "))
     .join(" · ");
+}
+
+function transformationLabel(
+  kind: "plan_adapted" | "preference_variant",
+  locale: Locale,
+): string {
+  return kind === "plan_adapted" ? COPY[locale].planAdapted : COPY[locale].preferenceVariant;
 }
 
 function statusLabel(status: string, locale: Locale): string {
@@ -276,6 +293,48 @@ function MealEditForm({
     } finally {
       setBusy(false);
     }
+  }
+
+  if (entry && entry.transformations.length > 0) {
+    return (
+      <section className="meal-plan-editor">
+        <div className="meal-plan-editor__heading">
+          <div>
+            <span className="eyebrow">{formatDate(target.date, locale)}</span>
+            <h2>{mealLabel(target.mealType, locale)}</h2>
+          </div>
+          <button className="button ghost" onClick={onDone} type="button">
+            {copy.cancel}
+          </button>
+        </div>
+        {error ? (
+          <div className="error-banner" role="alert">
+            <strong>{copy.error}</strong><span>{error}</span>
+          </div>
+        ) : null}
+        <div className="meal-plan-transformation-detail">
+          <p>{copy.transformedLocked}</p>
+          {entry.transformations.map((transformation) => (
+            <div className="meal-plan-transformation-operation" key={transformation.id}>
+              <span
+                className={`meal-plan-transformation-badge meal-plan-transformation-badge--${transformation.transformation_kind}`}
+              >
+                {transformationLabel(transformation.transformation_kind, locale)}
+              </span>
+              <strong>
+                {copy.replace}: {transformation.source_food_name} →{" "}
+                {transformation.replacement_food_name}
+              </strong>
+            </div>
+          ))}
+        </div>
+        <div className="meal-plan-editor__actions">
+          <button className="button ghost" disabled={busy} onClick={removeEntry} type="button">
+            {copy.remove}
+          </button>
+        </div>
+      </section>
+    );
   }
 
   return (
@@ -552,7 +611,11 @@ export default function FamilyMealsScreen({
                           }
                           type="button"
                         >
-                          {slot.meals.length === 0 ? `+ ${copy.add}` : copy.edit}
+                          {slot.meals.length === 0
+                            ? `+ ${copy.add}`
+                            : slot.meals[0]?.transformations.length
+                              ? copy.view
+                              : copy.edit}
                         </button>
                       </div>
                       {slot.meals.length === 0 ? (
@@ -586,11 +649,22 @@ export default function FamilyMealsScreen({
                                     {entryParticipants(entry) || copy.noPeople}
                                     {entry.location ? ` · ${entry.location}` : ""}
                                   </small>
+                                  {entry.transformations.map((transformation) => (
+                                    <span
+                                      className="meal-plan-entry__transformation"
+                                      key={transformation.id}
+                                    >
+                                      <b>{transformationLabel(transformation.transformation_kind, locale)}</b>
+                                      {" · "}
+                                      {transformation.source_food_name} →{" "}
+                                      {transformation.replacement_food_name}
+                                    </span>
+                                  ))}
                                 </span>
                                 <span className="meal-plan-entry__status">
                                   {statusLabel(entry.status, locale)}
                                   {entry.status === "planned"
-                                    ? ` · ${copy.edit}`
+                                    ? ` · ${entry.transformations.length ? copy.view : copy.edit}`
                                     : ` · ${copy.locked}`}
                                 </span>
                               </button>
