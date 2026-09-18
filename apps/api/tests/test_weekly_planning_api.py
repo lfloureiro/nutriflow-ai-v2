@@ -18,7 +18,7 @@ from app.development_transformation_seed import seed_development_transformations
 from app.main import app
 from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.family import Family
-from app.models.food_catalog import Recipe, RecipeCompositionSnapshot
+from app.models.food_catalog import FoodItem, Recipe, RecipeCompositionSnapshot
 from app.models.meal import MealEvent
 from app.models.person import Person
 from app.schemas.nutrition_plan import (
@@ -427,10 +427,7 @@ def test_weekly_proposal_can_select_plan_adapted_variant_when_base_is_ineligible
         ],
     }
     assert all(
-        db_session.get(
-            type(shared_evaluation.participant_evaluations[0].evaluation.candidate.recipe.ingredients[0].food_item),
-            proposal.operation.replacement_food_item_id,
-        )
+        db_session.get(FoodItem, proposal.operation.replacement_food_item_id)
         is not None
         for proposal in direct_transformations.proposals
     )
