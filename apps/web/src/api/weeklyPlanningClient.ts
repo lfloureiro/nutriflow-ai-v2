@@ -1,9 +1,9 @@
 import { ApiError, buildApiUrl } from "./client";
 import type {
+  SharedWeeklyPlan,
   SharedWeeklyPlanProposal,
   SharedWeeklyPlanProposalRequest,
-  SharedWeeklyPlanSlotAcceptance,
-  SharedWeeklyPlanSlotAcceptanceRequest,
+  SharedWeeklyPlanRequest,
 } from "./weeklyPlanningTypes";
 
 const INTERACTIVE_MAX_COMBINATIONS = 256;
@@ -44,11 +44,11 @@ export async function requestSharedWeeklyPlanProposal(
   return (await response.json()) as SharedWeeklyPlanProposal;
 }
 
-export async function acceptSharedWeeklyPlanSlot(
+export async function materializeSharedWeeklyPlan(
   familyId: string,
-  payload: SharedWeeklyPlanSlotAcceptanceRequest,
-): Promise<SharedWeeklyPlanSlotAcceptance> {
-  const path = `/api/families/${encodeURIComponent(familyId)}/weekly-planning/proposals/accept-slot`;
+  payload: SharedWeeklyPlanRequest,
+): Promise<SharedWeeklyPlan> {
+  const path = `/api/families/${encodeURIComponent(familyId)}/weekly-planning/plan`;
   const response = await fetch(buildApiUrl(path), {
     method: "POST",
     headers: {
@@ -60,5 +60,5 @@ export async function acceptSharedWeeklyPlanSlot(
   if (!response.ok) {
     throw new ApiError(await responseError(response), response.status);
   }
-  return (await response.json()) as SharedWeeklyPlanSlotAcceptance;
+  return (await response.json()) as SharedWeeklyPlan;
 }
