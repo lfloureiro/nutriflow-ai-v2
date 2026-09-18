@@ -4,6 +4,7 @@ from math import prod
 
 from app.services.shared_weekly_multi_slot_planning import (
     ENGINE_VERSION as EXACT_ENGINE_VERSION,
+    EXACT_REPEAT_SCORE_PENALTY,
 )
 from app.services.shared_weekly_multi_slot_planning import (
     SharedWeeklyMultiSlotPlanningError,
@@ -37,15 +38,26 @@ class SharedWeeklySearchResult:
     search_truncated: bool
 
 
-def _candidate_hint_key(candidate: SharedWeeklyPlanningCandidate) -> tuple[object, ...]:
+def _candidate_hint_key(
+    candidate: SharedWeeklyPlanningCandidate,
+    *,
+    previous_candidate_keys: frozenset[str] = frozenset(),
+) -> tuple[object, ...]:
     evaluation = candidate.evaluation
     rank = evaluation.rank if evaluation.rank is not None else 1_000_000
-    minimum_score = evaluation.minimum_score
-    average_score = evaluation.average_score
+    repeat_increment = int(evaluation.candidate_key in previous_candidate_keys)
+    repeat_penalty = EXACT_REPEAT_SCORE_PENALTY * repeat_increment
+    minimum_score = (evaluation.minimum_score or 0) - repeat_penalty
+    average_score = (evaluation.average_score or 0) - repeat_penalty
     return (
+        -evaluation.weekly_mandatory_support_participants,
+        -evaluation.weekly_mandatory_support_total,
+        -evaluation.weekly_advisory_support_participants,
+        -evaluation.weekly_advisory_support_total,
+        -minimum_score,
+        -average_score,
+        repeat_increment,
         rank,
-        -(minimum_score if minimum_score is not None else 0),
-        -(average_score if average_score is not None else 0),
         candidate.selection_key,
     )
 
@@ -127,12 +139,21 @@ def optimize_shared_weekly_slots_scalable(
     for index, (slot, candidates) in enumerate(zip(ordered_slots, eligible_by_slot, strict=True)):
         slots_remaining = len(ordered_slots) - index
         stage_budget = max(1, remaining_budget // slots_remaining)
-        ordered_candidates = tuple(sorted(candidates, key=_candidate_hint_key))
+        ordered_candidates = tuple(
+            sorted(
+                candidates,
+                key=lambda candidate: _candidate_hint_key(candidate),
+            )
+        )
 
         expansions: list[tuple[tuple[object, ...], tuple[SharedWeeklyPlanChoice, ...]]] = []
         for state in beam:
             previous_choices = state.choices if state is not None else ()
             previous_key = _ranking_key(state) if state is not None else ()
+            previous_candidate_keys = frozenset(
+                choice.candidate.evaluation.candidate_key
+                for choice in previous_choices
+            )
             for candidate in ordered_candidates:
                 choice = SharedWeeklyPlanChoice(
                     slot_key=slot.slot_key,
@@ -145,7 +166,10 @@ def optimize_shared_weekly_slots_scalable(
                     (
                         (
                             previous_key,
-                            _candidate_hint_key(candidate),
+                            _candidate_hint_key(
+                                candidate,
+                                previous_candidate_keys=previous_candidate_keys,
+                            ),
                             tuple(
                                 item.candidate.selection_key for item in choices
                             ),
