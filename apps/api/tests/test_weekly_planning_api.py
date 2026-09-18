@@ -358,7 +358,8 @@ def test_weekly_proposal_can_select_plan_adapted_variant_when_base_is_ineligible
 
     assert response.status_code == 201
     body = response.json()
-    assert body["selected_plan"] is not None
+    assert body["search_space_size"] > 0, body
+    assert body["selected_plan"] is not None, body
     choice = body["selected_plan"]["choices"][0]
     assert choice["candidate_key"] == recipe.recipe_key
     assert choice["transformation"] is not None
