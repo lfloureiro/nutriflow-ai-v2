@@ -17,13 +17,13 @@ from app.models.food_transformation_profile import FoodTransformationProfile
 from app.models.health_connection import HealthConnection
 from app.models.health_measurement import HealthMeasurement
 from app.models.meal import MealEvent, MealParticipant, Serving, ServingNutritionComponent
-from app.models.meal_transformation_application import MealTransformationApplication
 from app.models.meal_candidate_availability import (
     MealCandidateAvailability,
     MealCommercialOffer,
     MealSourceOpeningWindow,
 )
 from app.models.meal_candidate_planning_profile import MealCandidatePlanningProfile
+from app.models.meal_transformation_application import MealTransformationApplication
 from app.models.nutrition_constraint import NutritionConstraint
 from app.models.nutrition_goal import NutritionGoal
 from app.models.nutrition_plan import NutritionPlan, NutritionPlanGuideline, NutritionPlanRule
