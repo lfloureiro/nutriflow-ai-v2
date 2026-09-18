@@ -80,6 +80,7 @@ describe("weekly matrix plan overlay", () => {
                 recipe_name: "Salmão com legumes",
                 location: "Casa",
                 notes: null,
+                transformations: [],
                 participants: [],
               },
             ],
