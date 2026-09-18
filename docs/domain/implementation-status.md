@@ -206,7 +206,8 @@ Implemented:
 - atomic weekly materialization with stale-selection and slot-conflict protection;
 - Monday-Sunday Week view with progressive disclosure and local rejection/recalculation;
 - persisted transformation provenance visible after the weekly plan is applied;
-- server-authoritative unavailable slots remain explicit pending gaps instead of invalidating the rest of an otherwise feasible week.
+- server-authoritative unavailable slots remain explicit pending gaps instead of invalidating the rest of an otherwise feasible week;
+- exact recipe repetition inside one proposed week carries a soft plan-level diversity penalty, including in bounded-search pruning, without weakening Plan-Fit or mandatory weekly rules.
 
 Current coupling increment:
 
