@@ -1,6 +1,7 @@
 import uuid
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -657,6 +658,12 @@ def plan_shared_meal_transformation(
     family = db.get(Family, family_id)
     if family is None:
         raise MealTransformationNotFoundError("Family not found.")
+    if data.scheduled_at.tzinfo is None or data.scheduled_at.utcoffset() is None:
+        raise MealTransformationError("scheduled_at must be timezone-aware.")
+    if data.scheduled_at.astimezone(ZoneInfo(family.timezone)).date() != data.planning_date:
+        raise MealTransformationError(
+            "planning_date must match scheduled_at in the Family timezone."
+        )
 
     proposal_request = SharedMealTransformationCreate(
         planning_date=data.planning_date,
