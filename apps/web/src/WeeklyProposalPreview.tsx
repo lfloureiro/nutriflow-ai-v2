@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import { ApiError, getFamilyMealPlan } from "./api/client";
 import type { FamilyMealPlan, MealPlanEntry, MealType } from "./api/mealPlanTypes";
+import { refreshShoppingList } from "./api/pantryShoppingClient";
+import type { ShoppingList } from "./api/pantryShoppingTypes";
 import { getRecommendationBootstrap } from "./api/recommendationClient";
 import {
   materializeSharedWeeklyPlan,
@@ -32,6 +34,20 @@ const PREVIEW_MAX_COMBINATIONS = 256;
 type BusyStage = "catalogue" | "planning";
 type DecisionBusy = "apply" | "reject" | null;
 type RejectedBySlot = Record<string, string[]>;
+
+export type ShoppingRefreshSummary = {
+  automaticNeeded: number;
+  planningIssues: number;
+};
+
+export function shoppingRefreshSummary(list: ShoppingList): ShoppingRefreshSummary {
+  return {
+    automaticNeeded: list.items.filter(
+      (item) => item.item_source === "automatic" && item.status === "needed",
+    ).length,
+    planningIssues: list.planning_issues.length,
+  };
+}
 
 const COPY = {
   "pt-PT": {
@@ -70,6 +86,13 @@ const COPY = {
     reject: "Recusar e procurar alternativa",
     rejecting: "A procurar alternativa…",
     accepted: "A semana foi guardada no plano.",
+    shoppingUpdated: "A lista de compras da semana foi actualizada.",
+    shoppingEmpty: "Não há ingredientes automáticos em falta para as refeições calculáveis.",
+    shoppingOne: "1 ingrediente automático em falta.",
+    shoppingMany: "ingredientes automáticos em falta.",
+    shoppingIssueOne: "1 requisito não pôde ser calculado com segurança.",
+    shoppingIssueMany: "requisitos não puderam ser calculados com segurança.",
+    shoppingRefreshFailed: "A semana foi guardada, mas não foi possível actualizar a lista de compras.",
     weekdayLunchPending: "Almoço de dia útil: primeiro devem ser usadas sobras reais do jantar anterior; sem sobras, só entra uma opção Uber Eats/Glovo com disponibilidade conhecida. Ainda não existe uma opção automática segura para este slot.",
     unavailableSlot: "Não existem opções disponíveis para este slot com a política actual.",
     leftoversNotice: "As sobras ainda não são inventadas pelo planeador: só serão propostas quando houver quantidade reservada do jantar anterior.",
@@ -114,6 +137,13 @@ const COPY = {
     reject: "Reject and find alternative",
     rejecting: "Finding alternative…",
     accepted: "The week was saved to the plan.",
+    shoppingUpdated: "The weekly shopping list was refreshed.",
+    shoppingEmpty: "There are no automatically generated missing ingredients for calculable meals.",
+    shoppingOne: "1 automatically generated ingredient is missing.",
+    shoppingMany: "automatically generated ingredients are missing.",
+    shoppingIssueOne: "1 requirement could not be calculated safely.",
+    shoppingIssueMany: "requirements could not be calculated safely.",
+    shoppingRefreshFailed: "The week was saved, but the shopping list could not be refreshed.",
     weekdayLunchPending: "Weekday lunch: real leftovers from the previous dinner come first; without leftovers, only an Uber Eats/Glovo option with known availability is allowed. There is no safe automatic option for this slot yet.",
     unavailableSlot: "No options are available for this slot under the current policy.",
     leftoversNotice: "The planner does not invent leftovers: they will only be proposed when quantity has been reserved from the previous dinner.",
@@ -280,6 +310,8 @@ export default function WeeklyProposalPreview({
   const [decisionBusy, setDecisionBusy] = useState<DecisionBusy>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [shoppingSummary, setShoppingSummary] = useState<ShoppingRefreshSummary | null>(null);
+  const [shoppingWarning, setShoppingWarning] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedMealType, setSelectedMealType] = useState<MealType | null>(null);
   const plan = refreshedPlan ?? suppliedPlan ?? loadedPlan;
@@ -292,6 +324,8 @@ export default function WeeklyProposalPreview({
     setRejectedBySlot({});
     setSkippedSlots({});
     setNotice(null);
+    setShoppingSummary(null);
+    setShoppingWarning(null);
   }, [familyId, weekStart]);
 
   useEffect(() => {
@@ -347,6 +381,8 @@ export default function WeeklyProposalPreview({
     setBusyStage("catalogue");
     setError(null);
     setNotice(null);
+    setShoppingSummary(null);
+    setShoppingWarning(null);
     setProposal(null);
     if (resetSelection) setSelectedMealType(null);
     try {
@@ -440,6 +476,8 @@ export default function WeeklyProposalPreview({
     setDecisionBusy("apply");
     setError(null);
     setNotice(null);
+    setShoppingSummary(null);
+    setShoppingWarning(null);
     try {
       await materializeSharedWeeklyPlan(
         familyId,
@@ -452,6 +490,13 @@ export default function WeeklyProposalPreview({
       setRejectedBySlot({});
       setSkippedSlots({});
       setNotice(copy.accepted);
+
+      try {
+        const shoppingList = await refreshShoppingList(familyId, effectiveWeekStart, 7);
+        setShoppingSummary(shoppingRefreshSummary(shoppingList));
+      } catch (shoppingError: unknown) {
+        setShoppingWarning(`${copy.shoppingRefreshFailed} ${errorText(shoppingError)}`);
+      }
     } catch (caught: unknown) {
       setError(errorText(caught));
     } finally {
@@ -536,6 +581,31 @@ export default function WeeklyProposalPreview({
         </div>
       ) : null}
       {notice ? <div className="decision-result" role="status"><strong>{notice}</strong></div> : null}
+      {shoppingSummary ? (
+        <div className="decision-result" role="status">
+          <strong>{copy.shoppingUpdated}</strong>
+          <span>
+            {shoppingSummary.automaticNeeded === 0
+              ? copy.shoppingEmpty
+              : shoppingSummary.automaticNeeded === 1
+                ? copy.shoppingOne
+                : `${shoppingSummary.automaticNeeded} ${copy.shoppingMany}`}
+            {shoppingSummary.planningIssues > 0
+              ? ` · ${
+                  shoppingSummary.planningIssues === 1
+                    ? copy.shoppingIssueOne
+                    : `${shoppingSummary.planningIssues} ${copy.shoppingIssueMany}`
+                }`
+              : ""}
+          </span>
+        </div>
+      ) : null}
+      {shoppingWarning ? (
+        <div className="error-banner" role="alert">
+          <strong>{copy.shoppingRefreshFailed}</strong>
+          <span>{shoppingWarning.replace(`${copy.shoppingRefreshFailed} `, "")}</span>
+        </div>
+      ) : null}
       {proposal ? (
         <div className="decision-result" role="status">
           <strong>{copy.preview}</strong>
