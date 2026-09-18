@@ -610,6 +610,16 @@ def test_weekly_plan_materializes_selected_transformation(
     seed_development_plan_fit(db_session, person_id=DEMO_PERSON_ID)
     db_session.commit()
 
+    seeded_breakfast = db_session.scalar(
+        select(MealEvent).where(
+            MealEvent.family_id == DEMO_FAMILY_ID,
+            MealEvent.meal_type == "breakfast",
+        )
+    )
+    assert seeded_breakfast is not None
+    seeded_breakfast.status = "cancelled"
+    db_session.commit()
+
     recipe = db_session.scalar(
         select(Recipe).where(
             Recipe.recipe_key == "breakfast:recipe:yogurt-muesli-banana"
