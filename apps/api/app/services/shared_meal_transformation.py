@@ -660,7 +660,7 @@ def _planned_transformed_serving(
     return serving
 
 
-def plan_shared_meal_transformation(
+def materialize_shared_meal_transformation(
     db: Session,
     *,
     family_id: uuid.UUID,
@@ -785,6 +785,20 @@ def plan_shared_meal_transformation(
         recipe_id=recipe.id,
         person_ids=person_ids,
         serving_ids=[serving.id for serving in servings if serving.id is not None],
+    )
+    return response
+
+
+def plan_shared_meal_transformation(
+    db: Session,
+    *,
+    family_id: uuid.UUID,
+    data: SharedMealTransformationPlanCreate,
+) -> SharedMealTransformationPlanRead:
+    response = materialize_shared_meal_transformation(
+        db,
+        family_id=family_id,
+        data=data,
     )
     db.commit()
     return response
