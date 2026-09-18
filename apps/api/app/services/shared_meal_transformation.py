@@ -660,38 +660,31 @@ def _planned_transformed_serving(
     return serving
 
 
-def materialize_shared_meal_transformation(
+def materialize_selected_shared_meal_transformation(
     db: Session,
     *,
     family_id: uuid.UUID,
-    data: SharedMealTransformationPlanCreate,
+    recipe_id: uuid.UUID,
+    planning_date,
+    meal_type: str,
+    scheduled_at,
+    proposal: SharedMealTransformationProposalRead,
+    title: str | None = None,
+    location: str | None = None,
+    notes: str | None = None,
 ) -> SharedMealTransformationPlanRead:
     family = db.get(Family, family_id)
     if family is None:
         raise MealTransformationNotFoundError("Family not found.")
-    if data.scheduled_at.tzinfo is None or data.scheduled_at.utcoffset() is None:
+    if scheduled_at.tzinfo is None or scheduled_at.utcoffset() is None:
         raise MealTransformationError("scheduled_at must be timezone-aware.")
-    if data.scheduled_at.astimezone(ZoneInfo(family.timezone)).date() != data.planning_date:
+    if scheduled_at.astimezone(ZoneInfo(family.timezone)).date() != planning_date:
         raise MealTransformationError(
             "planning_date must match scheduled_at in the Family timezone."
         )
 
-    proposal_request = SharedMealTransformationCreate(
-        planning_date=data.planning_date,
-        meal_type=data.meal_type,
-        recipe_id=data.recipe_id,
-        participants=data.participants,
-        max_proposals=10,
-    )
-    result = propose_shared_meal_transformations(
-        db,
-        family_id=family_id,
-        data=proposal_request,
-    )
-    proposal = _selected_materialization_proposal(result, data)
-
     try:
-        recipe = get_family_visible_recipe_model(db, family_id, data.recipe_id)
+        recipe = get_family_visible_recipe_model(db, family_id, recipe_id)
     except RecipeNotFoundError as exc:
         raise MealTransformationNotFoundError(str(exc)) from exc
     composition = _latest_recipe_composition(recipe)
@@ -704,21 +697,21 @@ def materialize_shared_meal_transformation(
         db,
         family_id=family_id,
         family_timezone=family.timezone,
-        scheduled_at=data.scheduled_at,
-        meal_type=data.meal_type,
+        scheduled_at=scheduled_at,
+        meal_type=meal_type,
     )
 
     event = MealEvent(
         family_id=family_id,
-        meal_type=data.meal_type,
-        title=data.title or recipe.name,
-        scheduled_at=data.scheduled_at,
+        meal_type=meal_type,
+        title=title or recipe.name,
+        scheduled_at=scheduled_at,
         timezone=family.timezone,
         status="planned",
-        location=data.location,
+        location=location,
         source="recommendation",
         source_reference=f"meal-transformation:{TRANSFORMATION_APPLICATION_VERSION}",
-        notes=data.notes,
+        notes=notes,
     )
     application = MealTransformationApplication(
         meal_event=event,
@@ -777,7 +770,7 @@ def materialize_shared_meal_transformation(
         raise MealTransformationError(
             "Shared transformation application was not fully persisted."
         )
-    response = SharedMealTransformationPlanRead(
+    return SharedMealTransformationPlanRead(
         meal_event_id=event.id,
         transformation_application_id=application.id,
         status=event.status,
@@ -786,7 +779,48 @@ def materialize_shared_meal_transformation(
         person_ids=person_ids,
         serving_ids=[serving.id for serving in servings if serving.id is not None],
     )
-    return response
+
+
+def materialize_shared_meal_transformation(
+    db: Session,
+    *,
+    family_id: uuid.UUID,
+    data: SharedMealTransformationPlanCreate,
+) -> SharedMealTransformationPlanRead:
+    family = db.get(Family, family_id)
+    if family is None:
+        raise MealTransformationNotFoundError("Family not found.")
+    if data.scheduled_at.tzinfo is None or data.scheduled_at.utcoffset() is None:
+        raise MealTransformationError("scheduled_at must be timezone-aware.")
+    if data.scheduled_at.astimezone(ZoneInfo(family.timezone)).date() != data.planning_date:
+        raise MealTransformationError(
+            "planning_date must match scheduled_at in the Family timezone."
+        )
+
+    result = propose_shared_meal_transformations(
+        db,
+        family_id=family_id,
+        data=SharedMealTransformationCreate(
+            planning_date=data.planning_date,
+            meal_type=data.meal_type,
+            recipe_id=data.recipe_id,
+            participants=data.participants,
+            max_proposals=10,
+        ),
+    )
+    proposal = _selected_materialization_proposal(result, data)
+    return materialize_selected_shared_meal_transformation(
+        db,
+        family_id=family_id,
+        recipe_id=data.recipe_id,
+        planning_date=data.planning_date,
+        meal_type=data.meal_type,
+        scheduled_at=data.scheduled_at,
+        proposal=proposal,
+        title=data.title,
+        location=data.location,
+        notes=data.notes,
+    )
 
 
 def plan_shared_meal_transformation(
