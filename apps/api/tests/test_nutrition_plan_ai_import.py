@@ -1,3 +1,4 @@
+import json
 from datetime import date
 
 import pytest
@@ -9,7 +10,9 @@ from app.schemas.nutrition_plan_import import NutritionPlanImportCreate
 from app.services import nutrition_plan_ai_import
 from app.services.nutrition_plan_ai_import import (
     NutritionPlanAIImportError,
+    build_chatgpt_nutrition_plan_prompt,
     create_ai_nutrition_plan_import,
+    create_chatgpt_assisted_nutrition_plan_import,
 )
 
 
@@ -178,3 +181,74 @@ def test_ai_import_uses_application_settings(monkeypatch: pytest.MonkeyPatch) ->
     assert captured["url"] == "https://example.invalid/v1/responses"
     assert captured["authorization"] == "Bearer test-key"
     assert b'"model": "test-model"' in captured["payload"]
+
+def test_chatgpt_prompt_contains_source_and_strict_json_contract() -> None:
+    prompt = build_chatgpt_nutrition_plan_prompt(
+        "Ao pequeno-almoço consumir pelo menos 30 g de proteína."
+    )
+
+    assert "SOURCE TEXT START" in prompt
+    assert "30 g de proteína" in prompt
+    assert "Return ONLY one JSON object" in prompt
+    assert '"proposals"' in prompt
+    assert '"summary"' in prompt
+
+
+def test_chatgpt_assisted_import_validates_pasted_json_and_stays_in_review(
+    db_session: Session,
+) -> None:
+    person = _person(db_session)
+    structured = {
+        "proposals": [
+            {
+                "source_statement": "consumir pelo menos 30 g de proteína",
+                "proposal_type": "numeric_rule",
+                "target_type": "nutrient",
+                "target_key": "protein",
+                "operator": "min",
+                "value_min": 30,
+                "value_max": None,
+                "value_target": None,
+                "unit": "g",
+                "description": None,
+                "meal_type": "breakfast",
+                "period": None,
+                "minimum_occurrences": None,
+                "maximum_occurrences": None,
+                "severity": "required",
+                "is_mandatory": True,
+                "priority": 100,
+                "confidence": 0.97,
+                "parser_note": "Explicit numeric minimum.",
+            }
+        ],
+        "summary": "Uma recomendação estruturada para revisão.",
+    }
+    response_text = "```json\n" + json.dumps(structured, ensure_ascii=False) + "\n```"
+
+    result = create_chatgpt_assisted_nutrition_plan_import(
+        db_session,
+        person=person,
+        data=_payload(),
+        response_text=response_text,
+    )
+
+    assert result.status == "review"
+    assert result.nutrition_plan.status == "draft"
+    assert result.parser_name == "chatgpt-assisted"
+    assert result.parser_version.endswith("manual-chatgpt")
+    assert len(result.proposals) == 1
+    assert result.proposals[0].confirmation_status == "proposed"
+    assert result.proposals[0].target_key == "protein"
+
+
+def test_chatgpt_assisted_import_rejects_non_json_response(db_session: Session) -> None:
+    person = _person(db_session)
+    with pytest.raises(NutritionPlanAIImportError, match="not valid JSON"):
+        create_chatgpt_assisted_nutrition_plan_import(
+            db_session,
+            person=person,
+            data=_payload(),
+            response_text="Aqui está a interpretação.",
+        )
+
