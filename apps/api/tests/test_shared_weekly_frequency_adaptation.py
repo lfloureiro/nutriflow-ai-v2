@@ -196,6 +196,42 @@ def _activate_frequency_guideline(
     )
 
 
+def _activate_qualitative_guideline(
+    db_session: Session,
+    *,
+    person: Person,
+    target_key: str,
+    mandatory: bool = True,
+) -> None:
+    plan = create_nutrition_plan(
+        db_session,
+        person=person,
+        data=NutritionPlanCreate(
+            title=f"{person.first_name} qualitative {target_key} guidance",
+            source_type="nutritionist",
+            source_name="Dietitian",
+            valid_from=date(2026, 9, 1),
+        ),
+    )
+    add_nutrition_plan_guideline(
+        db_session,
+        plan=plan,
+        data=NutritionPlanGuidelineCreate(
+            guideline_type="qualitative",
+            target_type="food_category",
+            target_key=target_key,
+            description=f"Mandatory qualitative guidance for {target_key}",
+            is_mandatory=mandatory,
+            priority=120,
+        ),
+    )
+    update_nutrition_plan(
+        db_session,
+        plan=plan,
+        data=NutritionPlanUpdate(status="active"),
+    )
+
+
 def _recommend(
     db_session: Session,
     *,
@@ -328,6 +364,34 @@ def test_shared_ranking_distinguishes_advisory_weekly_support(
     ]
     ana_result = _participant(options[0], ana)
     assert "weekly_frequency_support:advisory:1" in ana_result["explanation"]
+
+
+def test_mandatory_qualitative_guidance_does_not_make_all_shared_candidates_ineligible(
+    db_session: Session,
+) -> None:
+    family, ana, bruno, fish, beef = _setup_family(db_session)
+    _activate_qualitative_guideline(
+        db_session,
+        person=ana,
+        target_key="refined_cereals",
+        mandatory=True,
+    )
+    db_session.commit()
+
+    body = _recommend(
+        db_session,
+        family=family,
+        ana=ana,
+        bruno=bruno,
+        candidates=[fish, beef],
+    )
+
+    options = body["options"]
+    assert isinstance(options, list)
+    assert all(option["eligible"] is True for option in options)
+    ana_result = _participant(options[0], ana)
+    assert ana_result["plan_fit"]["status"] == "unknown"
+    assert ana_result["plan_fit"]["nutrition_plan_authority"]["state"] == "partial_plan_coverage"
 
 
 def test_weekly_support_never_rescues_another_participants_hard_failure(
