@@ -1,4 +1,5 @@
 import uuid
+from collections import Counter
 from dataclasses import dataclass
 from decimal import Decimal
 from math import prod
@@ -42,12 +43,16 @@ class SharedWeeklySearchResult:
 def _candidate_hint_key(
     candidate: SharedWeeklyPlanningCandidate,
     *,
-    previous_candidate_keys: frozenset[str] = frozenset(),
+    previous_candidate_counts: dict[str, int] | None = None,
 ) -> tuple[object, ...]:
     evaluation = candidate.evaluation
     rank = evaluation.rank if evaluation.rank is not None else 1_000_000
-    repeat_increment = int(evaluation.candidate_key in previous_candidate_keys)
-    repeat_penalty = EXACT_REPEAT_SCORE_PENALTY * repeat_increment
+    repeat_count = (
+        0
+        if previous_candidate_counts is None
+        else previous_candidate_counts.get(evaluation.candidate_key, 0)
+    )
+    repeat_penalty = EXACT_REPEAT_SCORE_PENALTY * repeat_count
     minimum_score = (evaluation.minimum_score or Decimal(0)) - repeat_penalty
     average_score = (evaluation.average_score or Decimal(0)) - repeat_penalty
     return (
@@ -57,7 +62,7 @@ def _candidate_hint_key(
         -evaluation.weekly_advisory_support_total,
         -minimum_score,
         -average_score,
-        repeat_increment,
+        repeat_count,
         rank,
         candidate.selection_key,
     )
@@ -151,9 +156,11 @@ def optimize_shared_weekly_slots_scalable(
         for state in beam:
             previous_choices = state.choices if state is not None else ()
             previous_key = _ranking_key(state) if state is not None else ()
-            previous_candidate_keys = frozenset(
-                choice.candidate.evaluation.candidate_key
-                for choice in previous_choices
+            previous_candidate_counts = dict(
+                Counter(
+                    choice.candidate.evaluation.candidate_key
+                    for choice in previous_choices
+                )
             )
             for candidate in ordered_candidates:
                 choice = SharedWeeklyPlanChoice(
@@ -166,11 +173,11 @@ def optimize_shared_weekly_slots_scalable(
                 expansions.append(
                     (
                         (
-                            previous_key,
                             _candidate_hint_key(
                                 candidate,
-                                previous_candidate_keys=previous_candidate_keys,
+                                previous_candidate_counts=previous_candidate_counts,
                             ),
+                            previous_key,
                             tuple(
                                 item.candidate.selection_key for item in choices
                             ),
