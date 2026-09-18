@@ -11,6 +11,7 @@ from app.models.pantry_stock import PantryStockLot
 from app.services.meal_recommendation import MealCandidate
 from app.services.recommendation_practical_context import CandidatePracticalProfile
 from app.services.serving_nutrition import UnsupportedUnitConversionError, convert_quantity
+from app.services.weekly_debug import weekly_debug, weekly_debug_span
 
 ZERO = Decimal(0)
 
@@ -303,7 +304,22 @@ def build_pantry_stock_practical_profiles(
 ) -> tuple[CandidatePracticalProfile, ...]:
     _validate_as_of(as_of)
     profiles: list[CandidatePracticalProfile] = []
+    weekly_debug(
+        "PANTRY",
+        "profiles-start",
+        candidates=len(candidates),
+        family=family_id,
+        as_of=as_of,
+    )
     for candidate in candidates:
+        weekly_debug(
+            "PANTRY",
+            "candidate",
+            candidate=candidate.key,
+            kind=("food_item" if candidate.food_item is not None else "recipe"),
+            quantity=candidate.quantity,
+            unit=candidate.quantity_unit,
+        )
         if candidate.food_item is not None:
             assessment = assess_food_pantry_stock(
                 session,
@@ -317,7 +333,13 @@ def build_pantry_stock_practical_profiles(
         elif candidate.recipe is not None:
             try:
                 batch_multiplier = _recipe_candidate_batch_multiplier(candidate)
-            except PantryCandidateScalingError:
+            except PantryCandidateScalingError as exc:
+                weekly_debug(
+                    "PANTRY",
+                    "unscalable-candidate",
+                    candidate=candidate.key,
+                    error=str(exc),
+                )
                 profiles.append(
                     CandidatePracticalProfile(
                         candidate_key=candidate.key,
@@ -325,13 +347,19 @@ def build_pantry_stock_practical_profiles(
                     )
                 )
                 continue
-            assessment = evaluate_recipe_pantry_sufficiency(
-                session,
-                family_id=family_id,
-                recipe=candidate.recipe,
-                as_of=as_of,
-                batch_multiplier=batch_multiplier,
-            )
+            with weekly_debug_span(
+                "PANTRY",
+                "recipe-sufficiency",
+                candidate=candidate.key,
+                multiplier=batch_multiplier,
+            ):
+                assessment = evaluate_recipe_pantry_sufficiency(
+                    session,
+                    family_id=family_id,
+                    recipe=candidate.recipe,
+                    as_of=as_of,
+                    batch_multiplier=batch_multiplier,
+                )
             is_available = assessment.is_sufficient
         else:
             raise PantryPlanningError(
@@ -344,4 +372,13 @@ def build_pantry_stock_practical_profiles(
                 is_available=is_available,
             )
         )
+    weekly_debug(
+        "PANTRY",
+        "profiles-ready",
+        candidates=len(candidates),
+        profiles=len(profiles),
+        available=sum(1 for profile in profiles if profile.is_available is True),
+        unavailable=sum(1 for profile in profiles if profile.is_available is False),
+        unknown=sum(1 for profile in profiles if profile.is_available is None),
+    )
     return tuple(profiles)
