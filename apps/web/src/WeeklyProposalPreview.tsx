@@ -92,6 +92,7 @@ const COPY = {
     shoppingMany: "ingredientes automáticos em falta.",
     shoppingIssueOne: "1 requisito não pôde ser calculado com segurança.",
     shoppingIssueMany: "requisitos não puderam ser calculados com segurança.",
+    planRefreshFailed: "A semana foi guardada, mas não foi possível recarregar imediatamente a grelha.",
     shoppingRefreshFailed: "A semana foi guardada, mas não foi possível actualizar a lista de compras.",
     weekdayLunchPending: "Almoço de dia útil: primeiro devem ser usadas sobras reais do jantar anterior; sem sobras, só entra uma opção Uber Eats/Glovo com disponibilidade conhecida. Ainda não existe uma opção automática segura para este slot.",
     unavailableSlot: "Não existem opções disponíveis para este slot com a política actual.",
@@ -143,6 +144,7 @@ const COPY = {
     shoppingMany: "automatically generated ingredients are missing.",
     shoppingIssueOne: "1 requirement could not be calculated safely.",
     shoppingIssueMany: "requirements could not be calculated safely.",
+    planRefreshFailed: "The week was saved, but the grid could not be reloaded immediately.",
     shoppingRefreshFailed: "The week was saved, but the shopping list could not be refreshed.",
     weekdayLunchPending: "Weekday lunch: real leftovers from the previous dinner come first; without leftovers, only an Uber Eats/Glovo option with known availability is allowed. There is no safe automatic option for this slot yet.",
     unavailableSlot: "No options are available for this slot under the current policy.",
@@ -311,6 +313,7 @@ export default function WeeklyProposalPreview({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [shoppingSummary, setShoppingSummary] = useState<ShoppingRefreshSummary | null>(null);
+  const [planRefreshWarning, setPlanRefreshWarning] = useState<string | null>(null);
   const [shoppingWarning, setShoppingWarning] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedMealType, setSelectedMealType] = useState<MealType | null>(null);
@@ -325,6 +328,7 @@ export default function WeeklyProposalPreview({
     setSkippedSlots({});
     setNotice(null);
     setShoppingSummary(null);
+    setPlanRefreshWarning(null);
     setShoppingWarning(null);
   }, [familyId, weekStart]);
 
@@ -382,6 +386,7 @@ export default function WeeklyProposalPreview({
     setError(null);
     setNotice(null);
     setShoppingSummary(null);
+    setPlanRefreshWarning(null);
     setShoppingWarning(null);
     setProposal(null);
     if (resetSelection) setSelectedMealType(null);
@@ -477,28 +482,38 @@ export default function WeeklyProposalPreview({
     setError(null);
     setNotice(null);
     setShoppingSummary(null);
+    setPlanRefreshWarning(null);
     setShoppingWarning(null);
+
     try {
       await materializeSharedWeeklyPlan(
         familyId,
         weeklyPlanRequest(proposalRequest, proposal.selected_plan.choices),
       );
-      const updated = await getFamilyMealPlan(familyId, effectiveWeekStart, 7);
-      setRefreshedPlan(updated);
-      setProposal(null);
-      setProposalRequest(null);
-      setRejectedBySlot({});
-      setSkippedSlots({});
-      setNotice(copy.accepted);
-
-      try {
-        const shoppingList = await refreshShoppingList(familyId, effectiveWeekStart, 7);
-        setShoppingSummary(shoppingRefreshSummary(shoppingList));
-      } catch (shoppingError: unknown) {
-        setShoppingWarning(errorText(shoppingError));
-      }
     } catch (caught: unknown) {
       setError(errorText(caught));
+      setDecisionBusy(null);
+      return;
+    }
+
+    setProposal(null);
+    setProposalRequest(null);
+    setRejectedBySlot({});
+    setSkippedSlots({});
+    setNotice(copy.accepted);
+
+    try {
+      const updated = await getFamilyMealPlan(familyId, effectiveWeekStart, 7);
+      setRefreshedPlan(updated);
+    } catch (reloadError: unknown) {
+      setPlanRefreshWarning(errorText(reloadError));
+    }
+
+    try {
+      const shoppingList = await refreshShoppingList(familyId, effectiveWeekStart, 7);
+      setShoppingSummary(shoppingRefreshSummary(shoppingList));
+    } catch (shoppingError: unknown) {
+      setShoppingWarning(errorText(shoppingError));
     } finally {
       setDecisionBusy(null);
     }
@@ -598,6 +613,12 @@ export default function WeeklyProposalPreview({
                 }`
               : ""}
           </span>
+        </div>
+      ) : null}
+      {planRefreshWarning ? (
+        <div className="error-banner" role="alert">
+          <strong>{copy.planRefreshFailed}</strong>
+          <span>{planRefreshWarning}</span>
         </div>
       ) : null}
       {shoppingWarning ? (
