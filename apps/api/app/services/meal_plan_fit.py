@@ -30,8 +30,8 @@ from app.services.meal_recommendation_api import (
 )
 from app.services.nutrition_plan import NutritionPlanError, compile_effective_nutrition_plan
 from app.services.serving_nutrition import UnsupportedUnitConversionError, convert_quantity
-from app.services.weekly_planning_request_cache import current_weekly_planning_cache
 from app.services.weekly_debug import weekly_debug, weekly_debug_span
+from app.services.weekly_planning_request_cache import current_weekly_planning_cache
 
 ZERO = Decimal(0)
 ONE = Decimal(1)
