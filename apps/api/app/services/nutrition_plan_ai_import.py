@@ -22,6 +22,8 @@ from app.services.nutrition_plan_import import get_nutrition_plan_import
 
 AI_PARSER_NAME = "openai-responses"
 AI_PARSER_VERSION = "nutrition-plan-structured-v1"
+CHATGPT_ASSISTED_PARSER_NAME = "chatgpt-assisted"
+CHATGPT_ASSISTED_PARSER_VERSION = "nutrition-plan-structured-v1:manual-chatgpt"
 DEFAULT_MODEL = "gpt-5.6-luna"
 
 
