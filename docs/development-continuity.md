@@ -256,11 +256,13 @@ mandatory-support participant coverage
 -> total mandatory supported occurrences
 -> advisory-support participant coverage
 -> total advisory supported occurrences
--> minimum participant score across the week
--> average participant score
+-> diversity-adjusted minimum participant score
+-> diversity-adjusted average participant score
 -> repeated shared-candidate count
 -> stable candidate-key sequence
 ```
+
+Exact recipe repetition inside the proposed week is a soft diversity cost, not a hard gate. Each occurrence beyond the first subtracts 0.25 from the plan-level minimum and average ranking scores. Mandatory/advisory weekly support remains ahead of that adjustment, and clearly worse alternatives can still lose to a repeated favourite. The bounded search applies the same repeat-aware score hint before pruning so approximate search does not systematically collapse onto the same top-ranked recipe.
 
 Current increment: couple an explicitly applied weekly plan to the existing durable shopping-list workflow without weakening weekly-plan atomicity.
 
