@@ -21,6 +21,7 @@ import { useI18n, type Locale } from "./i18n";
 import MealConsumptionControls from "./MealConsumptionControls";
 import MealPlanner from "./MealPlanner";
 import { localDateValue } from "./planning";
+import WeeklyProposalPreview from "./WeeklyProposalPreview";
 
 export type FamilyMealsMode = "today" | "week" | "recommend";
 
@@ -526,8 +527,18 @@ export default function FamilyMealsScreen({
             recipes={recipes}
             target={editing}
           />
+        ) : mode === "week" ? (
+          <WeeklyProposalPreview
+            familyId={familyId}
+            onEdit={(date, mealType, entry) =>
+              setEditing({ date, mealType, entry })
+            }
+            people={people}
+            plan={plan}
+            weekStart={plan.start_date}
+          />
         ) : (
-          <div className={`meal-plan-days ${mode === "week" ? "week" : "today"}`}>
+          <div className="meal-plan-days today">
             {plan.days.map((day) => (
               <section className="meal-plan-day" key={day.date}>
                 <div className="family-meals-day__heading">
@@ -589,12 +600,9 @@ export default function FamilyMealsScreen({
                                 </span>
                                 <span className="meal-plan-entry__status">
                                   {statusLabel(entry.status, locale)}
-                                  {entry.status === "planned"
-                                    ? ` · ${copy.edit}`
-                                    : ` · ${copy.locked}`}
                                 </span>
                               </button>
-                              {mode === "today" && day.date <= consumptionDate ? (
+                              {entry.status !== "planned" ? (
                                 <div className="meal-consumption-list">
                                   {entry.participants.map((participant) => (
                                     <MealConsumptionControls

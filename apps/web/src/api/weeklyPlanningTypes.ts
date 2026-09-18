@@ -1,0 +1,110 @@
+import type { MealTransformationOperation } from "./mealTransformationTypes";
+import type { RecommendationCandidateInput } from "./types";
+
+export type WeeklyPlanningMealType = "breakfast" | "lunch" | "snack" | "dinner";
+
+export type SharedWeeklyPlanningSlotRequest = {
+  slot_key: string;
+  planning_date: string;
+  scheduled_at: string;
+  meal_type: WeeklyPlanningMealType;
+  candidates: RecommendationCandidateInput[];
+  location: string | null;
+  available_minutes: number | null;
+  has_kitchen: boolean | null;
+  source_kinds: string[];
+  delivery_provider_keys: string[];
+  provisional_history: { plan_date: string; candidate_key: string }[];
+  auto_size_portions: boolean;
+};
+
+export type SharedWeeklyPlanProposalRequest = {
+  person_ids: string[];
+  slots: SharedWeeklyPlanningSlotRequest[];
+  max_combinations?: number;
+};
+
+export type SharedWeeklyPlanTransformation = {
+  kind: "plan_adapted" | "preference_variant";
+  recipe_id: string;
+  operation: MealTransformationOperation;
+  plan_improvement_participants: number;
+  preference_improvement_participants: number;
+  explanation: string[];
+};
+
+export type SharedWeeklyPlanExpectedChoice = {
+  slot_key: string;
+  candidate_key: string;
+  recipe_ingredient_id?: string | null;
+  replacement_food_item_id?: string | null;
+};
+
+export type SharedWeeklyPlanRequest = SharedWeeklyPlanProposalRequest & {
+  expected_choices: SharedWeeklyPlanExpectedChoice[];
+};
+
+export type SharedWeeklyPlanMaterializedChoice = {
+  slot_key: string;
+  meal_event_id: string;
+  candidate_key: string;
+  transformation_application_id: string | null;
+  serving_ids: string[];
+};
+
+export type SharedWeeklyPlan = {
+  family_id: string;
+  status: "planned";
+  choices: SharedWeeklyPlanMaterializedChoice[];
+};
+
+export type SharedWeeklyPlanParticipant = {
+  person_id: string;
+  score: string | null;
+  quantity: string;
+  quantity_unit: string;
+  energy_kcal: string | null;
+  explanation: string[];
+};
+
+export type SharedWeeklyPlanChoice = {
+  slot_key: string;
+  planning_date: string;
+  scheduled_at: string;
+  meal_type: WeeklyPlanningMealType;
+  candidate_key: string;
+  candidate_name: string;
+  candidate_kind: string;
+  minimum_score: string | null;
+  average_score: string | null;
+  participants: SharedWeeklyPlanParticipant[];
+  transformation: SharedWeeklyPlanTransformation | null;
+};
+
+export type SharedWeeklyPlanSelection = {
+  mandatory_support_participants: number;
+  mandatory_support_total: number;
+  advisory_support_participants: number;
+  advisory_support_total: number;
+  minimum_participant_score: string;
+  average_participant_score: string;
+  repeated_candidate_count: number;
+  choices: SharedWeeklyPlanChoice[];
+};
+
+export type SharedWeeklyPlanProposal = {
+  family_id: string;
+  participant_ids: string[];
+  week_start: string;
+  week_end: string;
+  engine_version: string;
+  slot_engine_versions: Record<string, string>;
+  selected_plan: SharedWeeklyPlanSelection | null;
+  evaluated_combinations: number;
+  feasible_combinations: number;
+  rejected_by_person_weekly_maximum: number;
+  rejected_by_person_daily_limit: number;
+  search_strategy: "exact" | "bounded" | string;
+  search_space_size: number;
+  search_truncated: boolean;
+};
