@@ -281,6 +281,24 @@ def test_weekly_proposal_reuses_request_scoped_plan_context(
         "compile_effective": 0,
         "weekly_progress": 0,
     }
+    friday_date = date(2026, 9, 18)
+    friday_at = datetime(2026, 9, 18, 12, 0, tzinfo=UTC)
+    for person in (ana, bruno):
+        db_session.add(
+            DailyNutritionState(
+                person=person,
+                state_date=friday_date,
+                timezone="Europe/Lisbon",
+                energy_consumed_kcal=Decimal(1000),
+                energy_planned_kcal=Decimal(0),
+                energy_remaining_min_kcal=Decimal(400),
+                energy_remaining_max_kcal=Decimal(800),
+                calculation_version="weekly-proposal-request-cache-friday",
+                computed_at=friday_at,
+            )
+        )
+    db_session.flush()
+
     original_ensure_state = planning_bootstrap_service._ensure_daily_state
     original_base_compile = meal_plan_fit_service.compile_effective_nutrition_plan
     original_weekly_compile = weekly_fit_service.compile_effective_nutrition_plan
@@ -341,12 +359,21 @@ def test_weekly_proposal_reuses_request_scoped_plan_context(
                 meal_type="dinner",
                 composition=composition,
             ),
+            {
+                **_slot(
+                    "fri-lunch-cache",
+                    scheduled_at=friday_at,
+                    meal_type="lunch",
+                    composition=composition,
+                ),
+                "planning_date": friday_date.isoformat(),
+            },
         ],
     )
 
     assert response.status_code == 201
-    assert calls["ensure_state"] == 2
-    assert calls["compile_effective"] == 4
+    assert calls["ensure_state"] == 4
+    assert calls["compile_effective"] == 6
     assert calls["weekly_progress"] == 2
 
 def test_weekly_proposal_rechecks_one_person_weekly_maximum_across_slots(
