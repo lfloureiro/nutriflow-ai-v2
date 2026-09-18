@@ -240,14 +240,33 @@ def test_weekly_proposal_returns_selected_shared_plan_without_meal_events(
 def test_weekly_proposal_skips_unavailable_slot_but_plans_remaining_slots(
     db_session: Session,
 ) -> None:
-    family, ana, bruno, recipe, composition = _setup(db_session, "partial-unavailable")
+    family, ana, bruno, _, composition = _setup(db_session, "partial-unavailable")
     assert family.id is not None
-    assert recipe.id is not None
+
+    unavailable_recipe = Recipe(
+        family=family,
+        recipe_key="family:weekly:partial-unavailable:delivery",
+        name="Prato delivery indisponível",
+        serving_count=Decimal(2),
+        source="test",
+    )
+    unavailable_composition = RecipeCompositionSnapshot(
+        recipe=unavailable_recipe,
+        reference_quantity=Decimal(1),
+        reference_unit="serving",
+        energy_kcal=Decimal(500),
+        composition_version="test-v1",
+        calculation_version="test",
+        computed_at=LUNCH_AT,
+    )
+    db_session.add(unavailable_composition)
+    db_session.flush()
+    assert unavailable_recipe.id is not None
 
     db_session.add(
         MealCandidateAvailability(
             family_id=family.id,
-            recipe_id=recipe.id,
+            recipe_id=unavailable_recipe.id,
             candidate_kind="recipe",
             source_kind="delivery",
             source_key="test:delivery:unavailable",
@@ -262,7 +281,7 @@ def test_weekly_proposal_skips_unavailable_slot_but_plans_remaining_slots(
         "thu-lunch-unavailable",
         scheduled_at=LUNCH_AT,
         meal_type="lunch",
-        composition=composition,
+        composition=unavailable_composition,
     )
     unavailable_lunch["source_kinds"] = ["delivery"]
     unavailable_lunch["has_kitchen"] = False
