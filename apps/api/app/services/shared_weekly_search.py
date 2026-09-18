@@ -1,5 +1,6 @@
 import uuid
 from dataclasses import dataclass
+from decimal import Decimal
 from math import prod
 
 from app.services.shared_weekly_multi_slot_planning import (
@@ -47,8 +48,8 @@ def _candidate_hint_key(
     rank = evaluation.rank if evaluation.rank is not None else 1_000_000
     repeat_increment = int(evaluation.candidate_key in previous_candidate_keys)
     repeat_penalty = EXACT_REPEAT_SCORE_PENALTY * repeat_increment
-    minimum_score = (evaluation.minimum_score or 0) - repeat_penalty
-    average_score = (evaluation.average_score or 0) - repeat_penalty
+    minimum_score = (evaluation.minimum_score or Decimal(0)) - repeat_penalty
+    average_score = (evaluation.average_score or Decimal(0)) - repeat_penalty
     return (
         -evaluation.weekly_mandatory_support_participants,
         -evaluation.weekly_mandatory_support_total,
