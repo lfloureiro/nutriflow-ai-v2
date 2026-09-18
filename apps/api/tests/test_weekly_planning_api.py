@@ -5,6 +5,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+import app.services.meal_plan_fit as meal_plan_fit_service
+import app.services.meal_plan_fit_weekly_frequency as weekly_fit_service
+import app.services.planning_bootstrap_api as planning_bootstrap_service
+import app.services.shared_meal_transformation as shared_transformation_service
+import app.services.weekly_planning_api as weekly_planning_service
 from app.db.session import get_db
 from app.demo_seed import (
     DEMO_FAMILY_ID,
@@ -27,11 +32,6 @@ from app.schemas.nutrition_plan import (
     NutritionPlanGuidelineCreate,
     NutritionPlanUpdate,
 )
-import app.services.meal_plan_fit as meal_plan_fit_service
-import app.services.meal_plan_fit_weekly_frequency as weekly_fit_service
-import app.services.planning_bootstrap_api as planning_bootstrap_service
-import app.services.shared_meal_transformation as shared_transformation_service
-import app.services.weekly_planning_api as weekly_planning_service
 from app.services.nutrition_plan import (
     add_nutrition_plan_guideline,
     create_nutrition_plan,
