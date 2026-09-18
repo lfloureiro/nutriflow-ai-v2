@@ -731,10 +731,11 @@ def plan_shared_meal_transformation(
         notes=None,
     )
     db.add(event)
+    db.add(application)
     db.flush()
 
     source_reference = f"meal-transformation:{application.id}"
-    serving_ids: list[uuid.UUID] = []
+    servings: list[Serving] = []
     person_ids: list[uuid.UUID] = []
     for participant_result in proposal.participant_results:
         person = db.get(Person, participant_result.person_id)
@@ -755,15 +756,13 @@ def plan_shared_meal_transformation(
         )
         db.add(meal_participant)
         db.add(serving)
+        servings.append(serving)
         person_ids.append(person.id)
 
     db.flush()
-    for meal_participant in event.participants:
-        for serving in meal_participant.servings:
-            if serving.id is not None:
-                serving_ids.append(serving.id)
-
-    if event.id is None or application.id is None:
+    if event.id is None or application.id is None or any(
+        serving.id is None for serving in servings
+    ):
         raise MealTransformationError(
             "Shared transformation application was not fully persisted."
         )
@@ -774,7 +773,7 @@ def plan_shared_meal_transformation(
         transformation_kind=proposal.kind,
         recipe_id=recipe.id,
         person_ids=person_ids,
-        serving_ids=serving_ids,
+        serving_ids=[serving.id for serving in servings if serving.id is not None],
     )
     db.commit()
     return response
