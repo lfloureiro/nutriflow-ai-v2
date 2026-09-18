@@ -4,7 +4,9 @@ from decimal import ROUND_HALF_UP
 
 from sqlalchemy.orm import Session
 
+from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.food_adverse_reaction import FoodAdverseReaction
+from app.models.person import Person
 from app.models.food_preference import FoodPreference
 from app.schemas.meal_plan_fit import MealPlanFitCreate, MealPlanFitRead
 from app.schemas.meal_recommendation import MealRecommendationCandidateInput
@@ -77,6 +79,59 @@ def evaluate_candidate_plan_fits(
                     daily_nutrition_state_id=daily_nutrition_state_id,
                     candidate=_candidate_input(candidate),
                 ),
+            )
+        except MealPlanFitError as exc:
+            raise MealRecommendationPlanFitError(str(exc)) from exc
+
+        if (
+            fit.candidate.key != candidate.key
+            or fit.candidate.quantity != candidate.quantity
+            or fit.candidate.quantity_unit != candidate.quantity_unit
+        ):
+            raise MealRecommendationPlanFitError(
+                f"Plan-Fit evidence does not match candidate {candidate.key!r}."
+            )
+        results[candidate.key] = fit
+    return results
+
+
+def evaluate_loaded_candidate_plan_fits(
+    db: Session,
+    *,
+    person: Person,
+    daily_state: DailyNutritionState,
+    planning_date: date,
+    meal_type: MealType,
+    candidates: list[MealCandidate],
+) -> dict[str, MealPlanFitRead]:
+    from app.services.meal_plan_fit import MealPlanFitError, evaluate_loaded_meal_plan_fit
+    from app.services.meal_plan_fit_weekly_frequency import (
+        apply_weekly_frequency_to_loaded_fit,
+    )
+
+    if person.id is None:
+        raise MealRecommendationPlanFitError(
+            "Loaded Plan-Fit requires a persisted Person."
+        )
+
+    results: dict[str, MealPlanFitRead] = {}
+    for candidate in candidates:
+        try:
+            base_fit = evaluate_loaded_meal_plan_fit(
+                db,
+                person=person,
+                daily_state=daily_state,
+                candidate=candidate,
+                planning_date=planning_date,
+                meal_type=meal_type,
+            )
+            fit = apply_weekly_frequency_to_loaded_fit(
+                db,
+                person=person,
+                candidate=candidate,
+                planning_date=planning_date,
+                meal_type=meal_type,
+                base_fit=base_fit,
             )
         except MealPlanFitError as exc:
             raise MealRecommendationPlanFitError(str(exc)) from exc
