@@ -31,6 +31,11 @@ class SharedWeeklyMultiSlotPlanningError(ValueError):
 class SharedWeeklyPlanningCandidate:
     evaluation: SharedMealCandidateEvaluation
     plan_fits: tuple[MealPlanFitRead, ...]
+    variant_key: str | None = None
+
+    @property
+    def selection_key(self) -> str:
+        return self.variant_key or self.evaluation.candidate_key
 
 
 @dataclass(frozen=True)
@@ -177,10 +182,10 @@ def _normalize_slots(
             raise SharedWeeklyMultiSlotPlanningError(
                 f"Shared planning slot {slot.slot_key!r} must contain at least one candidate."
             )
-        candidate_keys = [candidate.evaluation.candidate_key for candidate in slot.candidates]
-        if len(set(candidate_keys)) != len(candidate_keys):
+        selection_keys = [candidate.selection_key for candidate in slot.candidates]
+        if len(set(selection_keys)) != len(selection_keys):
             raise SharedWeeklyMultiSlotPlanningError(
-                f"Shared planning slot {slot.slot_key!r} contains duplicate candidate keys."
+                f"Shared planning slot {slot.slot_key!r} contains duplicate candidate variants."
             )
         for candidate in slot.candidates:
             participant_ids, family_id = _validate_candidate(slot, candidate)
@@ -279,7 +284,7 @@ def _evaluate_choices(
 
 
 def _ranking_key(plan: SharedWeeklyPlanEvaluation) -> tuple[object, ...]:
-    candidate_keys = tuple(choice.candidate.evaluation.candidate_key for choice in plan.choices)
+    selection_keys = tuple(choice.candidate.selection_key for choice in plan.choices)
     return (
         -plan.mandatory_support_participants,
         -plan.mandatory_support_total,
@@ -288,7 +293,7 @@ def _ranking_key(plan: SharedWeeklyPlanEvaluation) -> tuple[object, ...]:
         -plan.minimum_participant_score,
         -plan.average_participant_score,
         plan.repeated_candidate_count,
-        candidate_keys,
+        selection_keys,
     )
 
 
