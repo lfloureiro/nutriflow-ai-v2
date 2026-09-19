@@ -735,6 +735,13 @@ def _compute_shared_weekly_plan_uncached(
                         quantity=participant.portion.quantity,
                         quantity_unit=participant.portion.quantity_unit,
                         energy_kcal=participant.evaluation.candidate.nutrition.energy_kcal,
+                        portion_factor=participant.portion.portion_factor,
+                        meal_energy_target_min_kcal=(
+                            participant.portion.meal_energy_target_min_kcal
+                        ),
+                        meal_energy_target_max_kcal=(
+                            participant.portion.meal_energy_target_max_kcal
+                        ),
                         plan_fit_status=fit.status,
                         plan_fit_score=fit.fit_score,
                         nutrition_plan_authority=authority.state,
