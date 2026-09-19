@@ -4,18 +4,13 @@ import { ApiError, listFamilyRecipes } from "./api/client";
 import { proposeMealTransformations } from "./api/mealTransformationClient";
 import type { MealTransformationResult } from "./api/mealTransformationTypes";
 import { evaluateMealPlanFit } from "./api/planFitClient";
-import type { MealPlanFitResult, MealPlanFitRule } from "./api/planFitTypes";
+import type { MealPlanFitResult } from "./api/planFitTypes";
 import type { Recipe } from "./api/recipeTypes";
 import type { PlanningMealType } from "./api/types";
 import { useI18n } from "./i18n";
+import MealPlanFitAssessment from "./MealPlanFitAssessment";
 import {
   formatPlanFitNumber,
-  planFitConflictMessage,
-  planFitGuidelineExplanation,
-  planFitRuleExplanation,
-  planFitSafetyIssue,
-  planFitSourceLabel,
-  planFitTargetLabel,
   planFitUnitLabel,
 } from "./mealPlanFitPresentation";
 
@@ -152,21 +147,6 @@ function initialQuantity(recipe: Recipe): string {
   return composition.reference_quantity;
 }
 
-function targetText(rule: MealPlanFitRule, locale: "pt-PT" | "en"): string {
-  const unit = rule.target_unit ? ` ${planFitUnitLabel(rule.target_unit, locale)}` : "";
-  if (rule.operator === "range" && rule.target_min !== null && rule.target_max !== null) {
-    return `${formatPlanFitNumber(rule.target_min, locale)}–${formatPlanFitNumber(rule.target_max, locale)}${unit}`;
-  }
-  if (["min", "gte", ">=", ">"].includes(rule.operator) && rule.target_min !== null) {
-    return `≥ ${formatPlanFitNumber(rule.target_min, locale)}${unit}`;
-  }
-  if (["max", "lte", "<=", "<"].includes(rule.operator) && rule.target_max !== null) {
-    return `≤ ${formatPlanFitNumber(rule.target_max, locale)}${unit}`;
-  }
-  if (rule.target_value !== null) return `${formatPlanFitNumber(rule.target_value, locale)}${unit}`;
-  return rule.operator;
-}
-
 function fitPercent(value: string | null): string {
   if (value === null) return "—";
   return `${Math.round(Number(value) * 100)}%`;
@@ -294,51 +274,6 @@ export default function MealPlanFitPanel({
     }
   }
 
-  const scorePercent =
-    result?.fit_score === null || result?.fit_score === undefined
-      ? null
-      : Math.round(Number(result.fit_score) * 100);
-  const mealRuleResults = result?.rule_results.filter((rule) => rule.scope !== "daily") ?? [];
-  const dailyRuleResults = result?.rule_results.filter((rule) => rule.scope === "daily") ?? [];
-
-  function renderRule(rule: MealPlanFitRule) {
-    return (
-      <article className="plan-fit-rule" key={rule.rule_id}>
-        <div className="plan-fit-rule__header">
-          <div>
-            <strong>{planFitTargetLabel(rule.target_key, locale)}</strong>
-            <small>
-              {planFitSourceLabel(
-                rule.source.plan_title ?? rule.source.source_name ?? rule.source.rule_source,
-                locale,
-              )}
-            </small>
-          </div>
-          <span className={`plan-fit-status status-${rule.status}`}>{copy[rule.status]}</span>
-        </div>
-        <div className="plan-fit-rule__values">
-          <span>{rule.is_mandatory ? copy.mandatory : copy.advisory}</span>
-          <span>
-            {copy.target}: {targetText(rule, locale)}
-          </span>
-          {rule.observed_value !== null ? (
-            <span>
-              {copy.observed}: {formatPlanFitNumber(rule.observed_value, locale)}{" "}
-              {planFitUnitLabel(rule.observed_unit, locale, rule.observed_value)}
-            </span>
-          ) : null}
-          {rule.projected_daily_value !== null ? (
-            <span>
-              {copy.projected}: {formatPlanFitNumber(rule.projected_daily_value, locale)}{" "}
-              {planFitUnitLabel(rule.target_unit, locale, rule.projected_daily_value)}
-            </span>
-          ) : null}
-        </div>
-        <p>{planFitRuleExplanation(rule, locale)}</p>
-      </article>
-    );
-  }
-
   return (
     <section className="plan-fit-panel" aria-labelledby="plan-fit-heading">
       <div className="home-section__heading">
@@ -429,44 +364,8 @@ export default function MealPlanFitPanel({
       ) : null}
 
       {result ? (
-        <div className="plan-fit-result">
-          <div className="plan-fit-summary">
-            <div>
-              <span>{copy.score}</span>
-              <strong>{scorePercent === null ? "—" : `${scorePercent}%`}</strong>
-            </div>
-            <div>
-              <span>{result.eligible ? copy.eligible : copy.blocked}</span>
-              <strong className={`plan-fit-status status-${result.status}`}>{copy[result.status]}</strong>
-            </div>
-            <div className="plan-fit-summary__plans">
-              <span>{copy.planAuthority}</span>
-              <strong>
-                {copy[result.nutrition_plan_authority.state]}
-                {result.active_plans.length > 0
-                  ? ` · ${result.active_plans.map((plan) => plan.title).join(" · ")}`
-                  : ""}
-              </strong>
-            </div>
-          </div>
-
-          {result.safety_issues.length > 0 ? (
-            <div className="plan-fit-alert">
-              <strong>{copy.safety}</strong>
-              {result.safety_issues.map((issue, index) => (
-                <span key={`${issue}:${index}`}>{planFitSafetyIssue(issue, locale)}</span>
-              ))}
-            </div>
-          ) : null}
-
-          {result.conflicts.length > 0 ? (
-            <div className="plan-fit-alert">
-              <strong>{copy.conflicts}</strong>
-              {result.conflicts.map((item) => (
-                <span key={item.rule_ids.join(":")}>{planFitConflictMessage(item, locale)}</span>
-              ))}
-            </div>
-          ) : null}
+        <div className="plan-fit-evaluation">
+          <MealPlanFitAssessment result={result} />
 
           <div className="meal-transform-actions">
             <div>
@@ -536,34 +435,6 @@ export default function MealPlanFitPanel({
             </div>
           ) : null}
 
-          {mealRuleResults.length > 0 ? (
-            <div className="plan-fit-rules">
-              <h4>{copy.mealRules}</h4>
-              {mealRuleResults.map(renderRule)}
-            </div>
-          ) : null}
-
-          {dailyRuleResults.length > 0 ? (
-            <div className="plan-fit-rules">
-              <h4>{copy.dailyImpact}</h4>
-              {dailyRuleResults.map(renderRule)}
-            </div>
-          ) : null}
-
-          {result.guideline_results.length > 0 ? (
-            <div className="plan-fit-rules">
-              <h4>{copy.guidelines}</h4>
-              {result.guideline_results.map((guideline) => (
-                <article className="plan-fit-rule" key={guideline.guideline_id}>
-                  <div className="plan-fit-rule__header">
-                    <strong>{guideline.description}</strong>
-                    <span className="plan-fit-status status-not_evaluated">{copy.not_evaluated}</span>
-                  </div>
-                  <p>{planFitGuidelineExplanation(guideline, locale)}</p>
-                </article>
-              ))}
-            </div>
-          ) : null}
         </div>
       ) : null}
     </section>
