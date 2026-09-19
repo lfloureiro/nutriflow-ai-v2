@@ -327,7 +327,7 @@ def test_bootstrap_normalizes_serving_snapshot_without_recipe_serving_count(
         for item in response.json()["candidates"]
         if item["catalog_key"] == "legacy-v1:recipe:4"
     )
-    assert Decimal(candidate["reference_quantity"]) == Decimal("1")
+    assert Decimal(candidate["reference_quantity"]) == Decimal(1)
     assert candidate["reference_unit"] == "serving"
     assert Decimal(candidate["energy_kcal"]) == Decimal("983.1666666666666666666666667")
 
