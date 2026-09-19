@@ -15,6 +15,8 @@ source text
 
 The AI path never confirms, applies or activates recommendations automatically. It preserves a source excerpt on every proposal and returns ambiguous content as `unclassified` rather than inventing a rule.
 
+Explicit prohibitions such as "avoid soy" can be preserved as structured exclusion proposals. For persistence compatibility these use the existing `numeric_rule` proposal envelope with `operator=exclude`, a canonical `target_type/target_key`, and null numeric values/unit. Confirmed exclusions materialize as `NutritionConstraint` rows. A structured exclusion does not authorize runtime name matching: if candidate evidence cannot prove the category/subject, Plan-Fit keeps that evidence unknown/not evaluated.
+
 ## Configuration
 
 - `OPENAI_API_KEY`: enables AI interpretation.
