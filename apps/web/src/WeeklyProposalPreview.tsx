@@ -1287,6 +1287,17 @@ export default function WeeklyProposalPreview({
                       {copy.removePlanned}
                     </button>
                   </div>
+                ) : selectedChoice?.recipe_id ? (
+                  <div className="weekly-meal-detail__actions">
+                    <button
+                      className="button"
+                      disabled={busy || decisionBusy !== null || adaptationBusy}
+                      onClick={() => void suggestAdaptations()}
+                      type="button"
+                    >
+                      {adaptationBusy ? copy.adaptingToPlan : copy.adaptToPlan}
+                    </button>
+                  </div>
                 ) : null}
               </div>
 
@@ -1560,20 +1571,6 @@ export default function WeeklyProposalPreview({
                     </section>
                   ) : null}
                   <div className="meal-plan-editor__actions">
-                    {selectedChoice.recipe_id ? (
-                      <button
-                        className="button"
-                        disabled={
-                          busy ||
-                          decisionBusy !== null ||
-                          adaptationBusy
-                        }
-                        onClick={() => void suggestAdaptations()}
-                        type="button"
-                      >
-                        {adaptationBusy ? copy.adaptingToPlan : copy.adaptToPlan}
-                      </button>
-                    ) : null}
                     <button
                       className="button ghost"
                       disabled={busy || decisionBusy !== null || adaptationBusy}
