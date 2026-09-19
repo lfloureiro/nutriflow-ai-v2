@@ -342,6 +342,111 @@ export function formatMealPortion(
   return `${quantityLabel}${unitLabel ? ` ${unitLabel}` : ""}${energyLabel}`;
 }
 
+export function formatMealEnergyReference(
+  minimumKcal: string | null,
+  maximumKcal: string | null,
+  locale: Locale,
+): string | null {
+  const minimum = minimumKcal === null ? null : Number(minimumKcal);
+  const maximum = maximumKcal === null ? null : Number(maximumKcal);
+  const format = (value: number) =>
+    new Intl.NumberFormat(locale, {
+      maximumFractionDigits: 0,
+      useGrouping: false,
+    }).format(value);
+
+  if (
+    minimum !== null &&
+    Number.isFinite(minimum) &&
+    maximum !== null &&
+    Number.isFinite(maximum)
+  ) {
+    return `${format(minimum)}–${format(maximum)} kcal`;
+  }
+  if (minimum !== null && Number.isFinite(minimum)) return `≥ ${format(minimum)} kcal`;
+  if (maximum !== null && Number.isFinite(maximum)) return `≤ ${format(maximum)} kcal`;
+  return null;
+}
+
+export function weeklyExplanationLabel(
+  explanation: string,
+  locale: Locale,
+): string | null {
+  const pt = locale === "pt-PT";
+  if (
+    explanation.startsWith("plan_fit_status:") ||
+    explanation === "plan_fit_score_available" ||
+    explanation === "plan_fit_score_unavailable"
+  ) {
+    return null;
+  }
+  if (explanation === "candidate_fits_meal_energy") {
+    return pt
+      ? "A porção está ajustada à referência energética desta refeição."
+      : "The portion is aligned with this meal's energy reference.";
+  }
+  if (explanation === "candidate_fits_remaining_energy") {
+    return pt
+      ? "A porção é compatível com a energia restante do dia."
+      : "The portion is compatible with the day's remaining energy.";
+  }
+  if (explanation === "schedule_preferred_window") {
+    return pt
+      ? "Está dentro do horário preferido."
+      : "It is within the preferred time window.";
+  }
+  if (explanation === "schedule_available_window") {
+    return pt
+      ? "Está dentro de um horário disponível."
+      : "It is within an available time window.";
+  }
+  if (explanation.startsWith("planning_location:")) {
+    const location = explanation.slice("planning_location:".length);
+    return pt ? `Local de preparação: ${location}.` : `Planning location: ${location}.`;
+  }
+  if (explanation.startsWith("rated:")) {
+    const rating = explanation.slice(explanation.lastIndexOf(":") + 1);
+    return pt
+      ? `Avaliação pessoal desta receita: ${rating}/5.`
+      : `Personal recipe rating: ${rating}/5.`;
+  }
+  if (explanation.startsWith("family_rating:")) {
+    const rating = explanation.slice(explanation.lastIndexOf(":") + 1);
+    return pt
+      ? `Avaliação média da família: ${rating}/5.`
+      : `Average family rating: ${rating}/5.`;
+  }
+  if (explanation.startsWith("preferred:")) {
+    return pt ? "Corresponde a uma preferência registada." : "Matches a recorded preference.";
+  }
+  if (explanation.startsWith("disliked:")) {
+    return pt
+      ? "Existe uma preferência negativa registada, mas não é impeditiva."
+      : "A negative preference is recorded, but it is not blocking.";
+  }
+  if (explanation.startsWith("advisory_reaction:")) {
+    return pt
+      ? "Existe uma reacção alimentar não obrigatória registada."
+      : "A non-mandatory food reaction is recorded.";
+  }
+  if (explanation.startsWith("exceeds_remaining_max:")) {
+    const nutrient = explanation.slice("exceeds_remaining_max:".length).replaceAll("_", " ");
+    return pt
+      ? `Ultrapassa o máximo restante de ${nutrient}.`
+      : `Exceeds the remaining maximum for ${nutrient}.`;
+  }
+  return null;
+}
+
+export function weeklyExplanationLabels(
+  explanations: string[],
+  locale: Locale,
+): string[] {
+  return explanations
+    .map((explanation) => weeklyExplanationLabel(explanation, locale))
+    .filter((explanation): explanation is string => explanation !== null);
+}
+
 function entryName(entry: MealPlanEntry): string {
   return entry.recipe_name ?? entry.title ?? "—";
 }
