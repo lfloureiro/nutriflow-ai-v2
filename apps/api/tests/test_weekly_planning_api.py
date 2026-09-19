@@ -238,6 +238,79 @@ def test_weekly_proposal_returns_selected_shared_plan_without_meal_events(
 
 
 
+
+def test_weekly_proposal_exposes_person_specific_nutrition_plan_authority(
+    db_session: Session,
+) -> None:
+    family, ana, bruno, _, composition = _setup(db_session, "authority")
+
+    plan = create_nutrition_plan(
+        db_session,
+        person=ana,
+        data=NutritionPlanCreate(
+            title="Plano da nutricionista",
+            source_type="nutritionist",
+            source_name="Dietitian",
+            valid_from=date(2026, 9, 1),
+        ),
+    )
+    add_nutrition_plan_guideline(
+        db_session,
+        plan=plan,
+        data=NutritionPlanGuidelineCreate(
+            guideline_type="qualitative",
+            target_type="food_category",
+            target_key="vegetables",
+            description="Incluir vegetais.",
+            is_mandatory=True,
+            priority=120,
+        ),
+    )
+    update_nutrition_plan(
+        db_session,
+        plan=plan,
+        data=NutritionPlanUpdate(status="active"),
+    )
+
+    response = _post(
+        db_session,
+        family,
+        ana=ana,
+        bruno=bruno,
+        slots=[
+            _slot(
+                "thu-lunch-authority",
+                scheduled_at=LUNCH_AT,
+                meal_type="lunch",
+                composition=composition,
+            )
+        ],
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["selected_plan"] is not None
+    participants = {
+        item["person_id"]: item
+        for item in body["selected_plan"]["choices"][0]["participants"]
+    }
+
+    assert ana.id is not None
+    assert bruno.id is not None
+    ana_read = participants[str(ana.id)]
+    assert ana_read["nutrition_plan_authority"] == "partial_plan_coverage"
+    assert ana_read["active_plan_ids"] == [str(plan.id)]
+    assert ana_read["active_plan_titles"] == ["Plano da nutricionista"]
+    assert ana_read["plan_fit_status"] == "unknown"
+    assert ana_read["plan_fit_score"] is None
+    assert ana_read["plan_unknown_evidence"]
+
+    bruno_read = participants[str(bruno.id)]
+    assert bruno_read["nutrition_plan_authority"] == "no_active_plan"
+    assert bruno_read["active_plan_ids"] == []
+    assert bruno_read["active_plan_titles"] == []
+
+
 def test_weekly_proposal_skips_unavailable_slot_but_plans_remaining_slots(
     db_session: Session,
 ) -> None:
