@@ -96,6 +96,8 @@ const COPY = {
     nutritionComposition: "Composição nutricional da porção",
     nutritionPlanComparison: "Comparação com o plano",
     noStructuredPlanTarget: "O plano activo não tem um alvo quantitativo avaliável para estes nutrientes.",
+    qualitativePlanGuidance: "Outras indicações relevantes do plano",
+    qualitativeNotEvaluated: "Estas indicações são mostradas como contexto e ainda não são avaliadas automaticamente nesta receita.",
     planTarget: "Alvo do plano",
     observed: "Nesta porção",
     adaptToPlan: "Adaptar ao plano",
@@ -180,6 +182,8 @@ const COPY = {
     nutritionComposition: "Nutrition in the suggested portion",
     nutritionPlanComparison: "Comparison with the plan",
     noStructuredPlanTarget: "The active plan has no evaluable quantitative target for these nutrients.",
+    qualitativePlanGuidance: "Other relevant plan guidance",
+    qualitativeNotEvaluated: "These instructions are shown as context and are not yet evaluated automatically for this recipe.",
     planTarget: "Plan target",
     observed: "In this portion",
     adaptToPlan: "Adapt to plan",
@@ -1448,6 +1452,19 @@ export default function WeeklyProposalPreview({
                                     {copy.noStructuredPlanTarget}
                                   </p>
                                 )}
+                                {participant.plan_guidance.length > 0 ? (
+                                  <div className="weekly-plan-guidance">
+                                    <small>{copy.qualitativePlanGuidance}</small>
+                                    <ul className="compact-list">
+                                      {participant.plan_guidance.map((guidance) => (
+                                        <li key={guidance}>{guidance}</li>
+                                      ))}
+                                    </ul>
+                                    <p className="muted compact">
+                                      {copy.qualitativeNotEvaluated}
+                                    </p>
+                                  </div>
+                                ) : null}
                               </div>
                             ) : null}
                             <small>{copy.nutritionPlan}</small>
