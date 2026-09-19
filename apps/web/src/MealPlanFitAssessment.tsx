@@ -1,4 +1,10 @@
-import type { MealPlanFitResult, MealPlanFitRule } from "./api/planFitTypes";
+import type {
+  MealPlanFitGuideline,
+  MealPlanFitResult,
+  MealPlanFitRule,
+  NutritionPlanAuthorityState,
+  PlanFitConflict,
+} from "./api/planFitTypes";
 import { useI18n, type Locale } from "./i18n";
 import {
   formatPlanFitNumber,
@@ -11,6 +17,36 @@ import {
   planFitUnitLabel,
 } from "./mealPlanFitPresentation";
 import "./meal-plan-fit.css";
+
+export type MealPlanFitAssessmentData = {
+  eligible: boolean;
+  status: MealPlanFitResult["status"];
+  fitScore: string | null;
+  authorityState: NutritionPlanAuthorityState;
+  activePlanTitles: string[];
+  nutrition: MealPlanFitResult["candidate"]["nutrition"];
+  conflicts: PlanFitConflict[];
+  safetyIssues: string[];
+  ruleResults: MealPlanFitRule[];
+  guidelineResults: MealPlanFitGuideline[];
+};
+
+export function assessmentDataFromResult(
+  result: MealPlanFitResult,
+): MealPlanFitAssessmentData {
+  return {
+    eligible: result.eligible,
+    status: result.status,
+    fitScore: result.fit_score,
+    authorityState: result.nutrition_plan_authority.state,
+    activePlanTitles: result.active_plans.map((plan) => plan.title),
+    nutrition: result.candidate.nutrition,
+    conflicts: result.conflicts,
+    safetyIssues: result.safety_issues,
+    ruleResults: result.rule_results,
+    guidelineResults: result.guideline_results,
+  };
+}
 
 const COPY = {
   "pt-PT": {
@@ -107,8 +143,11 @@ function fitPercent(value: string | null): string {
   return `${Math.round(numeric * 100)}%`;
 }
 
-function nutrientRows(result: MealPlanFitResult, locale: Locale) {
-  const rows = Object.entries(result.candidate.nutrition.nutrients).map(([key, nutrient]) => ({
+function nutrientRows(
+  nutrition: MealPlanFitAssessmentData["nutrition"],
+  locale: Locale,
+) {
+  const rows = Object.entries(nutrition.nutrients).map(([key, nutrient]) => ({
     key,
     label: planFitTargetLabel(key, locale),
     value: `${formatPlanFitNumber(nutrient.value, locale)} ${planFitUnitLabel(
@@ -118,32 +157,29 @@ function nutrientRows(result: MealPlanFitResult, locale: Locale) {
     )}`.trim(),
   }));
   rows.sort((left, right) => left.label.localeCompare(right.label, locale));
-  if (result.candidate.nutrition.energy_kcal !== null) {
+  if (nutrition.energy_kcal !== null) {
     rows.unshift({
       key: "energy_kcal",
       label: planFitTargetLabel("energy_kcal", locale),
-      value: `${formatPlanFitNumber(
-        result.candidate.nutrition.energy_kcal,
-        locale,
-      )} kcal`,
+      value: `${formatPlanFitNumber(nutrition.energy_kcal, locale)} kcal`,
     });
   }
   return rows;
 }
 
 export default function MealPlanFitAssessment({
-  result,
+  data,
   compact = false,
 }: {
-  result: MealPlanFitResult;
+  data: MealPlanFitAssessmentData;
   compact?: boolean;
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
-  const mealRules = result.rule_results.filter((rule) => rule.scope !== "daily");
-  const dailyRules = result.rule_results.filter((rule) => rule.scope === "daily");
-  const nutrition = nutrientRows(result, locale);
-  const score = fitPercent(result.fit_score);
+  const mealRules = data.ruleResults.filter((rule) => rule.scope !== "daily");
+  const dailyRules = data.ruleResults.filter((rule) => rule.scope === "daily");
+  const nutrition = nutrientRows(data.nutrition, locale);
+  const score = fitPercent(data.fitScore);
 
   function renderRule(rule: MealPlanFitRule) {
     return (
@@ -193,17 +229,17 @@ export default function MealPlanFitAssessment({
           <strong>{score}</strong>
         </div>
         <div>
-          <span>{result.eligible ? copy.eligible : copy.blocked}</span>
-          <strong className={`plan-fit-status status-${result.status}`}>
-            {copy[result.status]}
+          <span>{data.eligible ? copy.eligible : copy.blocked}</span>
+          <strong className={`plan-fit-status status-${data.status}`}>
+            {copy[data.status]}
           </strong>
         </div>
         <div className="plan-fit-summary__plans">
           <span>{copy.planAuthority}</span>
           <strong>
-            {copy[result.nutrition_plan_authority.state]}
-            {result.active_plans.length > 0
-              ? ` · ${result.active_plans.map((plan) => plan.title).join(" · ")}`
+            {copy[data.authorityState]}
+            {data.activePlanTitles.length > 0
+              ? ` · ${data.activePlanTitles.join(" · ")}`
               : ""}
           </strong>
         </div>
@@ -223,19 +259,19 @@ export default function MealPlanFitAssessment({
         </section>
       ) : null}
 
-      {result.safety_issues.length > 0 ? (
+      {data.safetyIssues.length > 0 ? (
         <div className="plan-fit-alert">
           <strong>{copy.safety}</strong>
-          {result.safety_issues.map((issue, index) => (
+          {data.safetyIssues.map((issue, index) => (
             <span key={`${issue}:${index}`}>{planFitSafetyIssue(issue, locale)}</span>
           ))}
         </div>
       ) : null}
 
-      {result.conflicts.length > 0 ? (
+      {data.conflicts.length > 0 ? (
         <div className="plan-fit-alert">
           <strong>{copy.conflicts}</strong>
-          {result.conflicts.map((item) => (
+          {data.conflicts.map((item) => (
             <span key={item.rule_ids.join(":")}>{planFitConflictMessage(item, locale)}</span>
           ))}
         </div>
@@ -255,14 +291,14 @@ export default function MealPlanFitAssessment({
         </section>
       ) : null}
 
-      {result.guideline_results.length > 0 ? (
+      {data.guidelineResults.length > 0 ? (
         <details className="plan-fit-guidelines" open={!compact}>
           <summary>
-            {copy.guidelines} ({result.guideline_results.length})
+            {copy.guidelines} ({data.guidelineResults.length})
           </summary>
           <p className="muted compact">{copy.guidanceHelp}</p>
           <div className="plan-fit-rules">
-            {result.guideline_results.map((guideline) => (
+            {data.guidelineResults.map((guideline) => (
               <article className="plan-fit-rule" key={guideline.guideline_id}>
                 <div className="plan-fit-rule__header">
                   <div>
