@@ -141,7 +141,7 @@ describe("server-authoritative unavailable weekly slots", () => {
 describe("weekly portion labels", () => {
   it("formats recipe servings without raw database precision", () => {
     expect(formatMealPortion("2.0000", "serving", "1966.33", "pt-PT")).toBe(
-      "2 porções da receita · ~1 966 kcal",
+      "2 porções da receita · ~1966 kcal",
     );
     expect(formatMealPortion("0.7500", "serving", "737.38", "pt-PT")).toBe(
       "0,75 porção da receita · ~737 kcal",
