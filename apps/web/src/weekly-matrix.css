@@ -343,3 +343,122 @@
     flex-direction: column;
   }
 }
+
+
+.weekly-nutrition-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: 0.45rem;
+  margin: 0;
+}
+
+.weekly-nutrition-grid > div {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 86%, var(--accent-soft));
+}
+
+.weekly-nutrition-grid dt {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.weekly-nutrition-grid dd {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 760;
+}
+
+.weekly-plan-comparison {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.15rem;
+}
+
+.weekly-plan-comparison > small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.weekly-plan-comparison__rows {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.weekly-plan-comparison__row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1.1fr) repeat(2, minmax(120px, 1fr)) minmax(100px, auto);
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.76rem;
+}
+
+.weekly-plan-comparison__row > span:first-child {
+  font-weight: 760;
+}
+
+.weekly-plan-comparison__row em {
+  color: var(--accent-strong);
+  font-style: normal;
+  font-weight: 760;
+}
+
+.weekly-adaptation-panel {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent-soft) 58%, var(--surface));
+}
+
+.weekly-adaptation-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.weekly-adaptation-card {
+  display: grid;
+  gap: 0.55rem;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.weekly-adaptation-card__heading {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.weekly-adaptation-people {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.weekly-adaptation-people > div {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.8fr) minmax(150px, 1.2fr) minmax(120px, auto);
+  gap: 0.55rem;
+  align-items: baseline;
+  font-size: 0.74rem;
+}
+
+.weekly-adaptation-people small {
+  color: var(--muted);
+}
+
+@media (max-width: 760px) {
+  .weekly-plan-comparison__row,
+  .weekly-adaptation-people > div {
+    grid-template-columns: 1fr;
+  }
+}
