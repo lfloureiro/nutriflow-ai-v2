@@ -24,7 +24,11 @@ from app.development_transformation_seed import seed_development_transformations
 from app.main import app
 from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.family import Family
-from app.models.food_catalog import Recipe, RecipeCompositionSnapshot, RecipeNutrientComponent
+from app.models.food_catalog import (
+    Recipe,
+    RecipeCompositionSnapshot,
+    RecipeNutrientComponent,
+)
 from app.models.meal import MealEvent, Serving
 from app.models.meal_candidate_availability import MealCandidateAvailability
 from app.models.meal_transformation_application import MealTransformationApplication
