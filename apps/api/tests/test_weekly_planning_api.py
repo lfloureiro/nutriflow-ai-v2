@@ -252,8 +252,6 @@ def test_weekly_proposal_returns_selected_shared_plan_without_meal_events(
         }
         assert participant["plan_fit_detail"]["rule_results"] == []
         assert participant["plan_fit_detail"]["guideline_results"] == []
-        assert participant["plan_rule_results"] == []
-        assert participant["plan_guidance"] == []
     assert "thu-lunch" in body["slot_engine_versions"]
 
     meal_count = db_session.scalar(select(func.count()).select_from(MealEvent))
@@ -421,8 +419,8 @@ def test_weekly_proposal_exposes_plan_backed_nutrient_comparison(
 
     assert Decimal(ana_read["nutrition"]["nutrients"]["protein"]["value"]) == Decimal(45)
     assert ana_read["nutrition"]["nutrients"]["protein"]["unit"] == "g"
-    assert len(ana_read["plan_rule_results"]) == 1
-    rule = ana_read["plan_rule_results"][0]
+    assert len(ana_read["plan_fit_detail"]["rule_results"]) == 1
+    rule = ana_read["plan_fit_detail"]["rule_results"][0]
     assert rule["target_type"] == "nutrient"
     assert rule["target_key"] == "protein"
     assert rule["scope"] == "meal"
