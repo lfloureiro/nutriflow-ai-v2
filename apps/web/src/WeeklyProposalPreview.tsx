@@ -1353,6 +1353,15 @@ export default function WeeklyProposalPreview({
                         participant.explanation,
                         locale,
                       );
+                      const nutritionRows = nutritionSummaryRows(
+                        participant.nutrition,
+                        locale,
+                      );
+                      const comparisonRules = numericPlanComparisonRules(
+                        participant.plan_rule_results,
+                      );
+                      const hasActivePlan =
+                        participant.nutrition_plan_authority !== "no_active_plan";
                       return (
                         <article className="weekly-person-detail" key={participant.person_id}>
                           <div className="weekly-person-detail__heading">
@@ -1368,6 +1377,51 @@ export default function WeeklyProposalPreview({
                             </span>
                           </div>
                           <div className="weekly-person-detail__reason">
+                            <small>{copy.nutritionComposition}</small>
+                            <dl className="weekly-nutrition-grid">
+                              {nutritionRows.map((row) => (
+                                <div key={row.key}>
+                                  <dt>{row.label}</dt>
+                                  <dd>{row.value}</dd>
+                                </div>
+                              ))}
+                            </dl>
+                            {hasActivePlan ? (
+                              <div className="weekly-plan-comparison">
+                                <small>{copy.nutritionPlanComparison}</small>
+                                {comparisonRules.length > 0 ? (
+                                  <div className="weekly-plan-comparison__rows">
+                                    {comparisonRules.map((rule) => (
+                                      <div
+                                        className="weekly-plan-comparison__row"
+                                        key={rule.rule_id}
+                                      >
+                                        <span>{nutrientLabel(rule.target_key, locale)}</span>
+                                        <span>
+                                          {copy.observed}:{" "}
+                                          <strong>
+                                            {formatNutritionValue(
+                                              rule.observed_value,
+                                              rule.observed_unit,
+                                              locale,
+                                            )}
+                                          </strong>
+                                        </span>
+                                        <span>
+                                          {copy.planTarget}:{" "}
+                                          <strong>{formatPlanRuleTarget(rule, locale)}</strong>
+                                        </span>
+                                        <em>{planRuleStatusLabel(rule.status, locale)}</em>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="muted compact">
+                                    {copy.noStructuredPlanTarget}
+                                  </p>
+                                )}
+                              </div>
+                            ) : null}
                             <small>{copy.nutritionPlan}</small>
                             <p className="muted compact">
                               <strong>
@@ -1407,10 +1461,107 @@ export default function WeeklyProposalPreview({
                       );
                     })}
                   </div>
+                  {adaptationError ? (
+                    <div className="error-banner" role="alert">
+                      <span>{adaptationError}</span>
+                    </div>
+                  ) : null}
+                  {adaptationResult ? (
+                    <section className="weekly-adaptation-panel">
+                      <div>
+                        <span className="eyebrow">{copy.adaptationTitle}</span>
+                        <p className="muted compact">{copy.adaptationHelp}</p>
+                      </div>
+                      {adaptationResult.proposals.length > 0 ? (
+                        <div className="weekly-adaptation-list">
+                          {adaptationResult.proposals.map((adaptation) => (
+                            <article
+                              className="weekly-adaptation-card"
+                              key={`${adaptation.operation.recipe_ingredient_id}:${adaptation.operation.replacement_food_item_id}`}
+                            >
+                              <div className="weekly-adaptation-card__heading">
+                                <span className="weekly-transformation-summary__kind">
+                                  {adaptationKindLabel(adaptation, locale)}
+                                </span>
+                                <strong>
+                                  {adaptation.operation.source_food_name} →{" "}
+                                  {adaptation.operation.replacement_food_name}
+                                </strong>
+                              </div>
+                              <p className="muted compact">
+                                {copy.planImprovesFor}:{" "}
+                                <strong>{adaptation.plan_improvement_participants}</strong>{" "}
+                                {copy.peopleLabel}
+                              </p>
+                              <div className="weekly-adaptation-people">
+                                {adaptation.participant_results.map((result) => {
+                                  const adaptedPerson = peopleById.get(result.person_id);
+                                  const beforeEnergy =
+                                    result.before_fit.candidate.nutrition.energy_kcal;
+                                  const afterEnergy =
+                                    result.after_fit.candidate.nutrition.energy_kcal;
+                                  return (
+                                    <div key={result.person_id}>
+                                      <strong>
+                                        {adaptedPerson
+                                          ? displayName(adaptedPerson)
+                                          : result.person_id}
+                                      </strong>
+                                      <span>
+                                        {copy.beforeAfter}:{" "}
+                                        {planFitStatusLabel(
+                                          result.before_fit.status,
+                                          locale,
+                                        )}{" "}
+                                        →{" "}
+                                        {planFitStatusLabel(
+                                          result.after_fit.status,
+                                          locale,
+                                        )}
+                                      </span>
+                                      <small>
+                                        {formatNutritionValue(
+                                          beforeEnergy,
+                                          "kcal",
+                                          locale,
+                                        )}{" "}
+                                        →{" "}
+                                        {formatNutritionValue(
+                                          afterEnergy,
+                                          "kcal",
+                                          locale,
+                                        )}
+                                      </small>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="muted compact">{copy.noAdaptation}</p>
+                      )}
+                    </section>
+                  ) : null}
                   <div className="meal-plan-editor__actions">
+                    {selectedChoice.recipe_id ? (
+                      <button
+                        className="button"
+                        disabled={
+                          busy ||
+                          decisionBusy !== null ||
+                          adaptationBusy
+                        }
+                        onClick={() => void suggestAdaptations()}
+                        type="button"
+                      >
+                        {adaptationBusy ? copy.adaptingToPlan : copy.adaptToPlan}
+                      </button>
+                    ) : null}
                     <button
                       className="button ghost"
-                      disabled={busy || decisionBusy !== null}
+                      disabled={busy || decisionBusy !== null || adaptationBusy}
                       onClick={() => void rejectSelectedChoice()}
                       type="button"
                     >
