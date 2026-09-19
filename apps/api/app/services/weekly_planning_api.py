@@ -1,4 +1,5 @@
 import uuid
+from collections import Counter
 from dataclasses import dataclass, replace
 from datetime import timedelta
 
@@ -59,7 +60,11 @@ from app.services.shared_weekly_search import (
     SharedWeeklySearchResult,
     optimize_shared_weekly_slots_scalable,
 )
-from app.services.weekly_debug import weekly_debug, weekly_debug_span
+from app.services.weekly_debug import (
+    weekly_debug,
+    weekly_debug_span,
+    weekly_debug_verbose_enabled,
+)
 from app.services.weekly_planning_request_cache import (
     current_weekly_planning_cache,
     weekly_planning_cache_scope,
@@ -327,6 +332,95 @@ def _transformation_candidates(
     return candidates, metadata
 
 
+def _plan_fit_blocker_labels(fit) -> list[str]:
+    labels: list[str] = []
+    labels.extend(f"safety:{issue}" for issue in fit.safety_issues)
+    labels.extend(
+        f"conflict:{conflict.target_type}:{conflict.target_key}"
+        for conflict in fit.conflicts
+        if conflict.severity == "mandatory"
+    )
+    labels.extend(
+        (
+            f"rule:{rule.target_type}:{rule.target_key}:"
+            f"{rule.operator}:{rule.scope}:{rule.status}"
+        )
+        for rule in fit.rule_results
+        if rule.is_mandatory and rule.status in {"fail", "unknown", "not_evaluated"}
+    )
+    labels.extend(
+        (
+            f"guideline:{guideline.guideline_type}:"
+            f"{guideline.target_type or '-'}:{guideline.target_key or '-'}:"
+            f"{guideline.status}"
+        )
+        for guideline in fit.guideline_results
+        if guideline.is_mandatory
+        and guideline.status in {"fail", "unknown", "not_evaluated"}
+    )
+    return labels
+
+
+def _debug_slot_plan_fit(
+    *,
+    slot_key: str,
+    candidates: list[SharedWeeklyPlanningCandidate],
+) -> None:
+    if not weekly_debug_verbose_enabled():
+        return
+
+    by_person: dict[uuid.UUID, list] = {}
+    for candidate in candidates:
+        for fit in candidate.plan_fits:
+            by_person.setdefault(fit.person_id, []).append(fit)
+
+    for person_id, fits in sorted(by_person.items(), key=lambda item: str(item[0])):
+        ineligible = [fit for fit in fits if not fit.eligible]
+        blocker_counts = Counter(
+            label
+            for fit in ineligible
+            for label in _plan_fit_blocker_labels(fit)
+        )
+        weekly_debug(
+            "PLANFIT-VERBOSE",
+            "slot-person-summary",
+            slot=slot_key,
+            person=person_id,
+            candidates=len(fits),
+            eligible=sum(fit.eligible for fit in fits),
+            ineligible=len(ineligible),
+            top_blockers="|".join(
+                f"{label}x{count}"
+                for label, count in blocker_counts.most_common(12)
+            )
+            or "none",
+        )
+
+    rejected = [
+        candidate
+        for candidate in candidates
+        if not all(fit.eligible for fit in candidate.plan_fits)
+    ]
+    for candidate in rejected[:8]:
+        per_person = []
+        for fit in candidate.plan_fits:
+            if fit.eligible:
+                continue
+            labels = _plan_fit_blocker_labels(fit)
+            per_person.append(
+                f"{fit.person_id}=>"
+                + (",".join(labels[:8]) if labels else f"status:{fit.status}")
+            )
+        weekly_debug(
+            "PLANFIT-VERBOSE",
+            "candidate-rejected",
+            slot=slot_key,
+            candidate=candidate.evaluation.candidate_key,
+            name=candidate.evaluation.candidate_name,
+            blockers=" || ".join(per_person) or "unknown",
+        )
+
+
 def _planning_slot(
     session: Session,
     *,
@@ -427,6 +521,7 @@ def _planning_slot(
         plan_eligible=plan_eligible,
         transformations=len(transformation_metadata),
     )
+    _debug_slot_plan_fit(slot_key=slot.slot_key, candidates=candidates)
     if not eligible_candidates:
         reasons = sorted(
             {
