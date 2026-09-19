@@ -515,3 +515,29 @@ The UI:
 - does not apply a suggested transformation automatically.
 
 No database migration is introduced. A later increment may let the user choose one displayed transformation and re-pin/revalidate that exact structured variant inside the weekly proposal before materialization.
+
+
+## Review increment — rich weekly Plan-Fit + visible adaptation action
+
+Stacked review branch:
+
+```text
+feat/weekly-rich-plan-fit-adaptation-review
+```
+
+Base: `feat/weekly-nutrition-comparison-adaptation-review` exact head `9823b4d716e34b0829b6b57ff3732c46d5bc156c`.
+
+Functional review showed that the first weekly nutrition comparison was too shallow compared with the existing direct meal Plan-Fit evaluation and that the transformation action was too easy to miss.
+
+This increment:
+
+- extracts a reusable rich `MealPlanFitAssessment` presentation used by direct meal evaluation and weekly review;
+- shows Person-specific Plan-Fit summary, portion nutrition, meal rules, daily impact, safety/conflicts and the complete applicable guidance set (guidance is collapsible in weekly review);
+- keeps the weekly payload compact by serializing only the evidence needed for presentation rather than repeating full NutritionPlan source records/text per slot/person;
+- places a prominent `Adaptar ao plano` / `Sugerir adaptação` action inside the selected Recipe detail, immediately before Person evaluations;
+- continues to use the shared-Family transformation engine so one physical Recipe change is re-evaluated independently for every participant;
+- keeps suggestion and application separate: requesting alternatives never mutates the weekly proposal automatically.
+
+No database migration is introduced.
+
+Known evidence limitation remains intentional: legacy Recipes such as Mac and Cheese may have reliable energy but incomplete nutrient/ingredient composition evidence. The UI must show the evidence that exists and must not fabricate missing macronutrients. Structured transformations also require persisted source/replacement composition plus explicit substitution profiles.
