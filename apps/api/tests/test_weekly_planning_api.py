@@ -24,18 +24,21 @@ from app.development_transformation_seed import seed_development_transformations
 from app.main import app
 from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.family import Family
-from app.models.food_catalog import Recipe, RecipeCompositionSnapshot
+from app.models.food_catalog import Recipe, RecipeCompositionSnapshot, RecipeNutrientComponent
 from app.models.meal import MealEvent, Serving
 from app.models.meal_candidate_availability import MealCandidateAvailability
 from app.models.meal_transformation_application import MealTransformationApplication
+from app.models.nutrition_constraint import NutritionConstraint
 from app.models.person import Person
 from app.schemas.nutrition_plan import (
     NutritionPlanCreate,
     NutritionPlanGuidelineCreate,
+    NutritionPlanRuleCreate,
     NutritionPlanUpdate,
 )
 from app.services.nutrition_plan import (
     add_nutrition_plan_guideline,
+    add_nutrition_plan_rule,
     create_nutrition_plan,
     update_nutrition_plan,
 )
@@ -315,6 +318,100 @@ def test_weekly_proposal_exposes_person_specific_nutrition_plan_authority(
     assert bruno_read["nutrition_plan_authority"] == "no_active_plan"
     assert bruno_read["active_plan_ids"] == []
     assert bruno_read["active_plan_titles"] == []
+
+
+def test_weekly_proposal_exposes_plan_backed_nutrient_comparison(
+    db_session: Session,
+) -> None:
+    family, ana, bruno, _, composition = _setup(db_session, "nutrient-comparison")
+    composition.nutrients.append(
+        RecipeNutrientComponent(
+            nutrient_key="protein",
+            value=Decimal("45.0000"),
+            unit="g",
+        )
+    )
+    db_session.flush()
+
+    assert ana.id is not None
+    constraint = NutritionConstraint(
+        person_id=ana.id,
+        constraint_type="nutrient_target",
+        target_type="nutrient",
+        target_key="protein",
+        operator="range",
+        value_min=Decimal("40"),
+        value_max=Decimal("50"),
+        unit="g",
+        severity="required",
+        is_mandatory=True,
+        source="nutritionist",
+        source_name="Dietitian",
+    )
+    db_session.add(constraint)
+    db_session.flush()
+
+    plan = create_nutrition_plan(
+        db_session,
+        person=ana,
+        data=NutritionPlanCreate(
+            title="Plano proteico",
+            source_type="nutritionist",
+            source_name="Dietitian",
+            valid_from=date(2026, 9, 1),
+        ),
+    )
+    add_nutrition_plan_rule(
+        db_session,
+        plan=plan,
+        data=NutritionPlanRuleCreate(
+            rule_kind="constraint",
+            reference_id=constraint.id,
+            meal_type="lunch",
+            source_statement="40-50 g de proteína ao almoço.",
+        ),
+    )
+    update_nutrition_plan(
+        db_session,
+        plan=plan,
+        data=NutritionPlanUpdate(status="active"),
+    )
+
+    response = _post(
+        db_session,
+        family,
+        ana=ana,
+        bruno=bruno,
+        slots=[
+            _slot(
+                "thu-lunch-nutrition",
+                scheduled_at=LUNCH_AT,
+                meal_type="lunch",
+                composition=composition,
+            )
+        ],
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["selected_plan"] is not None
+    choice = body["selected_plan"]["choices"][0]
+    ana_read = next(
+        item for item in choice["participants"] if item["person_id"] == str(ana.id)
+    )
+
+    assert Decimal(ana_read["nutrition"]["nutrients"]["protein"]["value"]) == Decimal("45")
+    assert ana_read["nutrition"]["nutrients"]["protein"]["unit"] == "g"
+    assert len(ana_read["plan_rule_results"]) == 1
+    rule = ana_read["plan_rule_results"][0]
+    assert rule["target_type"] == "nutrient"
+    assert rule["target_key"] == "protein"
+    assert rule["scope"] == "meal"
+    assert rule["status"] == "pass"
+    assert Decimal(rule["observed_value"]) == Decimal("45")
+    assert Decimal(rule["target_min"]) == Decimal("40")
+    assert Decimal(rule["target_max"]) == Decimal("50")
+    assert rule["source"]["plan_id"] == str(plan.id)
 
 
 def test_weekly_proposal_skips_unavailable_slot_but_plans_remaining_slots(
