@@ -291,7 +291,45 @@ def test_bootstrap_selects_latest_recipe_snapshot_as_of_schedule(db_session: Ses
     assert candidate["candidate_kind"] == "recipe"
     assert candidate["composition_id"] == str(current.id)
     assert candidate["composition_version"] == "v2"
+    assert Decimal(candidate["reference_quantity"]) == Decimal("400.0000")
+    assert Decimal(candidate["energy_kcal"]) == Decimal("720.0000")
     assert candidate["suitable_meal_types"] == ["lunch", "dinner"]
+
+
+def test_bootstrap_normalizes_serving_snapshot_without_recipe_serving_count(
+    db_session: Session,
+) -> None:
+    family, person = _family_person(db_session, key="legacy-serving")
+    recipe = Recipe(
+        family=family,
+        recipe_key="legacy-v1:recipe:4",
+        name="Mac and Cheese",
+        serving_count=None,
+        source="legacy-v1",
+    )
+    snapshot = RecipeCompositionSnapshot(
+        recipe=recipe,
+        reference_quantity=Decimal("6.0000"),
+        reference_unit="serving",
+        energy_kcal=Decimal("5899.0000"),
+        composition_version="legacy-v1",
+        calculation_version="test",
+        computed_at=SCHEDULED_AT - timedelta(minutes=30),
+    )
+    db_session.add(snapshot)
+    db_session.flush()
+
+    response = _get(db_session, person)
+
+    assert response.status_code == 200
+    candidate = next(
+        item
+        for item in response.json()["candidates"]
+        if item["catalog_key"] == "legacy-v1:recipe:4"
+    )
+    assert Decimal(candidate["reference_quantity"]) == Decimal("1")
+    assert candidate["reference_unit"] == "serving"
+    assert Decimal(candidate["energy_kcal"]) == Decimal("983.1666666666666666666666667")
 
 
 def test_bootstrap_exposes_planning_profile_meal_types(db_session: Session) -> None:
