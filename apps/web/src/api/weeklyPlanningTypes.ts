@@ -1,5 +1,9 @@
 import type { MealTransformationOperation } from "./mealTransformationTypes";
-import type { MealPlanFitNutrient, MealPlanFitRule } from "./planFitTypes";
+import type {
+  MealPlanFitNutrient,
+  MealPlanFitResult,
+  MealPlanFitRule,
+} from "./planFitTypes";
 import type { RecommendationCandidateInput } from "./types";
 
 export type WeeklyPlanningMealType = "breakfast" | "lunch" | "snack" | "dinner";
@@ -76,6 +80,7 @@ export type SharedWeeklyPlanParticipant = {
     energy_kcal: string | null;
     nutrients: Record<string, MealPlanFitNutrient>;
   };
+  plan_fit: MealPlanFitResult;
   plan_rule_results: MealPlanFitRule[];
   plan_guidance: string[];
   portion_factor: string | null;
