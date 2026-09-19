@@ -14,6 +14,18 @@ def weekly_debug_enabled() -> bool:
     }
 
 
+def weekly_debug_verbose_enabled() -> bool:
+    return weekly_debug_enabled() and os.getenv(
+        "NUTRIFLOW_WEEKLY_DEBUG_VERBOSE",
+        "",
+    ).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def weekly_debug(category: str, event: str, /, **fields: Any) -> None:
     if not weekly_debug_enabled():
         return
