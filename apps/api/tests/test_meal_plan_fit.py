@@ -273,6 +273,62 @@ def test_plan_fit_keeps_unsupported_mandatory_rule_visible_without_universal_vet
     assert any("does not by itself veto" in text for text in result.explanation)
 
 
+def test_plan_fit_does_not_guess_food_category_exclusion_without_structured_evidence(
+    db_session: Session,
+) -> None:
+    person = _person(db_session)
+    composition = _dish(db_session, person)
+    plan = create_nutrition_plan(
+        db_session,
+        person=person,
+        data=NutritionPlanCreate(
+            title="Soy exclusion plan",
+            source_type="nutritionist",
+            status="draft",
+            valid_from=date(2026, 9, 1),
+        ),
+    )
+    exclusion = NutritionConstraint(
+        person_id=person.id,
+        constraint_type="exclusion",
+        target_type="food_category",
+        target_key="soy",
+        operator="exclude",
+        severity="required",
+        is_mandatory=True,
+        source="nutritionist",
+    )
+    db_session.add(exclusion)
+    db_session.commit()
+    add_nutrition_plan_rule(
+        db_session,
+        plan=plan,
+        data=NutritionPlanRuleCreate(
+            rule_kind="constraint",
+            reference_id=exclusion.id,
+            source_statement="Evitar soja.",
+        ),
+    )
+    update_nutrition_plan(
+        db_session,
+        plan=plan,
+        data=NutritionPlanUpdate(status="active"),
+    )
+
+    result = evaluate_meal_plan_fit(
+        db_session,
+        person_id=person.id,
+        data=_request(composition),
+    )
+
+    rule = next(item for item in result.rule_results if item.target_key == "soy")
+    assert rule.status == "not_evaluated"
+    assert result.eligible is True
+    assert result.status == "unknown"
+    assert result.nutrition_plan_authority.state == "partial_plan_coverage"
+    assert "cannot yet evaluate target type 'food_category'" in rule.explanation
+
+
 def test_plan_fit_keeps_mandatory_qualitative_guideline_visible_without_universal_veto(
     db_session: Session,
 ) -> None:
