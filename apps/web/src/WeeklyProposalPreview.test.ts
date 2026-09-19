@@ -8,6 +8,7 @@ import type {
 } from "./api/weeklyPlanningTypes";
 import {
   weeklyPlanRequest,
+  proposalHasOnlySkippedSlots,
   addCalendarDays,
   isWeekendDate,
   mealEntryFor,
@@ -57,6 +58,61 @@ describe("weekly meal source policy", () => {
     expect(weeklySourcesFor("2026-09-17", "dinner")).toEqual(["cooked"]);
   });
 });
+
+describe("weekly no-plan diagnostics", () => {
+  it("distinguishes all-skipped slots from a searched but infeasible week", () => {
+    expect(
+      proposalHasOnlySkippedSlots({
+        family_id: "family",
+        participant_ids: ["person-1", "person-2"],
+        week_start: "2026-09-14",
+        week_end: "2026-09-20",
+        engine_version: "test",
+        slot_engine_versions: {},
+        selected_plan: null,
+        skipped_slots: [
+          {
+            slot_key: "2026-09-14:lunch",
+            planning_date: "2026-09-14",
+            meal_type: "lunch",
+            reason: "no_eligible_candidates",
+            exclusion_reasons: ["candidate_unavailable"],
+          },
+        ],
+        evaluated_combinations: 0,
+        feasible_combinations: 0,
+        rejected_by_person_weekly_maximum: 0,
+        rejected_by_person_daily_limit: 0,
+        search_strategy: "bounded",
+        search_space_size: 0,
+        search_truncated: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps a genuine searched infeasibility separate", () => {
+    expect(
+      proposalHasOnlySkippedSlots({
+        family_id: "family",
+        participant_ids: ["person-1", "person-2"],
+        week_start: "2026-09-14",
+        week_end: "2026-09-20",
+        engine_version: "test",
+        slot_engine_versions: {},
+        selected_plan: null,
+        skipped_slots: [],
+        evaluated_combinations: 12,
+        feasible_combinations: 0,
+        rejected_by_person_weekly_maximum: 12,
+        rejected_by_person_daily_limit: 0,
+        search_strategy: "exact",
+        search_space_size: 12,
+        search_truncated: false,
+      }),
+    ).toBe(false);
+  });
+});
+
 
 describe("server-authoritative unavailable weekly slots", () => {
   it("keeps an unavailable weekday delivery lunch visibly pending", () => {
