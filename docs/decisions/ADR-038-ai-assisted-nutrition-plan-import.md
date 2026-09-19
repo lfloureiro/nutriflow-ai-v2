@@ -12,7 +12,7 @@ NutriFlow adds an optional AI interpretation boundary on top of the existing imp
 The AI interpreter:
 - receives source text only after the user explicitly starts an import;
 - uses structured output constrained to the existing import-proposal shape;
-- may classify numeric rules, qualitative guidance, weekly frequency guidance, or leave text unclassified;
+- may classify numeric rules, explicit structured exclusions, qualitative guidance, weekly frequency guidance, or leave text unclassified;
 - must preserve a source statement for provenance;
 - must not infer quantities, units, diagnoses or recommendations that are not explicit in the source;
 - always creates proposals with `confirmation_status=proposed`;
@@ -34,6 +34,12 @@ The default AI model is `gpt-5.6-luna`, configurable with `NUTRIFLOW_NUTRITION_P
 For users without an API key, NutriFlow also supports a manual ChatGPT-assisted bridge. NutriFlow generates a strict prompt containing the extracted source text and the same structured-output schema; the user copies that prompt into ChatGPT and pastes the returned JSON back into NutriFlow. The backend parses and validates that JSON against the normal import proposal schema before creating a review session. NutriFlow does not automate `chatgpt.com`, reuse browser cookies, or treat pasted output as trusted.
 
 The OpenAI request uses the Responses API with JSON-schema Structured Outputs and `store=false`.
+
+### Structured exclusions
+
+The existing persisted import envelope remains backward-compatible: an explicit exclusion is represented as `proposal_type=numeric_rule` with `operator=exclude`, a normalized `target_type/target_key`, and no numeric values or unit. The historical proposal-type name is retained to avoid a persistence migration; validation distinguishes numeric rules from exclusion rules by operator.
+
+Explicit multi-subject prohibitions should be split into one review proposal per subject. The interpreter must not invent catalogue identifiers or infer that a Recipe contains a category. Materialization creates a normal `NutritionConstraint`; runtime enforcement remains dependent on explicit candidate evidence. Unsupported category evidence therefore remains partial/unknown rather than being inferred from names.
 
 ## Consequences
 - AI output remains advisory and reviewable rather than authoritative.
