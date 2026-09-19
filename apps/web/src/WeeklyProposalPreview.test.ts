@@ -15,6 +15,7 @@ import {
   weeklySourcesFor,
   weeklySkippedSlotMessages,
   shoppingRefreshSummary,
+  nutritionPlanAuthorityLabel,
 } from "./WeeklyProposalPreview";
 
 describe("weekly proposal calendar dates", () => {
@@ -135,6 +136,20 @@ describe("server-authoritative unavailable weekly slots", () => {
     });
   });
 });
+
+describe("weekly NutritionPlan authority labels", () => {
+  it("distinguishes active, partial and absent plan coverage", () => {
+    expect(nutritionPlanAuthorityLabel("active_plan", "pt-PT")).toBe("Activo");
+    expect(nutritionPlanAuthorityLabel("partial_plan_coverage", "pt-PT")).toBe(
+      "Cobertura parcial",
+    );
+    expect(nutritionPlanAuthorityLabel("no_active_plan", "pt-PT")).toBe(
+      "Sem plano activo",
+    );
+    expect(nutritionPlanAuthorityLabel("plan_conflict", "en")).toBe("Plan conflict");
+  });
+});
+
 
 describe("weekly matrix plan overlay", () => {
   const plan: FamilyMealPlan = {
