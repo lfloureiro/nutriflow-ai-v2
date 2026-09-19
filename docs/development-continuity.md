@@ -479,3 +479,38 @@ This increment:
 - translates known rating, location, timing, energy and preference signals into user-facing text.
 
 No database migration is introduced.
+
+
+## Review increment — weekly nutrition comparison + explicit adaptation suggestions
+
+Stacked review branch:
+
+```text
+feat/weekly-nutrition-comparison-adaptation-review
+```
+
+Base: `fix/weekly-portion-allocation-display-review` exact head `1f3f87fe0372480edc7254255019f378bdaea337`.
+
+This increment makes the weekly meal detail answer two user-facing questions without recreating nutrition logic in the browser:
+
+1. what nutrition the exact Person-specific proposed portion contains;
+2. how machine-evaluable plan-backed nutrient rules compare with that portion when an active NutritionPlan provides such targets.
+
+The weekly proposal response now carries:
+
+- selected Recipe id when the candidate is a Recipe;
+- Person-specific DailyNutritionState id;
+- exact candidate nutrition used by Plan-Fit;
+- compact plan-backed candidate/meal rule results relevant to nutrient/meal composition/food-category evidence.
+
+The UI:
+
+- shows a compact portion nutrition summary;
+- shows observed vs plan target and Plan-Fit status for structured numeric nutrient rules;
+- explicitly says when an active plan has no quantitative evaluable target rather than inventing one from qualitative guidance;
+- offers an `Adaptar ao plano` action for Recipes;
+- calls the existing shared-Family transformation proposal endpoint with the reviewed Person-specific portions/state ids;
+- displays safe structured substitutions and Person-specific before/after fit evidence;
+- does not apply a suggested transformation automatically.
+
+No database migration is introduced. A later increment may let the user choose one displayed transformation and re-pin/revalidate that exact structured variant inside the weekly proposal before materialization.
