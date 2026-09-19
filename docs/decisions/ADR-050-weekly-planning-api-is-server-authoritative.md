@@ -35,7 +35,7 @@ The weekly orchestration layer then converts those server-generated slot evaluat
 - classify food from names or descriptions;
 - duplicate weekly maximum or same-day daily nutrient coupling logic.
 
-The proposal response exposes the selected weekly combination, Person-specific portions/scores/explanations, optimization counters and per-slot recommendation engine versions. If a requested slot has no server-authoritative eligible candidate after practical availability and Plan-Fit evaluation, that slot is returned explicitly as skipped/pending and is not allowed to collapse the search space for otherwise feasible slots. Internal Plan-Fit objects remain server-side.
+The proposal response exposes the selected weekly combination, Person-specific portions/scores/explanations, optimization counters and per-slot recommendation engine versions. For review UI it may also expose a compact, server-derived nutrition comparison snapshot: the exact candidate nutrition used for that Person plus applicable plan-backed candidate/meal rules. The browser renders those values but does not recalculate Plan-Fit or infer plan targets. If a requested slot has no server-authoritative eligible candidate after practical availability and Plan-Fit evaluation, that slot is returned explicitly as skipped/pending and is not allowed to collapse the search space for otherwise feasible slots. Full internal Plan-Fit orchestration remains server-side.
 
 ## Persistence boundary
 
