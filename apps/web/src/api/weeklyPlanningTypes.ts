@@ -77,6 +77,7 @@ export type SharedWeeklyPlanParticipant = {
     nutrients: Record<string, MealPlanFitNutrient>;
   };
   plan_rule_results: MealPlanFitRule[];
+  plan_guidance: string[];
   portion_factor: string | null;
   meal_energy_target_min_kcal: string | null;
   meal_energy_target_max_kcal: string | null;
