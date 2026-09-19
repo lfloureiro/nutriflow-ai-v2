@@ -99,6 +99,7 @@ const COPY = {
     planTarget: "Alvo do plano",
     observed: "Nesta porção",
     adaptToPlan: "Adaptar ao plano",
+    suggestAdaptation: "Sugerir adaptação",
     adaptingToPlan: "A procurar adaptações…",
     adaptationTitle: "Sugestões de adaptação",
     adaptationHelp: "Substituições avaliadas contra o plano e as preferências da família. Nenhuma alteração é aplicada automaticamente.",
@@ -182,6 +183,7 @@ const COPY = {
     planTarget: "Plan target",
     observed: "In this portion",
     adaptToPlan: "Adapt to plan",
+    suggestAdaptation: "Suggest adaptation",
     adaptingToPlan: "Finding adaptations…",
     adaptationTitle: "Adaptation suggestions",
     adaptationHelp: "Substitutions evaluated against the plan and Family preferences. No change is applied automatically.",
@@ -787,6 +789,10 @@ export default function WeeklyProposalPreview({
     selectedDate && selectedMealType
       ? choiceFor(grouped, selectedDate, selectedMealType)
       : null;
+  const selectedChoiceHasPlan =
+    selectedChoice?.participants.some(
+      (participant) => participant.nutrition_plan_authority !== "no_active_plan",
+    ) ?? false;
   const selectedSlotKey =
     selectedDate && selectedMealType ? slotKey(selectedDate, selectedMealType) : null;
   const selectedSkippedReason = selectedSlotKey ? skippedSlots[selectedSlotKey] ?? null : null;
@@ -1295,7 +1301,11 @@ export default function WeeklyProposalPreview({
                       onClick={() => void suggestAdaptations()}
                       type="button"
                     >
-                      {adaptationBusy ? copy.adaptingToPlan : copy.adaptToPlan}
+                      {adaptationBusy
+                        ? copy.adaptingToPlan
+                        : selectedChoiceHasPlan
+                          ? copy.adaptToPlan
+                          : copy.suggestAdaptation}
                     </button>
                   </div>
                 ) : null}
