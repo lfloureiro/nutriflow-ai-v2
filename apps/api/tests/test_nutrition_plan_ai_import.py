@@ -192,6 +192,7 @@ def test_chatgpt_prompt_contains_source_and_strict_json_contract() -> None:
     assert "Return ONLY one JSON object" in prompt
     assert '"proposals"' in prompt
     assert '"summary"' in prompt
+    assert "operator='exclude'" in prompt
 
 
 def test_chatgpt_assisted_import_validates_pasted_json_and_stays_in_review(
@@ -240,6 +241,60 @@ def test_chatgpt_assisted_import_validates_pasted_json_and_stays_in_review(
     assert len(result.proposals) == 1
     assert result.proposals[0].confirmation_status == "proposed"
     assert result.proposals[0].target_key == "protein"
+
+
+def test_chatgpt_assisted_import_accepts_structured_exclusion(
+    db_session: Session,
+) -> None:
+    person = _person(db_session)
+    structured = {
+        "proposals": [
+            {
+                "source_statement": "Evitar soja",
+                "proposal_type": "numeric_rule",
+                "target_type": "food_category",
+                "target_key": "soy",
+                "operator": "exclude",
+                "value_min": None,
+                "value_max": None,
+                "value_target": None,
+                "unit": None,
+                "description": None,
+                "meal_type": None,
+                "period": None,
+                "minimum_occurrences": None,
+                "maximum_occurrences": None,
+                "severity": "required",
+                "is_mandatory": True,
+                "priority": 100,
+                "confidence": 0.99,
+                "parser_note": "Explicit prohibition.",
+            }
+        ],
+        "summary": "Uma exclusão estruturada para revisão.",
+    }
+
+    result = create_chatgpt_assisted_nutrition_plan_import(
+        db_session,
+        person=person,
+        data=NutritionPlanImportCreate(
+            title="Plano com exclusão",
+            source_type="nutritionist",
+            source_text="Evitar soja",
+            valid_from=date(2026, 9, 16),
+        ),
+        response_text=json.dumps(structured, ensure_ascii=False),
+    )
+
+    assert len(result.proposals) == 1
+    proposal = result.proposals[0]
+    assert proposal.proposal_type == "numeric_rule"
+    assert proposal.operator == "exclude"
+    assert proposal.target_type == "food_category"
+    assert proposal.target_key == "soy"
+    assert proposal.unit is None
+    assert proposal.value_min is None
+    assert proposal.is_mandatory is True
 
 
 def test_chatgpt_assisted_import_rejects_non_json_response(db_session: Session) -> None:
