@@ -86,6 +86,7 @@ const COPY = {
     empty: "Sem refeição",
     pending: "Por decidir",
     nutritionReason: "Porque encaixa",
+    proposedPortion: "Porção proposta",
     nutritionPlan: "Plano nutricional",
     mealPlanFit: "Avaliação da refeição",
     activePlan: "Activo",
@@ -154,6 +155,7 @@ const COPY = {
     empty: "No meal",
     pending: "Pending",
     nutritionReason: "Why it fits",
+    proposedPortion: "Suggested portion",
     nutritionPlan: "Nutrition plan",
     mealPlanFit: "Meal evaluation",
     activePlan: "Active",
@@ -300,6 +302,39 @@ function planFitStatusLabel(
   if (status === "fail") return copy.fitFail;
   if (status === "conflict") return copy.fitConflict;
   return copy.fitUnknown;
+}
+
+export function formatMealPortion(
+  quantity: string | null,
+  unit: string | null,
+  energyKcal: string | null,
+  locale: Locale,
+): string {
+  if (quantity === null) return "—";
+  const parsedQuantity = Number(quantity);
+  const quantityLabel = Number.isFinite(parsedQuantity)
+    ? new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(parsedQuantity)
+    : quantity;
+  const normalizedUnit = (unit ?? "").trim().toLowerCase();
+  let unitLabel = unit ?? "";
+  if (normalizedUnit === "serving") {
+    const singular = Number.isFinite(parsedQuantity) && parsedQuantity <= 1;
+    unitLabel =
+      locale === "pt-PT"
+        ? singular
+          ? "porção da receita"
+          : "porções da receita"
+        : singular
+          ? "recipe serving"
+          : "recipe servings";
+  }
+  const energy = energyKcal === null ? null : Number(energyKcal);
+  const energyLabel =
+    energy !== null && Number.isFinite(energy)
+      ? ` · ~${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(energy)} kcal`
+      : "";
+
+  return `${quantityLabel}${unitLabel ? ` ${unitLabel}` : ""}${energyLabel}`;
 }
 
 function entryName(entry: MealPlanEntry): string {
@@ -957,12 +992,12 @@ export default function WeeklyProposalPreview({
                               .join(" ")}
                           </strong>
                           <span>
-                            {participant.quantity !== null
-                              ? `${participant.quantity} ${participant.unit ?? ""}`
-                              : "—"}
-                            {participant.energy_kcal !== null
-                              ? ` · ${participant.energy_kcal} kcal`
-                              : ""}
+                            {formatMealPortion(
+                              participant.quantity,
+                              participant.unit,
+                              participant.energy_kcal,
+                              locale,
+                            )}
                           </span>
                         </div>
                       </article>
@@ -995,10 +1030,13 @@ export default function WeeklyProposalPreview({
                           <div className="weekly-person-detail__heading">
                             <strong>{person ? displayName(person) : participant.person_id}</strong>
                             <span>
-                              {participant.quantity} {participant.quantity_unit}
-                              {participant.energy_kcal !== null
-                                ? ` · ${participant.energy_kcal} kcal`
-                                : ""}
+                              {copy.proposedPortion}:{" "}
+                              {formatMealPortion(
+                                participant.quantity,
+                                participant.quantity_unit,
+                                participant.energy_kcal,
+                                locale,
+                              )}
                             </span>
                           </div>
                           <div className="weekly-person-detail__reason">
