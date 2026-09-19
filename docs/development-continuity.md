@@ -507,6 +507,7 @@ The UI:
 
 - shows a compact portion nutrition summary;
 - shows observed vs plan target and Plan-Fit status for structured numeric nutrient rules;
+- shows up to four high-priority applicable qualitative NutritionPlan instructions as context, explicitly marked as not automatically evaluated;
 - explicitly says when an active plan has no quantitative evaluable target rather than inventing one from qualitative guidance;
 - offers an `Adaptar ao plano` action for Recipes;
 - calls the existing shared-Family transformation proposal endpoint with the reviewed Person-specific portions/state ids;
