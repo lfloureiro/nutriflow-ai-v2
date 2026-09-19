@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.meal_plan_fit import (
-    MealPlanFitRead,
+    MealPlanFitGuidelineRead,
     MealPlanFitRuleRead,
     MealPlanFitStatus,
 )
@@ -16,7 +16,10 @@ from app.schemas.meal_recommendation import (
 )
 from app.schemas.meal_transformation import MealTransformationOperationRead
 from app.schemas.meal_type import MealType
-from app.schemas.nutrition_plan import NutritionPlanAuthorityState
+from app.schemas.nutrition_plan import (
+    EffectiveNutritionPlanConflictRead,
+    NutritionPlanAuthorityState,
+)
 from app.schemas.practical_recommendation import (
     PracticalSourceKind,
     RecommendationHistoryHint,
@@ -51,6 +54,16 @@ class SharedWeeklyPlanProposalCreate(BaseModel):
     max_combinations: int = Field(default=10_000, ge=1, le=10_000)
 
 
+class SharedWeeklyPlanFitDetailRead(BaseModel):
+    eligible: bool
+    status: MealPlanFitStatus
+    fit_score: Decimal | None
+    conflicts: list[EffectiveNutritionPlanConflictRead] = Field(default_factory=list)
+    safety_issues: list[str] = Field(default_factory=list)
+    rule_results: list[MealPlanFitRuleRead] = Field(default_factory=list)
+    guideline_results: list[MealPlanFitGuidelineRead] = Field(default_factory=list)
+
+
 class SharedWeeklyPlanParticipantRead(BaseModel):
     person_id: uuid.UUID
     daily_nutrition_state_id: uuid.UUID | None
@@ -59,7 +72,7 @@ class SharedWeeklyPlanParticipantRead(BaseModel):
     quantity_unit: str
     energy_kcal: Decimal | None
     nutrition: RecommendationNutritionRead
-    plan_fit: MealPlanFitRead
+    plan_fit_detail: SharedWeeklyPlanFitDetailRead
     plan_rule_results: list[MealPlanFitRuleRead] = Field(default_factory=list)
     plan_guidance: list[str] = Field(default_factory=list)
     portion_factor: Decimal | None
