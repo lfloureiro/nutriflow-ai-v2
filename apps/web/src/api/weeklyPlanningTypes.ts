@@ -90,17 +90,11 @@ export type SharedWeeklyPlanParticipant = {
     rule_results: MealPlanFitRule[];
     guideline_results: MealPlanFitGuideline[];
   };
-  plan_rule_results: MealPlanFitRule[];
-  plan_guidance: string[];
   portion_factor: string | null;
   meal_energy_target_min_kcal: string | null;
   meal_energy_target_max_kcal: string | null;
-  plan_fit_status: MealPlanFitStatus;
-  plan_fit_score: string | null;
   nutrition_plan_authority: NutritionPlanAuthorityState;
-  active_plan_ids: string[];
   active_plan_titles: string[];
-  plan_unknown_evidence: string[];
   explanation: string[];
 };
 
