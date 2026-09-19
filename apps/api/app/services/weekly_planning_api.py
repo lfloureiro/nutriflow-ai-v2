@@ -18,6 +18,7 @@ from app.schemas.weekly_planning import (
     SharedWeeklyPlanCreate,
     SharedWeeklyPlanMaterializedChoiceRead,
     SharedWeeklyPlanningSlotCreate,
+    SharedWeeklyPlanFitDetailRead,
     SharedWeeklyPlanParticipantRead,
     SharedWeeklyPlanProposalCreate,
     SharedWeeklyPlanProposalRead,
@@ -737,7 +738,15 @@ def _compute_shared_weekly_plan_uncached(
                         quantity_unit=participant.portion.quantity_unit,
                         energy_kcal=participant.evaluation.candidate.nutrition.energy_kcal,
                         nutrition=fit.candidate.nutrition,
-                        plan_fit=fit,
+                        plan_fit_detail=SharedWeeklyPlanFitDetailRead(
+                            eligible=fit.eligible,
+                            status=fit.status,
+                            fit_score=fit.fit_score,
+                            conflicts=list(fit.conflicts),
+                            safety_issues=list(fit.safety_issues),
+                            rule_results=list(fit.rule_results),
+                            guideline_results=list(fit.guideline_results),
+                        ),
                         plan_rule_results=[
                             rule
                             for rule in fit.rule_results
