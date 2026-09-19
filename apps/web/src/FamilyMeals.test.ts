@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { recipesForMealType, startOfWeekDate } from "./FamilyMeals";
+import { addPlanDays, recipesForMealType, startOfWeekDate } from "./FamilyMeals";
 import type { Recipe } from "./api/recipeTypes";
 
 function recipe(id: string, suitableMealTypes: Recipe["suitable_meal_types"]): Recipe {
@@ -31,6 +31,13 @@ describe("family meal-plan helpers", () => {
     expect(startOfWeekDate("2026-08-22")).toBe("2026-08-17");
     expect(startOfWeekDate("2026-08-17")).toBe("2026-08-17");
     expect(startOfWeekDate("2026-08-23")).toBe("2026-08-17");
+  });
+
+  it("moves between days and weeks without timezone drift", () => {
+    expect(addPlanDays("2026-09-19", 1)).toBe("2026-09-20");
+    expect(addPlanDays("2026-09-19", -1)).toBe("2026-09-18");
+    expect(addPlanDays("2026-09-14", 7)).toBe("2026-09-21");
+    expect(addPlanDays("2026-09-14", -7)).toBe("2026-09-07");
   });
 
   it("shows only recipes suitable for the selected meal slot", () => {
