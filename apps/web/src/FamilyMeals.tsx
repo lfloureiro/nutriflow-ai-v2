@@ -659,6 +659,7 @@ export default function FamilyMealsScreen({
             onEdit={(date, mealType, entry) =>
               setEditing({ date, mealType, entry })
             }
+            onPlanChanged={refreshPlan}
             people={people}
             plan={plan}
             weekStart={plan.start_date}
