@@ -774,6 +774,38 @@ export default function WeeklyProposalPreview({
     selectedDate && selectedMealType ? slotKey(selectedDate, selectedMealType) : null;
   const selectedSkippedReason = selectedSlotKey ? skippedSlots[selectedSlotKey] ?? null : null;
 
+  useEffect(() => {
+    setAdaptationResult(null);
+    setAdaptationError(null);
+    setAdaptationBusy(false);
+  }, [selectedChoice?.slot_key, selectedChoice?.candidate_key, selectedChoice?.recipe_id]);
+
+  async function suggestAdaptations() {
+    if (!selectedChoice?.recipe_id) return;
+    setAdaptationBusy(true);
+    setAdaptationError(null);
+    setAdaptationResult(null);
+    try {
+      const result = await proposeSharedMealTransformations(familyId, {
+        planning_date: selectedChoice.planning_date,
+        meal_type: selectedChoice.meal_type,
+        recipe_id: selectedChoice.recipe_id,
+        participants: selectedChoice.participants.map((participant) => ({
+          person_id: participant.person_id,
+          daily_nutrition_state_id: participant.daily_nutrition_state_id,
+          quantity: participant.quantity,
+          quantity_unit: participant.quantity_unit,
+        })),
+        max_proposals: 5,
+      });
+      setAdaptationResult(result);
+    } catch (caught: unknown) {
+      setAdaptationError(errorText(caught));
+    } finally {
+      setAdaptationBusy(false);
+    }
+  }
+
   async function generateProposal(
     rejectedOverride: RejectedBySlot = rejectedBySlot,
     resetSelection = true,
