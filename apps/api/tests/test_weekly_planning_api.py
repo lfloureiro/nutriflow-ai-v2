@@ -331,7 +331,7 @@ def test_weekly_proposal_exposes_plan_backed_nutrient_comparison(
     composition.nutrients.append(
         RecipeNutrientComponent(
             nutrient_key="protein",
-            value=Decimal("45.0000"),
+            value=Decimal(45),
             unit="g",
         )
     )
@@ -344,8 +344,8 @@ def test_weekly_proposal_exposes_plan_backed_nutrient_comparison(
         target_type="nutrient",
         target_key="protein",
         operator="range",
-        value_min=Decimal("40"),
-        value_max=Decimal("50"),
+        value_min=Decimal(40),
+        value_max=Decimal(50),
         unit="g",
         severity="required",
         is_mandatory=True,
@@ -404,7 +404,7 @@ def test_weekly_proposal_exposes_plan_backed_nutrient_comparison(
         item for item in choice["participants"] if item["person_id"] == str(ana.id)
     )
 
-    assert Decimal(ana_read["nutrition"]["nutrients"]["protein"]["value"]) == Decimal("45")
+    assert Decimal(ana_read["nutrition"]["nutrients"]["protein"]["value"]) == Decimal(45)
     assert ana_read["nutrition"]["nutrients"]["protein"]["unit"] == "g"
     assert len(ana_read["plan_rule_results"]) == 1
     rule = ana_read["plan_rule_results"][0]
@@ -412,9 +412,9 @@ def test_weekly_proposal_exposes_plan_backed_nutrient_comparison(
     assert rule["target_key"] == "protein"
     assert rule["scope"] == "meal"
     assert rule["status"] == "pass"
-    assert Decimal(rule["observed_value"]) == Decimal("45")
-    assert Decimal(rule["target_min"]) == Decimal("40")
-    assert Decimal(rule["target_max"]) == Decimal("50")
+    assert Decimal(rule["observed_value"]) == Decimal(45)
+    assert Decimal(rule["target_min"]) == Decimal(40)
+    assert Decimal(rule["target_max"]) == Decimal(50)
     assert rule["source"]["plan_id"] == str(plan.id)
 
 
