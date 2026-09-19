@@ -1,4 +1,5 @@
 import type { MealTransformationOperation } from "./mealTransformationTypes";
+import type { MealPlanFitNutrient, MealPlanFitRule } from "./planFitTypes";
 import type { RecommendationCandidateInput } from "./types";
 
 export type WeeklyPlanningMealType = "breakfast" | "lunch" | "snack" | "dinner";
@@ -66,10 +67,16 @@ export type SharedWeeklyPlan = {
 
 export type SharedWeeklyPlanParticipant = {
   person_id: string;
+  daily_nutrition_state_id: string | null;
   score: string | null;
   quantity: string;
   quantity_unit: string;
   energy_kcal: string | null;
+  nutrition: {
+    energy_kcal: string | null;
+    nutrients: Record<string, MealPlanFitNutrient>;
+  };
+  plan_rule_results: MealPlanFitRule[];
   portion_factor: string | null;
   meal_energy_target_min_kcal: string | null;
   meal_energy_target_max_kcal: string | null;
@@ -90,6 +97,7 @@ export type SharedWeeklyPlanChoice = {
   candidate_key: string;
   candidate_name: string;
   candidate_kind: string;
+  recipe_id: string | null;
   minimum_score: string | null;
   average_score: string | null;
   participants: SharedWeeklyPlanParticipant[];
