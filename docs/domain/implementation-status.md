@@ -7,11 +7,14 @@
 ```text
 NutritionPlan domain/provenance                    IMPLEMENTED
 EffectiveNutritionPlan compiler                   FOUNDATION IMPLEMENTED
-Plan text import + explicit review/confirmation   IMPLEMENTED
+Plan text/document import + review/confirmation   IMPLEMENTED v1
 AI-assisted text interpretation + review UI       IMPLEMENTED v1
 MealPlanFit candidate evaluation                  IMPLEMENTED v1
-Structured Meal Transformation                    IMPLEMENTED v1 proposal slice
-Plan-Fit-aware recommendation integration         NEXT
+Structured Meal Transformation                    IMPLEMENTED v1
+Plan-Fit-aware recommendation integration         IMPLEMENTED v1
+Shared-Family transformation + materialization    IMPLEMENTED v1
+Adaptive weekly planning                          IMPLEMENTED v1
+Weekly plan -> shopping coupling                   IN PROGRESS
 ```
 
 Feature schema head for Structured Meal Transformation:
@@ -76,7 +79,9 @@ Implemented in PR #39:
 - DailyNutritionState supplied explicitly or auto-selected for Person/date;
 - projected daily totals include existing state plus candidate contribution;
 - daily minimum/range rules can return `support`;
-- mandatory daily rules with missing context/evidence fail closed as `unknown`;
+- mandatory machine-evaluable nutrient rules with missing context/evidence fail closed as `unknown`;
+- mandatory guidance outside the current meal-evaluable scope (for example lifestyle, supplement, timing or unsupported qualitative directives) remains visible as partial coverage instead of becoming a universal meal veto;
+- mandatory weekly maxima still fail closed when safe remaining capacity cannot be established from structured evidence; weekly minima remain support signals rather than per-meal gates;
 - mandatory adverse reactions remain independent hard gates;
 - mandatory plan conflicts block eligibility;
 - overall status is independent from numeric score;
@@ -140,7 +145,7 @@ Decision/domain docs:
 
 Deferred transformation work:
 
-- persistent Recipe-variant materialization after explicit acceptance;
+- persistent reusable Recipe-variant authoring after explicit acceptance;
 - multiple simultaneous ingredient operations;
 - add/remove/increase/reduce and cooking-method operations;
 - pantry/cost/preparation optimization;
@@ -188,6 +193,30 @@ Implemented:
 
 Next integration rule: recommendation ranking must consume MealPlanFit for nutrition-plan-aware eligibility/fit instead of allowing its legacy nutrition-rule evaluation to evolve independently. Preference, practical context and diversity remain separate ranking layers.
 
+## Adaptive weekly planning v1
+
+Implemented:
+
+- deterministic Person-specific weekly frequency progress;
+- weekly-aware Meal Plan-Fit support/minimum and mandatory-maximum semantics;
+- Person-specific weekly support in shared-Family ranking;
+- full-week multi-slot optimization with same-day mandatory nutrient coupling;
+- shared-Family weekly optimization using each Person's own Meal Plan-Fit evidence;
+- server-authoritative weekly proposal orchestration;
+- deterministic bounded search for larger candidate spaces;
+- safe transformed Recipe variants participating directly in weekly optimization;
+- atomic weekly materialization with stale-selection and slot-conflict protection;
+- Monday-Sunday Week view with progressive disclosure and local rejection/recalculation;
+- persisted transformation provenance visible after the weekly plan is applied;
+- server-authoritative unavailable slots remain explicit pending gaps instead of invalidating the rest of an otherwise feasible week;
+- exact recipe repetition inside one proposed week carries a soft plan-level diversity penalty, including in bounded-search pruning, without weakening Plan-Fit or mandatory weekly rules.
+
+Current coupling increment:
+
+- after successful weekly materialization, refresh the existing pantry-aware durable shopping list for the same Monday-Sunday interval;
+- calculate transformed meals from persisted replacement ingredient provenance rather than the source Recipe ingredient;
+- keep shopping refresh derivative: failure is surfaced separately and does not make an already-saved week appear rolled back.
+
 ## Restaurant and delivery foundation
 
 Implemented abstractions:
@@ -223,22 +252,9 @@ Preserve:
 
 ## Next development block
 
-After the Structured Meal Transformation proposal slice is merged and browser-tested, integrate home/pantry/Recipe recommendation nutrition evaluation with MealPlanFit.
+Current branch: weekly plan -> shopping-list coupling.
 
-The target separation is:
-
-```text
-MealPlanFit
-= nutrition-plan eligibility + nutrition fit + explanations
-
-Recommendation ranking
-= MealPlanFit result
-+ practical availability
-+ preference
-+ diversity/history
-```
-
-Do not create a second nutrition-plan scorer in recommendation ranking.
+After this slice is reviewed and eventually merged, the next Phase 8 work should remain focused on one product-visible capability at a time. Candidate increments are richer across-week category/protein diversity, explicit leftover/reservation evidence, or deeper pantry/schedule coupling. Do not start the next branch until this slice has been reviewed and merged explicitly.
 
 ## Broader deferred limitations
 
@@ -246,9 +262,9 @@ Do not create a second nutrition-plan scorer in recommendation ranking.
 - shopping purchase -> pantry reconciliation;
 - trustworthy catalogue coverage is incomplete;
 - production consumer marketplace adapters depend on provider access;
-- PDF/photo/document plan extraction;
-- weekly frequency-progress calculation;
-- qualitative/frequency Plan-Fit scoring;
-- recommendation engine not yet consuming MealPlanFit directly;
-- transformation variant materialization and multi-operation optimization;
+- OCR/photo/scanned-document extraction;
+- qualitative guidance remains only partially machine-evaluable;
+- transformation reusable-variant authoring and multi-operation optimization;
+- explicit leftover/reservation inventory evidence;
+- richer across-week category/protein diversity;
 - npm lockfile / `npm ci` production hardening.

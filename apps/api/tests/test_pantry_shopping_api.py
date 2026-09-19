@@ -1,3 +1,5 @@
+import uuid
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
@@ -6,6 +8,9 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.main import app
 from app.models.family import Family
+from app.models.food_catalog import FoodItem, Recipe
+from app.models.meal import MealEvent, MealParticipant, Serving
+from app.models.meal_transformation_application import MealTransformationApplication
 from app.models.person import Person
 
 PLAN_DATE = "2026-08-24"
@@ -224,3 +229,107 @@ def test_pantry_rejects_food_from_another_family(db_session: Session) -> None:
         },
     )
     assert response.status_code == 422
+
+
+
+def test_shopping_refresh_uses_persisted_replacement_for_transformed_meal(
+    db_session: Session,
+) -> None:
+    family = Family(name="Transformed shopping family", timezone="Europe/Lisbon")
+    ana = Person(family=family, first_name="Ana", timezone="Europe/Lisbon")
+    db_session.add(family)
+    db_session.flush()
+
+    source = _ingredient(db_session, family, "Iogurte natural")
+    replacement = _ingredient(db_session, family, "Iogurte grego")
+    recipe_payload = _recipe(db_session, family, source["id"])
+    recipe = db_session.get(Recipe, uuid.UUID(recipe_payload["id"]))
+    replacement_food = db_session.get(FoodItem, uuid.UUID(replacement["id"]))
+    assert recipe is not None
+    assert replacement_food is not None
+    assert recipe.ingredients
+    assert recipe.compositions
+
+    source_ingredient = recipe.ingredients[0]
+    event = MealEvent(
+        family=family,
+        meal_type="breakfast",
+        title=recipe.name,
+        scheduled_at=datetime(2026, 8, 24, 7, 30, tzinfo=UTC),
+        timezone=family.timezone,
+        status="planned",
+        source="recommendation",
+        source_reference="meal-transformation:test",
+    )
+    db_session.add(event)
+    db_session.flush()
+    participant = MealParticipant(meal_event=event, person=ana, status="planned")
+    db_session.add(participant)
+    serving = Serving(
+        meal_participant=participant,
+        recipe=recipe,
+        item_type="recipe",
+        item_key=recipe.recipe_key,
+        item_name=recipe.name,
+        status="planned",
+        quantity_planned=Decimal(200),
+        quantity_unit="g",
+        nutrition_source="transformed",
+        source_reference="meal-transformation:test",
+    )
+    db_session.add(serving)
+    application = MealTransformationApplication(
+        meal_event=event,
+        recipe=recipe,
+        source_recipe_composition_snapshot=recipe.compositions[-1],
+        recipe_ingredient=source_ingredient,
+        source_food_item=source_ingredient.food_item,
+        replacement_food_item=replacement_food,
+        sort_order=0,
+        operation_type="replace_ingredient",
+        transformation_kind="plan_adapted",
+        substitution_group="yogurt",
+        source_food_name=source_ingredient.food_item.name,
+        source_quantity=Decimal(200),
+        source_unit="g",
+        replacement_food_name=replacement_food.name,
+        replacement_quantity=Decimal(160),
+        replacement_unit="g",
+        engine_version="test-transformation-v1",
+        evidence={"classification": "plan_adapted"},
+    )
+    db_session.add(application)
+    db_session.commit()
+
+    pantry = _request(
+        db_session,
+        "POST",
+        f"/api/families/{family.id}/pantry",
+        json={
+            "food_item_id": replacement["id"],
+            "quantity_available": "30",
+            "unit": "g",
+        },
+    )
+    assert pantry.status_code == 201
+
+    refreshed = _request(
+        db_session,
+        "POST",
+        f"/api/families/{family.id}/shopping-list/refresh",
+        json={"start_date": PLAN_DATE, "days": 1},
+    )
+    assert refreshed.status_code == 200
+    body = refreshed.json()
+    assert body["planning_issues"] == []
+    assert len(body["requirements"]) == 1
+    requirement = body["requirements"][0]
+    assert requirement["food_item_id"] == replacement["id"]
+    assert requirement["food_item_name"] == "Iogurte grego"
+    assert Decimal(requirement["required_quantity"]) == Decimal(80)
+    assert Decimal(requirement["available_quantity"]) == Decimal(30)
+    assert Decimal(requirement["missing_quantity"]) == Decimal(50)
+    assert all(item["food_item_id"] != source["id"] for item in body["items"])
+    assert len(body["items"]) == 1
+    assert body["items"][0]["food_item_id"] == replacement["id"]
+    assert Decimal(body["items"][0]["quantity"]) == Decimal(50)

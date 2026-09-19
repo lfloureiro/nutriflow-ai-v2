@@ -85,6 +85,14 @@ class SharedWeeklyPlanSelectionRead(BaseModel):
     choices: list[SharedWeeklyPlanChoiceRead]
 
 
+class SharedWeeklyPlanSkippedSlotRead(BaseModel):
+    slot_key: str
+    planning_date: date
+    meal_type: MealType
+    reason: Literal["no_eligible_candidates"]
+    exclusion_reasons: list[str] = Field(default_factory=list)
+
+
 class SharedWeeklyPlanProposalRead(BaseModel):
     family_id: uuid.UUID
     participant_ids: list[uuid.UUID]
@@ -93,6 +101,7 @@ class SharedWeeklyPlanProposalRead(BaseModel):
     engine_version: str
     slot_engine_versions: dict[str, str]
     selected_plan: SharedWeeklyPlanSelectionRead | None
+    skipped_slots: list[SharedWeeklyPlanSkippedSlotRead] = Field(default_factory=list)
     evaluated_combinations: int
     feasible_combinations: int
     rejected_by_person_weekly_maximum: int

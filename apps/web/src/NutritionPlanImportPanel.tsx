@@ -4,7 +4,9 @@ import { ApiError } from "./api/client";
 import {
   activateImportedNutritionPlan,
   applyNutritionPlanImport,
+  createChatGPTNutritionPlanImport,
   createNutritionPlanImport,
+  getChatGPTNutritionPlanPrompt,
   setNutritionPlanImportProposalStatus,
 } from "./api/nutritionPlanImportClient";
 import type {
@@ -29,9 +31,18 @@ const COPY = {
     validFrom: "Válido desde",
     text: "Recomendações",
     textHint: "Podes corrigir o texto extraído antes de o interpretar. A fonte original continua identificada pela referência do ficheiro.",
-    ai: "Interpretar com IA",
+    chatgpt: "Preparar para ChatGPT",
+    chatgptHelp: "1. Copia o prompt. 2. Abre o ChatGPT e cola-o. 3. Cola aqui a resposta JSON. 4. Importa para revisão.",
+    copyPrompt: "Copiar prompt",
+    copiedPrompt: "Prompt copiado",
+    openChatGPT: "Abrir ChatGPT",
+    chatgptPrompt: "Prompt para o ChatGPT",
+    chatgptResponse: "Resposta JSON do ChatGPT",
+    chatgptResponseHint: "Cola aqui apenas a resposta JSON devolvida pelo ChatGPT.",
+    importChatGPT: "Importar resposta",
+    ai: "Interpretar com API OpenAI",
     deterministic: "Analisar sem IA",
-    aiHint: "A IA apenas propõe uma estrutura. Nada é ativado sem a tua confirmação explícita.",
+    aiHint: "Qualquer interpretação cria apenas propostas para revisão. Nada é ativado sem confirmação explícita.",
     interpreting: "A interpretar…",
     review: "Rever propostas",
     confirmed: "Confirmada",
@@ -74,9 +85,18 @@ const COPY = {
     validFrom: "Valid from",
     text: "Recommendations",
     textHint: "You can correct extracted text before interpreting it. The source file remains identified by the reference field.",
-    ai: "Interpret with AI",
+    chatgpt: "Prepare for ChatGPT",
+    chatgptHelp: "1. Copy the prompt. 2. Open ChatGPT and paste it. 3. Paste the JSON response here. 4. Import it for review.",
+    copyPrompt: "Copy prompt",
+    copiedPrompt: "Prompt copied",
+    openChatGPT: "Open ChatGPT",
+    chatgptPrompt: "Prompt for ChatGPT",
+    chatgptResponse: "ChatGPT JSON response",
+    chatgptResponseHint: "Paste only the JSON response returned by ChatGPT.",
+    importChatGPT: "Import response",
+    ai: "Interpret with OpenAI API",
     deterministic: "Analyse without AI",
-    aiHint: "AI only proposes structure. Nothing is activated without explicit confirmation.",
+    aiHint: "Every interpretation creates review proposals only. Nothing is activated without explicit confirmation.",
     interpreting: "Interpreting…",
     review: "Review proposals",
     confirmed: "Confirmed",
@@ -179,6 +199,9 @@ export default function NutritionPlanImportPanel({
   const [sourceReference, setSourceReference] = useState("");
   const [sourceText, setSourceText] = useState("");
   const [validFrom, setValidFrom] = useState(planningDate);
+  const [chatGptPrompt, setChatGptPrompt] = useState("");
+  const [chatGptResponse, setChatGptResponse] = useState("");
+  const [promptCopied, setPromptCopied] = useState(false);
 
   useEffect(() => {
     if (openRequestToken <= 0) return;
@@ -203,6 +226,50 @@ export default function NutritionPlanImportPanel({
     valid_from: validFrom,
     valid_until: null,
   }), [sourceName, sourceReference, sourceText, title, validFrom]);
+
+  async function prepareChatGPT() {
+    if (!payload.title || !payload.source_text || !payload.valid_from) return;
+    setBusy(true);
+    setError(null);
+    setPromptCopied(false);
+    try {
+      const result = await getChatGPTNutritionPlanPrompt(personId, payload);
+      setChatGptPrompt(result.prompt);
+      setChatGptResponse("");
+    } catch (caught: unknown) {
+      setError(errorText(caught, copy.genericError, copy.aiUnavailable));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyChatGPTPrompt() {
+    try {
+      await navigator.clipboard.writeText(chatGptPrompt);
+      setPromptCopied(true);
+    } catch (caught: unknown) {
+      setError(errorText(caught, copy.genericError, copy.aiUnavailable));
+    }
+  }
+
+  async function importChatGPTResponse() {
+    if (!chatGptResponse.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setSession(
+        await createChatGPTNutritionPlanImport(
+          personId,
+          payload,
+          chatGptResponse.trim(),
+        ),
+      );
+    } catch (caught: unknown) {
+      setError(errorText(caught, copy.genericError, copy.aiUnavailable));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function interpret(mode: "ai" | "deterministic") {
     if (!payload.title || !payload.source_text || !payload.valid_from) return;
@@ -317,14 +384,45 @@ export default function NutritionPlanImportPanel({
             <small className="nutrition-import__hint">{copy.textHint}</small>
           </label>
           <div className="nutrition-import__actions">
-            <button className="button primary" disabled={busy || !payload.title || !payload.source_text} onClick={() => void interpret("ai")} type="button">
-              {busy ? copy.interpreting : copy.ai}
+            <button className="button primary" disabled={busy || !payload.title || !payload.source_text} onClick={() => void prepareChatGPT()} type="button">
+              {busy ? copy.interpreting : copy.chatgpt}
+            </button>
+            <button className="button ghost" disabled={busy || !payload.title || !payload.source_text} onClick={() => void interpret("ai")} type="button">
+              {copy.ai}
             </button>
             <button className="button ghost" disabled={busy || !payload.title || !payload.source_text} onClick={() => void interpret("deterministic")} type="button">
               {copy.deterministic}
             </button>
           </div>
           <small className="nutrition-import__hint">{copy.aiHint}</small>
+          {chatGptPrompt ? (
+            <div className="nutrition-import__chatgpt">
+              <strong>{copy.chatgpt}</strong>
+              <p className="nutrition-import__hint">{copy.chatgptHelp}</p>
+              <label className="field">
+                <span>{copy.chatgptPrompt}</span>
+                <textarea className="nutrition-import__chatgpt-prompt" readOnly value={chatGptPrompt} />
+              </label>
+              <div className="nutrition-import__actions">
+                <button className="button primary" onClick={() => void copyChatGPTPrompt()} type="button">
+                  {promptCopied ? copy.copiedPrompt : copy.copyPrompt}
+                </button>
+                <a className="button ghost" href="https://chatgpt.com/" rel="noreferrer" target="_blank">
+                  {copy.openChatGPT}
+                </a>
+              </div>
+              <label className="field">
+                <span>{copy.chatgptResponse}</span>
+                <textarea value={chatGptResponse} onChange={(event) => setChatGptResponse(event.target.value)} />
+                <small className="nutrition-import__hint">{copy.chatgptResponseHint}</small>
+              </label>
+              <div className="nutrition-import__actions">
+                <button className="button primary" disabled={busy || !chatGptResponse.trim()} onClick={() => void importChatGPTResponse()} type="button">
+                  {busy ? copy.interpreting : copy.importChatGPT}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

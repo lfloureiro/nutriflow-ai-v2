@@ -31,6 +31,8 @@ source text
 
 The default AI model is `gpt-5.6-luna`, configurable with `NUTRIFLOW_NUTRITION_PLAN_AI_MODEL`. The API key is read from `OPENAI_API_KEY`. AI interpretation fails explicitly when it is not configured; the deterministic parser remains available as a non-AI path.
 
+For users without an API key, NutriFlow also supports a manual ChatGPT-assisted bridge. NutriFlow generates a strict prompt containing the extracted source text and the same structured-output schema; the user copies that prompt into ChatGPT and pastes the returned JSON back into NutriFlow. The backend parses and validates that JSON against the normal import proposal schema before creating a review session. NutriFlow does not automate `chatgpt.com`, reuse browser cookies, or treat pasted output as trusted.
+
 The OpenAI request uses the Responses API with JSON-schema Structured Outputs and `store=false`.
 
 ## Consequences

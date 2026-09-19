@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { ApiError, getFamilyMealPlan } from "./api/client";
+import { ApiError, cancelMealPlanEntry, getFamilyMealPlan } from "./api/client";
 import type { FamilyMealPlan, MealPlanEntry, MealType } from "./api/mealPlanTypes";
+import { refreshShoppingList } from "./api/pantryShoppingClient";
+import type { ShoppingList } from "./api/pantryShoppingTypes";
 import { getRecommendationBootstrap } from "./api/recommendationClient";
 import {
   materializeSharedWeeklyPlan,
@@ -10,6 +12,7 @@ import {
 import type {
   SharedWeeklyPlanChoice,
   SharedWeeklyPlanProposal,
+  SharedWeeklyPlanSkippedSlot,
   SharedWeeklyPlanProposalRequest,
   SharedWeeklyPlanRequest,
   SharedWeeklyPlanningSlotRequest,
@@ -30,8 +33,22 @@ const ALL_MEAL_TYPES: MealType[] = ["breakfast", "lunch", "snack", "dinner"];
 const PREVIEW_MAX_COMBINATIONS = 256;
 
 type BusyStage = "catalogue" | "planning";
-type DecisionBusy = "apply" | "reject" | null;
+type DecisionBusy = "apply" | "reject" | "remove" | null;
 type RejectedBySlot = Record<string, string[]>;
+
+export type ShoppingRefreshSummary = {
+  automaticNeeded: number;
+  planningIssues: number;
+};
+
+export function shoppingRefreshSummary(list: ShoppingList): ShoppingRefreshSummary {
+  return {
+    automaticNeeded: list.items.filter(
+      (item) => item.item_source === "automatic" && item.status === "needed",
+    ).length,
+    planningIssues: list.planning_issues.length,
+  };
+}
 
 const COPY = {
   "pt-PT": {
@@ -48,6 +65,7 @@ const COPY = {
     noCandidates: "Não existem opções compatíveis para os tempos de refeição ainda em aberto.",
     noOpenSlots: "Esta semana já tem todos os tempos de refeição planeados.",
     noPlan: "Não foi encontrada uma combinação semanal compatível com todas as regras obrigatórias.",
+    allOpenSlotsPending: "Não há uma combinação para optimizar porque todos os tempos de refeição ainda em aberto ficaram por decidir. Consulta cada slot para ver o motivo.",
     error: "Não foi possível calcular a proposta semanal",
     exact: "Pesquisa exacta",
     bounded: "Pesquisa optimizada",
@@ -56,6 +74,10 @@ const COPY = {
     chooseMeal: "Escolhe uma refeição para abrir o detalhe.",
     mealDetail: "Refeição",
     planned: "Planeada",
+    editPlanned: "Alterar",
+    viewPlanned: "Ver",
+    removePlanned: "Remover do plano",
+    confirmRemovePlanned: "Remover esta refeição do planeamento? O registo fica preservado como cancelado.",
     proposed: "Proposta",
     planAdapted: "Adaptada ao plano",
     preferenceVariant: "Variante por preferência",
@@ -70,6 +92,14 @@ const COPY = {
     reject: "Recusar e procurar alternativa",
     rejecting: "A procurar alternativa…",
     accepted: "A semana foi guardada no plano.",
+    shoppingUpdated: "A lista de compras da semana foi actualizada.",
+    shoppingEmpty: "Não há ingredientes automáticos em falta para as refeições calculáveis.",
+    shoppingOne: "1 ingrediente automático em falta.",
+    shoppingMany: "ingredientes automáticos em falta.",
+    shoppingIssueOne: "1 requisito não pôde ser calculado com segurança.",
+    shoppingIssueMany: "requisitos não puderam ser calculados com segurança.",
+    planRefreshFailed: "A semana foi guardada, mas não foi possível recarregar imediatamente a grelha.",
+    shoppingRefreshFailed: "A semana foi guardada, mas não foi possível actualizar a lista de compras.",
     weekdayLunchPending: "Almoço de dia útil: primeiro devem ser usadas sobras reais do jantar anterior; sem sobras, só entra uma opção Uber Eats/Glovo com disponibilidade conhecida. Ainda não existe uma opção automática segura para este slot.",
     unavailableSlot: "Não existem opções disponíveis para este slot com a política actual.",
     leftoversNotice: "As sobras ainda não são inventadas pelo planeador: só serão propostas quando houver quantidade reservada do jantar anterior.",
@@ -92,6 +122,7 @@ const COPY = {
     noCandidates: "There are no compatible options for the remaining open meal slots.",
     noOpenSlots: "Every meal slot is already planned for this week.",
     noPlan: "No weekly combination compatible with every mandatory rule was found.",
+    allOpenSlotsPending: "There is no combination to optimize because every remaining open meal slot stayed pending. Open each slot to see why.",
     error: "The weekly proposal could not be calculated",
     exact: "Exact search",
     bounded: "Optimized search",
@@ -100,6 +131,10 @@ const COPY = {
     chooseMeal: "Choose a meal to open its detail.",
     mealDetail: "Meal",
     planned: "Planned",
+    editPlanned: "Edit",
+    viewPlanned: "View",
+    removePlanned: "Remove from plan",
+    confirmRemovePlanned: "Remove this meal from planning? The record remains preserved as cancelled.",
     proposed: "Proposal",
     planAdapted: "Adapted to plan",
     preferenceVariant: "Preference variant",
@@ -114,6 +149,14 @@ const COPY = {
     reject: "Reject and find alternative",
     rejecting: "Finding alternative…",
     accepted: "The week was saved to the plan.",
+    shoppingUpdated: "The weekly shopping list was refreshed.",
+    shoppingEmpty: "There are no automatically generated missing ingredients for calculable meals.",
+    shoppingOne: "1 automatically generated ingredient is missing.",
+    shoppingMany: "automatically generated ingredients are missing.",
+    shoppingIssueOne: "1 requirement could not be calculated safely.",
+    shoppingIssueMany: "requirements could not be calculated safely.",
+    planRefreshFailed: "The week was saved, but the grid could not be reloaded immediately.",
+    shoppingRefreshFailed: "The week was saved, but the shopping list could not be refreshed.",
     weekdayLunchPending: "Weekday lunch: real leftovers from the previous dinner come first; without leftovers, only an Uber Eats/Glovo option with known availability is allowed. There is no safe automatic option for this slot yet.",
     unavailableSlot: "No options are available for this slot under the current policy.",
     leftoversNotice: "The planner does not invent leftovers: they will only be proposed when quantity has been reserved from the previous dinner.",
@@ -150,6 +193,33 @@ export function weeklySourcesFor(
   if (mealType === "lunch") return ["uber_eats", "glovo"];
   return ["cooked"];
 }
+
+export function weeklySkippedSlotMessages(
+  slots: SharedWeeklyPlanSkippedSlot[],
+  locale: Locale,
+): Record<string, string> {
+  const copy = COPY[locale];
+  return Object.fromEntries(
+    slots.map((slot) => [
+      slot.slot_key,
+      slot.meal_type === "lunch" && !isWeekendDate(slot.planning_date)
+        ? copy.weekdayLunchPending
+        : copy.unavailableSlot,
+    ]),
+  );
+}
+
+export function proposalHasOnlySkippedSlots(
+  proposal: SharedWeeklyPlanProposal,
+): boolean {
+  return (
+    proposal.selected_plan === null &&
+    proposal.search_space_size === 0 &&
+    proposal.evaluated_combinations === 0 &&
+    proposal.skipped_slots.length > 0
+  );
+}
+
 
 function slotKey(planningDate: string, mealType: MealType): string {
   return `${planningDate}:${mealType}`;
@@ -259,12 +329,14 @@ export default function WeeklyProposalPreview({
   people,
   plan: suppliedPlan,
   onEdit,
+  onPlanChanged,
 }: {
   familyId: string;
   weekStart?: string;
   people: Person[];
   plan?: FamilyMealPlan;
   onEdit?: (planningDate: string, mealType: MealType, entry: MealPlanEntry | null) => void;
+  onPlanChanged?: () => void;
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
@@ -280,6 +352,9 @@ export default function WeeklyProposalPreview({
   const [decisionBusy, setDecisionBusy] = useState<DecisionBusy>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [shoppingSummary, setShoppingSummary] = useState<ShoppingRefreshSummary | null>(null);
+  const [planRefreshWarning, setPlanRefreshWarning] = useState<string | null>(null);
+  const [shoppingWarning, setShoppingWarning] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedMealType, setSelectedMealType] = useState<MealType | null>(null);
   const plan = refreshedPlan ?? suppliedPlan ?? loadedPlan;
@@ -292,6 +367,9 @@ export default function WeeklyProposalPreview({
     setRejectedBySlot({});
     setSkippedSlots({});
     setNotice(null);
+    setShoppingSummary(null);
+    setPlanRefreshWarning(null);
+    setShoppingWarning(null);
   }, [familyId, weekStart]);
 
   useEffect(() => {
@@ -347,6 +425,9 @@ export default function WeeklyProposalPreview({
     setBusyStage("catalogue");
     setError(null);
     setNotice(null);
+    setShoppingSummary(null);
+    setPlanRefreshWarning(null);
+    setShoppingWarning(null);
     setProposal(null);
     if (resetSelection) setSelectedMealType(null);
     try {
@@ -426,6 +507,11 @@ export default function WeeklyProposalPreview({
       setProposalRequest(request);
       setBusyStage("planning");
       const result = await requestSharedWeeklyPlanProposal(familyId, request);
+      const serverSkipped = weeklySkippedSlotMessages(
+        result.skipped_slots,
+        locale,
+      );
+      setSkippedSlots({ ...skipped, ...serverSkipped });
       setProposal(result);
     } catch (caught: unknown) {
       setError(errorText(caught));
@@ -440,24 +526,73 @@ export default function WeeklyProposalPreview({
     setDecisionBusy("apply");
     setError(null);
     setNotice(null);
+    setShoppingSummary(null);
+    setPlanRefreshWarning(null);
+    setShoppingWarning(null);
+
     try {
       await materializeSharedWeeklyPlan(
         familyId,
         weeklyPlanRequest(proposalRequest, proposal.selected_plan.choices),
       );
+    } catch (caught: unknown) {
+      setError(errorText(caught));
+      setDecisionBusy(null);
+      return;
+    }
+
+    setProposal(null);
+    setProposalRequest(null);
+    setRejectedBySlot({});
+    setSkippedSlots({});
+    setNotice(copy.accepted);
+
+    try {
+      const updated = await getFamilyMealPlan(familyId, effectiveWeekStart, 7);
+      setRefreshedPlan(updated);
+    } catch (reloadError: unknown) {
+      setPlanRefreshWarning(errorText(reloadError));
+    }
+
+    try {
+      const shoppingList = await refreshShoppingList(familyId, effectiveWeekStart, 7);
+      setShoppingSummary(shoppingRefreshSummary(shoppingList));
+    } catch (shoppingError: unknown) {
+      setShoppingWarning(errorText(shoppingError));
+    } finally {
+      setDecisionBusy(null);
+    }
+  }
+
+  async function removeSelectedEntry() {
+    if (
+      !selectedEntry ||
+      selectedEntry.status !== "planned" ||
+      !effectiveWeekStart ||
+      !window.confirm(copy.confirmRemovePlanned)
+    ) {
+      return;
+    }
+    setDecisionBusy("remove");
+    setError(null);
+    setNotice(null);
+    try {
+      await cancelMealPlanEntry(familyId, selectedEntry.id);
       const updated = await getFamilyMealPlan(familyId, effectiveWeekStart, 7);
       setRefreshedPlan(updated);
       setProposal(null);
       setProposalRequest(null);
       setRejectedBySlot({});
       setSkippedSlots({});
-      setNotice(copy.accepted);
+      setSelectedMealType(null);
+      onPlanChanged?.();
     } catch (caught: unknown) {
       setError(errorText(caught));
     } finally {
       setDecisionBusy(null);
     }
   }
+
 
   async function rejectSelectedChoice() {
     if (!selectedChoice) return;
@@ -536,6 +671,37 @@ export default function WeeklyProposalPreview({
         </div>
       ) : null}
       {notice ? <div className="decision-result" role="status"><strong>{notice}</strong></div> : null}
+      {shoppingSummary ? (
+        <div className="decision-result" role="status">
+          <strong>{copy.shoppingUpdated}</strong>
+          <span>
+            {shoppingSummary.automaticNeeded === 0
+              ? copy.shoppingEmpty
+              : shoppingSummary.automaticNeeded === 1
+                ? copy.shoppingOne
+                : `${shoppingSummary.automaticNeeded} ${copy.shoppingMany}`}
+            {shoppingSummary.planningIssues > 0
+              ? ` · ${
+                  shoppingSummary.planningIssues === 1
+                    ? copy.shoppingIssueOne
+                    : `${shoppingSummary.planningIssues} ${copy.shoppingIssueMany}`
+                }`
+              : ""}
+          </span>
+        </div>
+      ) : null}
+      {planRefreshWarning ? (
+        <div className="error-banner" role="alert">
+          <strong>{copy.planRefreshFailed}</strong>
+          <span>{planRefreshWarning}</span>
+        </div>
+      ) : null}
+      {shoppingWarning ? (
+        <div className="error-banner" role="alert">
+          <strong>{copy.shoppingRefreshFailed}</strong>
+          <span>{shoppingWarning}</span>
+        </div>
+      ) : null}
       {proposal ? (
         <div className="decision-result" role="status">
           <strong>{copy.preview}</strong>
@@ -546,7 +712,9 @@ export default function WeeklyProposalPreview({
         </div>
       ) : null}
       {proposal && !proposal.selected_plan ? (
-        <div className="family-meals-empty-day">{copy.noPlan}</div>
+        <div className="family-meals-empty-day">
+          {proposalHasOnlySkippedSlots(proposal) ? copy.allOpenSlotsPending : copy.noPlan}
+        </div>
       ) : null}
 
       {!plan ? (
@@ -690,15 +858,29 @@ export default function WeeklyProposalPreview({
                     {formatDate(selectedDate, locale)} · {mealLabel(selectedMealType, locale)}
                   </p>
                 </div>
-                {onEdit && selectedEntry ? (
-                  <button
-                    className="button ghost"
-                    disabled={selectedEntry.status !== "planned"}
-                    onClick={() => onEdit(selectedDate, selectedMealType, selectedEntry)}
-                    type="button"
-                  >
-                    {copy.planned}
-                  </button>
+                {selectedEntry ? (
+                  <div className="weekly-meal-detail__actions">
+                    {onEdit ? (
+                      <button
+                        className="button ghost"
+                        disabled={selectedEntry.status !== "planned" || decisionBusy !== null}
+                        onClick={() => onEdit(selectedDate, selectedMealType, selectedEntry)}
+                        type="button"
+                      >
+                        {selectedEntry.transformations.length > 0
+                          ? copy.viewPlanned
+                          : copy.editPlanned}
+                      </button>
+                    ) : null}
+                    <button
+                      className="button ghost"
+                      disabled={selectedEntry.status !== "planned" || decisionBusy !== null}
+                      onClick={() => void removeSelectedEntry()}
+                      type="button"
+                    >
+                      {copy.removePlanned}
+                    </button>
+                  </div>
                 ) : null}
               </div>
 

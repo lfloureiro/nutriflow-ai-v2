@@ -324,15 +324,13 @@ def _option_response(
     return responses
 
 
-def load_recommendation_inputs(
+def load_recommendation_person_state(
     session: Session,
     *,
     person_id: uuid.UUID,
     daily_nutrition_state_id: uuid.UUID,
     planning_date: date,
-    candidates: list[MealRecommendationCandidateInput],
-    meal_type: str | None = None,
-) -> tuple[Person, DailyNutritionState, list[MealCandidate]]:
+) -> tuple[Person, DailyNutritionState]:
     person = _load_person(session, person_id)
     state = _load_daily_state(
         session,
@@ -343,6 +341,24 @@ def load_recommendation_inputs(
         raise MealRecommendationApiError(
             "planning_date must match the selected DailyNutritionState state_date."
         )
+    return person, state
+
+
+def load_recommendation_inputs(
+    session: Session,
+    *,
+    person_id: uuid.UUID,
+    daily_nutrition_state_id: uuid.UUID,
+    planning_date: date,
+    candidates: list[MealRecommendationCandidateInput],
+    meal_type: str | None = None,
+) -> tuple[Person, DailyNutritionState, list[MealCandidate]]:
+    person, state = load_recommendation_person_state(
+        session,
+        person_id=person_id,
+        daily_nutrition_state_id=daily_nutrition_state_id,
+        planning_date=planning_date,
+    )
     loaded_candidates = _load_candidates(
         session,
         family_id=person.family_id,

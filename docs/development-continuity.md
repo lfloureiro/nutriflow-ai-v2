@@ -9,32 +9,44 @@ Nutrition Plan / Guidance capability blocks:
 ```text
 PR #37  NutritionPlan + EffectiveNutritionPlan foundation                  MERGED
 PR #38  reviewed text import / confirmation boundary                       MERGED
-PR #39  deterministic Meal Plan-Fit evaluation + focused test UI            MERGED
-PR #42  AI-assisted text interpretation + browser review UI                 MERGED
+PR #39  deterministic Meal Plan-Fit evaluation + focused test UI           MERGED
+PR #42  AI-assisted text interpretation + browser review UI                MERGED
 PR #43  Structured Meal Transformation proposals                           MERGED
-PR #44  PDF/DOCX/TXT/Markdown text extraction into import review            MERGED
+PR #44  PDF/DOCX/TXT/Markdown text extraction into import review           MERGED
 PR #45  scoped single-Person recommendations consume Meal Plan-Fit          MERGED
 PR #46  shared-family recommendations use Person-specific Meal Plan-Fit     MERGED
 PR #47  restaurant/delivery recommendations consume Meal Plan-Fit           MERGED
 PR #48  deterministic weekly frequency progress                            MERGED
-PR #49  individual recommendations use weekly frequency progress            MERGED
+PR #49  individual recommendations use weekly frequency progress           MERGED
 PR #50  Person-specific weekly support in shared-family ranking             MERGED
 PR #51  full-week multi-slot planning foundation                            MERGED
 PR #52  same-day daily nutrient coupling                                    MERGED
 PR #53  shared-Family multi-slot planning                                   MERGED
-8c next  server-authoritative weekly planning proposal API                  IN PROGRESS
+PR #54  server-authoritative weekly planning proposal API                   MERGED
+PR #55  bounded/scalable weekly search                                      MERGED
+PR #59  NutritionPlan authority across Plan-Fit                             MERGED
+PR #60  shared-Family recipe transformation evaluation                      MERGED
+PR #61  NutritionPlan authority UI                                          MERGED
+PR #62  recommendation authority UI                                         MERGED
+PR #63  Family transformation preview in recommendations                    MERGED
+PR #64  materialized shared recipe transformations                          MERGED
+PR #66  weekly planning selects safe recipe adaptations                     MERGED
+PR #67  atomic weekly plan materialization                                  MERGED
+PR #68  current Week-view frontend                                          MERGED
+PR #69  persisted transformed meals in Family planning                      MERGED
+current weekly plan -> shopping-list refresh + transformed shopping         IN PROGRESS
 ```
 
-Confirmed `main` after PR #53:
+Confirmed `main` before the current branch:
 
 ```text
-70d0d344e1b0bc87233b27e88cf94088fb5d9857
+2d93327a169d691fe4dd5f566da94603ac09a406
 ```
 
 Current focused branch, created from that exact main SHA:
 
 ```text
-feature/weekly-planning-api-orchestration
+feature/week-shopping-list-refresh
 ```
 
 The current slice adds no migration. Repository schema head remains:
@@ -244,17 +256,21 @@ mandatory-support participant coverage
 -> total mandatory supported occurrences
 -> advisory-support participant coverage
 -> total advisory supported occurrences
--> minimum participant score across the week
--> average participant score
+-> diversity-adjusted minimum participant score
+-> diversity-adjusted average participant score
 -> repeated shared-candidate count
 -> stable candidate-key sequence
 ```
 
-Current increment: server-authoritative weekly planning proposal API.
+Exact recipe repetition inside the proposed week is a soft diversity cost, not a hard gate. Each occurrence beyond the first subtracts 0.25 from the plan-level minimum and average ranking scores. Mandatory/advisory weekly support remains ahead of that adjustment, and clearly worse alternatives can still lose to a repeated favourite. The bounded search applies the same repeat-aware score hint before pruning so approximate search does not systematically collapse onto the same top-ranked recipe.
+
+Current increment: couple an explicitly applied weekly plan to the existing durable shopping-list workflow without weakening weekly-plan atomicity.
 
 The browser submits Family, Persons, ordinary slot/candidate identities and practical context. The server runs the established shared practical recommendation pipeline independently for each slot, carries the exact Person-specific Plan-Fit used for that candidate as transient internal evidence, then feeds the shared weekly optimizer. Clients never submit or own `MealPlanFitRead`, weekly progress, rule evaluation or classification evidence.
 
-Proposal generation returns the selected combination, Person-specific portions/scores/explanations, optimization counters and each slot's recommendation engine version. It does not create MealEvents. Weekly acceptance/materialization remains an explicit next boundary.
+Proposal generation returns the selected combination, Person-specific portions/scores/explanations, optimization counters and each slot's recommendation engine version. A requested slot that has no server-authoritative eligible candidate is returned as an explicit pending/skipped slot and is excluded from combination search, so missing live delivery evidence cannot invalidate the rest of the week. It does not create MealEvents. Weekly acceptance/materialization is now explicit and atomic over the selected choices: the server recomputes the reviewed selection, validates candidate/transformation identity and persists all selected MealEvents in one transaction. The Week view refreshes the authoritative meal plan afterwards.
+
+The current branch adds a derivative post-apply shopping refresh. It reuses the existing server-authoritative pantry/shopping calculation, and transformed meals contribute their persisted replacement ingredient rather than the source Recipe ingredient. Shopping refresh failure is reported separately and never implies that an already-committed weekly plan was rolled back.
 
 ADRs:
 
@@ -262,6 +278,7 @@ ADRs:
 - `docs/decisions/ADR-048-weekly-planning-rechecks-daily-nutrient-limits.md`
 - `docs/decisions/ADR-049-shared-family-weekly-planning-reuses-person-planner.md`
 - `docs/decisions/ADR-050-weekly-planning-api-is-server-authoritative.md`
+- `docs/decisions/ADR-058-weekly-exact-repeat-diversity-is-soft.md`
 
 Next Phase 8c increments after this slice include proposal acceptance/materialization, richer across-week category/protein diversity, pantry/shopping/schedule coupling and scalable search.
 
@@ -309,7 +326,13 @@ Nutrition Plan, import, Plan-Fit and weekly guidance evidence belong to the sele
 8c foundation. Person-specific multi-slot weekly composition              DONE (v1, PR #51)
 8c daily coupling. Same-day mandatory nutrient upper bounds               DONE (v1, PR #52)
 8c shared. Shared-Family multi-slot Person-specific planning              DONE (v1, PR #53)
-8c API. Server-authoritative weekly planning proposal orchestration       IN PROGRESS
+8c API. Server-authoritative weekly planning proposal orchestration       DONE (v1, PR #54)
+8c search. Deterministic bounded search                                   DONE (v1, PR #55)
+8c transformations. Safe transformed variants in weekly planning          DONE (v1, PR #66)
+8c materialization. Atomic weekly application                             DONE (v1, PR #67)
+8c Week UI. Monday-Sunday progressive-disclosure workflow                 DONE (v1, PR #68)
+8c transformed read model. Persisted operation visible after apply        DONE (v1, PR #69)
+8c shopping coupling. Refresh pantry-aware shopping after apply           IN PROGRESS
 9. Feedback/learning refinement                                           PENDING
 ```
 
@@ -323,9 +346,8 @@ OCR/photo import remains a parallel capability gap, not a reason to create a sec
 - consumer marketplace discovery depends on provider access/configuration;
 - external items without composition remain intentionally unranked;
 - OCR/photo/scanned-PDF extraction is deferred;
-- full-week optimization currently has an explicit exhaustive-search cap;
+- bounded weekly search is deterministic but can still prune the full combinatorial space;
 - daily minimum completion is not forced unless complete-day slot coverage becomes explicit;
-- weekly proposal acceptance/materialization is not yet implemented;
 - pantry depletion, shopping and schedule coupling are not yet optimized jointly;
 - richer reviewed food-category taxonomy/equivalence is deferred;
 - qualitative guidance remains visible but is not automatically guessed/scored;

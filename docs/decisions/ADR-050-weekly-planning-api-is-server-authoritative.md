@@ -33,7 +33,7 @@ The weekly orchestration layer then converts those server-generated slot evaluat
 - classify food from names or descriptions;
 - duplicate weekly maximum or same-day daily nutrient coupling logic.
 
-The proposal response exposes the selected weekly combination, Person-specific portions/scores/explanations, optimization counters and per-slot recommendation engine versions. Internal Plan-Fit objects remain server-side.
+The proposal response exposes the selected weekly combination, Person-specific portions/scores/explanations, optimization counters and per-slot recommendation engine versions. If a requested slot has no server-authoritative eligible candidate after practical availability and Plan-Fit evaluation, that slot is returned explicitly as skipped/pending and is not allowed to collapse the search space for otherwise feasible slots. Internal Plan-Fit objects remain server-side.
 
 ## Persistence boundary
 
@@ -47,6 +47,7 @@ No schema migration is required for this decision.
 
 - The browser cannot forge or reuse stale safety evidence.
 - Weekly optimization consumes the exact Person-specific evidence produced by the recommendation path for each slot.
+- Operationally impossible slots remain explicit pending gaps; they are not silently filled, and they do not invalidate otherwise feasible weekly choices.
 - Existing single-slot recommendation behavior remains compatible because the new Plan-Fit field is transient and optional outside Plan-Fit paths.
 - Shared weekly planning remains a composition layer over established evaluators instead of becoming another nutrition engine.
 - Proposal generation and proposal acceptance can evolve independently.

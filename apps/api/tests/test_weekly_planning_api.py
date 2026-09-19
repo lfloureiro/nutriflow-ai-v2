@@ -5,6 +5,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+import app.services.meal_plan_fit as meal_plan_fit_service
+import app.services.meal_plan_fit_weekly_frequency as weekly_fit_service
+import app.services.meal_recommendation_api as meal_recommendation_api_service
+import app.services.planning_bootstrap_api as planning_bootstrap_service
+import app.services.shared_meal_transformation as shared_transformation_service
+import app.services.weekly_planning_api as weekly_planning_service
 from app.db.session import get_db
 from app.demo_seed import (
     DEMO_FAMILY_ID,
@@ -20,6 +26,7 @@ from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.family import Family
 from app.models.food_catalog import Recipe, RecipeCompositionSnapshot
 from app.models.meal import MealEvent, Serving
+from app.models.meal_candidate_availability import MealCandidateAvailability
 from app.models.meal_transformation_application import MealTransformationApplication
 from app.models.person import Person
 from app.schemas.nutrition_plan import (
@@ -230,6 +237,332 @@ def test_weekly_proposal_returns_selected_shared_plan_without_meal_events(
     assert meal_count == 0
 
 
+
+def test_weekly_proposal_skips_unavailable_slot_but_plans_remaining_slots(
+    db_session: Session,
+) -> None:
+    family, ana, bruno, _, composition = _setup(db_session, "partial-unavailable")
+    assert family.id is not None
+
+    unavailable_recipe = Recipe(
+        family=family,
+        recipe_key="family:weekly:partial-unavailable:delivery",
+        name="Prato delivery indisponível",
+        serving_count=Decimal(2),
+        source="test",
+    )
+    unavailable_composition = RecipeCompositionSnapshot(
+        recipe=unavailable_recipe,
+        reference_quantity=Decimal(1),
+        reference_unit="serving",
+        energy_kcal=Decimal(500),
+        composition_version="test-v1",
+        calculation_version="test",
+        computed_at=LUNCH_AT,
+    )
+    db_session.add(unavailable_composition)
+    db_session.flush()
+    assert unavailable_recipe.id is not None
+
+    db_session.add(
+        MealCandidateAvailability(
+            family_id=family.id,
+            recipe_id=unavailable_recipe.id,
+            candidate_kind="recipe",
+            source_kind="delivery",
+            source_key="test:delivery:unavailable",
+            requires_kitchen=False,
+            is_available=False,
+            source="test",
+        )
+    )
+    db_session.flush()
+
+    unavailable_lunch = _slot(
+        "thu-lunch-unavailable",
+        scheduled_at=LUNCH_AT,
+        meal_type="lunch",
+        composition=unavailable_composition,
+    )
+    unavailable_lunch["source_kinds"] = ["delivery"]
+    unavailable_lunch["has_kitchen"] = False
+
+    response = _post(
+        db_session,
+        family,
+        ana=ana,
+        bruno=bruno,
+        slots=[
+            unavailable_lunch,
+            _slot(
+                "thu-dinner-available",
+                scheduled_at=DINNER_AT,
+                meal_type="dinner",
+                composition=composition,
+            ),
+        ],
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["selected_plan"] is not None
+    assert [
+        choice["slot_key"] for choice in body["selected_plan"]["choices"]
+    ] == ["thu-dinner-available"]
+    assert body["skipped_slots"] == [
+        {
+            "slot_key": "thu-lunch-unavailable",
+            "planning_date": PLANNING_DATE.isoformat(),
+            "meal_type": "lunch",
+            "reason": "no_eligible_candidates",
+            "exclusion_reasons": sorted(
+                [
+                    f"person:{ana.id}:candidate_unavailable",
+                    f"person:{bruno.id}:candidate_unavailable",
+                ]
+            ),
+        }
+    ]
+    assert body["search_space_size"] == 1
+    assert body["feasible_combinations"] == 1
+
+
+def test_weekly_proposal_skips_transformation_service_when_recipe_has_no_variants(
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    family, ana, bruno, _, composition = _setup(db_session, "no-transform-variants")
+
+    def unexpected_transformation(*args, **kwargs):
+        raise AssertionError("Transformation service must not run without configured variants.")
+
+    monkeypatch.setattr(
+        weekly_planning_service,
+        "propose_shared_meal_transformations",
+        unexpected_transformation,
+    )
+
+    response = _post(
+        db_session,
+        family,
+        ana=ana,
+        bruno=bruno,
+        slots=[
+            _slot(
+                "thu-lunch-no-transform",
+                scheduled_at=LUNCH_AT,
+                meal_type="lunch",
+                composition=composition,
+            )
+        ],
+    )
+
+    assert response.status_code == 201
+    assert response.json()["selected_plan"] is not None
+
+
+def test_weekly_proposal_reuses_request_scoped_plan_context(
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    family, ana, bruno, _, composition = _setup(db_session, "request-cache")
+
+    calls = {
+        "ensure_state": 0,
+        "compile_effective": 0,
+        "weekly_progress": 0,
+        "candidate_catalogue_loads": 0,
+    }
+    friday_date = date(2026, 9, 18)
+    friday_at = datetime(2026, 9, 18, 12, 0, tzinfo=UTC)
+    for person in (ana, bruno):
+        db_session.add(
+            DailyNutritionState(
+                person=person,
+                state_date=friday_date,
+                timezone="Europe/Lisbon",
+                energy_consumed_kcal=Decimal(1000),
+                energy_planned_kcal=Decimal(0),
+                energy_remaining_min_kcal=Decimal(400),
+                energy_remaining_max_kcal=Decimal(800),
+                calculation_version="weekly-proposal-request-cache-friday",
+                computed_at=friday_at,
+            )
+        )
+    db_session.flush()
+
+    def unexpected_plan_fit_candidate_reload(*args, **kwargs):
+        raise AssertionError(
+            "Weekly shared Plan-Fit must reuse candidates already loaded by the recommendation path."
+        )
+
+    monkeypatch.setattr(
+        meal_plan_fit_service,
+        "_load_candidates",
+        unexpected_plan_fit_candidate_reload,
+    )
+
+    original_candidate_loader = meal_recommendation_api_service._load_candidates
+    original_ensure_state = planning_bootstrap_service._ensure_daily_state
+    original_base_compile = meal_plan_fit_service.compile_effective_nutrition_plan
+    original_weekly_compile = weekly_fit_service.compile_effective_nutrition_plan
+    original_weekly_progress = weekly_fit_service.get_weekly_frequency_progress
+
+    def counted_candidate_loader(*args, **kwargs):
+        calls["candidate_catalogue_loads"] += 1
+        return original_candidate_loader(*args, **kwargs)
+
+    def counted_ensure_state(*args, **kwargs):
+        calls["ensure_state"] += 1
+        return original_ensure_state(*args, **kwargs)
+
+    def counted_base_compile(*args, **kwargs):
+        calls["compile_effective"] += 1
+        return original_base_compile(*args, **kwargs)
+
+    def counted_weekly_compile(*args, **kwargs):
+        calls["compile_effective"] += 1
+        return original_weekly_compile(*args, **kwargs)
+
+    def counted_weekly_progress(*args, **kwargs):
+        calls["weekly_progress"] += 1
+        return original_weekly_progress(*args, **kwargs)
+
+    monkeypatch.setattr(
+        meal_recommendation_api_service,
+        "_load_candidates",
+        counted_candidate_loader,
+    )
+    monkeypatch.setattr(
+        planning_bootstrap_service,
+        "_ensure_daily_state",
+        counted_ensure_state,
+    )
+    monkeypatch.setattr(
+        meal_plan_fit_service,
+        "compile_effective_nutrition_plan",
+        counted_base_compile,
+    )
+    monkeypatch.setattr(
+        weekly_fit_service,
+        "compile_effective_nutrition_plan",
+        counted_weekly_compile,
+    )
+    monkeypatch.setattr(
+        weekly_fit_service,
+        "get_weekly_frequency_progress",
+        counted_weekly_progress,
+    )
+
+    response = _post(
+        db_session,
+        family,
+        ana=ana,
+        bruno=bruno,
+        slots=[
+            _slot(
+                "thu-lunch-cache",
+                scheduled_at=LUNCH_AT,
+                meal_type="lunch",
+                composition=composition,
+            ),
+            _slot(
+                "thu-dinner-cache",
+                scheduled_at=DINNER_AT,
+                meal_type="dinner",
+                composition=composition,
+            ),
+            {
+                **_slot(
+                    "fri-lunch-cache",
+                    scheduled_at=friday_at,
+                    meal_type="lunch",
+                    composition=composition,
+                ),
+                "planning_date": friday_date.isoformat(),
+            },
+        ],
+    )
+
+    assert response.status_code == 201
+    assert calls["ensure_state"] == 4
+    assert calls["compile_effective"] == 6
+    assert calls["weekly_progress"] == 0
+    assert calls["candidate_catalogue_loads"] == 3
+
+def test_weekly_progress_is_loaded_once_per_guided_person_for_the_week(
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    family, ana, bruno, recipe, composition = _setup(db_session, "weekly-progress-cache")
+    _activate_recipe_maximum(
+        db_session,
+        person=ana,
+        recipe=recipe,
+        maximum=10,
+    )
+
+    friday_date = date(2026, 9, 18)
+    friday_at = datetime(2026, 9, 18, 12, 0, tzinfo=UTC)
+    for person in (ana, bruno):
+        db_session.add(
+            DailyNutritionState(
+                person=person,
+                state_date=friday_date,
+                timezone="Europe/Lisbon",
+                energy_consumed_kcal=Decimal(1000),
+                energy_planned_kcal=Decimal(0),
+                energy_remaining_min_kcal=Decimal(400),
+                energy_remaining_max_kcal=Decimal(800),
+                calculation_version="weekly-progress-cache-friday",
+                computed_at=friday_at,
+            )
+        )
+    db_session.commit()
+
+    calls = 0
+    original = weekly_fit_service.get_weekly_frequency_progress
+
+    def counted_weekly_progress(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(
+        weekly_fit_service,
+        "get_weekly_frequency_progress",
+        counted_weekly_progress,
+    )
+
+    friday_slot = _slot(
+        "fri-lunch-weekly-cache",
+        scheduled_at=friday_at,
+        meal_type="lunch",
+        composition=composition,
+    )
+    friday_slot["planning_date"] = friday_date.isoformat()
+
+    response = _post(
+        db_session,
+        family,
+        ana=ana,
+        bruno=bruno,
+        slots=[
+            _slot(
+                "thu-lunch-weekly-cache",
+                scheduled_at=LUNCH_AT,
+                meal_type="lunch",
+                composition=composition,
+            ),
+            friday_slot,
+        ],
+    )
+
+    assert response.status_code == 201
+    assert response.json()["selected_plan"] is not None
+    assert calls == 1
+
+
 def test_weekly_proposal_rechecks_one_person_weekly_maximum_across_slots(
     db_session: Session,
 ) -> None:
@@ -298,6 +631,7 @@ def test_weekly_proposal_rejects_duplicate_slot_keys_before_planning(
 
 def test_weekly_proposal_can_select_plan_adapted_variant_when_base_is_ineligible(
     db_session: Session,
+    monkeypatch,
 ) -> None:
     demo = seed_demo_dataset(
         db_session,
@@ -309,6 +643,15 @@ def test_weekly_proposal_can_select_plan_adapted_variant_when_base_is_ineligible
     seed_development_transformations(db_session, families=(family,))
     seed_development_plan_fit(db_session, person_id=DEMO_PERSON_ID)
     db_session.commit()
+
+    def unexpected_baseline_recompute(*args, **kwargs):
+        raise AssertionError("Weekly transformation must reuse existing baseline Plan-Fit.")
+
+    monkeypatch.setattr(
+        shared_transformation_service,
+        "evaluate_meal_plan_fit_with_weekly_frequency",
+        unexpected_baseline_recompute,
+    )
 
     recipe = db_session.scalar(
         select(Recipe).where(
