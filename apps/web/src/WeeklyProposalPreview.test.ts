@@ -16,6 +16,7 @@ import {
   weeklySkippedSlotMessages,
   shoppingRefreshSummary,
   nutritionPlanAuthorityLabel,
+  formatMealPortion,
 } from "./WeeklyProposalPreview";
 
 describe("weekly proposal calendar dates", () => {
@@ -136,6 +137,24 @@ describe("server-authoritative unavailable weekly slots", () => {
     });
   });
 });
+
+describe("weekly portion labels", () => {
+  it("formats recipe servings without raw database precision", () => {
+    expect(formatMealPortion("2.0000", "serving", "1966.33", "pt-PT")).toBe(
+      "2 porções da receita · ~1 966 kcal",
+    );
+    expect(formatMealPortion("0.7500", "serving", "737.38", "pt-PT")).toBe(
+      "0,75 porção da receita · ~737 kcal",
+    );
+  });
+
+  it("keeps physical units compact", () => {
+    expect(formatMealPortion("250.0000", "g", "520.40", "pt-PT")).toBe(
+      "250 g · ~520 kcal",
+    );
+  });
+});
+
 
 describe("weekly NutritionPlan authority labels", () => {
   it("distinguishes active, partial and absent plan coverage", () => {
