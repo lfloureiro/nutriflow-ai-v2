@@ -20,7 +20,7 @@ from app.schemas.nutrition_plan_import import (
 )
 
 PARSER_NAME = "deterministic-text"
-PARSER_VERSION = "nutrition-plan-text-v1"
+PARSER_VERSION = "nutrition-plan-text-v2"
 
 
 class NutritionPlanImportError(ValueError):
