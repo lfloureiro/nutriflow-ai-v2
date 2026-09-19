@@ -331,7 +331,10 @@ export function formatMealPortion(
   const energy = energyKcal === null ? null : Number(energyKcal);
   const energyLabel =
     energy !== null && Number.isFinite(energy)
-      ? ` · ~${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(energy)} kcal`
+      ? ` · ~${new Intl.NumberFormat(locale, {
+          maximumFractionDigits: 0,
+          useGrouping: false,
+        }).format(energy)} kcal`
       : "";
 
   return `${quantityLabel}${unitLabel ? ` ${unitLabel}` : ""}${energyLabel}`;
