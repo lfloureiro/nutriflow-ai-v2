@@ -70,6 +70,9 @@ export type SharedWeeklyPlanParticipant = {
   quantity: string;
   quantity_unit: string;
   energy_kcal: string | null;
+  portion_factor: string | null;
+  meal_energy_target_min_kcal: string | null;
+  meal_energy_target_max_kcal: string | null;
   plan_fit_status: MealPlanFitStatus;
   plan_fit_score: string | null;
   nutrition_plan_authority: NutritionPlanAuthorityState;
