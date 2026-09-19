@@ -745,6 +745,17 @@ def _compute_shared_weekly_plan_uncached(
                             and rule.target_type
                             in {"nutrient", "meal_composition", "food_category"}
                         ],
+                        plan_guidance=[
+                            guideline.description
+                            for guideline in sorted(
+                                (
+                                    item
+                                    for item in fit.guideline_results
+                                    if item.source.plan_id is not None
+                                ),
+                                key=lambda item: (-item.priority, str(item.guideline_id)),
+                            )
+                        ][:4],
                         portion_factor=participant.portion.portion_factor,
                         meal_energy_target_min_kcal=(
                             participant.portion.meal_energy_target_min_kcal
