@@ -40,6 +40,13 @@ const COPY = {
     week: "Semana",
     recommend: "Recomendar",
     navigation: "Navegação do plano alimentar",
+    dateNavigation: "Navegação por datas",
+    previousDay: "‹ Dia anterior",
+    nextDay: "Dia seguinte ›",
+    previousWeek: "‹ Semana anterior",
+    nextWeek: "Semana seguinte ›",
+    backToToday: "Hoje",
+    backToThisWeek: "Esta semana",
     loading: "A carregar plano…",
     add: "Adicionar",
     edit: "Alterar",
@@ -78,6 +85,13 @@ const COPY = {
     week: "Week",
     recommend: "Recommend",
     navigation: "Meal plan navigation",
+    dateNavigation: "Date navigation",
+    previousDay: "‹ Previous day",
+    nextDay: "Next day ›",
+    previousWeek: "‹ Previous week",
+    nextWeek: "Next week ›",
+    backToToday: "Today",
+    backToThisWeek: "This week",
     loading: "Loading meal plan…",
     add: "Add",
     edit: "Edit",
@@ -130,6 +144,16 @@ function errorText(error: unknown): string {
   }
   return error instanceof Error ? error.message : String(error);
 }
+
+export function addPlanDays(isoDate: string, days: number): string {
+  const value = new Date(`${isoDate}T00:00:00Z`);
+  if (Number.isNaN(value.getTime())) {
+    throw new Error("Invalid ISO calendar date.");
+  }
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
 
 export function startOfWeekDate(isoDate: string): string {
   const value = new Date(`${isoDate}T00:00:00Z`);
@@ -472,15 +496,23 @@ export default function FamilyMealsScreen({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
+  const [browsingDate, setBrowsingDate] = useState(
+    referenceDate ?? localDateValue(),
+  );
+
+  useEffect(() => {
+    setBrowsingDate(referenceDate ?? localDateValue());
+    setEditing(null);
+  }, [familyId, referenceDate]);
 
   const request = useMemo(() => {
     if (mode === "recommend") return null;
-    if (mode === "today") return { startDate: referenceDate, days: 1 };
+    if (mode === "today") return { startDate: browsingDate, days: 1 };
     return {
-      startDate: referenceDate ? startOfWeekDate(referenceDate) : undefined,
+      startDate: startOfWeekDate(browsingDate),
       days: 7,
     };
-  }, [mode, referenceDate]);
+  }, [mode, browsingDate]);
 
   useEffect(() => {
     if (!request) return;
@@ -523,7 +555,7 @@ export default function FamilyMealsScreen({
     refreshPlan();
   }
 
-  const consumptionDate = referenceDate ?? localDateValue();
+  const consumptionDate = browsingDate;
 
   return (
     <div className="family-meals-screen">
@@ -566,6 +598,41 @@ export default function FamilyMealsScreen({
           {copy.recommend}
         </button>
       </nav>
+
+      {mode !== "recommend" ? (
+        <nav className="family-meals-date-nav" aria-label={copy.dateNavigation}>
+          <button
+            className="button ghost"
+            onClick={() => {
+              setEditing(null);
+              setBrowsingDate((current) => addPlanDays(current, mode === "today" ? -1 : -7));
+            }}
+            type="button"
+          >
+            {mode === "today" ? copy.previousDay : copy.previousWeek}
+          </button>
+          <button
+            className="button secondary"
+            onClick={() => {
+              setEditing(null);
+              setBrowsingDate(referenceDate ?? localDateValue());
+            }}
+            type="button"
+          >
+            {mode === "today" ? copy.backToToday : copy.backToThisWeek}
+          </button>
+          <button
+            className="button ghost"
+            onClick={() => {
+              setEditing(null);
+              setBrowsingDate((current) => addPlanDays(current, mode === "today" ? 1 : 7));
+            }}
+            type="button"
+          >
+            {mode === "today" ? copy.nextDay : copy.nextWeek}
+          </button>
+        </nav>
+      ) : null}
 
       {mode === "recommend" ? <MealPlanner familyId={familyId} /> : null}
       {mode !== "recommend" && error ? (
