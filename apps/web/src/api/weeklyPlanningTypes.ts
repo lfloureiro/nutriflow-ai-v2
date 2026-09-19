@@ -2,6 +2,12 @@ import type { MealTransformationOperation } from "./mealTransformationTypes";
 import type { RecommendationCandidateInput } from "./types";
 
 export type WeeklyPlanningMealType = "breakfast" | "lunch" | "snack" | "dinner";
+export type NutritionPlanAuthorityState =
+  | "active_plan"
+  | "partial_plan_coverage"
+  | "no_active_plan"
+  | "plan_conflict";
+export type MealPlanFitStatus = "pass" | "partial" | "fail" | "unknown" | "conflict";
 
 export type SharedWeeklyPlanningSlotRequest = {
   slot_key: string;
@@ -64,6 +70,12 @@ export type SharedWeeklyPlanParticipant = {
   quantity: string;
   quantity_unit: string;
   energy_kcal: string | null;
+  plan_fit_status: MealPlanFitStatus;
+  plan_fit_score: string | null;
+  nutrition_plan_authority: NutritionPlanAuthorityState;
+  active_plan_ids: string[];
+  active_plan_titles: string[];
+  plan_unknown_evidence: string[];
   explanation: string[];
 };
 
