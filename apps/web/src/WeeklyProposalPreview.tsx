@@ -86,6 +86,17 @@ const COPY = {
     empty: "Sem refeição",
     pending: "Por decidir",
     nutritionReason: "Porque encaixa",
+    nutritionPlan: "Plano nutricional",
+    mealPlanFit: "Avaliação da refeição",
+    activePlan: "Activo",
+    partialPlanCoverage: "Cobertura parcial",
+    noActivePlan: "Sem plano activo",
+    planConflict: "Conflito no plano",
+    fitPass: "Compatível",
+    fitPartial: "Parcial",
+    fitFail: "Não compatível",
+    fitUnknown: "Não avaliável",
+    fitConflict: "Conflito",
     noExplanation: "Sem explicação adicional para esta pessoa.",
     applyWeek: "Aplicar semana",
     applyingWeek: "A validar e aplicar semana…",
@@ -143,6 +154,17 @@ const COPY = {
     empty: "No meal",
     pending: "Pending",
     nutritionReason: "Why it fits",
+    nutritionPlan: "Nutrition plan",
+    mealPlanFit: "Meal evaluation",
+    activePlan: "Active",
+    partialPlanCoverage: "Partial coverage",
+    noActivePlan: "No active plan",
+    planConflict: "Plan conflict",
+    fitPass: "Compatible",
+    fitPartial: "Partial",
+    fitFail: "Not compatible",
+    fitUnknown: "Not evaluable",
+    fitConflict: "Conflict",
     noExplanation: "No additional explanation for this Person.",
     applyWeek: "Apply week",
     applyingWeek: "Validating and applying week…",
@@ -255,6 +277,29 @@ function displayName(person: Person): string {
 
 function mealLabel(mealType: MealType, locale: Locale): string {
   return COPY[locale][mealType];
+}
+
+export function nutritionPlanAuthorityLabel(
+  state: SharedWeeklyPlanChoice["participants"][number]["nutrition_plan_authority"],
+  locale: Locale,
+): string {
+  const copy = COPY[locale];
+  if (state === "active_plan") return copy.activePlan;
+  if (state === "partial_plan_coverage") return copy.partialPlanCoverage;
+  if (state === "plan_conflict") return copy.planConflict;
+  return copy.noActivePlan;
+}
+
+function planFitStatusLabel(
+  status: SharedWeeklyPlanChoice["participants"][number]["plan_fit_status"],
+  locale: Locale,
+): string {
+  const copy = COPY[locale];
+  if (status === "pass") return copy.fitPass;
+  if (status === "partial") return copy.fitPartial;
+  if (status === "fail") return copy.fitFail;
+  if (status === "conflict") return copy.fitConflict;
+  return copy.fitUnknown;
 }
 
 function entryName(entry: MealPlanEntry): string {
@@ -957,6 +1002,25 @@ export default function WeeklyProposalPreview({
                             </span>
                           </div>
                           <div className="weekly-person-detail__reason">
+                            <small>{copy.nutritionPlan}</small>
+                            <p className="muted compact">
+                              <strong>
+                                {nutritionPlanAuthorityLabel(
+                                  participant.nutrition_plan_authority,
+                                  locale,
+                                )}
+                              </strong>
+                              {participant.active_plan_titles.length > 0
+                                ? ` · ${participant.active_plan_titles.join(", ")}`
+                                : ""}
+                            </p>
+                            <p className="muted compact">
+                              {copy.mealPlanFit}:{" "}
+                              {planFitStatusLabel(participant.plan_fit_status, locale)}
+                              {participant.plan_fit_score !== null
+                                ? ` · ${participant.plan_fit_score}`
+                                : ""}
+                            </p>
                             <small>{copy.nutritionReason}</small>
                             {participant.explanation.length > 0 ? (
                               <ul className="compact-list">
