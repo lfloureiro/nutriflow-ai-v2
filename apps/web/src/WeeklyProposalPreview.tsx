@@ -1417,7 +1417,22 @@ export default function WeeklyProposalPreview({
                                 {copy.mealEnergyReference}: <strong>{energyReference}</strong>
                               </p>
                             ) : null}
-                            <MealPlanFitAssessment result={participant.plan_fit} compact />
+                            <MealPlanFitAssessment
+                              compact
+                              data={{
+                                eligible: participant.plan_fit_detail.eligible,
+                                status: participant.plan_fit_detail.status,
+                                fitScore: participant.plan_fit_detail.fit_score,
+                                authorityState: participant.nutrition_plan_authority,
+                                activePlanTitles: participant.active_plan_titles,
+                                nutrition: participant.nutrition,
+                                conflicts: participant.plan_fit_detail.conflicts,
+                                safetyIssues: participant.plan_fit_detail.safety_issues,
+                                ruleResults: participant.plan_fit_detail.rule_results,
+                                guidelineResults:
+                                  participant.plan_fit_detail.guideline_results,
+                              }}
+                            />
                             <small>{copy.nutritionReason}</small>
                             {explanationLabels.length > 0 ? (
                               <ul className="compact-list">
