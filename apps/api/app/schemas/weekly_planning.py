@@ -50,6 +50,9 @@ class SharedWeeklyPlanParticipantRead(BaseModel):
     quantity: Decimal
     quantity_unit: str
     energy_kcal: Decimal | None
+    portion_factor: Decimal | None
+    meal_energy_target_min_kcal: Decimal | None
+    meal_energy_target_max_kcal: Decimal | None
     plan_fit_status: MealPlanFitStatus
     plan_fit_score: Decimal | None
     nutrition_plan_authority: NutritionPlanAuthorityState
