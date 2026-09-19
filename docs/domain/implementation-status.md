@@ -88,6 +88,8 @@ Implemented in PR #39:
 - fit score is 0..1 over scored candidate/meal numeric rules only;
 - qualitative/frequency guidance remains visible as `not_evaluated`;
 - provenance is preserved in each result;
+- weekly proposal participants expose the exact derived NutritionPlan authority used by their Person-specific Plan-Fit, instead of reducing the result to `status=unknown`/score only;
+- imported explicit prohibitions can be materialized as structured `exclude` constraints without numeric values; unsupported category evidence remains partial rather than inferred from names;
 - no provider-specific scoring semantics.
 
 API:
