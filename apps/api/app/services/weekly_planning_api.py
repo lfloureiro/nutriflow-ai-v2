@@ -16,9 +16,8 @@ from app.schemas.shared_practical_recommendation import SharedPracticalRecommend
 from app.schemas.weekly_planning import (
     SharedWeeklyPlanChoiceRead,
     SharedWeeklyPlanCreate,
-    SharedWeeklyPlanMaterializedChoiceRead,
-    SharedWeeklyPlanningSlotCreate,
     SharedWeeklyPlanFitDetailRead,
+    SharedWeeklyPlanMaterializedChoiceRead,
     SharedWeeklyPlanParticipantRead,
     SharedWeeklyPlanProposalCreate,
     SharedWeeklyPlanProposalRead,
@@ -26,6 +25,7 @@ from app.schemas.weekly_planning import (
     SharedWeeklyPlanSelectionRead,
     SharedWeeklyPlanSkippedSlotRead,
     SharedWeeklyPlanTransformationRead,
+    SharedWeeklyPlanningSlotCreate,
 )
 from app.services.recommendation_weekly_frequency import weekly_support_counts
 from app.services.serving_nutrition import NutrientSnapshot, NutritionSnapshot
