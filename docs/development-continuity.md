@@ -388,3 +388,48 @@ At a new session during this slice:
 8. inspect API CI and Web CI on the exact latest PR head; warnings count as failures;
 9. guarded squash-merge only after exact-head CI is green, PR head is unchanged and PR is mergeable;
 10. verify post-merge `main` before starting weekly proposal acceptance/materialization.
+
+
+## Review increment — NutritionPlan actionability diagnostics
+
+Temporary review branch:
+
+```text
+fix/nutrition-plan-actionability-review
+```
+
+Base: exact PR #73 review head `723213cba0721d7b5eaae6c3e58057ca72c8a44c`. This is intentionally stacked on the unmerged integrated review branch because the affected weekly/import code is not yet on `main`. Do not merge this branch or PR #73 without explicit user review.
+
+Confirmed production-like diagnosis from the local Loureiro data:
+
+- Luís has an active `Plano do nutricionista` from 2026-09-18 with 40 rules and 32 guidelines;
+- the effective plan for 2026-09-21 dinner reports `active_plan`;
+- Mac and Cheese is `eligible=True`, `status=unknown`, `fit_score=None`, with candidate authority `partial_plan_coverage`;
+- the plan is therefore persisted and loaded correctly; the apparent absence in Week UI came from downstream response loss plus unsupported rule evidence.
+
+This increment:
+
+- propagates Person-specific `plan_fit_status`, `plan_fit_score`, `nutrition_plan_authority`, active plan IDs/titles and unknown evidence into weekly proposal participants;
+- shows the derived authority in the Week detail instead of presenting raw `unknown` as if no plan existed;
+- allows explicit prohibitions to use the existing import `numeric_rule` envelope with `operator=exclude` and no numeric values/unit;
+- materializes confirmed exclusions as `NutritionConstraint(constraint_type=exclusion)`;
+- teaches ChatGPT-assisted import to split explicit multi-subject exclusions while preserving review/provenance;
+- keeps unsupported food-category evidence unknown/not evaluated and never infers membership from recipe names/descriptions.
+
+No database migration is introduced by this increment.
+
+Before opening any PR, run the ADR-007 local gates on the exact branch head:
+
+```powershell
+python -m alembic check
+cd apps\api
+python -m ruff check .
+python -m pytest -q
+
+cd ..\web
+npm install --no-package-lock --ignore-scripts
+npm run test
+npm run build
+```
+
+Only after those local gates are explicitly green should an integration/review PR be opened.
