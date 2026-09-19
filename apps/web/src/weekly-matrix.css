@@ -217,6 +217,13 @@
   white-space: nowrap;
 }
 
+.weekly-meal-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
 .weekly-person-detail-list {
   display: grid;
   gap: var(--space-2);
