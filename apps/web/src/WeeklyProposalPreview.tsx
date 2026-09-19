@@ -528,6 +528,16 @@ export function numericPlanComparisonRules(
   );
 }
 
+export function adaptationKindLabel(
+  proposal: SharedMealTransformationProposal,
+  locale: Locale,
+): string {
+  if (proposal.kind === "plan_adapted") {
+    return locale === "pt-PT" ? "Melhora o plano" : "Improves plan";
+  }
+  return locale === "pt-PT" ? "Variante por preferência" : "Preference variant";
+}
+
 export function weeklyExplanationLabel(
   explanation: string,
   locale: Locale,
