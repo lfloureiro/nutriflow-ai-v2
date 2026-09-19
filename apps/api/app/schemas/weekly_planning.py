@@ -5,7 +5,11 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.schemas.meal_plan_fit import MealPlanFitRuleRead, MealPlanFitStatus
+from app.schemas.meal_plan_fit import (
+    MealPlanFitRead,
+    MealPlanFitRuleRead,
+    MealPlanFitStatus,
+)
 from app.schemas.meal_recommendation import (
     MealRecommendationCandidateInput,
     RecommendationNutritionRead,
@@ -55,6 +59,7 @@ class SharedWeeklyPlanParticipantRead(BaseModel):
     quantity_unit: str
     energy_kcal: Decimal | None
     nutrition: RecommendationNutritionRead
+    plan_fit: MealPlanFitRead
     plan_rule_results: list[MealPlanFitRuleRead] = Field(default_factory=list)
     plan_guidance: list[str] = Field(default_factory=list)
     portion_factor: Decimal | None
