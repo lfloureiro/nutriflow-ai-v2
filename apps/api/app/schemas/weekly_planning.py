@@ -73,17 +73,11 @@ class SharedWeeklyPlanParticipantRead(BaseModel):
     energy_kcal: Decimal | None
     nutrition: RecommendationNutritionRead
     plan_fit_detail: SharedWeeklyPlanFitDetailRead
-    plan_rule_results: list[MealPlanFitRuleRead] = Field(default_factory=list)
-    plan_guidance: list[str] = Field(default_factory=list)
     portion_factor: Decimal | None
     meal_energy_target_min_kcal: Decimal | None
     meal_energy_target_max_kcal: Decimal | None
-    plan_fit_status: MealPlanFitStatus
-    plan_fit_score: Decimal | None
     nutrition_plan_authority: NutritionPlanAuthorityState
-    active_plan_ids: list[uuid.UUID] = Field(default_factory=list)
     active_plan_titles: list[str] = Field(default_factory=list)
-    plan_unknown_evidence: list[str] = Field(default_factory=list)
     explanation: list[str]
 
 
