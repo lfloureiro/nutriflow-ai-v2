@@ -43,6 +43,8 @@ Only `active_plan` supports direct product language such as `aligned with the pl
 
 Downstream recommendation, transformation and weekly-planning APIs should consume this metadata rather than re-inferring authority from free text or from the existence of generic nutrition scores.
 
+The weekly proposal response propagates the exact Person-specific Plan-Fit authority used by the server for each selected participant/candidate, including Plan-Fit status/score, active plan identity/title and unknown plan-backed evidence. This metadata is explanatory only; the browser does not submit or recompute it.
+
 ## Consequences
 
 - no new persisted authority state can become stale relative to NutritionPlan data;
