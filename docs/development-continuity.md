@@ -450,3 +450,32 @@ During functional review, Mac and Cheese exposed an independent portion-sizing d
 The bootstrap now treats a composition whose `reference_unit=serving` as intrinsically scalable by serving count: the planning candidate baseline is 1 serving and energy is scaled by `1 / reference_quantity`. This does not mutate legacy Recipe rows or infer a missing serving_count. Non-serving snapshots retain the existing serving_count/yield behaviour.
 
 Regression coverage includes the real legacy shape `6 serving / 5899 kcal / serving_count=None`.
+
+
+## Review regression fix — weekly portion semantics and display
+
+Stacked review branch:
+
+```text
+fix/weekly-portion-allocation-display-review
+```
+
+Base: `fix/legacy-recipe-serving-normalization-review` at `21d37867a0c3d9e32d65d5c2dc39ebf28313ca77`.
+
+Functional review exposed two separate problems after Recipe serving normalization:
+
+1. Weekly auto-sizing was reusing the same-day remaining-energy redistribution policy. Because future weekly slots are evaluated independently before proposed meals exist, dinner saw nearly the whole daily target as "remaining" and pushed many candidates to the 2x maximum.
+2. The UI leaked persistence values such as `2.0000 serving` and machine explanation codes, making the proposal difficult to interpret.
+
+This increment:
+
+- preserves remaining-energy redistribution for ordinary same-day recommendations;
+- uses fixed daily meal shares for weekly auto-sizing: breakfast 25%, lunch 35%, snack 10%, dinner 30%;
+- versions the weekly policy as `meal-energy-allocation-v3-fixed-daily-weight` and weekly sizing as `portion-sizing-v2-weekly-fixed-weight`;
+- exposes the Person-specific meal-energy reference range used to size each weekly portion;
+- renders `serving` as localized Recipe portions with at most two decimals, never raw four-decimal persistence precision;
+- rounds displayed kcal to whole kcal while leaving stored/calculated Decimal values unchanged;
+- hides duplicate Plan-Fit machine codes already represented by the dedicated status fields;
+- translates known rating, location, timing, energy and preference signals into user-facing text.
+
+No database migration is introduced.
