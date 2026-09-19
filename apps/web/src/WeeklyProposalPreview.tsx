@@ -399,6 +399,135 @@ export function formatMealEnergyReference(
   return null;
 }
 
+type WeeklyNutrition =
+  SharedWeeklyPlanChoice["participants"][number]["nutrition"];
+type WeeklyPlanRule =
+  SharedWeeklyPlanChoice["participants"][number]["plan_rule_results"][number];
+
+const NUTRIENT_PRIORITY: Record<string, number> = {
+  protein: 0,
+  carbohydrate: 1,
+  carbohydrates: 1,
+  carbs: 1,
+  fat: 2,
+  total_fat: 2,
+  fiber: 3,
+  fibre: 3,
+  sodium: 4,
+  sugar: 5,
+  sugars: 5,
+};
+
+export function nutrientLabel(key: string, locale: Locale): string {
+  const normalized = key.toLowerCase();
+  const labels: Record<string, [string, string]> = {
+    protein: ["Proteína", "Protein"],
+    carbohydrate: ["Hidratos de carbono", "Carbohydrate"],
+    carbohydrates: ["Hidratos de carbono", "Carbohydrates"],
+    carbs: ["Hidratos de carbono", "Carbs"],
+    fat: ["Gordura", "Fat"],
+    total_fat: ["Gordura", "Total fat"],
+    saturated_fat: ["Gordura saturada", "Saturated fat"],
+    fiber: ["Fibra", "Fiber"],
+    fibre: ["Fibra", "Fibre"],
+    sodium: ["Sódio", "Sodium"],
+    sugar: ["Açúcares", "Sugar"],
+    sugars: ["Açúcares", "Sugars"],
+  };
+  const known = labels[normalized];
+  if (known) return locale === "pt-PT" ? known[0] : known[1];
+  return normalized
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+export function formatNutritionValue(
+  value: string | null,
+  unit: string | null,
+  locale: Locale,
+): string {
+  if (value === null) return "—";
+  const numeric = Number(value);
+  const formatted = Number.isFinite(numeric)
+    ? new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(numeric)
+    : value;
+  return `${formatted}${unit ? ` ${unit}` : ""}`;
+}
+
+export function nutritionSummaryRows(
+  nutrition: WeeklyNutrition,
+  locale: Locale,
+): Array<{ key: string; label: string; value: string }> {
+  const rows: Array<{ key: string; label: string; value: string }> = [];
+  if (nutrition.energy_kcal !== null) {
+    rows.push({
+      key: "energy",
+      label: locale === "pt-PT" ? "Energia" : "Energy",
+      value: formatNutritionValue(nutrition.energy_kcal, "kcal", locale),
+    });
+  }
+  const nutrients = Object.entries(nutrition.nutrients)
+    .sort(([left], [right]) => {
+      const leftRank = NUTRIENT_PRIORITY[left.toLowerCase()] ?? 100;
+      const rightRank = NUTRIENT_PRIORITY[right.toLowerCase()] ?? 100;
+      return leftRank - rightRank || left.localeCompare(right);
+    })
+    .slice(0, 6);
+  for (const [key, nutrient] of nutrients) {
+    rows.push({
+      key,
+      label: nutrientLabel(key, locale),
+      value: formatNutritionValue(nutrient.value, nutrient.unit, locale),
+    });
+  }
+  return rows;
+}
+
+export function formatPlanRuleTarget(rule: WeeklyPlanRule, locale: Locale): string {
+  const unit = rule.target_unit;
+  if (rule.target_min !== null && rule.target_max !== null) {
+    return `${formatNutritionValue(rule.target_min, null, locale)}–${formatNutritionValue(
+      rule.target_max,
+      unit,
+      locale,
+    )}`;
+  }
+  if (rule.target_value !== null) {
+    return `≈ ${formatNutritionValue(rule.target_value, unit, locale)}`;
+  }
+  if (rule.target_min !== null) {
+    return `≥ ${formatNutritionValue(rule.target_min, unit, locale)}`;
+  }
+  if (rule.target_max !== null) {
+    return `≤ ${formatNutritionValue(rule.target_max, unit, locale)}`;
+  }
+  return "—";
+}
+
+export function planRuleStatusLabel(
+  status: WeeklyPlanRule["status"],
+  locale: Locale,
+): string {
+  const pt = locale === "pt-PT";
+  if (status === "pass") return pt ? "Dentro do alvo" : "Within target";
+  if (status === "fail") return pt ? "Fora do alvo" : "Outside target";
+  if (status === "support") return pt ? "Apoia o plano" : "Supports plan";
+  return pt ? "Não avaliável" : "Not evaluable";
+}
+
+export function numericPlanComparisonRules(
+  rules: WeeklyPlanRule[],
+): WeeklyPlanRule[] {
+  return rules.filter(
+    (rule) =>
+      rule.target_type === "nutrient" &&
+      (rule.observed_value !== null ||
+        rule.target_min !== null ||
+        rule.target_max !== null ||
+        rule.target_value !== null),
+  );
+}
+
 export function weeklyExplanationLabel(
   explanation: string,
   locale: Locale,
