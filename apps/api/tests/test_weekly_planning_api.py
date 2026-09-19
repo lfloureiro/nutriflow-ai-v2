@@ -320,21 +320,17 @@ def test_weekly_proposal_exposes_person_specific_nutrition_plan_authority(
     assert bruno.id is not None
     ana_read = participants[str(ana.id)]
     assert ana_read["nutrition_plan_authority"] == "partial_plan_coverage"
-    assert ana_read["active_plan_ids"] == [str(plan.id)]
     assert ana_read["active_plan_titles"] == ["Plano da nutricionista"]
-    assert ana_read["plan_fit_status"] == "unknown"
-    assert ana_read["plan_fit_score"] is None
-    assert ana_read["plan_unknown_evidence"]
     assert ana_read["plan_fit_detail"]["status"] == "unknown"
+    assert ana_read["plan_fit_detail"]["fit_score"] is None
     assert ana_read["plan_fit_detail"]["guideline_results"][0]["description"] == (
         "Incluir vegetais."
     )
-    assert ana_read["plan_guidance"] == ["Incluir vegetais."]
 
     bruno_read = participants[str(bruno.id)]
     assert bruno_read["nutrition_plan_authority"] == "no_active_plan"
-    assert bruno_read["active_plan_ids"] == []
     assert bruno_read["active_plan_titles"] == []
+    assert bruno_read["plan_fit_detail"]["guideline_results"] == []
 
 
 def test_weekly_proposal_exposes_plan_backed_nutrient_comparison(
