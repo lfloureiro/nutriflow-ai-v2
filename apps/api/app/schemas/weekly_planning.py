@@ -8,8 +8,8 @@ from pydantic import BaseModel, Field, model_validator
 from app.schemas.meal_plan_fit import MealPlanFitStatus
 from app.schemas.meal_recommendation import MealRecommendationCandidateInput
 from app.schemas.meal_transformation import MealTransformationOperationRead
-from app.schemas.nutrition_plan import NutritionPlanAuthorityState
 from app.schemas.meal_type import MealType
+from app.schemas.nutrition_plan import NutritionPlanAuthorityState
 from app.schemas.practical_recommendation import (
     PracticalSourceKind,
     RecommendationHistoryHint,
