@@ -5,6 +5,11 @@ import type { FamilyMealPlan, MealPlanEntry, MealType } from "./api/mealPlanType
 import { refreshShoppingList } from "./api/pantryShoppingClient";
 import type { ShoppingList } from "./api/pantryShoppingTypes";
 import { getRecommendationBootstrap } from "./api/recommendationClient";
+import { proposeSharedMealTransformations } from "./api/sharedMealTransformationClient";
+import type {
+  SharedMealTransformationProposal,
+  SharedMealTransformationResult,
+} from "./api/sharedMealTransformationTypes";
 import {
   materializeSharedWeeklyPlan,
   requestSharedWeeklyPlanProposal,
