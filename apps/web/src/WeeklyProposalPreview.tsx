@@ -1304,7 +1304,7 @@ export default function WeeklyProposalPreview({
                       {copy.removePlanned}
                     </button>
                   </div>
-) : null}
+                ) : null}
               </div>
 
               {selectedEntry ? (
