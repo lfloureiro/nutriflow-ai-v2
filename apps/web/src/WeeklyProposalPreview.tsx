@@ -24,6 +24,7 @@ import type {
 } from "./api/weeklyPlanningTypes";
 import type { Person } from "./api/types";
 import { useI18n, type Locale } from "./i18n";
+import MealPlanFitAssessment from "./MealPlanFitAssessment";
 import { scheduledIso } from "./planning";
 import {
   recommendationCandidates,
@@ -103,6 +104,9 @@ const COPY = {
     adaptToPlan: "Adaptar ao plano",
     suggestAdaptation: "Sugerir adaptação",
     adaptingToPlan: "A procurar adaptações…",
+    adaptationActionTitle: "Melhorar esta receita",
+    adaptationActionHelp:
+      "Procura uma versão da mesma receita que se ajuste melhor aos planos nutricionais e preferências da família, sem piorar a segurança de ninguém.",
     adaptationTitle: "Sugestões de adaptação",
     adaptationHelp: "Substituições avaliadas contra o plano e as preferências da família. Nenhuma alteração é aplicada automaticamente.",
     noAdaptation: "Não foram encontradas substituições seguras configuradas que melhorem esta receita.",
@@ -189,6 +193,9 @@ const COPY = {
     adaptToPlan: "Adapt to plan",
     suggestAdaptation: "Suggest adaptation",
     adaptingToPlan: "Finding adaptations…",
+    adaptationActionTitle: "Improve this recipe",
+    adaptationActionHelp:
+      "Find a version of the same recipe that better fits the Family nutrition plans and preferences without worsening anyone's safety.",
     adaptationTitle: "Adaptation suggestions",
     adaptationHelp: "Substitutions evaluated against the plan and Family preferences. No change is applied automatically.",
     noAdaptation: "No configured safe substitutions were found that improve this recipe.",
@@ -1297,22 +1304,7 @@ export default function WeeklyProposalPreview({
                       {copy.removePlanned}
                     </button>
                   </div>
-                ) : selectedChoice?.recipe_id ? (
-                  <div className="weekly-meal-detail__actions">
-                    <button
-                      className="button"
-                      disabled={busy || decisionBusy !== null || adaptationBusy}
-                      onClick={() => void suggestAdaptations()}
-                      type="button"
-                    >
-                      {adaptationBusy
-                        ? copy.adaptingToPlan
-                        : selectedChoiceHasPlan
-                          ? copy.adaptToPlan
-                          : copy.suggestAdaptation}
-                    </button>
-                  </div>
-                ) : null}
+) : null}
               </div>
 
               {selectedEntry ? (
@@ -1357,6 +1349,26 @@ export default function WeeklyProposalPreview({
                 </>
               ) : selectedChoice ? (
                 <>
+                  {selectedChoice.recipe_id ? (
+                    <div className="meal-transform-actions weekly-meal-adaptation-action">
+                      <div>
+                        <strong>{copy.adaptationActionTitle}</strong>
+                        <span>{copy.adaptationActionHelp}</span>
+                      </div>
+                      <button
+                        className="button secondary"
+                        disabled={busy || decisionBusy !== null || adaptationBusy}
+                        onClick={() => void suggestAdaptations()}
+                        type="button"
+                      >
+                        {adaptationBusy
+                          ? copy.adaptingToPlan
+                          : selectedChoiceHasPlan
+                            ? copy.adaptToPlan
+                            : copy.suggestAdaptation}
+                      </button>
+                    </div>
+                  ) : null}
                   {selectedChoice.transformation ? (
                     <div className="weekly-transformation-summary">
                       <span className="weekly-transformation-summary__kind">
@@ -1385,15 +1397,6 @@ export default function WeeklyProposalPreview({
                         participant.explanation,
                         locale,
                       );
-                      const nutritionRows = nutritionSummaryRows(
-                        participant.nutrition,
-                        locale,
-                      );
-                      const comparisonRules = numericPlanComparisonRules(
-                        participant.plan_rule_results,
-                      );
-                      const hasActivePlan =
-                        participant.nutrition_plan_authority !== "no_active_plan";
                       return (
                         <article className="weekly-person-detail" key={participant.person_id}>
                           <div className="weekly-person-detail__heading">
@@ -1409,88 +1412,12 @@ export default function WeeklyProposalPreview({
                             </span>
                           </div>
                           <div className="weekly-person-detail__reason">
-                            <small>{copy.nutritionComposition}</small>
-                            <dl className="weekly-nutrition-grid">
-                              {nutritionRows.map((row) => (
-                                <div key={row.key}>
-                                  <dt>{row.label}</dt>
-                                  <dd>{row.value}</dd>
-                                </div>
-                              ))}
-                            </dl>
-                            {hasActivePlan ? (
-                              <div className="weekly-plan-comparison">
-                                <small>{copy.nutritionPlanComparison}</small>
-                                {comparisonRules.length > 0 ? (
-                                  <div className="weekly-plan-comparison__rows">
-                                    {comparisonRules.map((rule) => (
-                                      <div
-                                        className="weekly-plan-comparison__row"
-                                        key={rule.rule_id}
-                                      >
-                                        <span>{nutrientLabel(rule.target_key, locale)}</span>
-                                        <span>
-                                          {copy.observed}:{" "}
-                                          <strong>
-                                            {formatNutritionValue(
-                                              rule.observed_value,
-                                              rule.observed_unit,
-                                              locale,
-                                            )}
-                                          </strong>
-                                        </span>
-                                        <span>
-                                          {copy.planTarget}:{" "}
-                                          <strong>{formatPlanRuleTarget(rule, locale)}</strong>
-                                        </span>
-                                        <em>{planRuleStatusLabel(rule.status, locale)}</em>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <p className="muted compact">
-                                    {copy.noStructuredPlanTarget}
-                                  </p>
-                                )}
-                                {participant.plan_guidance.length > 0 ? (
-                                  <div className="weekly-plan-guidance">
-                                    <small>{copy.qualitativePlanGuidance}</small>
-                                    <ul className="compact-list">
-                                      {participant.plan_guidance.map((guidance) => (
-                                        <li key={guidance}>{guidance}</li>
-                                      ))}
-                                    </ul>
-                                    <p className="muted compact">
-                                      {copy.qualitativeNotEvaluated}
-                                    </p>
-                                  </div>
-                                ) : null}
-                              </div>
-                            ) : null}
-                            <small>{copy.nutritionPlan}</small>
-                            <p className="muted compact">
-                              <strong>
-                                {nutritionPlanAuthorityLabel(
-                                  participant.nutrition_plan_authority,
-                                  locale,
-                                )}
-                              </strong>
-                              {participant.active_plan_titles.length > 0
-                                ? ` · ${participant.active_plan_titles.join(", ")}`
-                                : ""}
-                            </p>
-                            <p className="muted compact">
-                              {copy.mealPlanFit}:{" "}
-                              {planFitStatusLabel(participant.plan_fit_status, locale)}
-                              {participant.plan_fit_score !== null
-                                ? ` · ${participant.plan_fit_score}`
-                                : ""}
-                            </p>
                             {energyReference ? (
                               <p className="muted compact">
-                                {copy.mealEnergyReference}: {energyReference}
+                                {copy.mealEnergyReference}: <strong>{energyReference}</strong>
                               </p>
                             ) : null}
+                            <MealPlanFitAssessment result={participant.plan_fit} compact />
                             <small>{copy.nutritionReason}</small>
                             {explanationLabels.length > 0 ? (
                               <ul className="compact-list">
