@@ -65,6 +65,7 @@ const COPY = {
     noCandidates: "Não existem opções compatíveis para os tempos de refeição ainda em aberto.",
     noOpenSlots: "Esta semana já tem todos os tempos de refeição planeados.",
     noPlan: "Não foi encontrada uma combinação semanal compatível com todas as regras obrigatórias.",
+    allOpenSlotsPending: "Não há uma combinação para optimizar porque todos os tempos de refeição ainda em aberto ficaram por decidir. Consulta cada slot para ver o motivo.",
     error: "Não foi possível calcular a proposta semanal",
     exact: "Pesquisa exacta",
     bounded: "Pesquisa optimizada",
@@ -117,6 +118,7 @@ const COPY = {
     noCandidates: "There are no compatible options for the remaining open meal slots.",
     noOpenSlots: "Every meal slot is already planned for this week.",
     noPlan: "No weekly combination compatible with every mandatory rule was found.",
+    allOpenSlotsPending: "There is no combination to optimize because every remaining open meal slot stayed pending. Open each slot to see why.",
     error: "The weekly proposal could not be calculated",
     exact: "Exact search",
     bounded: "Optimized search",
@@ -198,6 +200,18 @@ export function weeklySkippedSlotMessages(
     ]),
   );
 }
+
+export function proposalHasOnlySkippedSlots(
+  proposal: SharedWeeklyPlanProposal,
+): boolean {
+  return (
+    proposal.selected_plan === null &&
+    proposal.search_space_size === 0 &&
+    proposal.evaluated_combinations === 0 &&
+    proposal.skipped_slots.length > 0
+  );
+}
+
 
 function slotKey(planningDate: string, mealType: MealType): string {
   return `${planningDate}:${mealType}`;
@@ -658,7 +672,9 @@ export default function WeeklyProposalPreview({
         </div>
       ) : null}
       {proposal && !proposal.selected_plan ? (
-        <div className="family-meals-empty-day">{copy.noPlan}</div>
+        <div className="family-meals-empty-day">
+          {proposalHasOnlySkippedSlots(proposal) ? copy.allOpenSlotsPending : copy.noPlan}
+        </div>
       ) : null}
 
       {!plan ? (
