@@ -63,6 +63,14 @@ _FOOD_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("salad", ("salad", "salada")),
     ("fruit", ("fruit", "fruta")),
     ("nuts", ("nuts", "frutos secos")),
+    ("gluten", ("gluten", "glúten")),
+    ("soy", ("soy", "soja")),
+    ("peanut", ("peanut", "peanuts", "amendoim", "amendoins")),
+    ("alcohol", ("alcohol", "álcool", "alcool", "bebidas alcoólicas", "bebidas alcoolicas")),
+    ("refined_flour", ("refined flour", "farinha refinada", "farinhas refinadas", "farinhas")),
+    ("refined_grains", ("refined grains", "cereais refinados")),
+    ("simple_sugars", ("simple sugars", "açúcares simples", "acucares simples")),
+    ("processed_meat", ("processed meat", "enchidos")),
 )
 
 _MANDATORY_CUES = (
@@ -76,6 +84,15 @@ _MANDATORY_CUES = (
     "nao exceder",
     "exclude",
     "excluir",
+)
+
+_EXCLUSION_CUES = (
+    "avoid",
+    "evitar",
+    "exclude",
+    "excluir",
+    "retirar",
+    "remove",
 )
 
 _QUALITATIVE_CUES = (
@@ -358,6 +375,21 @@ def _parse_statement(statement: str, ordinal: int) -> NutritionPlanImportProposa
         )
 
     lowered = statement.lower()
+    category = _find_food_category(statement)
+    if category is not None and any(cue in lowered for cue in _EXCLUSION_CUES):
+        return NutritionPlanImportProposal(
+            proposal_type="numeric_rule",
+            target_type="food_category",
+            target_key=category,
+            operator="exclude",
+            confidence=Decimal("0.9000"),
+            parser_note=(
+                "Explicit exclusion parsed as a structured food-category rule. "
+                "Runtime enforcement still requires explicit candidate evidence."
+            ),
+            **common,
+        )
+
     if any(cue in lowered for cue in _QUALITATIVE_CUES):
         nutrient = _find_nutrient(statement)
         category = _find_food_category(statement)
@@ -565,9 +597,16 @@ def _materialize_numeric_rule(
         value_min = proposal.value_target
         value_max = proposal.value_target
 
+    constraint_type = (
+        "exclusion"
+        if proposal.operator == "exclude"
+        else "nutrient_limit"
+        if proposal.is_mandatory
+        else "nutrient_target"
+    )
     constraint = NutritionConstraint(
         person_id=plan.person_id,
-        constraint_type="nutrient_limit" if proposal.is_mandatory else "nutrient_target",
+        constraint_type=constraint_type,
         target_type=proposal.target_type or "nutrient",
         target_key=proposal.target_key or "unknown",
         operator=proposal.operator or "range",
