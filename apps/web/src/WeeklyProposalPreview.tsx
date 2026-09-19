@@ -1135,6 +1135,15 @@ export default function WeeklyProposalPreview({
                   <div className="weekly-person-detail-list">
                     {selectedChoice.participants.map((participant) => {
                       const person = peopleById.get(participant.person_id);
+                      const energyReference = formatMealEnergyReference(
+                        participant.meal_energy_target_min_kcal,
+                        participant.meal_energy_target_max_kcal,
+                        locale,
+                      );
+                      const explanationLabels = weeklyExplanationLabels(
+                        participant.explanation,
+                        locale,
+                      );
                       return (
                         <article className="weekly-person-detail" key={participant.person_id}>
                           <div className="weekly-person-detail__heading">
@@ -1169,10 +1178,15 @@ export default function WeeklyProposalPreview({
                                 ? ` · ${participant.plan_fit_score}`
                                 : ""}
                             </p>
+                            {energyReference ? (
+                              <p className="muted compact">
+                                {copy.mealEnergyReference}: {energyReference}
+                              </p>
+                            ) : null}
                             <small>{copy.nutritionReason}</small>
-                            {participant.explanation.length > 0 ? (
+                            {explanationLabels.length > 0 ? (
                               <ul className="compact-list">
-                                {participant.explanation.slice(0, 4).map((message) => (
+                                {explanationLabels.slice(0, 4).map((message) => (
                                   <li key={message}>{message}</li>
                                 ))}
                               </ul>
