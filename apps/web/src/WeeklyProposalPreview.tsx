@@ -1496,9 +1496,17 @@ export default function WeeklyProposalPreview({
                                 </strong>
                               </div>
                               <p className="muted compact">
-                                {copy.planImprovesFor}:{" "}
-                                <strong>{adaptation.plan_improvement_participants}</strong>{" "}
-                                {copy.peopleLabel}
+                                {adaptation.plan_improvement_participants > 0
+                                  ? copy.planImprovesFor
+                                  : copy.preferenceImprovesFor}:{" "}
+                                <strong>
+                                  {peopleCountLabel(
+                                    adaptation.plan_improvement_participants > 0
+                                      ? adaptation.plan_improvement_participants
+                                      : adaptation.preference_improvement_participants,
+                                    locale,
+                                  )}
+                                </strong>
                               </p>
                               <div className="weekly-adaptation-people">
                                 {adaptation.participant_results.map((result) => {
