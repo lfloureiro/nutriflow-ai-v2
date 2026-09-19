@@ -731,10 +731,20 @@ def _compute_shared_weekly_plan_uncached(
                 participant_reads.append(
                     SharedWeeklyPlanParticipantRead(
                         person_id=person_id,
+                        daily_nutrition_state_id=fit.daily_nutrition_state_id,
                         score=participant.evaluation.score,
                         quantity=participant.portion.quantity,
                         quantity_unit=participant.portion.quantity_unit,
                         energy_kcal=participant.evaluation.candidate.nutrition.energy_kcal,
+                        nutrition=fit.candidate.nutrition,
+                        plan_rule_results=[
+                            rule
+                            for rule in fit.rule_results
+                            if rule.source.plan_id is not None
+                            and rule.scope in {"candidate", "meal"}
+                            and rule.target_type
+                            in {"nutrient", "meal_composition", "food_category"}
+                        ],
                         portion_factor=participant.portion.portion_factor,
                         meal_energy_target_min_kcal=(
                             participant.portion.meal_energy_target_min_kcal
@@ -751,6 +761,8 @@ def _compute_shared_weekly_plan_uncached(
                         explanation=list(participant.evaluation.explanation),
                     )
                 )
+            first_participant = choice.candidate.evaluation.participant_evaluations[0]
+            selected_recipe = first_participant.evaluation.candidate.recipe
             choice_reads.append(
                 SharedWeeklyPlanChoiceRead(
                     slot_key=choice.slot_key,
@@ -760,6 +772,7 @@ def _compute_shared_weekly_plan_uncached(
                     candidate_key=choice.candidate.evaluation.candidate_key,
                     candidate_name=choice.candidate.evaluation.candidate_name,
                     candidate_kind=choice.candidate.evaluation.candidate_kind,
+                    recipe_id=selected_recipe.id if selected_recipe is not None else None,
                     minimum_score=choice.candidate.evaluation.minimum_score,
                     average_score=choice.candidate.evaluation.average_score,
                     participants=participant_reads,
