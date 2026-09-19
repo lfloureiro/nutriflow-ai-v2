@@ -227,10 +227,16 @@ def test_weekly_proposal_returns_selected_shared_plan_without_meal_events(
     choice = body["selected_plan"]["choices"][0]
     assert choice["slot_key"] == "thu-lunch"
     assert choice["candidate_key"] == recipe.recipe_key
+    assert choice["recipe_id"] == str(recipe.id)
     assert {participant["person_id"] for participant in choice["participants"]} == {
         str(ana.id),
         str(bruno.id),
     }
+    for participant in choice["participants"]:
+        assert participant["daily_nutrition_state_id"] is not None
+        assert Decimal(participant["nutrition"]["energy_kcal"]) == Decimal("500")
+        assert participant["nutrition"]["nutrients"] == {}
+        assert participant["plan_rule_results"] == []
     assert "thu-lunch" in body["slot_engine_versions"]
 
     meal_count = db_session.scalar(select(func.count()).select_from(MealEvent))
