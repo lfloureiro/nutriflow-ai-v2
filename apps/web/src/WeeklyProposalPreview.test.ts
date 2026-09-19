@@ -20,6 +20,11 @@ import {
   formatMealEnergyReference,
   weeklyExplanationLabel,
   weeklyExplanationLabels,
+  nutritionSummaryRows,
+  formatPlanRuleTarget,
+  planRuleStatusLabel,
+  numericPlanComparisonRules,
+  adaptationKindLabel,
 } from "./WeeklyProposalPreview";
 
 describe("weekly proposal calendar dates", () => {
@@ -190,6 +195,113 @@ describe("weekly participant detail formatting", () => {
 });
 
 
+describe("weekly nutrition comparison", () => {
+  it("formats a compact nutrition summary with priority nutrients", () => {
+    expect(
+      nutritionSummaryRows(
+        {
+          energy_kcal: "620.40",
+          nutrients: {
+            sodium: { value: "450", unit: "mg" },
+            fiber: { value: "8.2", unit: "g" },
+            protein: { value: "42.6", unit: "g" },
+            carbohydrate: { value: "54.1", unit: "g" },
+            fat: { value: "21.3", unit: "g" },
+          },
+        },
+        "pt-PT",
+      ),
+    ).toEqual([
+      { key: "energy", label: "Energia", value: "620,4 kcal" },
+      { key: "protein", label: "Proteína", value: "42,6 g" },
+      { key: "carbohydrate", label: "Hidratos de carbono", value: "54,1 g" },
+      { key: "fat", label: "Gordura", value: "21,3 g" },
+      { key: "fiber", label: "Fibra", value: "8,2 g" },
+      { key: "sodium", label: "Sódio", value: "450 mg" },
+    ]);
+  });
+
+  it("formats plan targets and keeps only numeric nutrient comparisons", () => {
+    const numericRule = {
+      rule_id: "protein",
+      target_type: "nutrient",
+      target_key: "protein",
+      operator: "range",
+      scope: "meal" as const,
+      status: "pass" as const,
+      is_mandatory: true,
+      priority: 100,
+      observed_value: "42.6",
+      observed_unit: "g",
+      projected_daily_value: null,
+      target_min: "40",
+      target_max: "50",
+      target_value: null,
+      target_unit: "g",
+      score: "1",
+      explanation: "test",
+      source: {
+        plan_id: "plan",
+        plan_title: "Plano",
+        plan_source_type: "nutritionist",
+        source_name: null,
+        source_reference: null,
+        rule_source: "nutritionist",
+      },
+    };
+    const qualitativeRule = {
+      ...numericRule,
+      rule_id: "vegetables",
+      target_type: "meal_composition",
+      target_key: "leafy_vegetables",
+      observed_value: null,
+      target_min: null,
+      target_max: null,
+      score: null,
+      status: "not_evaluated" as const,
+    };
+
+    expect(formatPlanRuleTarget(numericRule, "pt-PT")).toBe("40–50 g");
+    expect(planRuleStatusLabel("pass", "pt-PT")).toBe("Dentro do alvo");
+    expect(numericPlanComparisonRules([numericRule, qualitativeRule])).toEqual([
+      numericRule,
+    ]);
+  });
+
+  it("labels an adaptation according to its purpose", () => {
+    expect(
+      adaptationKindLabel(
+        {
+          kind: "plan_adapted",
+          operation: {
+            operation_type: "replace_ingredient",
+            substitution_group: "dairy",
+            recipe_ingredient_id: "ingredient",
+            source_food_item_id: "source",
+            source_food_name: "Natas",
+            source_quantity: "100",
+            source_unit: "g",
+            replacement_food_item_id: "replacement",
+            replacement_food_name: "Iogurte",
+            replacement_quantity: "100",
+            replacement_unit: "g",
+          },
+          participant_results: [],
+          plan_improvement_participants: 1,
+          preference_improvement_participants: 0,
+          minimum_plan_score_delta: "0.1",
+          average_plan_score_delta: "0.1",
+          minimum_preference_delta: "0",
+          average_preference_delta: "0",
+          explanation: [],
+        },
+        "pt-PT",
+      ),
+    ).toBe("Melhora o plano");
+  });
+});
+
+
 describe("weekly NutritionPlan authority labels", () => {
   it("distinguishes active, partial and absent plan coverage", () => {
     expect(nutritionPlanAuthorityLabel("active_plan", "pt-PT")).toBe("Activo");
@@ -267,6 +379,7 @@ describe("weekly application identity", () => {
     candidate_key: "recipe:breakfast",
     candidate_name: "Pequeno-almoço",
     candidate_kind: "recipe",
+    recipe_id: "recipe-id",
     minimum_score: "0.8",
     average_score: "0.9",
     participants: [],
