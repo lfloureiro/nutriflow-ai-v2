@@ -339,7 +339,7 @@ export function nutritionPlanAuthorityLabel(
 }
 
 function planFitStatusLabel(
-  status: SharedWeeklyPlanChoice["participants"][number]["plan_fit_status"],
+  status: SharedWeeklyPlanChoice["participants"][number]["plan_fit_detail"]["status"],
   locale: Locale,
 ): string {
   const copy = COPY[locale];
@@ -415,7 +415,7 @@ export function formatMealEnergyReference(
 type WeeklyNutrition =
   SharedWeeklyPlanChoice["participants"][number]["nutrition"];
 type WeeklyPlanRule =
-  SharedWeeklyPlanChoice["participants"][number]["plan_rule_results"][number];
+  SharedWeeklyPlanChoice["participants"][number]["plan_fit_detail"]["rule_results"][number];
 
 const NUTRIENT_PRIORITY: Record<string, number> = {
   protein: 0,
