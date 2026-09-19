@@ -462,3 +462,17 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.weekly-plan-guidance {
+  display: grid;
+  gap: 0.3rem;
+  margin-top: 0.25rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--border);
+}
+
+.weekly-plan-guidance > small {
+  color: var(--muted);
+  font-weight: 700;
+}
