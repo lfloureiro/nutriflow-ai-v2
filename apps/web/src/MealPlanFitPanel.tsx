@@ -8,7 +8,9 @@ import type { MealPlanFitResult } from "./api/planFitTypes";
 import type { Recipe } from "./api/recipeTypes";
 import type { PlanningMealType } from "./api/types";
 import { useI18n } from "./i18n";
-import MealPlanFitAssessment from "./MealPlanFitAssessment";
+import MealPlanFitAssessment, {
+  assessmentDataFromResult,
+} from "./MealPlanFitAssessment";
 import {
   formatPlanFitNumber,
   planFitUnitLabel,
@@ -365,7 +367,7 @@ export default function MealPlanFitPanel({
 
       {result ? (
         <div className="plan-fit-evaluation">
-          <MealPlanFitAssessment result={result} />
+          <MealPlanFitAssessment data={assessmentDataFromResult(result)} />
 
           <div className="meal-transform-actions">
             <div>
