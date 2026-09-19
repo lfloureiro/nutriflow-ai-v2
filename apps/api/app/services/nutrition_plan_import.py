@@ -66,8 +66,14 @@ _FOOD_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("gluten", ("gluten", "glúten")),
     ("soy", ("soy", "soja")),
     ("peanut", ("peanut", "peanuts", "amendoim", "amendoins")),
-    ("alcohol", ("alcohol", "álcool", "alcool", "bebidas alcoólicas", "bebidas alcoolicas")),
-    ("refined_flour", ("refined flour", "farinha refinada", "farinhas refinadas", "farinhas")),
+    (
+        "alcohol",
+        ("alcohol", "álcool", "alcool", "bebidas alcoólicas", "bebidas alcoolicas"),
+    ),
+    (
+        "refined_flour",
+        ("refined flour", "farinha refinada", "farinhas refinadas", "farinhas"),
+    ),
     ("refined_grains", ("refined grains", "cereais refinados")),
     ("simple_sugars", ("simple sugars", "açúcares simples", "acucares simples")),
     ("processed_meat", ("processed meat", "enchidos")),
@@ -600,13 +606,12 @@ def _materialize_numeric_rule(
         value_min = proposal.value_target
         value_max = proposal.value_target
 
-    constraint_type = (
-        "exclusion"
-        if proposal.operator == "exclude"
-        else "nutrient_limit"
-        if proposal.is_mandatory
-        else "nutrient_target"
-    )
+    if proposal.operator == "exclude":
+        constraint_type = "exclusion"
+    elif proposal.is_mandatory:
+        constraint_type = "nutrient_limit"
+    else:
+        constraint_type = "nutrient_target"
     constraint = NutritionConstraint(
         person_id=plan.person_id,
         constraint_type=constraint_type,
