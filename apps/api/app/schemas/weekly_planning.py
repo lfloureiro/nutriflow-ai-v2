@@ -5,8 +5,11 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.schemas.meal_plan_fit import MealPlanFitStatus
-from app.schemas.meal_recommendation import MealRecommendationCandidateInput
+from app.schemas.meal_plan_fit import MealPlanFitRuleRead, MealPlanFitStatus
+from app.schemas.meal_recommendation import (
+    MealRecommendationCandidateInput,
+    RecommendationNutritionRead,
+)
 from app.schemas.meal_transformation import MealTransformationOperationRead
 from app.schemas.meal_type import MealType
 from app.schemas.nutrition_plan import NutritionPlanAuthorityState
@@ -46,10 +49,13 @@ class SharedWeeklyPlanProposalCreate(BaseModel):
 
 class SharedWeeklyPlanParticipantRead(BaseModel):
     person_id: uuid.UUID
+    daily_nutrition_state_id: uuid.UUID | None
     score: Decimal | None
     quantity: Decimal
     quantity_unit: str
     energy_kcal: Decimal | None
+    nutrition: RecommendationNutritionRead
+    plan_rule_results: list[MealPlanFitRuleRead] = Field(default_factory=list)
     portion_factor: Decimal | None
     meal_energy_target_min_kcal: Decimal | None
     meal_energy_target_max_kcal: Decimal | None
@@ -79,6 +85,7 @@ class SharedWeeklyPlanChoiceRead(BaseModel):
     candidate_key: str
     candidate_name: str
     candidate_kind: str
+    recipe_id: uuid.UUID | None = None
     minimum_score: Decimal | None
     average_score: Decimal | None
     participants: list[SharedWeeklyPlanParticipantRead]
