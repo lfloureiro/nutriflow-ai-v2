@@ -98,13 +98,21 @@ Rules:
 - Preserve source_statement as a short verbatim excerpt from the supplied text.
 - Never invent quantities, units, meals, frequencies, restrictions, diagnoses, or clinical meaning.
 - If wording is ambiguous, use proposal_type='unclassified' and explain the uncertainty in parser_note.
-- Use numeric_rule only when an explicit numeric target or limit exists.
-- Use qualitative_guideline for explicit non-numeric advice.
+- Use numeric_rule for an explicit numeric target/limit OR an explicit exclusion/prohibition
+  that can be represented structurally.
+- For an explicit exclusion/prohibition, use proposal_type='numeric_rule', operator='exclude',
+  target_type/target_key for the excluded subject, and set value_min/value_max/value_target/unit
+  to null. Do not invent catalogue identifiers; use a concise canonical category key when the
+  source names a category (for example gluten, soy, peanut, alcohol, refined_flour).
+- Split a source statement that explicitly excludes multiple distinct subjects into one proposal
+  per excluded subject, preserving a short supporting source_statement for each.
+- Use qualitative_guideline for explicit non-numeric advice that is not safely representable as
+  a structured exclusion.
 - Use frequency_guideline only for explicit weekly frequencies.
 - meal_type must be breakfast, lunch, snack, dinner, or null.
 - Normalize common nutrient keys to English snake_case, e.g. protein, fiber, sodium, energy_kcal,
   saturated_fat. Food categories may also use concise snake_case keys.
-- operator should be min, max, range, or target for numeric rules.
+- operator should be min, max, range, target, or exclude for structured rules.
 - mandatory=true only when the source clearly states a requirement, prohibition, limit, or obligation;
   otherwise false.
 - Keep every proposal confirmation-neutral. The application will require human confirmation later.
