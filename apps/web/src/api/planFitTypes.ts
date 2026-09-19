@@ -106,10 +106,29 @@ export type MealPlanFitRule = {
 
 export type MealPlanFitGuideline = {
   guideline_id: string;
+  guideline_type: string;
+  target_type: string | null;
+  target_key: string | null;
   description: string;
+  meal_type: PlanningMealType | null;
+  period: string | null;
+  minimum_occurrences: number | null;
+  maximum_occurrences: number | null;
+  current_occurrences: number | null;
+  projected_occurrences: number | null;
+  counts_are_lower_bound: boolean;
+  unclassified_meal_count: number | null;
+  candidate_matches: boolean | null;
+  matched_by: string[];
   is_mandatory: boolean;
   priority: number;
-  status: "not_evaluated";
+  status:
+    | "pass"
+    | "fail"
+    | "support"
+    | "neutral"
+    | "unknown"
+    | "not_evaluated";
   explanation: string;
   source: PlanFitSource;
 };
