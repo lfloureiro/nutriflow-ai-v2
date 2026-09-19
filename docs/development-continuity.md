@@ -433,3 +433,20 @@ npm run build
 ```
 
 Only after those local gates are explicitly green should an integration/review PR be opened.
+
+
+## Review regression fix — legacy Recipe serving normalization
+
+Stacked review branch:
+
+```text
+fix/legacy-recipe-serving-normalization-review
+```
+
+Base: NutritionPlan actionability review head `31c5bca37b55bdf6f81e7bde55c9ade9246e7a72`.
+
+During functional review, Mac and Cheese exposed an independent portion-sizing defect: its legacy RecipeCompositionSnapshot represented the whole recipe as `6 serving` / `5899 kcal`, while `Recipe.serving_count` was null. Planning bootstrap therefore exposed 6 servings as the candidate baseline, and automatic portion sizing could only scale that baseline by 0.5x..2x, producing impossible Person portions such as 3 or 6 servings.
+
+The bootstrap now treats a composition whose `reference_unit=serving` as intrinsically scalable by serving count: the planning candidate baseline is 1 serving and energy is scaled by `1 / reference_quantity`. This does not mutate legacy Recipe rows or infer a missing serving_count. Non-serving snapshots retain the existing serving_count/yield behaviour.
+
+Regression coverage includes the real legacy shape `6 serving / 5899 kcal / serving_count=None`.
