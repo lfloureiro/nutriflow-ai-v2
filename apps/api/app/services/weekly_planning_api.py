@@ -737,6 +737,7 @@ def _compute_shared_weekly_plan_uncached(
                         quantity_unit=participant.portion.quantity_unit,
                         energy_kcal=participant.evaluation.candidate.nutrition.energy_kcal,
                         nutrition=fit.candidate.nutrition,
+                        plan_fit=fit,
                         plan_rule_results=[
                             rule
                             for rule in fit.rule_results
