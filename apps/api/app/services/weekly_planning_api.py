@@ -460,6 +460,7 @@ def _planning_slot(
             session,
             family=family,
             data=request,
+            redistribute_remaining_energy=False,
         )
     contexts_by_person_id = {
         context.person.id: context
