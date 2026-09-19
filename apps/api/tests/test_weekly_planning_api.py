@@ -241,7 +241,7 @@ def test_weekly_proposal_returns_selected_shared_plan_without_meal_events(
     }
     for participant in choice["participants"]:
         assert participant["daily_nutrition_state_id"] is not None
-        assert Decimal(participant["nutrition"]["energy_kcal"]) == Decimal("500")
+        assert Decimal(participant["nutrition"]["energy_kcal"]) == Decimal(500)
         assert participant["nutrition"]["nutrients"] == {}
         assert participant["plan_rule_results"] == []
     assert "thu-lunch" in body["slot_engine_versions"]
