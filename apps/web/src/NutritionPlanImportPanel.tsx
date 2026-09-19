@@ -69,7 +69,8 @@ const COPY = {
     lunch: "almoço",
     snack: "lanche",
     dinner: "jantar",
-    numeric_rule: "Regra quantitativa",
+    numeric_rule: "Regra estruturada",
+    excludeTarget: "Excluir",
     qualitative_guideline: "Orientação qualitativa",
     frequency_guideline: "Frequência",
     unclassifiedType: "Por classificar",
@@ -123,7 +124,8 @@ const COPY = {
     lunch: "lunch",
     snack: "snack",
     dinner: "dinner",
-    numeric_rule: "Numeric rule",
+    numeric_rule: "Structured rule",
+    excludeTarget: "Exclude",
     qualitative_guideline: "Qualitative guidance",
     frequency_guideline: "Frequency",
     unclassifiedType: "Unclassified",
@@ -161,6 +163,10 @@ function proposalMeaning(
   const target = proposal.target_key
     ? planFitTargetLabel(proposal.target_key, locale)
     : humanize(proposal.target_key);
+  const meal = proposal.meal_type ? ` · ${COPY[locale][proposal.meal_type]}` : "";
+  if (proposal.operator === "exclude") {
+    return `${COPY[locale].excludeTarget}: ${target}${meal}`;
+  }
   const unit = proposal.unit ? ` ${proposal.unit}` : "";
   let value = "";
   if (proposal.operator === "range" && proposal.value_min !== null && proposal.value_max !== null) {
@@ -172,7 +178,6 @@ function proposalMeaning(
   } else if (proposal.value_target !== null) {
     value = `${formatPlanFitNumber(proposal.value_target, locale)}${unit}`;
   }
-  const meal = proposal.meal_type ? ` · ${COPY[locale][proposal.meal_type]}` : "";
   return `${target} ${value}${meal}`.trim();
 }
 
