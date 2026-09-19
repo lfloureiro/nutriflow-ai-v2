@@ -236,3 +236,82 @@
     flex-direction: column;
   }
 }
+
+
+.plan-fit-result--compact {
+  margin-top: 0;
+}
+
+.plan-fit-result--compact .plan-fit-summary {
+  grid-template-columns: minmax(7rem, 0.55fr) minmax(8rem, 0.65fr) minmax(14rem, 1.8fr);
+}
+
+.plan-fit-nutrition {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.plan-fit-nutrition h4 {
+  margin: 0.25rem 0 0;
+}
+
+.plan-fit-nutrition dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.plan-fit-nutrition dl > div {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  background: var(--surface-soft);
+}
+
+.plan-fit-nutrition dt {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.plan-fit-nutrition dd {
+  margin: 0;
+  font-weight: 750;
+}
+
+.plan-fit-guidelines {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.25rem;
+}
+
+.plan-fit-guidelines > summary {
+  cursor: pointer;
+  font-weight: 750;
+  padding: 0.55rem 0;
+}
+
+.plan-fit-guidelines[open] > summary {
+  margin-bottom: 0.35rem;
+}
+
+@media (max-width: 900px) {
+  .plan-fit-result--compact .plan-fit-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .plan-fit-result--compact .plan-fit-summary__plans {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 620px) {
+  .plan-fit-result--compact .plan-fit-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .plan-fit-result--compact .plan-fit-summary__plans {
+    grid-column: auto;
+  }
+}
