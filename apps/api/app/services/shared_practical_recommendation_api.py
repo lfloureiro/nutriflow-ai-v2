@@ -20,6 +20,7 @@ from app.schemas.shared_practical_recommendation import (
 from app.services.commercial_availability import CommercialOfferSnapshot
 from app.services.meal_energy_allocation import (
     PORTION_VERSION,
+    WEEKLY_PORTION_VERSION,
     MealEnergyAllocationError,
     size_candidate_for_meal,
 )
@@ -65,6 +66,7 @@ def _candidate_proposals(
     *,
     meal_type: str,
     auto_size_portions: bool,
+    redistribute_remaining_energy: bool = True,
 ) -> tuple[SharedMealCandidateProposal, ...]:
     proposals: list[SharedMealCandidateProposal] = []
     for candidate in candidates:
@@ -79,6 +81,7 @@ def _candidate_proposals(
                     candidate,
                     state,
                     meal_type=meal_type,
+                    redistribute_remaining=redistribute_remaining_energy,
                 )
                 sized = sizing.candidate
                 portion = SharedMealPortion(
@@ -187,6 +190,7 @@ def _compute_shared_recommendation(
     *,
     family: Family,
     data: SharedPracticalRecommendationCreate,
+    redistribute_remaining_energy: bool = True,
 ) -> tuple[
     SharedFamilyMealRecommendationResult,
     list[CommercialOfferSnapshot],
@@ -324,7 +328,12 @@ def _compute_shared_recommendation(
     )
     engine_version = "shared-family-practical-plan-fit-v1"
     if data.auto_size_portions:
-        engine_version = f"{engine_version}+{PORTION_VERSION}"
+        portion_version = (
+            PORTION_VERSION
+            if redistribute_remaining_energy
+            else WEEKLY_PORTION_VERSION
+        )
+        engine_version = f"{engine_version}+{portion_version}"
     try:
         with weekly_debug_span(
             "PRACTICAL",
@@ -338,6 +347,7 @@ def _compute_shared_recommendation(
                 loaded,
                 meal_type=data.meal_type,
                 auto_size_portions=data.auto_size_portions,
+                redistribute_remaining_energy=redistribute_remaining_energy,
             )
     except MealEnergyAllocationError as exc:
         raise SharedPracticalRecommendationApiError(str(exc)) from exc
@@ -402,13 +412,19 @@ def compute_shared_practical_recommendation_with_contexts(
     *,
     family: Family,
     data: SharedPracticalRecommendationCreate,
+    redistribute_remaining_energy: bool = True,
 ) -> tuple[
     SharedFamilyMealRecommendationResult,
     list[CommercialOfferSnapshot],
     tuple[SharedMealParticipantContext, ...],
 ]:
     """Return shared recommendation evidence plus the exact Person contexts used to score it."""
-    return _compute_shared_recommendation(session, family=family, data=data)
+    return _compute_shared_recommendation(
+        session,
+        family=family,
+        data=data,
+        redistribute_remaining_energy=redistribute_remaining_energy,
+    )
 
 
 def compute_shared_practical_recommendation(
