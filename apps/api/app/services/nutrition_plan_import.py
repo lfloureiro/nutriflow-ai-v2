@@ -82,8 +82,11 @@ _MANDATORY_CUES = (
     "obrigatorio",
     "não exceder",
     "nao exceder",
+    "avoid",
+    "evitar",
     "exclude",
     "excluir",
+    "retirar",
 )
 
 _EXCLUSION_CUES = (
