@@ -244,6 +244,7 @@ def test_weekly_proposal_returns_selected_shared_plan_without_meal_events(
         assert Decimal(participant["nutrition"]["energy_kcal"]) == Decimal(500)
         assert participant["nutrition"]["nutrients"] == {}
         assert participant["plan_rule_results"] == []
+        assert participant["plan_guidance"] == []
     assert "thu-lunch" in body["slot_engine_versions"]
 
     meal_count = db_session.scalar(select(func.count()).select_from(MealEvent))
@@ -317,6 +318,7 @@ def test_weekly_proposal_exposes_person_specific_nutrition_plan_authority(
     assert ana_read["plan_fit_status"] == "unknown"
     assert ana_read["plan_fit_score"] is None
     assert ana_read["plan_unknown_evidence"]
+    assert ana_read["plan_guidance"] == ["Incluir vegetais."]
 
     bruno_read = participants[str(bruno.id)]
     assert bruno_read["nutrition_plan_authority"] == "no_active_plan"
