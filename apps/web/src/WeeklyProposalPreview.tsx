@@ -528,6 +528,13 @@ export function numericPlanComparisonRules(
   );
 }
 
+export function peopleCountLabel(count: number, locale: Locale): string {
+  if (locale === "pt-PT") {
+    return `${count} ${count === 1 ? "pessoa" : "pessoas"}`;
+  }
+  return `${count} ${count === 1 ? "person" : "people"}`;
+}
+
 export function adaptationKindLabel(
   proposal: SharedMealTransformationProposal,
   locale: Locale,
