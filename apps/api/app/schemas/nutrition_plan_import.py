@@ -89,14 +89,25 @@ class NutritionPlanImportProposalCreate(_ValidityModel):
         if self.proposal_type == "numeric_rule":
             if not self.target_type or not self.target_key or not self.operator:
                 raise ValueError("numeric_rule requires target_type, target_key and operator")
-            if (
-                self.value_min is None
-                and self.value_max is None
-                and self.value_target is None
-            ):
-                raise ValueError("numeric_rule requires at least one numeric value")
-            if not self.unit:
-                raise ValueError("numeric_rule requires unit")
+            if self.operator == "exclude":
+                if (
+                    self.value_min is not None
+                    or self.value_max is not None
+                    or self.value_target is not None
+                    or self.unit is not None
+                ):
+                    raise ValueError(
+                        "exclude rules must not define numeric values or a unit"
+                    )
+            else:
+                if (
+                    self.value_min is None
+                    and self.value_max is None
+                    and self.value_target is None
+                ):
+                    raise ValueError("numeric_rule requires at least one numeric value")
+                if not self.unit:
+                    raise ValueError("numeric_rule requires unit")
         elif self.proposal_type == "frequency_guideline":
             if self.period != "week":
                 raise ValueError("frequency_guideline requires period='week'")
