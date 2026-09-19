@@ -17,6 +17,9 @@ import {
   shoppingRefreshSummary,
   nutritionPlanAuthorityLabel,
   formatMealPortion,
+  formatMealEnergyReference,
+  weeklyExplanationLabel,
+  weeklyExplanationLabels,
 } from "./WeeklyProposalPreview";
 
 describe("weekly proposal calendar dates", () => {
@@ -152,6 +155,37 @@ describe("weekly portion labels", () => {
     expect(formatMealPortion("250.0000", "g", "520.40", "pt-PT")).toBe(
       "250 g · ~520 kcal",
     );
+  });
+});
+
+
+describe("weekly participant detail formatting", () => {
+  it("shows a readable meal energy reference", () => {
+    expect(formatMealEnergyReference("540.00", "600.00", "pt-PT")).toBe(
+      "540–600 kcal",
+    );
+    expect(formatMealEnergyReference(null, "700.00", "pt-PT")).toBe("≤ 700 kcal");
+  });
+
+  it("hides duplicate Plan-Fit machine codes", () => {
+    expect(weeklyExplanationLabel("plan_fit_status:unknown", "pt-PT")).toBeNull();
+    expect(weeklyExplanationLabel("plan_fit_score_unavailable", "pt-PT")).toBeNull();
+  });
+
+  it("translates preference and planning evidence", () => {
+    expect(
+      weeklyExplanationLabels(
+        [
+          "rated:recipe:legacy-v1:recipe:4:4",
+          "planning_location:Casa",
+          "plan_fit_status:unknown",
+        ],
+        "pt-PT",
+      ),
+    ).toEqual([
+      "Avaliação pessoal desta receita: 4/5.",
+      "Local de preparação: Casa.",
+    ]);
   });
 });
 
