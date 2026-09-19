@@ -25,6 +25,8 @@ The weekly planning proposal API accepts only ordinary planning inputs:
 
 For every slot the server runs the existing shared practical recommendation pipeline. The exact Person-specific `MealPlanFitRead` used for that candidate is carried transiently with each shared participant evaluation. Diversity and feedback adjustments preserve that transient evidence.
 
+Weekly auto-sizing uses each meal's fixed share of the Person's reconstructed daily energy target (breakfast 25%, lunch 35%, snack 10%, dinner 30%). It must not redistribute the entire still-unplanned daily remainder into later weekly slots, because weekly slots are evaluated independently before any proposed meals are materialized. Same-day recommendation flows retain remaining-energy redistribution.
+
 The weekly orchestration layer then converts those server-generated slot evaluations into `SharedWeeklyPlanningSlot` inputs and calls the existing shared-Family optimizer. It does not:
 
 - compile or reinterpret NutritionPlan rules;
