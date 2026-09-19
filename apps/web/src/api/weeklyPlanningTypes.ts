@@ -1,8 +1,9 @@
 import type { MealTransformationOperation } from "./mealTransformationTypes";
 import type {
+  MealPlanFitGuideline,
   MealPlanFitNutrient,
-  MealPlanFitResult,
   MealPlanFitRule,
+  PlanFitConflict,
 } from "./planFitTypes";
 import type { RecommendationCandidateInput } from "./types";
 
@@ -80,7 +81,15 @@ export type SharedWeeklyPlanParticipant = {
     energy_kcal: string | null;
     nutrients: Record<string, MealPlanFitNutrient>;
   };
-  plan_fit: MealPlanFitResult;
+  plan_fit_detail: {
+    eligible: boolean;
+    status: MealPlanFitStatus;
+    fit_score: string | null;
+    conflicts: PlanFitConflict[];
+    safety_issues: string[];
+    rule_results: MealPlanFitRule[];
+    guideline_results: MealPlanFitGuideline[];
+  };
   plan_rule_results: MealPlanFitRule[];
   plan_guidance: string[];
   portion_factor: string | null;
