@@ -721,6 +721,12 @@ def _compute_shared_weekly_plan_uncached(
                     raise WeeklyPlanningApiError(
                         "Selected weekly planning participant is not persisted."
                     )
+                fit = participant.plan_fit
+                if fit is None:
+                    raise WeeklyPlanningApiError(
+                        "Selected weekly participant is missing Person Plan-Fit evidence."
+                    )
+                authority = fit.nutrition_plan_authority
                 participant_reads.append(
                     SharedWeeklyPlanParticipantRead(
                         person_id=person_id,
@@ -728,6 +734,12 @@ def _compute_shared_weekly_plan_uncached(
                         quantity=participant.portion.quantity,
                         quantity_unit=participant.portion.quantity_unit,
                         energy_kcal=participant.evaluation.candidate.nutrition.energy_kcal,
+                        plan_fit_status=fit.status,
+                        plan_fit_score=fit.fit_score,
+                        nutrition_plan_authority=authority.state,
+                        active_plan_ids=[plan.id for plan in authority.active_plans],
+                        active_plan_titles=[plan.title for plan in authority.active_plans],
+                        plan_unknown_evidence=list(authority.unknown_evidence),
                         explanation=list(participant.evaluation.explanation),
                     )
                 )
