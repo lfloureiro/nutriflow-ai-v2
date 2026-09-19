@@ -747,25 +747,6 @@ def _compute_shared_weekly_plan_uncached(
                             rule_results=list(fit.rule_results),
                             guideline_results=list(fit.guideline_results),
                         ),
-                        plan_rule_results=[
-                            rule
-                            for rule in fit.rule_results
-                            if rule.source.plan_id is not None
-                            and rule.scope in {"candidate", "meal"}
-                            and rule.target_type
-                            in {"nutrient", "meal_composition", "food_category"}
-                        ],
-                        plan_guidance=[
-                            guideline.description
-                            for guideline in sorted(
-                                (
-                                    item
-                                    for item in fit.guideline_results
-                                    if item.source.plan_id is not None
-                                ),
-                                key=lambda item: (-item.priority, str(item.guideline_id)),
-                            )
-                        ][:4],
                         portion_factor=participant.portion.portion_factor,
                         meal_energy_target_min_kcal=(
                             participant.portion.meal_energy_target_min_kcal
@@ -773,12 +754,8 @@ def _compute_shared_weekly_plan_uncached(
                         meal_energy_target_max_kcal=(
                             participant.portion.meal_energy_target_max_kcal
                         ),
-                        plan_fit_status=fit.status,
-                        plan_fit_score=fit.fit_score,
                         nutrition_plan_authority=authority.state,
-                        active_plan_ids=[plan.id for plan in authority.active_plans],
                         active_plan_titles=[plan.title for plan in authority.active_plans],
-                        plan_unknown_evidence=list(authority.unknown_evidence),
                         explanation=list(participant.evaluation.explanation),
                     )
                 )
