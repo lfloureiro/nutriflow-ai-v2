@@ -707,6 +707,10 @@ export default function WeeklyProposalPreview({
   const [shoppingWarning, setShoppingWarning] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedMealType, setSelectedMealType] = useState<MealType | null>(null);
+  const [adaptationBusy, setAdaptationBusy] = useState(false);
+  const [adaptationResult, setAdaptationResult] =
+    useState<SharedMealTransformationResult | null>(null);
+  const [adaptationError, setAdaptationError] = useState<string | null>(null);
   const plan = refreshedPlan ?? suppliedPlan ?? loadedPlan;
   const effectiveWeekStart = refreshedPlan?.start_date ?? suppliedPlan?.start_date ?? weekStart;
 
@@ -720,6 +724,9 @@ export default function WeeklyProposalPreview({
     setShoppingSummary(null);
     setPlanRefreshWarning(null);
     setShoppingWarning(null);
+    setAdaptationResult(null);
+    setAdaptationError(null);
+    setAdaptationBusy(false);
   }, [familyId, weekStart]);
 
   useEffect(() => {
