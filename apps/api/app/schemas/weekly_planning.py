@@ -56,6 +56,7 @@ class SharedWeeklyPlanParticipantRead(BaseModel):
     energy_kcal: Decimal | None
     nutrition: RecommendationNutritionRead
     plan_rule_results: list[MealPlanFitRuleRead] = Field(default_factory=list)
+    plan_guidance: list[str] = Field(default_factory=list)
     portion_factor: Decimal | None
     meal_energy_target_min_kcal: Decimal | None
     meal_energy_target_max_kcal: Decimal | None
