@@ -361,9 +361,21 @@ def _recipe_candidate_quantity(
     recipe: Recipe,
     snapshot: RecipeCompositionSnapshot,
 ) -> Decimal:
+    if snapshot.reference_unit == "serving":
+        return Decimal(1)
     if recipe.serving_count is None:
         return snapshot.reference_quantity
     return snapshot.reference_quantity / recipe.serving_count
+
+
+def _recipe_candidate_energy(
+    recipe: Recipe,
+    snapshot: RecipeCompositionSnapshot,
+) -> Decimal | None:
+    if snapshot.energy_kcal is None:
+        return None
+    quantity = _recipe_candidate_quantity(recipe, snapshot)
+    return snapshot.energy_kcal * quantity / snapshot.reference_quantity
 
 
 def _recipe_candidates(
@@ -410,11 +422,7 @@ def _recipe_candidates(
                 description=recipe.description,
                 reference_quantity=_recipe_candidate_quantity(recipe, snapshot),
                 reference_unit=snapshot.reference_unit,
-                energy_kcal=(
-                    snapshot.energy_kcal / recipe.serving_count
-                    if snapshot.energy_kcal is not None and recipe.serving_count is not None
-                    else snapshot.energy_kcal
-                ),
+                energy_kcal=_recipe_candidate_energy(recipe, snapshot),
                 composition_version=snapshot.composition_version,
                 composition_at=snapshot.computed_at,
                 suitable_meal_types=_resolved_meal_types(
