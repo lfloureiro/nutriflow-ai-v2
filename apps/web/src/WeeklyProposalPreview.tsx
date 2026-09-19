@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { ApiError, getFamilyMealPlan } from "./api/client";
+import { ApiError, cancelMealPlanEntry, getFamilyMealPlan } from "./api/client";
 import type { FamilyMealPlan, MealPlanEntry, MealType } from "./api/mealPlanTypes";
 import { refreshShoppingList } from "./api/pantryShoppingClient";
 import type { ShoppingList } from "./api/pantryShoppingTypes";
@@ -33,7 +33,7 @@ const ALL_MEAL_TYPES: MealType[] = ["breakfast", "lunch", "snack", "dinner"];
 const PREVIEW_MAX_COMBINATIONS = 256;
 
 type BusyStage = "catalogue" | "planning";
-type DecisionBusy = "apply" | "reject" | null;
+type DecisionBusy = "apply" | "reject" | "remove" | null;
 type RejectedBySlot = Record<string, string[]>;
 
 export type ShoppingRefreshSummary = {
@@ -74,6 +74,10 @@ const COPY = {
     chooseMeal: "Escolhe uma refeição para abrir o detalhe.",
     mealDetail: "Refeição",
     planned: "Planeada",
+    editPlanned: "Alterar",
+    viewPlanned: "Ver",
+    removePlanned: "Remover do plano",
+    confirmRemovePlanned: "Remover esta refeição do planeamento? O registo fica preservado como cancelado.",
     proposed: "Proposta",
     planAdapted: "Adaptada ao plano",
     preferenceVariant: "Variante por preferência",
@@ -127,6 +131,10 @@ const COPY = {
     chooseMeal: "Choose a meal to open its detail.",
     mealDetail: "Meal",
     planned: "Planned",
+    editPlanned: "Edit",
+    viewPlanned: "View",
+    removePlanned: "Remove from plan",
+    confirmRemovePlanned: "Remove this meal from planning? The record remains preserved as cancelled.",
     proposed: "Proposal",
     planAdapted: "Adapted to plan",
     preferenceVariant: "Preference variant",
@@ -321,12 +329,14 @@ export default function WeeklyProposalPreview({
   people,
   plan: suppliedPlan,
   onEdit,
+  onPlanChanged,
 }: {
   familyId: string;
   weekStart?: string;
   people: Person[];
   plan?: FamilyMealPlan;
   onEdit?: (planningDate: string, mealType: MealType, entry: MealPlanEntry | null) => void;
+  onPlanChanged?: () => void;
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
@@ -553,6 +563,36 @@ export default function WeeklyProposalPreview({
       setDecisionBusy(null);
     }
   }
+
+  async function removeSelectedEntry() {
+    if (
+      !selectedEntry ||
+      selectedEntry.status !== "planned" ||
+      !effectiveWeekStart ||
+      !window.confirm(copy.confirmRemovePlanned)
+    ) {
+      return;
+    }
+    setDecisionBusy("remove");
+    setError(null);
+    setNotice(null);
+    try {
+      await cancelMealPlanEntry(familyId, selectedEntry.id);
+      const updated = await getFamilyMealPlan(familyId, effectiveWeekStart, 7);
+      setRefreshedPlan(updated);
+      setProposal(null);
+      setProposalRequest(null);
+      setRejectedBySlot({});
+      setSkippedSlots({});
+      setSelectedMealType(null);
+      onPlanChanged?.();
+    } catch (caught: unknown) {
+      setError(errorText(caught));
+    } finally {
+      setDecisionBusy(null);
+    }
+  }
+
 
   async function rejectSelectedChoice() {
     if (!selectedChoice) return;
@@ -818,15 +858,29 @@ export default function WeeklyProposalPreview({
                     {formatDate(selectedDate, locale)} · {mealLabel(selectedMealType, locale)}
                   </p>
                 </div>
-                {onEdit && selectedEntry ? (
-                  <button
-                    className="button ghost"
-                    disabled={selectedEntry.status !== "planned"}
-                    onClick={() => onEdit(selectedDate, selectedMealType, selectedEntry)}
-                    type="button"
-                  >
-                    {copy.planned}
-                  </button>
+                {selectedEntry ? (
+                  <div className="weekly-meal-detail__actions">
+                    {onEdit ? (
+                      <button
+                        className="button ghost"
+                        disabled={selectedEntry.status !== "planned" || decisionBusy !== null}
+                        onClick={() => onEdit(selectedDate, selectedMealType, selectedEntry)}
+                        type="button"
+                      >
+                        {selectedEntry.transformations.length > 0
+                          ? copy.viewPlanned
+                          : copy.editPlanned}
+                      </button>
+                    ) : null}
+                    <button
+                      className="button ghost"
+                      disabled={selectedEntry.status !== "planned" || decisionBusy !== null}
+                      onClick={() => void removeSelectedEntry()}
+                      type="button"
+                    >
+                      {copy.removePlanned}
+                    </button>
+                  </div>
                 ) : null}
               </div>
 
