@@ -111,6 +111,47 @@ def test_dinner_uses_the_remaining_daily_energy() -> None:
     assert allocation.meal_target_max_kcal == Decimal("800.00")
 
 
+def test_weekly_allocation_uses_fixed_daily_meal_weight_without_redistribution() -> None:
+    state = _state(
+        consumed="0.00",
+        planned="0.00",
+        assumed="0.00",
+        remaining_min="1800.00",
+        remaining_max="2000.00",
+    )
+
+    allocation = allocate_meal_energy(
+        state,
+        meal_type="dinner",
+        redistribute_remaining=False,
+    )
+
+    assert allocation.daily_target_min_kcal == Decimal("1800.00")
+    assert allocation.daily_target_max_kcal == Decimal("2000.00")
+    assert allocation.meal_target_min_kcal == Decimal("540.00")
+    assert allocation.meal_target_max_kcal == Decimal("600.00")
+    assert allocation.policy_version == "meal-energy-allocation-v3-fixed-daily-weight"
+
+
+def test_weekly_portion_sizing_does_not_turn_dinner_into_whole_day_target() -> None:
+    result = size_candidate_for_meal(
+        _candidate("983.17"),
+        _state(
+            consumed="0.00",
+            planned="0.00",
+            assumed="0.00",
+            remaining_min="1800.00",
+            remaining_max="2000.00",
+        ),
+        meal_type="dinner",
+        redistribute_remaining=False,
+    )
+
+    assert result.portion_factor == Decimal("0.50")
+    assert result.candidate.quantity == Decimal("0.5000")
+    assert result.candidate.nutrition.energy_kcal == Decimal("491.59")
+
+
 def test_candidate_is_rounded_to_practical_quarter_serving() -> None:
     result = size_candidate_for_meal(
         _candidate("500.00"),
