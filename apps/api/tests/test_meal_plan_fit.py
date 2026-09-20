@@ -11,6 +11,7 @@ from app.models.family import Family
 from app.models.food_catalog import (
     FoodCompositionSnapshot,
     FoodItem,
+    FoodItemClassification,
     FoodNutrientComponent,
 )
 from app.models.nutrition_constraint import NutritionConstraint
@@ -183,6 +184,87 @@ def _request(composition: FoodCompositionSnapshot, state_id=None) -> MealPlanFit
             quantity_unit="g",
         ),
     )
+
+
+def test_plan_fit_food_category_exclusion_uses_only_persisted_classification(
+    db_session: Session,
+) -> None:
+    person = _person(db_session)
+    composition = _dish(db_session, person)
+    composition.food_item.name = "Gluten flour named food"
+
+    plan = create_nutrition_plan(
+        db_session,
+        person=person,
+        data=NutritionPlanCreate(
+            title="Gluten exclusion",
+            source_type="nutritionist",
+            status="draft",
+            valid_from=date(2026, 9, 1),
+        ),
+    )
+    exclusion = NutritionConstraint(
+        person_id=person.id,
+        constraint_type="exclusion",
+        target_type="food_category",
+        target_key="gluten",
+        operator="exclude",
+        severity="required",
+        is_mandatory=True,
+        source="nutritionist",
+    )
+    db_session.add(exclusion)
+    db_session.flush()
+    add_nutrition_plan_rule(
+        db_session,
+        plan=plan,
+        data=NutritionPlanRuleCreate(
+            rule_kind="constraint",
+            reference_id=exclusion.id,
+            meal_type="lunch",
+            source_statement="Evitar glúten.",
+        ),
+    )
+    update_nutrition_plan(
+        db_session,
+        plan=plan,
+        data=NutritionPlanUpdate(status="active"),
+    )
+
+    without_metadata = evaluate_meal_plan_fit(
+        db_session,
+        person_id=person.id,
+        data=_request(composition),
+    )
+    unclassified_rule = next(
+        rule
+        for rule in without_metadata.rule_results
+        if rule.target_type == "food_category" and rule.target_key == "gluten"
+    )
+    assert unclassified_rule.status == "pass"
+    assert without_metadata.eligible is True
+
+    composition.food_item.classifications.append(
+        FoodItemClassification(
+            classification_type="food_category",
+            classification_key="gluten",
+            source="test",
+        )
+    )
+    db_session.commit()
+
+    with_metadata = evaluate_meal_plan_fit(
+        db_session,
+        person_id=person.id,
+        data=_request(composition),
+    )
+    classified_rule = next(
+        rule
+        for rule in with_metadata.rule_results
+        if rule.target_type == "food_category" and rule.target_key == "gluten"
+    )
+    assert classified_rule.status == "fail"
+    assert with_metadata.eligible is False
 
 
 def test_plan_fit_combines_meal_rule_with_daily_mandatory_limit(
