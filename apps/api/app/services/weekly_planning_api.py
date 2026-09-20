@@ -241,6 +241,7 @@ def _transformation_candidates(
     planning_date,
     meal_type,
     engine_version: str,
+    max_proposals: int = 3,
 ) -> tuple[
     list[SharedWeeklyPlanningCandidate],
     dict[str, _WeeklyTransformationEvidence],
