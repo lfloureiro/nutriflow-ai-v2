@@ -1,3 +1,5 @@
+import type { FoodItemClassification } from "./foodClassificationTypes";
+
 export type RecipeMealType = "breakfast" | "lunch" | "snack" | "dinner";
 
 export type RecipeNutritionEvidence =
@@ -17,6 +19,7 @@ export type RecipeIngredient = {
   sort_order: number;
   has_nutrition: boolean;
   has_energy: boolean;
+  classifications: FoodItemClassification[];
 };
 
 export type RecipeNutrient = {
