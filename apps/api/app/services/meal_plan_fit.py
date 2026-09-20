@@ -47,6 +47,10 @@ _CANDIDATE_TARGET_TYPES = {
     "supplement",
     "generic",
     "recipe",
+    "food_category",
+    "allergen",
+    "processing_class",
+    "protein_source",
 }
 _MIN_OPERATORS = {"min", "gte", ">=", ">"}
 _MAX_OPERATORS = {"max", "lte", "<=", "<"}
