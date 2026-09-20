@@ -30,9 +30,17 @@ export type SharedWeeklyPlanningSlotRequest = {
   auto_size_portions: boolean;
 };
 
+export type SharedWeeklyPlanPinnedChoice = {
+  slot_key: string;
+  candidate_key: string;
+  recipe_ingredient_id?: string | null;
+  replacement_food_item_id?: string | null;
+};
+
 export type SharedWeeklyPlanProposalRequest = {
   person_ids: string[];
   slots: SharedWeeklyPlanningSlotRequest[];
+  pinned_choices?: SharedWeeklyPlanPinnedChoice[];
   max_combinations?: number;
 };
 
