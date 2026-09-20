@@ -1,0 +1,104 @@
+.recipe-evidence {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.8rem;
+  background: var(--surface-soft);
+}
+
+.recipe-evidence__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.recipe-evidence__heading span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.recipe-evidence > p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.recipe-evidence__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.recipe-evidence__stats > span {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.7rem;
+  background: var(--surface-raised);
+}
+
+.recipe-evidence__stats small {
+  color: var(--text-muted);
+}
+
+.recipe-evidence details {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.35rem;
+}
+
+.recipe-evidence summary {
+  cursor: pointer;
+  font-weight: 700;
+  padding: 0.25rem 0;
+}
+
+.recipe-evidence__ingredients {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.55rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recipe-evidence__ingredients li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.recipe-evidence__ingredients li:last-child {
+  border-bottom: 0;
+}
+
+.recipe-evidence__ingredients li > span {
+  display: flex;
+  gap: 0.55rem;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.recipe-evidence__ingredients small,
+.recipe-evidence__ingredients em {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-style: normal;
+}
+
+@media (max-width: 620px) {
+  .recipe-evidence__heading,
+  .recipe-evidence__ingredients li,
+  .recipe-evidence__ingredients li > span {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .recipe-evidence__stats {
+    grid-template-columns: 1fr;
+  }
+}
