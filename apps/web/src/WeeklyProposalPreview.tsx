@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { ApiError, cancelMealPlanEntry, getFamilyMealPlan } from "./api/client";
+import {
+  ApiError,
+  cancelMealPlanEntry,
+  getFamilyMealPlan,
+  getFamilyRecipe,
+} from "./api/client";
 import type { FamilyMealPlan, MealPlanEntry, MealType } from "./api/mealPlanTypes";
 import { refreshShoppingList } from "./api/pantryShoppingClient";
 import type { ShoppingList } from "./api/pantryShoppingTypes";
@@ -23,9 +28,11 @@ import type {
   SharedWeeklyPlanRequest,
   SharedWeeklyPlanningSlotRequest,
 } from "./api/weeklyPlanningTypes";
+import type { Recipe } from "./api/recipeTypes";
 import type { Person } from "./api/types";
 import { useI18n, type Locale } from "./i18n";
 import MealPlanFitAssessment from "./MealPlanFitAssessment";
+import RecipeEvidencePanel from "./RecipeEvidencePanel";
 import { scheduledIso } from "./planning";
 import {
   recommendationCandidates,
@@ -118,6 +125,8 @@ const COPY = {
     useOriginal: "Voltar à receita original",
     originalSelected: "A receita original foi reposta nesta proposta.",
     noAdaptation: "Não foram encontradas substituições seguras configuradas que melhorem esta receita.",
+    recipeDataLoading: "A carregar qualidade dos dados da receita…",
+    recipeDataError: "Não foi possível carregar o detalhe nutricional da receita.",
     planImprovesFor: "Melhora o plano para",
     preferenceImprovesFor: "Melhora as preferências para",
     beforeAfter: "Antes → depois",
@@ -214,6 +223,8 @@ const COPY = {
     useOriginal: "Use original recipe",
     originalSelected: "The original recipe is restored in this proposal.",
     noAdaptation: "No configured safe substitutions were found that improve this recipe.",
+    recipeDataLoading: "Loading Recipe data quality…",
+    recipeDataError: "Could not load the Recipe nutrition detail.",
     planImprovesFor: "Improves the plan for",
     preferenceImprovesFor: "Improves preferences for",
     beforeAfter: "Before → after",
@@ -789,6 +800,9 @@ export default function WeeklyProposalPreview({
   const [adaptationError, setAdaptationError] = useState<string | null>(null);
   const [pinnedChoices, setPinnedChoices] = useState<SharedWeeklyPlanPinnedChoice[]>([]);
   const [adaptationChoiceBusy, setAdaptationChoiceBusy] = useState<string | null>(null);
+  const [selectedRecipeDetail, setSelectedRecipeDetail] = useState<Recipe | null>(null);
+  const [recipeDetailLoading, setRecipeDetailLoading] = useState(false);
+  const [recipeDetailError, setRecipeDetailError] = useState<string | null>(null);
   const plan = refreshedPlan ?? suppliedPlan ?? loadedPlan;
   const effectiveWeekStart = refreshedPlan?.start_date ?? suppliedPlan?.start_date ?? weekStart;
 
@@ -807,6 +821,9 @@ export default function WeeklyProposalPreview({
     setAdaptationBusy(false);
     setPinnedChoices([]);
     setAdaptationChoiceBusy(null);
+    setSelectedRecipeDetail(null);
+    setRecipeDetailLoading(false);
+    setRecipeDetailError(null);
   }, [familyId, weekStart]);
 
   useEffect(() => {
@@ -857,6 +874,33 @@ export default function WeeklyProposalPreview({
   const selectedSlotKey =
     selectedDate && selectedMealType ? slotKey(selectedDate, selectedMealType) : null;
   const selectedSkippedReason = selectedSlotKey ? skippedSlots[selectedSlotKey] ?? null : null;
+
+  useEffect(() => {
+    const recipeId = selectedChoice?.recipe_id;
+    if (!recipeId) {
+      setSelectedRecipeDetail(null);
+      setRecipeDetailLoading(false);
+      setRecipeDetailError(null);
+      return;
+    }
+    let cancelled = false;
+    setSelectedRecipeDetail(null);
+    setRecipeDetailLoading(true);
+    setRecipeDetailError(null);
+    void getFamilyRecipe(familyId, recipeId)
+      .then((recipe) => {
+        if (!cancelled) setSelectedRecipeDetail(recipe);
+      })
+      .catch(() => {
+        if (!cancelled) setRecipeDetailError(copy.recipeDataError);
+      })
+      .finally(() => {
+        if (!cancelled) setRecipeDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [familyId, selectedChoice?.recipe_id, copy.recipeDataError]);
 
   useEffect(() => {
     setAdaptationResult(null);
@@ -1498,6 +1542,15 @@ export default function WeeklyProposalPreview({
                             : copy.suggestAdaptation}
                       </button>
                     </div>
+                  ) : null}
+                  {selectedChoice.recipe_id ? (
+                    selectedRecipeDetail ? (
+                      <RecipeEvidencePanel recipe={selectedRecipeDetail} />
+                    ) : recipeDetailLoading ? (
+                      <p className="muted compact">{copy.recipeDataLoading}</p>
+                    ) : recipeDetailError ? (
+                      <p className="muted compact">{recipeDetailError}</p>
+                    ) : null
                   ) : null}
                   {selectedChoice.transformation ? (
                     <div className="weekly-transformation-summary">
