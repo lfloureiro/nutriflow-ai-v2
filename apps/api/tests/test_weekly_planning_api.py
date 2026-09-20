@@ -910,6 +910,80 @@ def test_weekly_proposal_can_select_plan_adapted_variant_when_base_is_ineligible
     )
     assert primary["score"] is not None
 
+    operation = choice["transformation"]["operation"]
+    pinned_payload = {
+        **payload,
+        "pinned_choices": [
+            {
+                "slot_key": "tue-breakfast",
+                "candidate_key": recipe.recipe_key,
+                "recipe_ingredient_id": operation["recipe_ingredient_id"],
+                "replacement_food_item_id": operation["replacement_food_item_id"],
+            }
+        ],
+    }
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    try:
+        with TestClient(app) as client:
+            pinned_response = client.post(
+                f"/api/families/{DEMO_FAMILY_ID}/weekly-planning/proposals",
+                json=pinned_payload,
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert pinned_response.status_code == 201
+    pinned_body = pinned_response.json()
+    assert pinned_body["selected_plan"] is not None
+    pinned_choice = pinned_body["selected_plan"]["choices"][0]
+    assert pinned_choice["candidate_key"] == recipe.recipe_key
+    assert pinned_choice["transformation"] is not None
+    pinned_operation = pinned_choice["transformation"]["operation"]
+    assert pinned_operation["recipe_ingredient_id"] == operation["recipe_ingredient_id"]
+    assert (
+        pinned_operation["replacement_food_item_id"]
+        == operation["replacement_food_item_id"]
+    )
+
+
+def test_weekly_proposal_rejects_unknown_pinned_slot(
+    db_session: Session,
+) -> None:
+    family, ana, bruno, _, composition = _setup(db_session, "pinned-unknown-slot")
+    assert family.id is not None
+    assert ana.id is not None
+    assert bruno.id is not None
+    slot = _slot(
+        "thu-lunch",
+        scheduled_at=LUNCH_AT,
+        meal_type="lunch",
+        composition=composition,
+    )
+    payload = {
+        "person_ids": [str(ana.id), str(bruno.id)],
+        "slots": [slot],
+        "pinned_choices": [
+            {
+                "slot_key": "fri-dinner",
+                "candidate_key": "recipe:missing",
+            }
+        ],
+        "max_combinations": 100,
+    }
+
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                f"/api/families/{family.id}/weekly-planning/proposals",
+                json=payload,
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    assert "unknown slots" in response.json()["detail"]
+
 
 
 
