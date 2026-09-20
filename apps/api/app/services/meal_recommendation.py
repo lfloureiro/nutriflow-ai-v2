@@ -79,11 +79,16 @@ def _active_on(start_date: date | None, end_date: date | None, on_date: date) ->
 
 
 def _food_subjects(food_item: FoodItem) -> set[tuple[str, str]]:
-    return {
+    subjects = {
         ("food", food_item.catalog_key),
         ("food_item", food_item.catalog_key),
         (food_item.food_kind, food_item.catalog_key),
     }
+    subjects.update(
+        (classification.classification_type, classification.classification_key)
+        for classification in food_item.classifications
+    )
+    return subjects
 
 
 def build_food_candidate(
@@ -189,6 +194,10 @@ def _mandatory_constraint_exclusion(
         "supplement",
         "generic",
         "recipe",
+        "food_category",
+        "allergen",
+        "processing_class",
+        "protein_source",
     }:
         if _subject_matches(constraint.target_type, constraint.target_key, candidate):
             return f"mandatory_exclusion:{constraint.target_type}:{constraint.target_key}"
