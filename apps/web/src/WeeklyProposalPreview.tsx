@@ -889,6 +889,7 @@ export default function WeeklyProposalPreview({
   async function generateProposal(
     rejectedOverride: RejectedBySlot = rejectedBySlot,
     resetSelection = true,
+    pinnedOverride: SharedWeeklyPlanPinnedChoice[] = pinnedChoices,
   ) {
     setBusy(true);
     setBusyStage("catalogue");
@@ -971,6 +972,7 @@ export default function WeeklyProposalPreview({
       const request: SharedWeeklyPlanProposalRequest = {
         person_ids: people.map((person) => person.id),
         slots,
+        pinned_choices: pinnedOverride,
         max_combinations: PREVIEW_MAX_COMBINATIONS,
       };
       setProposalRequest(request);
@@ -988,6 +990,58 @@ export default function WeeklyProposalPreview({
       setBusy(false);
       setBusyStage(null);
     }
+  }
+
+  async function recalculateWithPinnedChoices(
+    nextPinnedChoices: SharedWeeklyPlanPinnedChoice[],
+    successMessage: string,
+  ) {
+    if (!proposalRequest || !selectedChoice) return;
+    const selectedKey = selectedChoice.slot_key;
+    setAdaptationChoiceBusy(selectedKey);
+    setAdaptationError(null);
+    setError(null);
+    setNotice(null);
+    try {
+      const request: SharedWeeklyPlanProposalRequest = {
+        ...proposalRequest,
+        pinned_choices: nextPinnedChoices,
+      };
+      const result = await requestSharedWeeklyPlanProposal(familyId, request);
+      const serverSkipped = weeklySkippedSlotMessages(result.skipped_slots, locale);
+      const requestedSlotKeys = new Set(request.slots.map((slot) => slot.slot_key));
+      const localSkipped = Object.fromEntries(
+        Object.entries(skippedSlots).filter(([key]) => !requestedSlotKeys.has(key)),
+      );
+      setSkippedSlots({ ...localSkipped, ...serverSkipped });
+      setPinnedChoices(nextPinnedChoices);
+      setProposalRequest(request);
+      setProposal(result);
+      setAdaptationResult(null);
+      setNotice(successMessage);
+    } catch (caught: unknown) {
+      setAdaptationError(errorText(caught));
+    } finally {
+      setAdaptationChoiceBusy(null);
+    }
+  }
+
+  async function useAdaptation(adaptation: SharedMealTransformationProposal) {
+    if (!selectedChoice) return;
+    const nextPinnedChoices = upsertPinnedWeeklyChoice(
+      pinnedChoices,
+      pinnedChoiceForAdaptation(selectedChoice, adaptation),
+    );
+    await recalculateWithPinnedChoices(nextPinnedChoices, copy.adaptationSelected);
+  }
+
+  async function useOriginalRecipe() {
+    if (!selectedChoice) return;
+    const nextPinnedChoices = upsertPinnedWeeklyChoice(
+      pinnedChoices,
+      pinnedChoiceForOriginal(selectedChoice),
+    );
+    await recalculateWithPinnedChoices(nextPinnedChoices, copy.originalSelected);
   }
 
   async function applyWeek() {
@@ -1013,6 +1067,7 @@ export default function WeeklyProposalPreview({
     setProposal(null);
     setProposalRequest(null);
     setRejectedBySlot({});
+    setPinnedChoices([]);
     setSkippedSlots({});
     setNotice(copy.accepted);
 
@@ -1052,6 +1107,7 @@ export default function WeeklyProposalPreview({
       setProposal(null);
       setProposalRequest(null);
       setRejectedBySlot({});
+      setPinnedChoices([]);
       setSkippedSlots({});
       setSelectedMealType(null);
       onPlanChanged?.();
@@ -1071,12 +1127,16 @@ export default function WeeklyProposalPreview({
       ...rejectedBySlot,
       [key]: [...new Set([...existing, selectedChoice.candidate_key])],
     };
+    const nextPinnedChoices = pinnedChoices.filter(
+      (choice) => choice.slot_key !== key,
+    );
     setRejectedBySlot(next);
+    setPinnedChoices(nextPinnedChoices);
     setDecisionBusy("reject");
     setError(null);
     setNotice(null);
     try {
-      await generateProposal(next, false);
+      await generateProposal(next, false, nextPinnedChoices);
     } finally {
       setDecisionBusy(null);
     }
