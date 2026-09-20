@@ -566,3 +566,30 @@ This closes the review loop that previously stopped at displaying transformation
 - final `Aplicar semana` continues to use expected-choice stale validation, including transformation identity.
 
 No MealEvent is created by selecting an adaptation. Persistence occurs only when the reviewed week is explicitly applied.
+
+
+## Review increment — Recipe nutrition evidence in weekly detail
+
+Stacked review branch:
+
+```text
+feat/weekly-recipe-evidence-review
+```
+
+Base: `feat/weekly-select-adaptation-review` exact green head `836a1982cf09ef1ac0d0bcfe9f521f4d173f5bda`.
+
+This increment makes incomplete legacy nutrition evidence explicit rather than presenting an energy-only Recipe as if it had a complete nutrition analysis.
+
+The weekly Recipe detail now:
+
+- loads the authoritative Recipe detail only when a Recipe slot is opened;
+- states whether the latest nutrition evidence is ingredient-calculated, imported, synthetic development data or incomplete;
+- shows ingredient coverage counts for structured nutrition and energy;
+- shows how many structured nutrients are actually available;
+- explicitly explains the energy-only case, e.g. calories known but macronutrients unavailable;
+- exposes a collapsible ingredient list with quantity/unit and per-ingredient nutrition coverage;
+- keeps Person-specific Plan-Fit below this Recipe-level evidence so missing data and plan evaluation are visually distinct.
+
+The shared transformation service now returns `no_structured_substitution_profiles` when a Recipe has no configured substitution profile at all. The weekly UI translates this and the existing composition/unit limitations into user-facing explanations instead of leaking machine codes or simply saying that no adaptation exists.
+
+No database migration is introduced. This increment does not infer nutrient values from Recipe or ingredient names.
