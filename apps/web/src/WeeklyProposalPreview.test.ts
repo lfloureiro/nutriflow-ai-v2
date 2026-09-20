@@ -25,6 +25,9 @@ import {
   planRuleStatusLabel,
   numericPlanComparisonRules,
   adaptationKindLabel,
+  pinnedChoiceForAdaptation,
+  pinnedChoiceForOriginal,
+  upsertPinnedWeeklyChoice,
 } from "./WeeklyProposalPreview";
 
 describe("weekly proposal calendar dates", () => {
@@ -385,6 +388,60 @@ describe("weekly application identity", () => {
     participants: [],
     transformation: null,
   };
+
+  it("builds and replaces an exact adaptation pin for one weekly slot", () => {
+    const adaptation = {
+      kind: "plan_adapted" as const,
+      operation: {
+        operation_type: "replace_ingredient" as const,
+        substitution_group: "dairy",
+        recipe_ingredient_id: "ingredient-id",
+        source_food_item_id: "source-id",
+        source_food_name: "Natas",
+        source_quantity: "100",
+        source_unit: "g",
+        replacement_food_item_id: "replacement-id",
+        replacement_food_name: "Iogurte",
+        replacement_quantity: "100",
+        replacement_unit: "g",
+      },
+      participant_results: [],
+      plan_improvement_participants: 1,
+      preference_improvement_participants: 0,
+      minimum_plan_score_delta: "0.1",
+      average_plan_score_delta: "0.1",
+      minimum_preference_delta: "0",
+      average_preference_delta: "0",
+      explanation: [],
+    };
+
+    const adaptedPin = pinnedChoiceForAdaptation(baseChoice, adaptation);
+    expect(adaptedPin).toEqual({
+      slot_key: baseChoice.slot_key,
+      candidate_key: baseChoice.candidate_key,
+      recipe_ingredient_id: "ingredient-id",
+      replacement_food_item_id: "replacement-id",
+    });
+
+    expect(
+      upsertPinnedWeeklyChoice(
+        [
+          {
+            slot_key: baseChoice.slot_key,
+            candidate_key: baseChoice.candidate_key,
+          },
+        ],
+        adaptedPin,
+      ),
+    ).toEqual([adaptedPin]);
+  });
+
+  it("can pin the original recipe after reviewing an adapted variant", () => {
+    expect(pinnedChoiceForOriginal(baseChoice)).toEqual({
+      slot_key: baseChoice.slot_key,
+      candidate_key: baseChoice.candidate_key,
+    });
+  });
 
   it("pins every reviewed base candidate by slot", () => {
     expect(weeklyPlanRequest(proposal, [baseChoice])).toEqual({
