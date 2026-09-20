@@ -20,6 +20,7 @@ from app.schemas.weekly_planning import (
     SharedWeeklyPlanMaterializedChoiceRead,
     SharedWeeklyPlanningSlotCreate,
     SharedWeeklyPlanParticipantRead,
+    SharedWeeklyPlanPinnedChoiceCreate,
     SharedWeeklyPlanProposalCreate,
     SharedWeeklyPlanProposalRead,
     SharedWeeklyPlanRead,
@@ -303,7 +304,7 @@ def _transformation_candidates(
             meal_type=meal_type,
             recipe_id=recipe.id,
             participants=participants,
-            max_proposals=3,
+            max_proposals=max_proposals,
         ),
         baseline_fits_by_person={
             participant.person.id: participant.plan_fit
@@ -331,6 +332,26 @@ def _transformation_candidates(
             proposal=proposal,
         )
     return candidates, metadata
+
+
+def _candidate_matches_pinned_choice(
+    candidate: SharedWeeklyPlanningCandidate,
+    transformation_metadata: dict[str, _WeeklyTransformationEvidence],
+    pinned_choice: SharedWeeklyPlanPinnedChoiceCreate,
+) -> bool:
+    if candidate.evaluation.candidate_key != pinned_choice.candidate_key:
+        return False
+    evidence = transformation_metadata.get(candidate.selection_key)
+    if evidence is None:
+        recipe_ingredient_id = None
+        replacement_food_item_id = None
+    else:
+        recipe_ingredient_id = evidence.proposal.operation.recipe_ingredient_id
+        replacement_food_item_id = evidence.proposal.operation.replacement_food_item_id
+    return (
+        recipe_ingredient_id == pinned_choice.recipe_ingredient_id
+        and replacement_food_item_id == pinned_choice.replacement_food_item_id
+    )
 
 
 def _plan_fit_blocker_labels(fit) -> list[str]:
@@ -428,6 +449,7 @@ def _planning_slot(
     family: Family,
     person_ids: list[uuid.UUID],
     slot: SharedWeeklyPlanningSlotCreate,
+    pinned_choice: SharedWeeklyPlanPinnedChoiceCreate | None = None,
 ) -> tuple[
     SharedWeeklyPlanningSlot,
     str,
@@ -500,6 +522,13 @@ def _planning_slot(
                 planning_date=slot.planning_date,
                 meal_type=slot.meal_type,
                 engine_version=recommendation.engine_version,
+                max_proposals=(
+                    10
+                    if pinned_choice is not None
+                    and pinned_choice.recipe_ingredient_id is not None
+                    and pinned_choice.candidate_key == evaluation.candidate_key
+                    else 3
+                ),
             )
         candidates.extend(transformed_candidates)
         transformation_metadata.update(transformed_metadata)
@@ -570,6 +599,13 @@ def _compute_shared_weekly_plan_uncached(
     slot_keys = [slot.slot_key for slot in data.slots]
     if len(slot_keys) != len(set(slot_keys)):
         raise WeeklyPlanningApiError("Weekly planning slot keys must be unique.")
+    pinned_by_slot = {item.slot_key: item for item in data.pinned_choices}
+    unknown_pinned_slots = sorted(set(pinned_by_slot).difference(slot_keys))
+    if unknown_pinned_slots:
+        raise WeeklyPlanningApiError(
+            "Pinned weekly choices refer to unknown slots: "
+            + ", ".join(unknown_pinned_slots)
+        )
 
     weekly_debug(
         "WEEKLY",
@@ -601,7 +637,32 @@ def _compute_shared_weekly_plan_uncached(
                 family=family,
                 person_ids=data.person_ids,
                 slot=slot,
+                pinned_choice=pinned_by_slot.get(slot.slot_key),
             )
+        pinned_choice = pinned_by_slot.get(slot.slot_key)
+        if pinned_choice is not None:
+            pinned_candidates = tuple(
+                candidate
+                for candidate in planning_slot.candidates
+                if _candidate_matches_pinned_choice(
+                    candidate,
+                    transformation_metadata,
+                    pinned_choice,
+                )
+            )
+            eligible_pinned = tuple(
+                candidate
+                for candidate in pinned_candidates
+                if candidate.evaluation.eligible
+                and all(fit.eligible for fit in candidate.plan_fits)
+            )
+            if not eligible_pinned:
+                raise WeeklyPlanningApiError(
+                    f"Pinned weekly choice for slot {slot.slot_key!r} "
+                    "is no longer available or eligible."
+                )
+            planning_slot = replace(planning_slot, candidates=eligible_pinned)
+
         eligible_candidates = tuple(
             candidate
             for candidate in planning_slot.candidates
