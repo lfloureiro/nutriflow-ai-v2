@@ -113,6 +113,8 @@ const COPY = {
     useAdaptation: "Usar esta adaptação",
     usingAdaptation: "A recalcular com esta adaptação…",
     adaptationSelected: "A adaptação foi incluída na proposta. Revê a semana antes de a aplicar.",
+    adaptationInfeasible:
+      "Esta adaptação é segura para a refeição, mas não permite construir uma semana compatível com as restantes regras.",
     useOriginal: "Voltar à receita original",
     originalSelected: "A receita original foi reposta nesta proposta.",
     noAdaptation: "Não foram encontradas substituições seguras configuradas que melhorem esta receita.",
@@ -207,6 +209,8 @@ const COPY = {
     useAdaptation: "Use this adaptation",
     usingAdaptation: "Recalculating with this adaptation…",
     adaptationSelected: "The adaptation is now included in the proposal. Review the week before applying it.",
+    adaptationInfeasible:
+      "This adaptation is safe for the meal, but it does not allow a weekly plan compatible with the remaining rules.",
     useOriginal: "Use original recipe",
     originalSelected: "The original recipe is restored in this proposal.",
     noAdaptation: "No configured safe substitutions were found that improve this recipe.",
@@ -1008,6 +1012,10 @@ export default function WeeklyProposalPreview({
         pinned_choices: nextPinnedChoices,
       };
       const result = await requestSharedWeeklyPlanProposal(familyId, request);
+      if (result.selected_plan === null) {
+        setAdaptationError(copy.adaptationInfeasible);
+        return;
+      }
       const serverSkipped = weeklySkippedSlotMessages(result.skipped_slots, locale);
       const requestedSlotKeys = new Set(request.slots.map((slot) => slot.slot_key));
       const localSkipped = Object.fromEntries(
@@ -1164,7 +1172,12 @@ export default function WeeklyProposalPreview({
           {proposal?.selected_plan ? (
             <button
               className="button primary"
-              disabled={busy || decisionBusy !== null || proposalRequest === null}
+              disabled={
+                busy ||
+                decisionBusy !== null ||
+                proposalRequest === null ||
+                adaptationChoiceBusy !== null
+              }
               onClick={() => void applyWeek()}
               type="button"
             >
@@ -1173,7 +1186,13 @@ export default function WeeklyProposalPreview({
           ) : null}
           <button
             className={proposal?.selected_plan ? "button ghost" : "button primary"}
-            disabled={busy || decisionBusy !== null || people.length < 2 || !plan}
+            disabled={
+              busy ||
+              decisionBusy !== null ||
+              adaptationChoiceBusy !== null ||
+              people.length < 2 ||
+              !plan
+            }
             onClick={() => void generateProposal()}
             type="button"
           >
