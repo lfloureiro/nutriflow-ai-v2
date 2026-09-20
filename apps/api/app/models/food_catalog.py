@@ -66,6 +66,51 @@ class FoodItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         cascade="all, delete-orphan",
         order_by=lambda: FoodCompositionSnapshot.effective_at,
     )
+    classifications: Mapped[list["FoodItemClassification"]] = relationship(
+        back_populates="food_item",
+        cascade="all, delete-orphan",
+        order_by=lambda: (
+            FoodItemClassification.classification_type,
+            FoodItemClassification.classification_key,
+        ),
+    )
+
+
+class FoodItemClassification(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "food_item_classifications"
+    __table_args__ = (
+        CheckConstraint(
+            "length(classification_type) > 0",
+            name="ck_food_item_classifications_type_nonempty",
+        ),
+        CheckConstraint(
+            "length(classification_key) > 0",
+            name="ck_food_item_classifications_key_nonempty",
+        ),
+        UniqueConstraint(
+            "food_item_id",
+            "classification_type",
+            "classification_key",
+            name="uq_food_item_classifications_identity",
+        ),
+        Index(
+            "ix_food_item_classifications_lookup",
+            "classification_type",
+            "classification_key",
+        ),
+    )
+
+    food_item_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("food_items.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    classification_type: Mapped[str] = mapped_column(String(48), nullable=False)
+    classification_key: Mapped[str] = mapped_column(String(120), nullable=False)
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="curated")
+    source_reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    food_item: Mapped[FoodItem] = relationship(back_populates="classifications")
 
 
 class FoodCompositionSnapshot(UUIDPrimaryKeyMixin, TimestampMixin, Base):
