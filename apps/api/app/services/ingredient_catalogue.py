@@ -12,6 +12,7 @@ from app.models.food_catalog import (
     Recipe,
     RecipeIngredient,
 )
+from app.schemas.food_classification import FoodItemClassificationRead
 from app.schemas.ingredient_catalogue import (
     IngredientCompositionRead,
     IngredientCompositionWrite,
@@ -91,6 +92,16 @@ def _ingredient_read(
         source=item.source,
         is_active=item.is_active,
         recipe_usage_count=recipe_usage_count,
+        classifications=[
+            FoodItemClassificationRead(
+                id=classification.id,
+                classification_type=classification.classification_type,
+                classification_key=classification.classification_key,
+                source=classification.source,
+                source_reference=classification.source_reference,
+            )
+            for classification in item.classifications
+        ],
         latest_composition=_composition_read(_latest_composition(item)),
         created_at=item.created_at,
         updated_at=item.updated_at,
@@ -190,7 +201,8 @@ def list_family_ingredients(
         .options(
             selectinload(FoodItem.compositions).selectinload(
                 FoodCompositionSnapshot.nutrients
-            )
+            ),
+            selectinload(FoodItem.classifications),
         )
         .where(
             or_(FoodItem.family_id == family_id, FoodItem.family_id.is_(None)),
@@ -226,7 +238,8 @@ def get_family_ingredient(
         .options(
             selectinload(FoodItem.compositions).selectinload(
                 FoodCompositionSnapshot.nutrients
-            )
+            ),
+            selectinload(FoodItem.classifications),
         )
         .where(
             FoodItem.id == ingredient_id,
@@ -253,7 +266,8 @@ def _get_family_ingredient_model(
         .options(
             selectinload(FoodItem.compositions).selectinload(
                 FoodCompositionSnapshot.nutrients
-            )
+            ),
+            selectinload(FoodItem.classifications),
         )
         .where(
             FoodItem.id == ingredient_id,
