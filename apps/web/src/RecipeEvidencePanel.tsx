@@ -21,6 +21,7 @@ const COPY = {
     complete:
       "A composição disponível permite avaliar os nutrientes estruturados apresentados abaixo.",
     showIngredients: "Ver ingredientes e cobertura",
+    categories: "Classificação",
     withNutrition: "com dados",
     withoutNutrition: "sem dados",
   },
@@ -42,10 +43,26 @@ const COPY = {
     complete:
       "The available composition supports evaluation of the structured nutrients shown below.",
     showIngredients: "Show ingredients and coverage",
+    categories: "Classification",
     withNutrition: "with data",
     withoutNutrition: "without data",
   },
 } as const;
+
+const FOOD_CATEGORY_LABELS: Record<string, { "pt-PT": string; en: string }> = {
+  gluten: { "pt-PT": "glúten", en: "gluten" },
+  soy: { "pt-PT": "soja", en: "soy" },
+  peanut: { "pt-PT": "amendoim", en: "peanut" },
+  alcohol: { "pt-PT": "álcool", en: "alcohol" },
+  refined_flour: { "pt-PT": "farinha refinada", en: "refined flour" },
+  refined_grains: { "pt-PT": "cereais refinados", en: "refined grains" },
+  simple_sugars: { "pt-PT": "açúcares simples", en: "simple sugars" },
+  processed_meat: { "pt-PT": "carne processada", en: "processed meat" },
+};
+
+export function foodCategoryLabel(key: string, locale: Locale): string {
+  return FOOD_CATEGORY_LABELS[key]?.[locale] ?? key.replaceAll("_", " ");
+}
 
 export type RecipeEvidenceSummary = {
   evidence: RecipeNutritionEvidence;
@@ -133,11 +150,26 @@ export default function RecipeEvidencePanel({ recipe }: { recipe: Recipe }) {
                     {ingredient.quantity} {ingredient.unit}
                   </small>
                 </span>
-                <em>
-                  {ingredient.has_nutrition
-                    ? copy.withNutrition
-                    : copy.withoutNutrition}
-                </em>
+                <div className="recipe-evidence__ingredient-meta">
+                  {ingredient.classifications
+                    .filter(
+                      (classification) =>
+                        classification.classification_type === "food_category",
+                    )
+                    .map((classification) => (
+                      <span
+                        className="recipe-evidence__classification"
+                        key={classification.id}
+                      >
+                        {foodCategoryLabel(classification.classification_key, locale)}
+                      </span>
+                    ))}
+                  <em>
+                    {ingredient.has_nutrition
+                      ? copy.withNutrition
+                      : copy.withoutNutrition}
+                  </em>
+                </div>
               </li>
             ))}
           </ul>
