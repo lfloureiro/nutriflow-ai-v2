@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Recipe } from "./api/recipeTypes";
 import {
   recipeEvidenceMessage,
+  foodCategoryLabel,
   recipeEvidenceSummary,
 } from "./RecipeEvidencePanel";
 
@@ -33,6 +34,15 @@ function recipe(overrides: Partial<Recipe> = {}): Recipe {
         sort_order: 0,
         has_nutrition: false,
         has_energy: false,
+        classifications: [
+          {
+            id: "class-1",
+            classification_type: "food_category",
+            classification_key: "gluten",
+            source: "curated",
+            source_reference: null,
+          },
+        ],
       },
       {
         id: "ingredient-2",
@@ -45,6 +55,7 @@ function recipe(overrides: Partial<Recipe> = {}): Recipe {
         sort_order: 1,
         has_nutrition: true,
         has_energy: true,
+        classifications: [],
       },
     ],
     latest_composition: {
@@ -65,6 +76,14 @@ function recipe(overrides: Partial<Recipe> = {}): Recipe {
     ...overrides,
   };
 }
+
+describe("Recipe food category labels", () => {
+  it("renders canonical food categories for people", () => {
+    expect(foodCategoryLabel("gluten", "pt-PT")).toBe("glúten");
+    expect(foodCategoryLabel("refined_flour", "pt-PT")).toBe("farinha refinada");
+  });
+});
+
 
 describe("Recipe nutrition evidence", () => {
   it("makes an energy-only legacy recipe visibly incomplete", () => {
@@ -90,6 +109,7 @@ describe("Recipe nutrition evidence", () => {
         ...ingredient,
         has_nutrition: true,
         has_energy: true,
+        classifications: [],
       })),
       nutrition_issues: [],
       latest_composition: {
