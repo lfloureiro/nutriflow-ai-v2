@@ -90,6 +90,23 @@
   font-style: normal;
 }
 
+.recipe-evidence__ingredient-meta {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.recipe-evidence__classification {
+  padding: 0.16rem 0.38rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
 @media (max-width: 620px) {
   .recipe-evidence__heading,
   .recipe-evidence__ingredients li,
