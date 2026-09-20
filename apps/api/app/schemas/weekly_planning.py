@@ -48,10 +48,37 @@ class SharedWeeklyPlanningSlotCreate(BaseModel):
     auto_size_portions: bool = False
 
 
+class SharedWeeklyPlanPinnedChoiceCreate(BaseModel):
+    slot_key: str = Field(min_length=1, max_length=120)
+    candidate_key: str = Field(min_length=1, max_length=255)
+    recipe_ingredient_id: uuid.UUID | None = None
+    replacement_food_item_id: uuid.UUID | None = None
+
+    @model_validator(mode="after")
+    def validate_transformation_identity(self) -> "SharedWeeklyPlanPinnedChoiceCreate":
+        if (self.recipe_ingredient_id is None) != (self.replacement_food_item_id is None):
+            raise ValueError(
+                "A pinned weekly transformed choice requires both recipe_ingredient_id "
+                "and replacement_food_item_id."
+            )
+        return self
+
+
 class SharedWeeklyPlanProposalCreate(BaseModel):
     person_ids: list[uuid.UUID] = Field(min_length=2, max_length=20)
     slots: list[SharedWeeklyPlanningSlotCreate] = Field(min_length=1, max_length=28)
+    pinned_choices: list[SharedWeeklyPlanPinnedChoiceCreate] = Field(
+        default_factory=list,
+        max_length=28,
+    )
     max_combinations: int = Field(default=10_000, ge=1, le=10_000)
+
+    @model_validator(mode="after")
+    def validate_pinned_choices(self) -> "SharedWeeklyPlanProposalCreate":
+        slot_keys = [item.slot_key for item in self.pinned_choices]
+        if len(slot_keys) != len(set(slot_keys)):
+            raise ValueError("Each pinned weekly slot may appear only once.")
+        return self
 
 
 class SharedWeeklyPlanFitDetailRead(BaseModel):
@@ -143,20 +170,8 @@ class SharedWeeklyPlanProposalRead(BaseModel):
 
 
 
-class SharedWeeklyPlanExpectedChoiceCreate(BaseModel):
-    slot_key: str = Field(min_length=1, max_length=120)
-    candidate_key: str = Field(min_length=1, max_length=255)
-    recipe_ingredient_id: uuid.UUID | None = None
-    replacement_food_item_id: uuid.UUID | None = None
-
-    @model_validator(mode="after")
-    def validate_transformation_identity(self) -> "SharedWeeklyPlanExpectedChoiceCreate":
-        if (self.recipe_ingredient_id is None) != (self.replacement_food_item_id is None):
-            raise ValueError(
-                "A weekly transformed choice requires both recipe_ingredient_id "
-                "and replacement_food_item_id."
-            )
-        return self
+class SharedWeeklyPlanExpectedChoiceCreate(SharedWeeklyPlanPinnedChoiceCreate):
+    pass
 
 
 class SharedWeeklyPlanCreate(SharedWeeklyPlanProposalCreate):
