@@ -28,6 +28,7 @@ import {
   pinnedChoiceForAdaptation,
   pinnedChoiceForOriginal,
   upsertPinnedWeeklyChoice,
+  transformationLimitationLabel,
 } from "./WeeklyProposalPreview";
 
 describe("weekly proposal calendar dates", () => {
@@ -301,6 +302,22 @@ describe("weekly nutrition comparison", () => {
         "pt-PT",
       ),
     ).toBe("Melhora o plano");
+  });
+});
+
+
+describe("weekly transformation limitations", () => {
+  it("translates missing structured substitution profiles", () => {
+    expect(
+      transformationLimitationLabel(
+        "no_structured_substitution_profiles",
+        "pt-PT",
+      ),
+    ).toContain("substituições estruturadas");
+  });
+
+  it("does not leak unknown machine limitations", () => {
+    expect(transformationLimitationLabel("internal:unknown", "pt-PT")).toBeNull();
   });
 });
 
