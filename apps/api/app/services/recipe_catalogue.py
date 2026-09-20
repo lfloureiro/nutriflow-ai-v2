@@ -12,6 +12,7 @@ from app.models.food_catalog import (
     RecipeCompositionSnapshot,
     RecipeIngredient,
 )
+from app.schemas.food_classification import FoodItemClassificationRead
 from app.schemas.recipe_catalogue import (
     RecipeCompositionRead,
     RecipeCreate,
@@ -47,11 +48,14 @@ def _optional_text(value: str | None) -> str | None:
 
 
 def _recipe_options():
+    ingredient_food = (
+        selectinload(Recipe.ingredients).selectinload(RecipeIngredient.food_item)
+    )
     return (
-        selectinload(Recipe.ingredients)
-        .selectinload(RecipeIngredient.food_item)
-        .selectinload(FoodItem.compositions)
-        .selectinload(FoodCompositionSnapshot.nutrients),
+        ingredient_food.selectinload(FoodItem.compositions).selectinload(
+            FoodCompositionSnapshot.nutrients
+        ),
+        ingredient_food.selectinload(FoodItem.classifications),
         selectinload(Recipe.compositions).selectinload(RecipeCompositionSnapshot.nutrients),
     )
 
@@ -139,6 +143,16 @@ def _ingredient_read(ingredient: RecipeIngredient) -> RecipeIngredientRead:
         has_energy=(
             food_composition is not None and food_composition.energy_kcal is not None
         ),
+        classifications=[
+            FoodItemClassificationRead(
+                id=classification.id,
+                classification_type=classification.classification_type,
+                classification_key=classification.classification_key,
+                source=classification.source,
+                source_reference=classification.source_reference,
+            )
+            for classification in ingredient.food_item.classifications
+        ],
     )
 
 
@@ -179,7 +193,8 @@ def _ingredient_model(
         .options(
             selectinload(FoodItem.compositions).selectinload(
                 FoodCompositionSnapshot.nutrients
-            )
+            ),
+            selectinload(FoodItem.classifications),
         )
         .where(
             FoodItem.id == ingredient_id,
