@@ -168,6 +168,8 @@ def _load_variants(
     )
     source_by_food = {profile.food_item_id: profile for profile in source_profiles}
     groups = sorted({profile.substitution_group for profile in source_profiles})
+    if not groups:
+        return [], ["no_structured_substitution_profiles"]
 
     alternatives: list[FoodTransformationProfile] = []
     if groups:
