@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.food_catalog import (
     FoodCompositionSnapshot,
+    FoodItem,
     Recipe,
     RecipeCompositionSnapshot,
     RecipeIngredient,
@@ -120,7 +121,9 @@ def _load_food_candidate(
         FoodCompositionSnapshot,
         data.composition_id,
         options=(
-            selectinload(FoodCompositionSnapshot.food_item),
+            selectinload(FoodCompositionSnapshot.food_item).selectinload(
+                FoodItem.classifications
+            ),
             selectinload(FoodCompositionSnapshot.nutrients),
         ),
     )
@@ -170,7 +173,8 @@ def _load_recipe_candidate(
             selectinload(RecipeCompositionSnapshot.nutrients),
             selectinload(RecipeCompositionSnapshot.recipe)
             .selectinload(Recipe.ingredients)
-            .selectinload(RecipeIngredient.food_item),
+            .selectinload(RecipeIngredient.food_item)
+            .selectinload(FoodItem.classifications),
         ),
     )
     if composition is None:
