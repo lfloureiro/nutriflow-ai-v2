@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.schemas.food_classification import FoodItemClassificationRead
 from app.schemas.meal_type import MealType
 
 RecipeNutritionEvidence = Literal[
@@ -81,6 +82,7 @@ class RecipeIngredientRead(BaseModel):
     sort_order: int
     has_nutrition: bool
     has_energy: bool
+    classifications: list[FoodItemClassificationRead]
 
 
 class RecipeNutrientRead(BaseModel):
