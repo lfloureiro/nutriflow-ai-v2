@@ -6,6 +6,7 @@ from app.models.food_adverse_reaction import FoodAdverseReaction
 from app.models.food_catalog import (
     FoodCompositionSnapshot,
     FoodItem,
+    FoodItemClassification,
     FoodNutrientComponent,
     Recipe,
     RecipeCompositionSnapshot,
@@ -52,6 +53,7 @@ __all__ = [
     "FoodAdverseReaction",
     "FoodCompositionSnapshot",
     "FoodItem",
+    "FoodItemClassification",
     "FoodNutrientComponent",
     "FoodPreference",
     "FoodTransformationProfile",
