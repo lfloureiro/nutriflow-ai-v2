@@ -64,7 +64,9 @@ When the selected weekly candidate is a transformed variant, the selected choice
 
 The ordinary `candidate_key` remains the base Recipe key.
 
-The weekly review UI may request additional shared transformation proposals explicitly for the selected Recipe using the ADR-054 Family transformation endpoint. This is suggestion-only: requesting alternatives does not mutate the selected weekly choice or materialize a MealEvent. Any future "use this adaptation" action must preserve the structured operation identity and pass through the same server-authoritative weekly revalidation boundary.
+The weekly review UI may request additional shared transformation proposals explicitly for the selected Recipe using the ADR-054 Family transformation endpoint. Requesting alternatives does not mutate the selected weekly choice or materialize a MealEvent.
+
+When the reviewer chooses `Use this adaptation`, the proposal request pins the exact reviewed identity for that slot: base candidate key plus Recipe ingredient id and replacement FoodItem id. The server reconstructs candidates, requires that exact transformed variant to remain available and eligible, and re-optimizes the rest of the week before returning a new preview. Pinning the original Recipe uses the same mechanism without transformation ids. Materialization still requires the normal expected-choice stale check, so preview pinning never bypasses final server validation.
 
 ## Consequences
 
