@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.schemas.food_classification import FoodItemClassificationRead
+
 
 class IngredientNutrientWrite(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -81,6 +83,7 @@ class IngredientRead(BaseModel):
     source: str
     is_active: bool
     recipe_usage_count: int
+    classifications: list[FoodItemClassificationRead]
     latest_composition: IngredientCompositionRead | None
     created_at: datetime
     updated_at: datetime
