@@ -337,10 +337,18 @@
   overflow-wrap: anywhere;
 }
 
+.weekly-transformation-summary > .button {
+  margin-left: auto;
+}
+
 @media (max-width: 620px) {
   .weekly-transformation-summary {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .weekly-transformation-summary > .button {
+    margin-left: 0;
   }
 }
 
@@ -437,6 +445,12 @@
   align-items: center;
   gap: 0.65rem;
   flex-wrap: wrap;
+}
+
+.weekly-adaptation-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.2rem;
 }
 
 .weekly-adaptation-people {
