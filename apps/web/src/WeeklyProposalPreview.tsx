@@ -125,6 +125,14 @@ const COPY = {
     useOriginal: "Voltar à receita original",
     originalSelected: "A receita original foi reposta nesta proposta.",
     noAdaptation: "Não foram encontradas substituições seguras configuradas que melhorem esta receita.",
+    noSubstitutionProfiles:
+      "Esta receita ainda não tem substituições estruturadas configuradas para os seus ingredientes.",
+    missingTransformationNutrition:
+      "Há um ingrediente substituível sem composição nutricional suficiente.",
+    unsupportedTransformationUnit:
+      "Há uma quantidade de ingrediente que ainda não pode ser convertida com segurança.",
+    missingReplacementNutrition:
+      "Uma alternativa possível ainda não tem composição nutricional suficiente.",
     recipeDataLoading: "A carregar qualidade dos dados da receita…",
     recipeDataError: "Não foi possível carregar o detalhe nutricional da receita.",
     planImprovesFor: "Melhora o plano para",
@@ -223,6 +231,14 @@ const COPY = {
     useOriginal: "Use original recipe",
     originalSelected: "The original recipe is restored in this proposal.",
     noAdaptation: "No configured safe substitutions were found that improve this recipe.",
+    noSubstitutionProfiles:
+      "This Recipe does not yet have structured substitutions configured for its ingredients.",
+    missingTransformationNutrition:
+      "A transformable ingredient does not have enough nutrition composition evidence.",
+    unsupportedTransformationUnit:
+      "An ingredient quantity cannot yet be converted safely.",
+    missingReplacementNutrition:
+      "A possible replacement does not yet have enough nutrition composition evidence.",
     recipeDataLoading: "Loading Recipe data quality…",
     recipeDataError: "Could not load the Recipe nutrition detail.",
     planImprovesFor: "Improves the plan for",
@@ -572,6 +588,29 @@ export function peopleCountLabel(count: number, locale: Locale): string {
     return `${count} ${count === 1 ? "pessoa" : "pessoas"}`;
   }
   return `${count} ${count === 1 ? "person" : "people"}`;
+}
+
+export function transformationLimitationLabel(
+  limitation: string,
+  locale: Locale,
+): string | null {
+  const copy = COPY[locale];
+  if (limitation === "no_structured_substitution_profiles") {
+    return copy.noSubstitutionProfiles;
+  }
+  if (limitation.startsWith("missing_source_composition:")) {
+    return copy.missingTransformationNutrition;
+  }
+  if (limitation.startsWith("unsupported_source_unit:")) {
+    return copy.unsupportedTransformationUnit;
+  }
+  if (
+    limitation.startsWith("missing_replacement_composition:") ||
+    limitation.startsWith("insufficient_replacement_evidence:")
+  ) {
+    return copy.missingReplacementNutrition;
+  }
+  return null;
 }
 
 export function adaptationKindLabel(
@@ -1747,7 +1786,19 @@ export default function WeeklyProposalPreview({
                           ))}
                         </div>
                       ) : (
-                        <p className="muted compact">{copy.noAdaptation}</p>
+                        <div className="weekly-adaptation-limitations">
+                          <p className="muted compact">{copy.noAdaptation}</p>
+                          {adaptationResult.limitations
+                            .map((limitation) =>
+                              transformationLimitationLabel(limitation, locale),
+                            )
+                            .filter((message): message is string => message !== null)
+                            .map((message) => (
+                              <p className="muted compact" key={message}>
+                                {message}
+                              </p>
+                            ))}
+                        </div>
                       )}
                     </section>
                   ) : null}
