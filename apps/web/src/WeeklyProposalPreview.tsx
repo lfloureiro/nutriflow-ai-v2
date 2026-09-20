@@ -1463,7 +1463,12 @@ export default function WeeklyProposalPreview({
                       </div>
                       <button
                         className="button secondary"
-                        disabled={busy || decisionBusy !== null || adaptationBusy}
+                        disabled={
+                          busy ||
+                          decisionBusy !== null ||
+                          adaptationBusy ||
+                          adaptationChoiceBusy !== null
+                        }
                         onClick={() => void suggestAdaptations()}
                         type="button"
                       >
@@ -1489,6 +1494,19 @@ export default function WeeklyProposalPreview({
                           {selectedChoice.transformation.operation.replacement_food_name}
                         </strong>
                       </div>
+                      <button
+                        className="button ghost"
+                        disabled={
+                          busy ||
+                          decisionBusy !== null ||
+                          adaptationBusy ||
+                          adaptationChoiceBusy !== null
+                        }
+                        onClick={() => void useOriginalRecipe()}
+                        type="button"
+                      >
+                        {copy.useOriginal}
+                      </button>
                     </div>
                   ) : null}
                   <div className="weekly-person-detail-list">
@@ -1637,6 +1655,22 @@ export default function WeeklyProposalPreview({
                                   );
                                 })}
                               </div>
+                              <div className="weekly-adaptation-card__actions">
+                                <button
+                                  className="button primary"
+                                  disabled={
+                                    busy ||
+                                    decisionBusy !== null ||
+                                    adaptationChoiceBusy !== null
+                                  }
+                                  onClick={() => void useAdaptation(adaptation)}
+                                  type="button"
+                                >
+                                  {adaptationChoiceBusy === selectedChoice.slot_key
+                                    ? copy.usingAdaptation
+                                    : copy.useAdaptation}
+                                </button>
+                              </div>
                             </article>
                           ))}
                         </div>
@@ -1648,7 +1682,12 @@ export default function WeeklyProposalPreview({
                   <div className="meal-plan-editor__actions">
                     <button
                       className="button ghost"
-                      disabled={busy || decisionBusy !== null || adaptationBusy}
+                      disabled={
+                        busy ||
+                        decisionBusy !== null ||
+                        adaptationBusy ||
+                        adaptationChoiceBusy !== null
+                      }
                       onClick={() => void rejectSelectedChoice()}
                       type="button"
                     >
