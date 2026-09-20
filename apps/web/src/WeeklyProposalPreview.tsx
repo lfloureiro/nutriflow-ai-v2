@@ -16,6 +16,7 @@ import {
 } from "./api/weeklyPlanningClient";
 import type {
   SharedWeeklyPlanChoice,
+  SharedWeeklyPlanPinnedChoice,
   SharedWeeklyPlanProposal,
   SharedWeeklyPlanSkippedSlot,
   SharedWeeklyPlanProposalRequest,
@@ -108,7 +109,12 @@ const COPY = {
     adaptationActionHelp:
       "Procura uma versão da mesma receita que se ajuste melhor aos planos nutricionais e preferências da família, sem piorar a segurança de ninguém.",
     adaptationTitle: "Sugestões de adaptação",
-    adaptationHelp: "Substituições avaliadas contra o plano e as preferências da família. Nenhuma alteração é aplicada automaticamente.",
+    adaptationHelp: "Substituições avaliadas contra o plano e as preferências da família. Escolhe uma para recalcular a semana antes de a aplicar.",
+    useAdaptation: "Usar esta adaptação",
+    usingAdaptation: "A recalcular com esta adaptação…",
+    adaptationSelected: "A adaptação foi incluída na proposta. Revê a semana antes de a aplicar.",
+    useOriginal: "Voltar à receita original",
+    originalSelected: "A receita original foi reposta nesta proposta.",
     noAdaptation: "Não foram encontradas substituições seguras configuradas que melhorem esta receita.",
     planImprovesFor: "Melhora o plano para",
     preferenceImprovesFor: "Melhora as preferências para",
@@ -197,7 +203,12 @@ const COPY = {
     adaptationActionHelp:
       "Find a version of the same recipe that better fits the Family nutrition plans and preferences without worsening anyone's safety.",
     adaptationTitle: "Adaptation suggestions",
-    adaptationHelp: "Substitutions evaluated against the plan and Family preferences. No change is applied automatically.",
+    adaptationHelp: "Substitutions evaluated against the plan and Family preferences. Choose one to recalculate the week before applying it.",
+    useAdaptation: "Use this adaptation",
+    usingAdaptation: "Recalculating with this adaptation…",
+    adaptationSelected: "The adaptation is now included in the proposal. Review the week before applying it.",
+    useOriginal: "Use original recipe",
+    originalSelected: "The original recipe is restored in this proposal.",
     noAdaptation: "No configured safe substitutions were found that improve this recipe.",
     planImprovesFor: "Improves the plan for",
     preferenceImprovesFor: "Improves preferences for",
@@ -667,6 +678,37 @@ export function choicesByDate(
   return grouped;
 }
 
+export function upsertPinnedWeeklyChoice(
+  choices: SharedWeeklyPlanPinnedChoice[],
+  next: SharedWeeklyPlanPinnedChoice,
+): SharedWeeklyPlanPinnedChoice[] {
+  return [
+    ...choices.filter((choice) => choice.slot_key !== next.slot_key),
+    next,
+  ];
+}
+
+export function pinnedChoiceForAdaptation(
+  choice: SharedWeeklyPlanChoice,
+  adaptation: SharedMealTransformationProposal,
+): SharedWeeklyPlanPinnedChoice {
+  return {
+    slot_key: choice.slot_key,
+    candidate_key: choice.candidate_key,
+    recipe_ingredient_id: adaptation.operation.recipe_ingredient_id,
+    replacement_food_item_id: adaptation.operation.replacement_food_item_id,
+  };
+}
+
+export function pinnedChoiceForOriginal(
+  choice: SharedWeeklyPlanChoice,
+): SharedWeeklyPlanPinnedChoice {
+  return {
+    slot_key: choice.slot_key,
+    candidate_key: choice.candidate_key,
+  };
+}
+
 export function weeklyPlanRequest(
   proposal: SharedWeeklyPlanProposalRequest,
   choices: SharedWeeklyPlanChoice[],
@@ -741,6 +783,8 @@ export default function WeeklyProposalPreview({
   const [adaptationResult, setAdaptationResult] =
     useState<SharedMealTransformationResult | null>(null);
   const [adaptationError, setAdaptationError] = useState<string | null>(null);
+  const [pinnedChoices, setPinnedChoices] = useState<SharedWeeklyPlanPinnedChoice[]>([]);
+  const [adaptationChoiceBusy, setAdaptationChoiceBusy] = useState<string | null>(null);
   const plan = refreshedPlan ?? suppliedPlan ?? loadedPlan;
   const effectiveWeekStart = refreshedPlan?.start_date ?? suppliedPlan?.start_date ?? weekStart;
 
@@ -757,6 +801,8 @@ export default function WeeklyProposalPreview({
     setAdaptationResult(null);
     setAdaptationError(null);
     setAdaptationBusy(false);
+    setPinnedChoices([]);
+    setAdaptationChoiceBusy(null);
   }, [familyId, weekStart]);
 
   useEffect(() => {
