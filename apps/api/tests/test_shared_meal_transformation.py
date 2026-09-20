@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.demo_seed import (
@@ -19,6 +19,7 @@ from app.models.family import Family
 from app.models.food_adverse_reaction import FoodAdverseReaction
 from app.models.food_catalog import Recipe
 from app.models.food_preference import FoodPreference
+from app.models.food_transformation_profile import FoodTransformationProfile
 from app.models.meal import MealEvent, Serving
 from app.models.meal_transformation_application import MealTransformationApplication
 from app.schemas.shared_meal_transformation import (
@@ -164,6 +165,37 @@ def test_no_plan_transformation_is_labelled_only_as_preference_variant(
         item.after_fit.nutrition_plan_authority.state == "no_active_plan"
         for item in proposal.participant_results
     )
+
+
+def test_shared_transformation_explains_missing_substitution_profiles(
+    db_session: Session,
+) -> None:
+    demo, recipe = _seed(db_session)
+    db_session.execute(
+        delete(FoodTransformationProfile).where(
+            FoodTransformationProfile.family_id == DEMO_FAMILY_ID
+        )
+    )
+    db_session.commit()
+    person_state = _state(db_session, DEMO_PERSON_ID, demo.planning_date)
+    marta_state = _state(db_session, DEMO_MARTA_ID, demo.planning_date)
+
+    result = propose_shared_meal_transformations(
+        db_session,
+        family_id=DEMO_FAMILY_ID,
+        data=SharedMealTransformationCreate(
+            planning_date=demo.planning_date,
+            meal_type="breakfast",
+            recipe_id=recipe.id,
+            participants=[
+                _participant(DEMO_PERSON_ID, person_state),
+                _participant(DEMO_MARTA_ID, marta_state),
+            ],
+        ),
+    )
+
+    assert result.proposals == []
+    assert result.limitations == ["no_structured_substitution_profiles"]
 
 
 def test_shared_transformation_is_rejected_when_replacement_is_unsafe_for_one_person(
