@@ -8,6 +8,7 @@ from app.models.food_adverse_reaction import FoodAdverseReaction
 from app.models.food_catalog import (
     FoodCompositionSnapshot,
     FoodItem,
+    FoodItemClassification,
     FoodNutrientComponent,
     Recipe,
     RecipeCompositionSnapshot,
@@ -170,6 +171,70 @@ def test_mandatory_adverse_reaction_excludes_recipe_ingredient() -> None:
     )
     assert excluded.eligible is False
     assert excluded.exclusion_reasons == ("mandatory_reaction:ingredient:food:peanut",)
+
+
+def test_food_category_exclusion_uses_persisted_metadata_not_candidate_name() -> None:
+    unclassified = FoodItem(
+        catalog_key="food:named-gluten",
+        name="Gluten named item",
+        food_kind="ingredient",
+        source="test",
+    )
+    classified = FoodItem(
+        catalog_key="food:wheat",
+        name="Neutral ingredient name",
+        food_kind="ingredient",
+        source="test",
+        classifications=[
+            FoodItemClassification(
+                classification_type="food_category",
+                classification_key="gluten",
+                source="test",
+            )
+        ],
+    )
+
+    def candidate(item: FoodItem):
+        return build_food_candidate(
+            FoodCompositionSnapshot(
+                food_item=item,
+                reference_quantity=Decimal(100),
+                reference_unit="g",
+                energy_kcal=Decimal(250),
+                data_version="test-v1",
+                source="test",
+                effective_at=datetime(2026, 8, 21, tzinfo=UTC),
+            ),
+            quantity=Decimal(100),
+            quantity_unit="g",
+        )
+
+    exclusion = NutritionConstraint(
+        constraint_type="exclusion",
+        target_type="food_category",
+        target_key="gluten",
+        operator="exclude",
+        severity="required",
+        is_mandatory=True,
+        source="nutritionist",
+    )
+
+    result = recommend_meals(
+        daily_state=_daily_state(),
+        candidates=[candidate(unclassified), candidate(classified)],
+        preferences=[],
+        adverse_reactions=[],
+        constraints=[exclusion],
+        planning_date=date(2026, 8, 21),
+    )
+
+    assert [item.candidate.key for item in result.eligible] == ["food:named-gluten"]
+    blocked = next(
+        item for item in result.evaluations if item.candidate.key == "food:wheat"
+    )
+    assert blocked.exclusion_reasons == (
+        "mandatory_exclusion:food_category:gluten",
+    )
 
 
 def test_preferences_and_nutrient_deficit_rank_candidate() -> None:
