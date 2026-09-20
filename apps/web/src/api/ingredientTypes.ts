@@ -1,3 +1,5 @@
+import type { FoodItemClassification } from "./foodClassificationTypes";
+
 export type IngredientNutrient = {
   key: string;
   value: string;
@@ -29,6 +31,7 @@ export type Ingredient = {
   source: string;
   is_active: boolean;
   recipe_usage_count: number;
+  classifications: FoodItemClassification[];
   latest_composition: IngredientComposition | null;
   created_at: string;
   updated_at: string;
