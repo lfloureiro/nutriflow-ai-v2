@@ -541,3 +541,28 @@ This increment:
 No database migration is introduced.
 
 Known evidence limitation remains intentional: legacy Recipes such as Mac and Cheese may have reliable energy but incomplete nutrient/ingredient composition evidence. The UI must show the evidence that exists and must not fabricate missing macronutrients. Structured transformations also require persisted source/replacement composition plus explicit substitution profiles.
+
+
+## Review increment — select an adaptation and re-optimize the week
+
+Stacked review branch:
+
+```text
+feat/weekly-select-adaptation-review
+```
+
+Base: `feat/weekly-rich-plan-fit-adaptation-review` exact green head `64206920c2663cdfc5413291271f502211a9dfff`.
+
+This closes the review loop that previously stopped at displaying transformation suggestions:
+
+- weekly proposal requests may carry zero or more exact `pinned_choices`;
+- a pin identifies the slot and base candidate and, for a transformed Recipe, the exact RecipeIngredient and replacement FoodItem;
+- the server rebuilds the slot candidates and rejects a pin that is unavailable or no longer eligible;
+- pinned slots are reduced to the exact reviewed variant before whole-week optimization;
+- the browser exposes `Usar esta adaptação` on each safe suggestion;
+- selecting it recalculates the complete weekly proposal and only keeps the pin if a compatible weekly plan still exists;
+- an adapted selected choice exposes `Voltar à receita original`, which pins the base Recipe and re-optimizes the week;
+- rejecting a Recipe clears its pin before searching for another Recipe;
+- final `Aplicar semana` continues to use expected-choice stale validation, including transformation identity.
+
+No MealEvent is created by selecting an adaptation. Persistence occurs only when the reviewed week is explicitly applied.
