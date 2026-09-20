@@ -213,6 +213,15 @@ export function listFamilyRecipes(
   return apiRequest<Recipe[]>(familyRecipesPath(familyId, query, includeInactive));
 }
 
+export function getFamilyRecipe(
+  familyId: string,
+  recipeId: string,
+): Promise<Recipe> {
+  return apiRequest<Recipe>(
+    `${familyRecipesPath(familyId)}/${encodeURIComponent(recipeId)}`,
+  );
+}
+
 export function createFamilyRecipe(familyId: string, payload: RecipeCreate): Promise<Recipe> {
   return apiRequest<Recipe>(familyRecipesPath(familyId), {
     method: "POST",
