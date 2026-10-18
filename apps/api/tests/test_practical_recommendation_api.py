@@ -9,7 +9,13 @@ from app.db.session import get_db
 from app.main import app
 from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.family import Family
-from app.models.food_catalog import FoodCompositionSnapshot, FoodItem
+from app.models.food_catalog import (
+    FoodCompositionSnapshot,
+    FoodItem,
+    Recipe,
+    RecipeCompositionSnapshot,
+    RecipeIngredient,
+)
 from app.models.meal_candidate_availability import (
     MealCandidateAvailability,
     MealCommercialOffer,
@@ -275,6 +281,75 @@ def test_practical_api_any_available_source_keeps_candidate_eligible(db_session:
     assert response.status_code == 201
     assert response.json()["options"][0]["eligible"] is True
 
+
+
+def test_practical_api_mixed_home_pantry_does_not_abort_for_unscalable_recipe(
+    db_session: Session,
+) -> None:
+    family, person, state, _, _ = _persist_base(db_session, key="unscalable-recipe")
+    ingredient = FoodItem(
+        family=family,
+        catalog_key="food:practical:unscalable-ingredient",
+        name="Legacy ingredient",
+        food_kind="ingredient",
+        source="test",
+    )
+    recipe = Recipe(
+        family=family,
+        recipe_key="recipe:practical:structure-only",
+        name="Structure-only legacy recipe",
+        yield_quantity=None,
+        yield_unit=None,
+        serving_count=None,
+        source="test",
+    )
+    recipe.ingredients = [
+        RecipeIngredient(
+            food_item=ingredient,
+            quantity=Decimal("1.0000"),
+            unit="qb",
+            sort_order=0,
+        )
+    ]
+    composition = RecipeCompositionSnapshot(
+        recipe=recipe,
+        reference_quantity=Decimal("1.0000"),
+        reference_unit="serving",
+        energy_kcal=None,
+        composition_version="structure-only",
+        calculation_version="structure-only",
+        computed_at=SCHEDULED_AT - timedelta(days=1),
+    )
+    db_session.add(composition)
+    db_session.flush()
+
+    assert state.id is not None
+    assert composition.id is not None
+    payload = {
+        "daily_nutrition_state_id": str(state.id),
+        "planning_date": PLANNING_DATE.isoformat(),
+        "scheduled_at": SCHEDULED_AT.isoformat(),
+        "meal_type": "lunch",
+        "location": "Home",
+        "available_minutes": None,
+        "has_kitchen": True,
+        "source_kinds": ["home", "pantry"],
+        "candidates": [
+            {
+                "candidate_kind": "recipe",
+                "composition_id": str(composition.id),
+                "quantity": "1.0000",
+                "quantity_unit": "serving",
+            }
+        ],
+    }
+
+    response = _post(db_session, person, payload)
+
+    assert response.status_code == 201
+    option = response.json()["options"][0]
+    assert option["candidate_key"] == "recipe:practical:structure-only"
+    assert "candidate_unavailable" not in option["exclusion_reasons"]
 
 def test_practical_api_respects_preparation_window(db_session: Session) -> None:
     family, person, state, food, composition = _persist_base(db_session, key="prep")

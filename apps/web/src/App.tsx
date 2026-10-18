@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 
 import { ApiError, getFamilyDashboard } from "./api/client";
 import type { Family } from "./api/setupTypes";
@@ -7,29 +7,30 @@ import FamilyEntryScreen from "./FamilyEntryScreen";
 import FamilyHome, { memberDisplayName } from "./FamilyHome";
 import FamilyMealsScreen, { type FamilyMealsMode } from "./FamilyMeals";
 import FamilySettings from "./FamilySettings";
-import HomeBase from "./HomeBase";
+const HomeBase = lazy(() => import("./HomeBase"));
 import { useI18n, type Locale } from "./i18n";
 import PersonOverview from "./PersonOverview";
 import PersonSetupForm from "./PersonSetupForm";
+const ShoppingListScreen = lazy(() => import("./ShoppingListScreen"));
 import { useTheme, type Appearance } from "./theme";
 
 const DEMO_FAMILY_ID = "11111111-1111-4111-8111-111111111111";
 const FAMILY_STORAGE_KEY = "nutriflow-family-id";
 
-type View = "home" | "meals" | "people" | "house" | "more";
+type View = "home" | "meals" | "shopping" | "people" | "house" | "more";
 
 type NavItem = {
   view: View;
   icon: string;
-  labelKey: "nav.home" | "nav.meals" | "nav.people" | "nav.house" | "nav.more";
+  labelKey: "nav.home" | "nav.meals" | "nav.people" | "nav.house" | "nav.shopping";
 };
 
 const NAV_ITEMS: NavItem[] = [
   { view: "home", icon: "⌂", labelKey: "nav.home" },
   { view: "meals", icon: "◫", labelKey: "nav.meals" },
+  { view: "shopping", icon: "▤", labelKey: "nav.shopping" },
   { view: "people", icon: "◎", labelKey: "nav.people" },
   { view: "house", icon: "▣", labelKey: "nav.house" },
-  { view: "more", icon: "•••", labelKey: "nav.more" },
 ];
 
 function initialFamilyId(): string {
@@ -61,8 +62,10 @@ export default function App() {
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [dashboardRevision, setDashboardRevision] = useState(0);
   const [view, setView] = useState<View>("home");
+  useEffect(()=>{window.scrollTo(0,0);},[view]);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [showPersonSetup, setShowPersonSetup] = useState(false);
+  const [mealsDate,setMealsDate]=useState<string|undefined>(undefined);
   const [mealsMode, setMealsMode] = useState<FamilyMealsMode>("today");
 
   useEffect(() => {
@@ -137,13 +140,16 @@ export default function App() {
       setShowPersonSetup(false);
     }
     if (nextView === "meals") {
-      setMealsMode("today");
+      setMealsMode("week");
     }
     setView(nextView);
   }
 
+  function openWeek(date:string){setMealsDate(date);setMealsMode("week");setView("meals");}
+
   function openMealPlan() {
-    setMealsMode("today");
+    setMealsDate(undefined);
+    setMealsMode("prepare");
     setView("meals");
   }
 
@@ -211,6 +217,7 @@ export default function App() {
             <span className="shell-topbar__label">{t("shell.family")}</span>
             <strong>{familyName}</strong>
           </div>
+          <button className="shell-icon-button" type="button" aria-label={locale === "pt-PT" ? "Definições e integrações" : "Settings and integrations"} onClick={() => setView("more")}>⚙</button>
           <button
             aria-label={t("home.refresh")}
             className="shell-icon-button"
@@ -243,6 +250,8 @@ export default function App() {
                 dashboard={dashboard}
                 onOpenPerson={openPerson}
                 onPlanMeal={openMealPlan}
+                onOpenWeek={openWeek}
+                weekDate={mealsDate}
               />
             )
           ) : null}
@@ -253,6 +262,7 @@ export default function App() {
               mode={mealsMode}
               onDataChanged={refreshDashboard}
               onModeChange={setMealsMode}
+              initialDate={mealsDate}
               referenceDate={dashboard?.dashboard_date}
             />
           ) : null}
@@ -318,7 +328,8 @@ export default function App() {
             )
           ) : null}
 
-          {view === "house" ? <HomeBase familyId={activeFamilyId} /> : null}
+          {view === "house" ? <Suspense fallback={<p role="status">{t("home.loading")}</p>}><HomeBase familyId={activeFamilyId} /></Suspense> : null}
+          {view === "shopping" ? <Suspense fallback={<p role="status">{t("home.loading")}</p>}><ShoppingListScreen key={activeFamilyId} familyId={activeFamilyId} /></Suspense> : null}
 
           {view === "more" ? (
             <div className="settings-screen">

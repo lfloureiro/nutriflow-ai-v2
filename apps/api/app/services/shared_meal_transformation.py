@@ -325,6 +325,7 @@ def _participant_contexts(
     family_id: uuid.UUID,
     composition,
     data: SharedMealTransformationCreate,
+    baseline_fits_by_person: dict[uuid.UUID, MealPlanFitRead] | None = None,
 ) -> list[_ParticipantContext]:
     result: list[_ParticipantContext] = []
     for participant in data.participants:
@@ -333,25 +334,31 @@ def _participant_contexts(
             raise MealTransformationError(
                 "All shared transformation participants must belong to the requested Family."
             )
-        baseline_input = MealPlanFitCreate(
-            planning_date=data.planning_date,
-            meal_type=data.meal_type,
-            daily_nutrition_state_id=participant.daily_nutrition_state_id,
-            candidate=MealRecommendationCandidateInput(
-                candidate_kind="recipe",
-                composition_id=composition.id,
-                quantity=participant.quantity,
-                quantity_unit=participant.quantity_unit,
-            ),
+        baseline_fit = (
+            baseline_fits_by_person.get(person.id)
+            if baseline_fits_by_person is not None
+            else None
         )
-        try:
-            baseline_fit = evaluate_meal_plan_fit_with_weekly_frequency(
-                db,
-                person_id=person.id,
-                data=baseline_input,
+        if baseline_fit is None:
+            baseline_input = MealPlanFitCreate(
+                planning_date=data.planning_date,
+                meal_type=data.meal_type,
+                daily_nutrition_state_id=participant.daily_nutrition_state_id,
+                candidate=MealRecommendationCandidateInput(
+                    candidate_kind="recipe",
+                    composition_id=composition.id,
+                    quantity=participant.quantity,
+                    quantity_unit=participant.quantity_unit,
+                ),
             )
-        except MealPlanFitError as exc:
-            raise MealTransformationError(str(exc)) from exc
+            try:
+                baseline_fit = evaluate_meal_plan_fit_with_weekly_frequency(
+                    db,
+                    person_id=person.id,
+                    data=baseline_input,
+                )
+            except MealPlanFitError as exc:
+                raise MealTransformationError(str(exc)) from exc
         baseline_candidate = build_recipe_candidate(
             composition,
             quantity=participant.quantity,
@@ -387,6 +394,7 @@ def propose_shared_meal_transformations(
     *,
     family_id: uuid.UUID,
     data: SharedMealTransformationCreate,
+    baseline_fits_by_person: dict[uuid.UUID, MealPlanFitRead] | None = None,
 ) -> SharedMealTransformationRead:
     try:
         recipe = get_family_visible_recipe_model(db, family_id, data.recipe_id)
@@ -403,6 +411,7 @@ def propose_shared_meal_transformations(
         family_id=family_id,
         composition=composition,
         data=data,
+        baseline_fits_by_person=baseline_fits_by_person,
     )
     variants, limitations = _load_variants(db, family_id=family_id, recipe=recipe)
     proposals: list[SharedMealTransformationProposalRead] = []

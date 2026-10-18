@@ -160,6 +160,55 @@ def test_import_requires_explicit_review_before_materialization(db_session: Sess
         )
 
 
+def test_explicit_food_category_exclusion_materializes_as_plan_constraint(
+    db_session: Session,
+) -> None:
+    person = _person(db_session)
+    import_session = create_nutrition_plan_import(
+        db_session,
+        person=person,
+        data=NutritionPlanImportCreate(
+            title="Plano com exclusão",
+            source_type="nutritionist",
+            source_name="Dra. Teste",
+            source_text="Evitar soja",
+            valid_from=date(2026, 9, 15),
+        ),
+    )
+
+    proposal = import_session.proposals[0]
+    assert proposal.proposal_type == "numeric_rule"
+    assert proposal.target_type == "food_category"
+    assert proposal.target_key == "soy"
+    assert proposal.operator == "exclude"
+    assert proposal.value_min is None
+    assert proposal.value_max is None
+    assert proposal.value_target is None
+    assert proposal.unit is None
+    assert proposal.is_mandatory is True
+
+    update_nutrition_plan_import_proposal(
+        db_session,
+        import_session=import_session,
+        proposal_id=proposal.id,
+        data=NutritionPlanImportProposalUpdate(confirmation_status="confirmed"),
+    )
+    applied = apply_nutrition_plan_import(
+        db_session,
+        import_session=import_session,
+    )
+
+    assert applied.nutrition_plan.status == "draft"
+    assert len(applied.nutrition_plan.rules) == 1
+    constraint = applied.nutrition_plan.rules[0].nutrition_constraint
+    assert constraint is not None
+    assert constraint.constraint_type == "exclusion"
+    assert constraint.target_type == "food_category"
+    assert constraint.target_key == "soy"
+    assert constraint.operator == "exclude"
+    assert constraint.is_mandatory is True
+
+
 def test_confirmed_unclassified_proposal_cannot_be_applied(db_session: Session) -> None:
     person = _person(db_session)
     import_session = create_nutrition_plan_import(

@@ -25,6 +25,7 @@ export type MealPlanTransformation = {
 };
 
 export type MealPlanEntry = {
+  variant_changes?: string[];
   id: string;
   meal_type: MealType;
   title: string | null;

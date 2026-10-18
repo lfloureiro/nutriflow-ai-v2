@@ -4,7 +4,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.demo_seed import DEMO_FAMILY_ID, seed_demo_dataset
-from app.development_planning_profile_seed import seed_development_planning_profiles
+from app.development_planning_profile_seed import (
+    LOUREIRO_LEGACY_PROFILE_DEFINITIONS,
+    seed_development_planning_profiles,
+)
 from app.legacy_v1_demo_seed import seed_legacy_v1_demo_catalog
 from app.models.family import Family
 from app.models.meal_candidate_planning_profile import MealCandidatePlanningProfile
@@ -38,3 +41,22 @@ def test_development_planning_profiles_are_idempotent(db_session: Session) -> No
     ).all()
     assert all(profile.auto_plan_enabled for profile in profiles)
     assert all(profile.suitable_meal_types == ["lunch", "dinner"] for profile in profiles)
+
+def test_loureiro_profiles_cover_every_legacy_recipe_with_structured_traits() -> None:
+    definitions = LOUREIRO_LEGACY_PROFILE_DEFINITIONS
+
+    assert len(definitions) == 43
+    assert {definition.candidate_key for definition in definitions} == {
+        f"legacy-v1:recipe:{recipe_id}" for recipe_id in range(1, 44)
+    }
+    assert all(definition.planning_category for definition in definitions)
+    assert all(definition.primary_protein for definition in definitions)
+
+    fish = {
+        definition.candidate_key
+        for definition in definitions
+        if definition.planning_category == "fish"
+    }
+    assert len(fish) == 12
+    assert "legacy-v1:recipe:17" in fish
+    assert "legacy-v1:recipe:43" in fish

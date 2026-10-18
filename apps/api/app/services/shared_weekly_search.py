@@ -1,11 +1,14 @@
 import uuid
+from collections import Counter
 from dataclasses import dataclass
+from decimal import Decimal
 from math import prod
 
 from app.services.shared_weekly_multi_slot_planning import (
     ENGINE_VERSION as EXACT_ENGINE_VERSION,
 )
 from app.services.shared_weekly_multi_slot_planning import (
+    EXACT_REPEAT_SCORE_PENALTY,
     SharedWeeklyMultiSlotPlanningError,
     SharedWeeklyMultiSlotPlanningResult,
     SharedWeeklyPlanChoice,
@@ -37,15 +40,59 @@ class SharedWeeklySearchResult:
     search_truncated: bool
 
 
-def _candidate_hint_key(candidate: SharedWeeklyPlanningCandidate) -> tuple[object, ...]:
+def _candidate_hint_key(
+    candidate: SharedWeeklyPlanningCandidate,
+    *,
+    previous_candidate_counts: dict[str, int] | None = None,
+    previous_main_category: str | None = None,
+    previous_main_protein: str | None = None,
+) -> tuple[object, ...]:
     evaluation = candidate.evaluation
     rank = evaluation.rank if evaluation.rank is not None else 1_000_000
-    minimum_score = evaluation.minimum_score
-    average_score = evaluation.average_score
+    repeat_count = (
+        0
+        if previous_candidate_counts is None
+        else previous_candidate_counts.get(evaluation.candidate_key, 0)
+    )
+    adjacent_category_repeat = int(
+        evaluation.planning_category is not None
+        and evaluation.planning_category == previous_main_category
+    )
+    adjacent_protein_repeat = int(
+        evaluation.primary_protein is not None
+        and evaluation.primary_protein == previous_main_protein
+    )
+    has_structured_traits = (
+        evaluation.planning_category is not None
+        or evaluation.primary_protein is not None
+    )
+    if has_structured_traits:
+        return (
+            -evaluation.weekly_mandatory_support_participants,
+            -evaluation.weekly_mandatory_support_total,
+            -evaluation.weekly_advisory_support_participants,
+            -evaluation.weekly_advisory_support_total,
+            repeat_count,
+            adjacent_category_repeat,
+            adjacent_protein_repeat,
+            -(evaluation.minimum_score or Decimal(0)),
+            -(evaluation.average_score or Decimal(0)),
+            rank,
+            candidate.selection_key,
+        )
+
+    repeat_penalty = EXACT_REPEAT_SCORE_PENALTY * repeat_count
+    minimum_score = (evaluation.minimum_score or Decimal(0)) - repeat_penalty
+    average_score = (evaluation.average_score or Decimal(0)) - repeat_penalty
     return (
+        -evaluation.weekly_mandatory_support_participants,
+        -evaluation.weekly_mandatory_support_total,
+        -evaluation.weekly_advisory_support_participants,
+        -evaluation.weekly_advisory_support_total,
+        -minimum_score,
+        -average_score,
+        repeat_count,
         rank,
-        -(minimum_score if minimum_score is not None else 0),
-        -(average_score if average_score is not None else 0),
         candidate.selection_key,
     )
 
@@ -127,12 +174,44 @@ def optimize_shared_weekly_slots_scalable(
     for index, (slot, candidates) in enumerate(zip(ordered_slots, eligible_by_slot, strict=True)):
         slots_remaining = len(ordered_slots) - index
         stage_budget = max(1, remaining_budget // slots_remaining)
-        ordered_candidates = tuple(sorted(candidates, key=_candidate_hint_key))
+        ordered_candidates = tuple(
+            sorted(
+                candidates,
+                key=lambda candidate: _candidate_hint_key(candidate),
+            )
+        )
 
         expansions: list[tuple[tuple[object, ...], tuple[SharedWeeklyPlanChoice, ...]]] = []
         for state in beam:
             previous_choices = state.choices if state is not None else ()
             previous_key = _ranking_key(state) if state is not None else ()
+            previous_candidate_counts = dict(
+                Counter(
+                    choice.candidate.evaluation.candidate_key
+                    for choice in previous_choices
+                )
+            )
+            previous_main = [
+                choice.candidate.evaluation
+                for choice in previous_choices
+                if choice.meal_type in {"lunch", "dinner"}
+            ]
+            previous_main_category = next(
+                (
+                    item.planning_category
+                    for item in reversed(previous_main)
+                    if item.planning_category is not None
+                ),
+                None,
+            )
+            previous_main_protein = next(
+                (
+                    item.primary_protein
+                    for item in reversed(previous_main)
+                    if item.primary_protein is not None
+                ),
+                None,
+            )
             for candidate in ordered_candidates:
                 choice = SharedWeeklyPlanChoice(
                     slot_key=slot.slot_key,
@@ -144,8 +223,13 @@ def optimize_shared_weekly_slots_scalable(
                 expansions.append(
                     (
                         (
+                            _candidate_hint_key(
+                                candidate,
+                                previous_candidate_counts=previous_candidate_counts,
+                                previous_main_category=previous_main_category,
+                                previous_main_protein=previous_main_protein,
+                            ),
                             previous_key,
-                            _candidate_hint_key(candidate),
                             tuple(
                                 item.candidate.selection_key for item in choices
                             ),

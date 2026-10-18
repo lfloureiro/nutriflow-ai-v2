@@ -53,6 +53,8 @@ class PlannedRequirementRead(BaseModel):
     required_quantity: Decimal
     available_quantity: Decimal
     missing_quantity: Decimal
+    incoming_quantity: Decimal = Decimal(0)
+    to_buy_quantity: Decimal | None = None
     unit: str
 
 
@@ -98,6 +100,9 @@ class ShoppingListItemRead(BaseModel):
     status: ShoppingItemStatus
     notes: str | None
     sort_order: int
+    version: int = 1
+    product_selection: dict | None = None
+    pantry_receipt: dict | None = None
 
 
 class ShoppingListRefreshRequest(BaseModel):
@@ -118,3 +123,45 @@ class ShoppingListRead(BaseModel):
     items: list[ShoppingListItemRead]
     created_at: datetime
     updated_at: datetime
+
+
+class ShoppingProductSelect(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_version: int = Field(gt=0)
+    retail_product_id: uuid.UUID | None = None
+    expected_fingerprint: str | None = Field(default=None, min_length=64, max_length=64)
+
+
+class ShoppingReceiptCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    expected_version: int = Field(gt=0)
+    quantity: Decimal = Field(gt=0, max_digits=14, decimal_places=4)
+    unit: str = Field(min_length=1, max_length=24)
+    location: str | None = Field(default=None, max_length=80)
+    expires_at: datetime | None = None
+    label_reviewed: Literal[True]
+
+
+class ShoppingReceiptLot(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    quantity: Decimal = Field(gt=0, max_digits=14, decimal_places=4)
+    unit: str = Field(min_length=1, max_length=24)
+    location: str | None = Field(default=None, max_length=80)
+    expires_at: datetime | None = None
+
+
+class ShoppingReceiptBatchCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    request_id: uuid.UUID
+    expected_version: int = Field(gt=0)
+    lots: list[ShoppingReceiptLot] = Field(max_length=20)
+    expected_quantity: Decimal | None = Field(default=None, gt=0, max_digits=14, decimal_places=4)
+    complete: bool
+    label_reviewed: Literal[True]
+
+    @model_validator(mode="after")
+    def nonempty_delivery(self):
+        if not self.lots and not self.complete:
+            raise ValueError("Uma receção parcial precisa de pelo menos um lote.")
+        return self

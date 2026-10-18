@@ -609,7 +609,19 @@ def apply_diversity_to_shared_recommendation(
             adjusted.append(shared)
             continue
         candidate = shared.participant_evaluations[0].evaluation.candidate
+        identity = _profile_identity(candidate)
+        structured_profile = profiles.get(identity) if identity is not None else None
         traits = _planning_traits(candidate, profiles)
+        structured_category = (
+            _normalize_token(structured_profile.planning_category)
+            if structured_profile is not None and structured_profile.planning_category
+            else None
+        )
+        structured_protein = (
+            _normalize_token(structured_profile.primary_protein)
+            if structured_profile is not None and structured_profile.primary_protein
+            else None
+        )
         exclusion = _planning_exclusion(traits, meal_type)
         if exclusion is not None:
             adjusted.append(
@@ -620,6 +632,8 @@ def apply_diversity_to_shared_recommendation(
                     minimum_score=None,
                     average_score=None,
                     exclusion_reasons=tuple(sorted({*shared.exclusion_reasons, exclusion})),
+                    planning_category=structured_category,
+                    primary_protein=structured_protein,
                 )
             )
             continue
@@ -677,6 +691,8 @@ def apply_diversity_to_shared_recommendation(
                 minimum_score=minimum_score,
                 average_score=average_score,
                 participant_evaluations=tuple(participant_evaluations),
+                planning_category=structured_category,
+                primary_protein=structured_protein,
             )
         )
 

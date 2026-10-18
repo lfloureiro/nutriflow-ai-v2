@@ -352,6 +352,147 @@ def test_pantry_profiles_scale_recipe_candidate_against_recipe_yield(
     assert by_key["recipe:half-batch"].is_available is True
 
 
+
+def test_pantry_profiles_scale_serving_based_recipe_without_yield_metadata(
+    db_session: Session,
+) -> None:
+    family = _persist_family(db_session, "Serving-count Pantry Family")
+    milk = _persist_food(db_session, family, key="food:milk-serving", name="Milk")
+    _add_stock(
+        db_session,
+        family,
+        milk,
+        stock_key="milk-serving-stock",
+        quantity="200.0000",
+        unit="ml",
+    )
+
+    recipe = Recipe(
+        family=family,
+        recipe_key="recipe:serving-count",
+        name="Serving-count recipe",
+        yield_quantity=None,
+        yield_unit=None,
+        serving_count=Decimal("1.0000"),
+        source="test",
+    )
+    recipe.ingredients = [
+        RecipeIngredient(
+            food_item=milk,
+            quantity=Decimal("200.0000"),
+            unit="ml",
+            sort_order=0,
+        )
+    ]
+    composition = RecipeCompositionSnapshot(
+        recipe=recipe,
+        reference_quantity=Decimal("1.0000"),
+        reference_unit="serving",
+        energy_kcal=Decimal("120.0000"),
+        composition_version="test-v1",
+        calculation_version="test-v1",
+        computed_at=AS_OF - timedelta(days=1),
+    )
+    db_session.add(composition)
+    db_session.flush()
+
+    candidate = build_recipe_candidate(
+        composition,
+        quantity=Decimal("1.0000"),
+        quantity_unit="serving",
+    )
+
+    if family.id is None:
+        raise AssertionError("Family must be persisted.")
+    profiles = build_pantry_stock_practical_profiles(
+        db_session,
+        family_id=family.id,
+        candidates=[candidate],
+        as_of=AS_OF,
+    )
+
+    assert len(profiles) == 1
+    assert profiles[0].candidate_key == "recipe:serving-count"
+    assert profiles[0].is_available is True
+
+
+def test_pantry_profile_marks_unscalable_recipe_unavailable_without_aborting_batch(
+    db_session: Session,
+) -> None:
+    family = _persist_family(db_session, "Unscalable Pantry Family")
+    milk = _persist_food(db_session, family, key="food:unscalable-milk", name="Milk")
+    snack = _persist_food(db_session, family, key="food:scalable-snack", name="Snack")
+    _add_stock(
+        db_session,
+        family,
+        snack,
+        stock_key="scalable-snack-stock",
+        quantity="100.0000",
+        unit="g",
+    )
+
+    recipe = Recipe(
+        family=family,
+        recipe_key="recipe:structure-only",
+        name="Structure-only recipe",
+        yield_quantity=None,
+        yield_unit=None,
+        serving_count=None,
+        source="test",
+    )
+    recipe.ingredients = [
+        RecipeIngredient(
+            food_item=milk,
+            quantity=Decimal("200.0000"),
+            unit="ml",
+            sort_order=0,
+        )
+    ]
+    recipe_composition = RecipeCompositionSnapshot(
+        recipe=recipe,
+        reference_quantity=Decimal("1.0000"),
+        reference_unit="serving",
+        energy_kcal=None,
+        composition_version="structure-only",
+        calculation_version="structure-only",
+        computed_at=AS_OF - timedelta(days=1),
+    )
+    food_composition = FoodCompositionSnapshot(
+        food_item=snack,
+        reference_quantity=Decimal("100.0000"),
+        reference_unit="g",
+        energy_kcal=Decimal("150.0000"),
+        data_version="test-v1",
+        source="test",
+        effective_at=AS_OF - timedelta(days=1),
+    )
+    db_session.add_all([recipe_composition, food_composition])
+    db_session.flush()
+
+    unscalable = build_recipe_candidate(
+        recipe_composition,
+        quantity=Decimal("1.0000"),
+        quantity_unit="serving",
+    )
+    scalable = build_food_candidate(
+        food_composition,
+        quantity=Decimal("100.0000"),
+        quantity_unit="g",
+    )
+
+    if family.id is None:
+        raise AssertionError("Family must be persisted.")
+    profiles = build_pantry_stock_practical_profiles(
+        db_session,
+        family_id=family.id,
+        candidates=[unscalable, scalable],
+        as_of=AS_OF,
+    )
+
+    by_key = {profile.candidate_key: profile for profile in profiles}
+    assert by_key["recipe:structure-only"].is_available is False
+    assert by_key["food:scalable-snack"].is_available is True
+
 def test_pantry_evaluation_rejects_catalog_item_from_another_family(
     db_session: Session,
 ) -> None:

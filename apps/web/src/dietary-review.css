@@ -1,0 +1,26 @@
+.dietary-review { display: grid; gap: 1rem; color: var(--text); }
+.dietary-review header p, .dietary-review .dietary-help { color: var(--muted); max-width: 85ch; line-height: 1.6; }
+.dietary-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.25rem; min-width: 0; }
+.dietary-card h3 { margin-top: 0; }
+.dietary-badge { display: inline-block; font-size: .78rem; font-weight: 600; padding: .25rem .65rem; border-radius: 99px; background: var(--surface-soft); color: var(--text); margin: .2rem; }
+.dietary-badge.high { background: var(--danger-soft); color: var(--danger); }
+.dietary-badge.low { background: var(--surface-soft); color: var(--text); }
+.dietary-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 1rem; padding: 1.25rem; border: 1px solid var(--border); border-radius: var(--radius-md); }
+.dietary-form label, .dietary-filter { display: grid; gap: .4rem; font-weight: 600; }
+.dietary-form input, .dietary-form select, .dietary-form textarea, .dietary-filter input, .dietary-filter select { padding: .65rem; width: 100%; box-sizing: border-box; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font: inherit; }
+.dietary-wide, .dietary-form .dietary-actions { grid-column: 1 / -1; }
+.dietary-form textarea { min-height: 5rem; }
+.dietary-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+.dietary-review button { cursor: pointer; font: inherit; padding: .55rem .8rem; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--surface-soft); color: var(--text); }
+.dietary-review button:disabled { opacity: .55; cursor: default; }
+.dietary-review button:focus-visible, .dietary-review input:focus-visible, .dietary-review select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dietary-review [role=alert] { color: var(--danger); }
+.dietary-notes { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.dietary-layout { display: grid; grid-template-columns: minmax(210px, 1fr) minmax(0, 3fr); gap: 1rem; align-items: start; }
+.dietary-recipe-list { display: grid; gap: .4rem; max-height: 65vh; overflow: auto; }
+.dietary-recipe-list button { text-align: left; }
+.dietary-recipe-list button[aria-current=page] { background: var(--accent-soft); border-color: var(--accent); }
+.dietary-ingredient { border-top: 1px solid var(--border); padding: 1rem 0; }
+.dietary-substitution { border-left: 3px solid var(--accent); padding: .75rem 1rem; margin: .75rem 0; background: var(--surface-soft); border-radius: var(--radius-sm); }
+.dietary-source { overflow-wrap: anywhere; }
+@media (max-width: 760px) { .dietary-layout { grid-template-columns: 1fr; } .dietary-recipe-list { max-height: 240px; } }

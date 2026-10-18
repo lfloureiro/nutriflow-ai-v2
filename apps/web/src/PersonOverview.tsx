@@ -16,6 +16,7 @@ import MealPlanFitPanel from "./MealPlanFitPanel";
 import NutritionPlanAuthorityCard from "./NutritionPlanAuthorityCard";
 import NutritionPlanImportPanel from "./NutritionPlanImportPanel";
 import PersonProfileEditor from "./PersonProfileEditor";
+import PersonHealthConditions from "./PersonHealthConditions";
 
 type PersonSection =
   | "overview"
@@ -536,7 +537,8 @@ export default function PersonOverview({
         </section>
       ) : null}
 
-      {section === "health" || section === "history" ? (
+      {section === "health" ? <PersonHealthConditions key={member.person_id} familyId={dashboard.family_id} personId={member.person_id} /> : null}
+      {section === "history" ? (
         <PlaceholderSection locale={locale} section={section} />
       ) : null}
     </div>

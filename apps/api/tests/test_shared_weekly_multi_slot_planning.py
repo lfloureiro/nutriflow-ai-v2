@@ -422,6 +422,72 @@ def test_equal_support_preserves_minimum_participant_fairness() -> None:
     ] == ["balanced", "balanced"]
 
 
+def test_shared_week_softly_prefers_variety_for_near_equivalent_candidates() -> None:
+    slots = []
+    for offset in (0, 1):
+        planning_date = MONDAY.fromordinal(MONDAY.toordinal() + offset)
+        favorite = _shared_candidate(
+            "favorite",
+            planning_date=planning_date,
+            meal_type="lunch",
+            ana_score="1.0000",
+            bruno_score="1.0000",
+        )
+        alternative = _shared_candidate(
+            f"alternative:{offset}",
+            planning_date=planning_date,
+            meal_type="lunch",
+            ana_score="0.9000",
+            bruno_score="0.9000",
+        )
+        slots.append(
+            _slot(f"lunch:{offset}", planning_date, "lunch", favorite, alternative)
+        )
+
+    result = optimize_shared_weekly_slots(tuple(slots))
+
+    assert result.selected_plan is not None
+    selected = [
+        choice.candidate.evaluation.candidate_key
+        for choice in result.selected_plan.choices
+    ]
+    assert selected.count("favorite") == 1
+    assert result.selected_plan.repeated_candidate_count == 0
+
+
+def test_shared_week_repeat_penalty_does_not_force_clearly_worse_alternative() -> None:
+    slots = []
+    for offset in (0, 1):
+        planning_date = MONDAY.fromordinal(MONDAY.toordinal() + offset)
+        favorite = _shared_candidate(
+            "favorite",
+            planning_date=planning_date,
+            meal_type="lunch",
+            ana_score="1.0000",
+            bruno_score="1.0000",
+        )
+        alternative = _shared_candidate(
+            f"alternative:{offset}",
+            planning_date=planning_date,
+            meal_type="lunch",
+            ana_score="0.6000",
+            bruno_score="0.6000",
+        )
+        slots.append(
+            _slot(f"lunch:{offset}", planning_date, "lunch", favorite, alternative)
+        )
+
+    result = optimize_shared_weekly_slots(tuple(slots))
+
+    assert result.selected_plan is not None
+    selected = [
+        choice.candidate.evaluation.candidate_key
+        for choice in result.selected_plan.choices
+    ]
+    assert selected == ["favorite", "favorite"]
+    assert result.selected_plan.repeated_candidate_count == 1
+
+
 def test_shared_week_refuses_search_space_above_explicit_limit() -> None:
     slots = []
     for offset in (0, 1):

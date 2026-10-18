@@ -33,6 +33,20 @@
   color: var(--accent-strong);
 }
 
+.family-meals-date-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.family-meals-date-nav .button {
+  min-height: 36px;
+  padding: 0.48rem 0.72rem;
+  font-size: 0.76rem;
+}
+
 .family-meals-content {
   display: grid;
   gap: var(--space-4);
@@ -239,6 +253,16 @@
 }
 
 @media (max-width: 620px) {
+  .family-meals-date-nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .family-meals-date-nav .button:nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
   .family-meals-header {
     align-items: flex-start;
   }

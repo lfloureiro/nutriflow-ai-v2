@@ -64,6 +64,8 @@ When the selected weekly candidate is a transformed variant, the selected choice
 
 The ordinary `candidate_key` remains the base Recipe key.
 
+The weekly review UI may request additional shared transformation proposals explicitly for the selected Recipe using the ADR-054 Family transformation endpoint. This is suggestion-only: requesting alternatives does not mutate the selected weekly choice or materialize a MealEvent. Any future "use this adaptation" action must preserve the structured operation identity and pass through the same server-authoritative weekly revalidation boundary.
+
 ## Consequences
 
 - a recipe that is blocked in its base form may still be selected when a safe structured transformation resolves the block;

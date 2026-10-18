@@ -9,7 +9,12 @@ from app.development_legacy_recipe_planning_seed import (
     seed_development_legacy_recipe_planning_catalog,
 )
 from app.development_plan_fit_seed import seed_development_plan_fit
-from app.development_planning_profile_seed import seed_development_planning_profiles
+from app.development_planning_profile_seed import (
+    LOUREIRO_LEGACY_PROFILE_DEFINITIONS,
+    LOUREIRO_PROFILE_SOURCE,
+    LOUREIRO_PROFILE_SOURCE_REFERENCE,
+    seed_development_planning_profiles,
+)
 from app.development_snack_seed import seed_development_snack_catalog
 from app.development_transformation_seed import seed_development_transformations
 from app.legacy_v1_loureiro_seed import seed_loureiro_v1_snapshot
@@ -72,6 +77,13 @@ def main() -> None:
         plan_fit = seed_development_plan_fit(session, person_id=demo.person_id)
         _remove_fake_commercial_browser_data(session)
         planning = seed_development_planning_profiles(session, family=demo_family)
+        loureiro_planning = seed_development_planning_profiles(
+            session,
+            family=loureiro_family,
+            definitions=LOUREIRO_LEGACY_PROFILE_DEFINITIONS,
+            source=LOUREIRO_PROFILE_SOURCE,
+            source_reference=LOUREIRO_PROFILE_SOURCE_REFERENCE,
+        )
         session.commit()
 
     print("NutriFlow complete development dataset ready.")
@@ -96,7 +108,8 @@ def main() -> None:
     print(f"Demo Plan-Fit rules: {plan_fit.rule_count}")
     print("Família Loureiro meal sources: shared recipes + live restaurants")
     print("Commercial demo providers: removed/disabled")
-    print(f"Planning profiles: {planning.profile_count}")
+    print(f"Demo planning profiles: {planning.profile_count}")
+    print(f"Família Loureiro planning profiles: {loureiro_planning.profile_count}")
 
 
 if __name__ == "__main__":

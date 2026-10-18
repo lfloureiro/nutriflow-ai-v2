@@ -1,4 +1,248 @@
+## Receções parciais e validade por refeição — ADR-072 (18/10/2026)
+
+Compras recebem vários lotes com local/validade próprios e entregas parciais versionadas.
+Stock útil, previsão por receber e quantidade por comprar são separados. Fechar sem mais
+produtos recalcula a falta imediatamente; pedidos repetidos não recriam lotes/histórico.
+Correção da validade: orçamento FEFO por data/hora das refeições, sem consumir inventário.
+Sessão real `autoflush=False` coberta por testes; flush explícito antes do recálculo evita
+perder o novo snapshot. Entradas antigas continuam concluídas e compatíveis.
+Sem migration: head b781e265c904 e 53 tabelas aplicacionais. Família real sem entradas
+criadas pelo agente; verificação no browser numa base sintética separada.
+438 testes API completos, 17 focados de produção e 147 frontend passaram; build, Ruff e
+Alembic check sem erros. Interface verificada com persistência e fecho de entrega incompleta.
+
+## Comparação de lojas no ingrediente — ADR-071 (18/10/2026)
+
+Comparação por €/kg ou €/l, com preço por embalagem, fonte/data e cobertura do rótulo.
+Grupos comerciais e dimensões físicas separados; nenhum produto vira equivalente clínico
+ou substituição aplicada por aparecer com menor preço. Descoberta mantém outras lojas
+para ingredientes confirmados, sem relaxar a identidade exigida para comprar o produto.
+Só um detalhe de rótulo aberto de cada vez. Onze observações existentes; sem consulta live
+neste incremento. Sem migration; head b781e265c904 e 53 tabelas aplicacionais preservados.
+421 testes API completos, 36 focados e 140 frontend passaram; build, Ruff e Alembic check sem erros.
+Browser verificado numa família sintética, sem alterar a família real.
+
+## Entrada das compras na despensa — ADR-070 (18/10/2026)
+
+Cartão comprado permite confirmar quantidade real/unidade/local/validade e criar um lote.
+Versão, revisão explícita e unidade compatível obrigatórias; rótulos alterados bloqueiam.
+Snapshot histórico e chave única evitam duplicação por retry, mesmo após desativar o lote.
+Compras recebidas não são apagadas/desmarcadas; regenerar permite uma nova compra futura.
+Migration b781e265c904 aplicada após backup privado; família real sem entradas criadas.
+Interface verificada numa base sintética: 1.500 g recebidos mais 100 g existentes → falta zero.
+407 testes API e 132 frontend passaram; build, Ruff e Alembic check sem erros.
+Mais detalhes e limites em ADR-070; comparação entre lojas e receções parciais pendentes.
+
+## Produtos confirmados e embalagens — ADR-069 (18/10/2026)
+
+Implementado ingrediente próprio a partir de rótulo revisto, ligação exata às compras,
+pré-visualização e escolha versionada de embalagens. Quantidades são as efetivas depois
+do stock; propostas do original não servem como identidade do substituto. Mudanças
+invalidam nova utilização e exigem revisão; compras históricas mantêm snapshot.
+Migration 93c8e18311c4 em teste/live, com backup e ciclo reversível na base isolada.
+20 testes API focados, 128 frontend e build passaram; regressão completa 399 passou
+antes dos ajustes finais de catálogo/rollback. Interface em base sintética própria.
+
+## Continuação: organização reutilizável e agenda segura — ADR-068
+
+Copiar semana anterior e repetir um grupo por tempo implementados no percurso. As regras
+são recalculadas e a configuração só persiste após revisão. Agenda manual de receitas-base
+passa a rejeitar ingredientes excluídos para os presentes/data, com rollback integral.
+Sem migration; sem alteração de refeições pessoais nesta implementação. Testes focados
+390 API completos e 123 frontend passaram; interface verificada sem guardar alterações.
+Caso adicional de grupo grande coberto pela execução focada final. Ruff e Alembic check passaram.
+
+## Auditoria e retalho após publicação — 18/10/2026
+
+Branch publicada, consolidação `5aab9e3`, sem merge. Onze observações de retalho
+após sete novas; importação idempotente, sem alteração de receitas/quantidades.
+Backup local anterior à importação preservado. Auditoria pública sanitizada em
+`docs/domain/technical-audit-2026-10-18.md`, inventário do esquema e fontes de retalho
+nos documentos da mesma data. 119 testes frontend e 14 testes workspace passaram;
+build final passou após lazy loading das compras. Regressão final completa: 388 testes API passaram.
+O histórico abaixo contém estados intermédios; o quadro de tarefas é a referência atual.
+
+## Publicação e revisão — 18/10/2026
+
+Consolidação T01–T06/T08 preparada na branch v2 por autorização explícita.
+118 testes web e build passaram; Ruff e Alembic check passaram. Auditoria do esquema
+inventaria 52 tabelas de aplicação e a tabela Alembic; sem exportar linhas pessoais.
+Backups, capturas e relatórios pessoais em docs/audits ficam locais e ignorados pelo Git.
+O quadro de tarefas distingue execução atual de registos históricos abaixo.
+
+## Início, semanas guardadas e alternativas na linha — ADR-066 (18/10/2026)
+
+Implementado bloco de consulta de semanas no início, com datas, navegação e cartões das
+refeições realmente guardadas. Cada cartão inclui as suas alternativas; abrir leva à semana
+correta. Menu Plano abre agenda semanal. Data consultada separada de hoje e preservada
+para voltar ao início sem perder a semana aberta.
+
+Agenda semanal/diária e detalhe mantêm trocas visíveis; variantes/transformações aplicadas
+prevalecem sobre propostas. Revisão de ingredientes e compras mostram ingrediente →
+alternativa na mesma linha. Compras usam só propostas das receitas do intervalo guardado,
+não assumem quantidades equivalentes nem mudam os itens comprados. Botão de supermercado
+só aparece quando há produtos correspondentes, evitando detalhes vazios.
+
+118 testes frontend, TypeScript/build e diff check passaram. Interface real confirmou:
+início → próxima semana (7 refeições) → agenda de 19/10 → escalopes com trocas visíveis;
+revisão com cabeçalho ingrediente/alternativa e compras com alternativas diretas. Nenhuma
+refeição/quantidade foi alterada. Sem migration ou alteração backend neste incremento.
+
+Vite Windows passou a polling: havia módulos antigos em cache apesar de ficheiros alterados.
+Servidor atual Vite 5173 sessão 79136; API 8000 sessão 95485. Sem commit/push.
+Evidência: `docs/audits/2026-10-18/home-saved-weeks-alternatives.png` e
+`docs/audits/2026-10-18/shopping-inline-alternatives.png`.
+
+## Seleção do prato e almoços — 18/10/2026 (ADR-065)
+
+Corrigido o problema reportado no PDF do utilizador: o detalhe mostra só propostas do prato
+selecionado (incluindo ingredientes com proposta mas sem referência alta FODMAP) e as
+operações realmente aplicadas de variantes completas. Catálogo global removido do percurso.
+Revisão de ingredientes limitada a prato/data/tempo/presentes, com regras refrescadas pelo
+servidor mesmo para um almoço que não estava na lista de tempos a gerar.
+
+Origem por tipo de refeição guardada em `FamilyWeekSetup.settings.meal_sources`, sem
+migration. Almoços sugerem entrega, com escolha casa/restaurante. Sem prato elegível, ficam
+pendentes. Detalhe reúne plataformas e restaurantes, sem guardar/encomendar automaticamente.
+Conta normal de cliente confirmada pelo utilizador: nenhum acesso API consumer nem adaptador
+live; links funcionais não significam importação. Catálogo real de Uber/Glovo/Bolt pendente.
+
+OpenStreetMap: corrigido timeout HTTP inferior ao da query, recuperação de falhas temporárias,
+respeito por HTTP 4xx/429 e fallback Nominatim limitado à zona, identificado como seleção de
+correspondências, com cache curta e sem avaliações/nutrição inventadas. Teste direto real
+obteve 12 restaurantes em Lisboa; interface final confirmada: 12 resultados, mapa incorporado e seleção sincronizada.
+
+Validação: execução completa API 386 passou antes da extensão Nominatim; 14 testes de
+restaurantes/capacidades passaram na versão final. 114 frontend, TypeScript e build passaram.
+Sem commit/push. Serviços atuais: API 8000 sessão 95485, Vite 5173 sessão 84637.
+
+Verificação mais recente: 383 testes API e 106 frontend passaram; build e Ruff passaram. Presenças: ADR-064.
+
+## Presenças por refeição — incremento de 18 de outubro de 2026
+
+O percurso guiado permite exceções por data/refeição ao grupo habitual e guarda-as no
+JSON versionado da semana. Slots enviam os presentes ao motor; as exclusões automáticas,
+porções e limites nutricionais usam só esses participantes. Refeições sem presentes não
+são geradas. O backend rejeita participantes fora do grupo e sobreposições da mesma pessoa.
+
+T04 permanece parcial: padrões reutilizáveis, incerteza e refeições individuais no percurso
+ficam pendentes; para uma pessoa o ecrã indica a agenda e bloqueia geração incorreta.
+Não houve migration nem gravação de refeições pessoais nesta verificação de interface.
+
 # NutriFlow AI v2 development continuity
+
+## Complete recipe variants — current increment (2026-10-18)
+
+Final verification: 379 API tests, 104 web tests and final build passed. Browser test
+completed draft → validation → activation → weekly application → effective shopping on
+the isolated DB. UI regressions fixed: active variants missing from base summaries,
+false error on already-planned slots, unnecessary decimal zeros. See
+`docs/audits/2026-10-18/complete-variant-interface-verification.md`. T02/T03 are locally
+verified; T04 attendance is next, T05/T06 remain partial. No real Family variant was created.
+
+Schema head `58960d47819f`, parent `d7c626668227`. FamilyRecipeVariant now stores
+immutable complete ingredient projections through ordinary Family Recipe/Composition
+entities, with lineage/revision, concurrency version, operation evidence and fingerprints.
+Draft → validation for selected people/date/meal → activation is exposed inside the
+existing substitution review. Base recipes remain unchanged; generic mutation is blocked.
+Active fresh variants enter normal recommendation/weekly planning and effective shopping.
+Proposal and saved grid show operation summaries. Server validation/acceptance checks all
+participants; changed source/label evidence blocks new use. Retired variants preserve history.
+
+378 full API tests, 102 frontend tests and production build passed before final interface
+verification. Isolated migration upgrade/downgrade/upgrade and live Alembic check passed.
+Live migration followed `backups/pre-complete-variants-2026-10-18.dump`. No real Family
+variant or meal was activated/applied by the agent. ADR-063 records design and limitations.
+
+UI integration uses a second API on 8001 and Vite on 5174 targeting
+`nutriflow_review_test`, with `python -m tests.seed_variant_ui` (database-name guarded).
+Default app remains 8000/5173. Never seed that synthetic fixture into the live database.
+Per-slot attendance, richer product linking/pack selection and external discovery remain
+pending; complete variants do not imply those capabilities are finished.
+
+Execution task board: `docs/vision/implementation-task-board.md`. The current next slice
+is editing existing substitution quantities/units/preparation notes; complete variants,
+attendance, automatic variant selection and substituted shopping remain tracked there.
+
+T01 completed locally: existing substitution PUT can update/clear quantity+unit together
+while omitted fields are preserved. Review UI edits whole-recipe replacement quantity,
+unit and notes. Version conflicts and invalid pairs are rejected; base recipes unchanged.
+21 dietary-review API tests, 99 web tests, TypeScript and production build passed.
+No migration. Next: complete pilot variant (T02) and all-participant validation (T03).
+
+## Latest steering — automatic defaults and visible substitutions (2026-10-18)
+
+ADR-062 supersedes manual-only defaults from ADR-061. Added scoped POST
+`/api/families/{family_id}/planning-restrictions`: selected participants/date/meal-aware
+effective plan exclusions and the explicitly requested `sibo` → FODMAP planning profile.
+Weekly preview/accept recompute automatic exclusions per slot. UI preselects and explains
+the source; manual week selections are stored separately. No migration was needed.
+Base recipe cards expose all affected ingredients, alternatives, review state and missing
+quantities; existing executable transformations now display the actual swap in the grid.
+Validation: 98 web tests and final production build passed; 23 weekly/workspace API
+integration tests passed after a cache-ordering regression found in the full run was
+fixed. See ADR-062 for the exact validation scope.
+
+Verified locally: the affected participant activates the profile for 19–25 October; 57 catalogue recipes
+have mapped affected ingredients, with visible pending changes. These are review drafts,
+not complete executable variants. Unchanged incompatible bases remain blocked by the
+weekly engine. Full multi-operation validation/materialization/shopping is still pending.
+
+## Latest local increment — guided week and shopping (2026-10-18)
+
+Implemented locally on `codex/health-conditions-fodmap-review`: Home → Plan next week →
+people/meal types → explicit ingredient exclusions → review/apply → shopping. Versioned
+Family week setup, exclusion checks on preview and accept, four sourced supermarket
+observations, shopping suggestions and verified snapshot serving-basis fallback.
+Schema head `d7c626668227` is applied locally. Public educational references total 23;
+no licensed FODMAP database was extracted. Validation: 359 API tests, 97 web tests,
+TypeScript and production build passed. See
+`docs/domain/guided-week-planning-and-retail-alternatives.md` and ADR-061.
+
+The shared wizard uses one group (at least two people) for its generated meals. Per-slot
+attendance, complete multi-operation variants and live delivery integrations remain
+unfinished. The roadmap below remains the target; the older “no implementation” statement
+describes that earlier planning-only checkpoint, not this new increment.
+
+## Next product sequence — integrated Family planning (2026-10-18)
+
+Authoritative next-work plan: `docs/vision/integrated-family-meal-planning-roadmap.md`, ADR-060.
+Resolve participants per meal/group using weekly patterns and date exceptions, then explicit
+restrictions, complete Family variants and shared source discovery. A global weekly `person_ids`
+list is insufficient. Reuse individual/shared evaluators; do not infer diets from conditions.
+
+First functional increment: attendance + usable restrictions + one verified complete recipe
+variant through daily/weekly planning. Then catalogue coverage, unified source panel/map and
+authorized live adapters. The 130 current alternatives remain review proposals.
+
+Current local provider diagnosis: no credentials, consumer enablement or registered live adapter
+for Uber Eats/Glovo/Bolt Food; Google Places key absent; OSM discovery implemented. Family area
+and delivery defaults exist. No external network smoke test was run in this planning review.
+Official Uber consumer access is approval-controlled; Glovo Partner docs do not prove consumer
+marketplace access. Adding keys alone does not implement adapters.
+
+This sequence supersedes older next-branch suggestions below. No implementation, provider
+activation, recipe application or database mutation was performed for this planning update.
+
+## Latest local increment — health conditions and FODMAP substitution review (2026-10-18)
+
+Current branch: `codex/health-conditions-fodmap-review`, based on weekly comparison head
+`9823b4d716e34b0829b6b57ff3732c46d5bc156c`. This is stacked review work, not an integration
+of the pending weekly branches. New schema head: `3ecd05b9b43a` (parent `e3f7a2b6c1d9`).
+
+Implemented Person health-condition create/revise/history, immutable condition event snapshots,
+Family-scoped recipe substitution review and a documented 22-item public Monash guidance import.
+UI: `Pessoas → pessoa → Saúde` and `Casa → Substituições`. Local Family data has 130 review
+proposals; source recipes and historical Servings were not changed. A requested user-reported
+condition was registered separately through the service without baking patient data into code.
+
+Validation: isolated-database migration downgrade/upgrade, Alembic check, Ruff, 349 API tests,
+92 web tests, TypeScript/build and browser read-only smoke checks passed. See
+`docs/domain/health-conditions-and-fodmap-review.md` and ADR-059 for source limitations and
+the next stage. No diagnosis-to-diet automation, licensed laboratory database import or actual
+recipe application was introduced. Existing pending PRs were not merged.
+
+The remaining sections preserve prior checkpoints; branch/schema labels below are historical.
 
 This is the authoritative handover entry point for NutriFlow AI v2. Repository code, migrations, tests, domain docs and ADRs take precedence over conversation history.
 
@@ -9,32 +253,44 @@ Nutrition Plan / Guidance capability blocks:
 ```text
 PR #37  NutritionPlan + EffectiveNutritionPlan foundation                  MERGED
 PR #38  reviewed text import / confirmation boundary                       MERGED
-PR #39  deterministic Meal Plan-Fit evaluation + focused test UI            MERGED
-PR #42  AI-assisted text interpretation + browser review UI                 MERGED
+PR #39  deterministic Meal Plan-Fit evaluation + focused test UI           MERGED
+PR #42  AI-assisted text interpretation + browser review UI                MERGED
 PR #43  Structured Meal Transformation proposals                           MERGED
-PR #44  PDF/DOCX/TXT/Markdown text extraction into import review            MERGED
+PR #44  PDF/DOCX/TXT/Markdown text extraction into import review           MERGED
 PR #45  scoped single-Person recommendations consume Meal Plan-Fit          MERGED
 PR #46  shared-family recommendations use Person-specific Meal Plan-Fit     MERGED
 PR #47  restaurant/delivery recommendations consume Meal Plan-Fit           MERGED
 PR #48  deterministic weekly frequency progress                            MERGED
-PR #49  individual recommendations use weekly frequency progress            MERGED
+PR #49  individual recommendations use weekly frequency progress           MERGED
 PR #50  Person-specific weekly support in shared-family ranking             MERGED
 PR #51  full-week multi-slot planning foundation                            MERGED
 PR #52  same-day daily nutrient coupling                                    MERGED
 PR #53  shared-Family multi-slot planning                                   MERGED
-8c next  server-authoritative weekly planning proposal API                  IN PROGRESS
+PR #54  server-authoritative weekly planning proposal API                   MERGED
+PR #55  bounded/scalable weekly search                                      MERGED
+PR #59  NutritionPlan authority across Plan-Fit                             MERGED
+PR #60  shared-Family recipe transformation evaluation                      MERGED
+PR #61  NutritionPlan authority UI                                          MERGED
+PR #62  recommendation authority UI                                         MERGED
+PR #63  Family transformation preview in recommendations                    MERGED
+PR #64  materialized shared recipe transformations                          MERGED
+PR #66  weekly planning selects safe recipe adaptations                     MERGED
+PR #67  atomic weekly plan materialization                                  MERGED
+PR #68  current Week-view frontend                                          MERGED
+PR #69  persisted transformed meals in Family planning                      MERGED
+current weekly plan -> shopping-list refresh + transformed shopping         IN PROGRESS
 ```
 
-Confirmed `main` after PR #53:
+Confirmed `main` before the current branch:
 
 ```text
-70d0d344e1b0bc87233b27e88cf94088fb5d9857
+2d93327a169d691fe4dd5f566da94603ac09a406
 ```
 
 Current focused branch, created from that exact main SHA:
 
 ```text
-feature/weekly-planning-api-orchestration
+feature/week-shopping-list-refresh
 ```
 
 The current slice adds no migration. Repository schema head remains:
@@ -244,17 +500,21 @@ mandatory-support participant coverage
 -> total mandatory supported occurrences
 -> advisory-support participant coverage
 -> total advisory supported occurrences
--> minimum participant score across the week
--> average participant score
+-> diversity-adjusted minimum participant score
+-> diversity-adjusted average participant score
 -> repeated shared-candidate count
 -> stable candidate-key sequence
 ```
 
-Current increment: server-authoritative weekly planning proposal API.
+Exact recipe repetition inside the proposed week is a soft diversity cost, not a hard gate. Each occurrence beyond the first subtracts 0.25 from the plan-level minimum and average ranking scores. Mandatory/advisory weekly support remains ahead of that adjustment, and clearly worse alternatives can still lose to a repeated favourite. The bounded search applies the same repeat-aware score hint before pruning so approximate search does not systematically collapse onto the same top-ranked recipe.
+
+Current increment: couple an explicitly applied weekly plan to the existing durable shopping-list workflow without weakening weekly-plan atomicity.
 
 The browser submits Family, Persons, ordinary slot/candidate identities and practical context. The server runs the established shared practical recommendation pipeline independently for each slot, carries the exact Person-specific Plan-Fit used for that candidate as transient internal evidence, then feeds the shared weekly optimizer. Clients never submit or own `MealPlanFitRead`, weekly progress, rule evaluation or classification evidence.
 
-Proposal generation returns the selected combination, Person-specific portions/scores/explanations, optimization counters and each slot's recommendation engine version. It does not create MealEvents. Weekly acceptance/materialization remains an explicit next boundary.
+Proposal generation returns the selected combination, Person-specific portions/scores/explanations, optimization counters and each slot's recommendation engine version. A requested slot that has no server-authoritative eligible candidate is returned as an explicit pending/skipped slot and is excluded from combination search, so missing live delivery evidence cannot invalidate the rest of the week. It does not create MealEvents. Weekly acceptance/materialization is now explicit and atomic over the selected choices: the server recomputes the reviewed selection, validates candidate/transformation identity and persists all selected MealEvents in one transaction. The Week view refreshes the authoritative meal plan afterwards.
+
+The current branch adds a derivative post-apply shopping refresh. It reuses the existing server-authoritative pantry/shopping calculation, and transformed meals contribute their persisted replacement ingredient rather than the source Recipe ingredient. Shopping refresh failure is reported separately and never implies that an already-committed weekly plan was rolled back.
 
 ADRs:
 
@@ -262,6 +522,7 @@ ADRs:
 - `docs/decisions/ADR-048-weekly-planning-rechecks-daily-nutrient-limits.md`
 - `docs/decisions/ADR-049-shared-family-weekly-planning-reuses-person-planner.md`
 - `docs/decisions/ADR-050-weekly-planning-api-is-server-authoritative.md`
+- `docs/decisions/ADR-058-weekly-exact-repeat-diversity-is-soft.md`
 
 Next Phase 8c increments after this slice include proposal acceptance/materialization, richer across-week category/protein diversity, pantry/shopping/schedule coupling and scalable search.
 
@@ -309,7 +570,13 @@ Nutrition Plan, import, Plan-Fit and weekly guidance evidence belong to the sele
 8c foundation. Person-specific multi-slot weekly composition              DONE (v1, PR #51)
 8c daily coupling. Same-day mandatory nutrient upper bounds               DONE (v1, PR #52)
 8c shared. Shared-Family multi-slot Person-specific planning              DONE (v1, PR #53)
-8c API. Server-authoritative weekly planning proposal orchestration       IN PROGRESS
+8c API. Server-authoritative weekly planning proposal orchestration       DONE (v1, PR #54)
+8c search. Deterministic bounded search                                   DONE (v1, PR #55)
+8c transformations. Safe transformed variants in weekly planning          DONE (v1, PR #66)
+8c materialization. Atomic weekly application                             DONE (v1, PR #67)
+8c Week UI. Monday-Sunday progressive-disclosure workflow                 DONE (v1, PR #68)
+8c transformed read model. Persisted operation visible after apply        DONE (v1, PR #69)
+8c shopping coupling. Refresh pantry-aware shopping after apply           IN PROGRESS
 9. Feedback/learning refinement                                           PENDING
 ```
 
@@ -323,9 +590,8 @@ OCR/photo import remains a parallel capability gap, not a reason to create a sec
 - consumer marketplace discovery depends on provider access/configuration;
 - external items without composition remain intentionally unranked;
 - OCR/photo/scanned-PDF extraction is deferred;
-- full-week optimization currently has an explicit exhaustive-search cap;
+- bounded weekly search is deterministic but can still prune the full combinatorial space;
 - daily minimum completion is not forced unless complete-day slot coverage becomes explicit;
-- weekly proposal acceptance/materialization is not yet implemented;
 - pantry depletion, shopping and schedule coupling are not yet optimized jointly;
 - richer reviewed food-category taxonomy/equivalence is deferred;
 - qualitative guidance remains visible but is not automatically guessed/scored;
@@ -366,3 +632,141 @@ At a new session during this slice:
 8. inspect API CI and Web CI on the exact latest PR head; warnings count as failures;
 9. guarded squash-merge only after exact-head CI is green, PR head is unchanged and PR is mergeable;
 10. verify post-merge `main` before starting weekly proposal acceptance/materialization.
+
+
+## Review increment — NutritionPlan actionability diagnostics
+
+Temporary review branch:
+
+```text
+fix/nutrition-plan-actionability-review
+```
+
+Base: exact PR #73 review head `723213cba0721d7b5eaae6c3e58057ca72c8a44c`. This is intentionally stacked on the unmerged integrated review branch because the affected weekly/import code is not yet on `main`. Do not merge this branch or PR #73 without explicit user review.
+
+Confirmed production-like diagnosis from the local Loureiro data:
+
+- Luís has an active `Plano do nutricionista` from 2026-09-18 with 40 rules and 32 guidelines;
+- the effective plan for 2026-09-21 dinner reports `active_plan`;
+- Mac and Cheese is `eligible=True`, `status=unknown`, `fit_score=None`, with candidate authority `partial_plan_coverage`;
+- the plan is therefore persisted and loaded correctly; the apparent absence in Week UI came from downstream response loss plus unsupported rule evidence.
+
+This increment:
+
+- propagates Person-specific `plan_fit_status`, `plan_fit_score`, `nutrition_plan_authority`, active plan IDs/titles and unknown evidence into weekly proposal participants;
+- shows the derived authority in the Week detail instead of presenting raw `unknown` as if no plan existed;
+- allows explicit prohibitions to use the existing import `numeric_rule` envelope with `operator=exclude` and no numeric values/unit;
+- materializes confirmed exclusions as `NutritionConstraint(constraint_type=exclusion)`;
+- teaches ChatGPT-assisted import to split explicit multi-subject exclusions while preserving review/provenance;
+- keeps unsupported food-category evidence unknown/not evaluated and never infers membership from recipe names/descriptions.
+
+No database migration is introduced by this increment.
+
+Before opening any PR, run the ADR-007 local gates on the exact branch head:
+
+```powershell
+python -m alembic check
+cd apps\api
+python -m ruff check .
+python -m pytest -q
+
+cd ..\web
+npm install --no-package-lock --ignore-scripts
+npm run test
+npm run build
+```
+
+Only after those local gates are explicitly green should an integration/review PR be opened.
+
+
+## Review regression fix — legacy Recipe serving normalization
+
+Stacked review branch:
+
+```text
+fix/legacy-recipe-serving-normalization-review
+```
+
+Base: NutritionPlan actionability review head `31c5bca37b55bdf6f81e7bde55c9ade9246e7a72`.
+
+During functional review, Mac and Cheese exposed an independent portion-sizing defect: its legacy RecipeCompositionSnapshot represented the whole recipe as `6 serving` / `5899 kcal`, while `Recipe.serving_count` was null. Planning bootstrap therefore exposed 6 servings as the candidate baseline, and automatic portion sizing could only scale that baseline by 0.5x..2x, producing impossible Person portions such as 3 or 6 servings.
+
+The bootstrap now treats a composition whose `reference_unit=serving` as intrinsically scalable by serving count: the planning candidate baseline is 1 serving and energy is scaled by `1 / reference_quantity`. This does not mutate legacy Recipe rows or infer a missing serving_count. Non-serving snapshots retain the existing serving_count/yield behaviour.
+
+Regression coverage includes the real legacy shape `6 serving / 5899 kcal / serving_count=None`.
+
+
+## Review regression fix — weekly portion semantics and display
+
+Stacked review branch:
+
+```text
+fix/weekly-portion-allocation-display-review
+```
+
+Base: `fix/legacy-recipe-serving-normalization-review` at `21d37867a0c3d9e32d65d5c2dc39ebf28313ca77`.
+
+Functional review exposed two separate problems after Recipe serving normalization:
+
+1. Weekly auto-sizing was reusing the same-day remaining-energy redistribution policy. Because future weekly slots are evaluated independently before proposed meals exist, dinner saw nearly the whole daily target as "remaining" and pushed many candidates to the 2x maximum.
+2. The UI leaked persistence values such as `2.0000 serving` and machine explanation codes, making the proposal difficult to interpret.
+
+This increment:
+
+- preserves remaining-energy redistribution for ordinary same-day recommendations;
+- uses fixed daily meal shares for weekly auto-sizing: breakfast 25%, lunch 35%, snack 10%, dinner 30%;
+- versions the weekly policy as `meal-energy-allocation-v3-fixed-daily-weight` and weekly sizing as `portion-sizing-v2-weekly-fixed-weight`;
+- exposes the Person-specific meal-energy reference range used to size each weekly portion;
+- renders `serving` as localized Recipe portions with at most two decimals, never raw four-decimal persistence precision;
+- rounds displayed kcal to whole kcal while leaving stored/calculated Decimal values unchanged;
+- hides duplicate Plan-Fit machine codes already represented by the dedicated status fields;
+- translates known rating, location, timing, energy and preference signals into user-facing text.
+
+No database migration is introduced.
+
+
+## Review increment — weekly nutrition comparison + explicit adaptation suggestions
+
+Stacked review branch:
+
+```text
+feat/weekly-nutrition-comparison-adaptation-review
+```
+
+Base: `fix/weekly-portion-allocation-display-review` exact head `1f3f87fe0372480edc7254255019f378bdaea337`.
+
+This increment makes the weekly meal detail answer two user-facing questions without recreating nutrition logic in the browser:
+
+1. what nutrition the exact Person-specific proposed portion contains;
+2. how machine-evaluable plan-backed nutrient rules compare with that portion when an active NutritionPlan provides such targets.
+
+The weekly proposal response now carries:
+
+- selected Recipe id when the candidate is a Recipe;
+- Person-specific DailyNutritionState id;
+- exact candidate nutrition used by Plan-Fit;
+- compact plan-backed candidate/meal rule results relevant to nutrient/meal composition/food-category evidence.
+
+The UI:
+
+- shows a compact portion nutrition summary;
+- shows observed vs plan target and Plan-Fit status for structured numeric nutrient rules;
+- shows up to four high-priority applicable qualitative NutritionPlan instructions as context, explicitly marked as not automatically evaluated;
+- explicitly says when an active plan has no quantitative evaluable target rather than inventing one from qualitative guidance;
+- offers an `Adaptar ao plano` action for Recipes;
+- calls the existing shared-Family transformation proposal endpoint with the reviewed Person-specific portions/state ids;
+- displays safe structured substitutions and Person-specific before/after fit evidence;
+- does not apply a suggested transformation automatically.
+
+No database migration is introduced. A later increment may let the user choose one displayed transformation and re-pin/revalidate that exact structured variant inside the weekly proposal before materialization.
+
+Validação final do incremento de auditoria: **388 testes API e 119 frontend passaram**;
+TypeScript/build, Ruff completo e Alembic check passaram. Sem nova migration.
+
+Execução focada final: 14 testes de agenda/variantes passaram, incluindo grupo com
+mais de 20 pessoas e rejeição do ingrediente para o último participante.
+
+Validação final T06: 34 API focados e 128 frontend passaram; regressão completa API 399
+passou neste incremento. Build, Ruff e Alembic check passaram. Interface isolada confirmou
+pré-visualização → guardar 3 embalagens → recarregar → escolha preservada. Captura local
+`docs/audits/2026-10-18/confirmed-shopping-packages-interface.png`, sem publicação de dados.

@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.schemas.nutrition_plan_document import NutritionPlanDocumentExtractionRead
 from app.schemas.nutrition_plan_import import (
+    NutritionPlanChatGPTImportCreate,
+    NutritionPlanChatGPTPromptRead,
     NutritionPlanImportCreate,
     NutritionPlanImportProposalCreate,
     NutritionPlanImportProposalRead,
@@ -15,7 +17,9 @@ from app.schemas.nutrition_plan_import import (
 )
 from app.services.nutrition_plan_ai_import import (
     NutritionPlanAIImportError,
+    build_chatgpt_nutrition_plan_prompt,
     create_ai_nutrition_plan_import,
+    create_chatgpt_assisted_nutrition_plan_import,
 )
 from app.services.nutrition_plan_document import (
     MAX_DOCUMENT_BYTES,
@@ -124,6 +128,43 @@ def create_ai_nutrition_plan_import_endpoint(
         return create_ai_nutrition_plan_import(db, person=person, data=data)
     except NutritionPlanAIImportError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post(
+    "/{person_id}/nutrition-plan-imports/chatgpt/prompt",
+    response_model=NutritionPlanChatGPTPromptRead,
+)
+def create_chatgpt_nutrition_plan_prompt_endpoint(
+    person_id: uuid.UUID,
+    data: NutritionPlanImportCreate,
+    db: Annotated[Session, Depends(get_db)],
+) -> NutritionPlanChatGPTPromptRead:
+    _require_person(db, person_id)
+    return NutritionPlanChatGPTPromptRead(
+        prompt=build_chatgpt_nutrition_plan_prompt(data.source_text)
+    )
+
+
+@router.post(
+    "/{person_id}/nutrition-plan-imports/chatgpt",
+    response_model=NutritionPlanImportRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_chatgpt_assisted_nutrition_plan_import_endpoint(
+    person_id: uuid.UUID,
+    data: NutritionPlanChatGPTImportCreate,
+    db: Annotated[Session, Depends(get_db)],
+) -> NutritionPlanImportRead:
+    person = _require_person(db, person_id)
+    try:
+        return create_chatgpt_assisted_nutrition_plan_import(
+            db,
+            person=person,
+            data=data.plan,
+            response_text=data.response_text,
+        )
+    except NutritionPlanAIImportError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get(

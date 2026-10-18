@@ -45,12 +45,14 @@ Shopping calculation uses planned/prepared MealEvents in the selected Family-loc
 
 For each Person Serving referencing a Recipe:
 
-1. planned Serving quantity is converted to the Recipe yield unit when yield evidence exists;
-2. that quantity becomes a Recipe batch multiplier;
-3. RecipeIngredient quantities are multiplied by that factor;
-4. all contributions are aggregated by FoodItem across all meals and people;
-5. safely convertible units are normalized;
-6. pantry stock is subtracted only after the Family-wide requirement is aggregated.
+1. persisted MealTransformationApplication operations are applied first when the planned meal is transformed;
+2. a replace-ingredient operation contributes the persisted replacement FoodItem and replacement quantity/unit, never the source ingredient;
+3. planned Serving quantity is converted to the Recipe yield unit when yield evidence exists;
+4. that quantity becomes a Recipe batch multiplier;
+5. effective ingredient quantities are multiplied by that factor;
+6. all contributions are aggregated by FoodItem across all meals and people;
+7. safely convertible units are normalized;
+8. pantry stock is subtracted only after the Family-wide requirement is aggregated.
 
 This ordering is important. Evaluating each meal independently could incorrectly spend the same pantry stock multiple times.
 
@@ -110,6 +112,15 @@ Compras
 - quantity/name adjustments;
 - explicit calculation issues.
 
+`Refeições -> Semana -> Aplicar semana` refreshes the same durable shopping list for the
+Monday-Sunday planning interval after the weekly plan has been persisted. The refresh is deliberately
+derivative rather than part of the weekly-plan transaction: if shopping recalculation fails, the week
+remains saved and the browser reports the shopping failure separately instead of implying that weekly
+materialization rolled back.
+
+The Week view shows a compact post-apply summary with the number of automatically generated items
+still needed and the number of planning requirements that could not be calculated safely.
+
 ## Correctness invariants
 
 - Family isolation applies to stock and lists;
@@ -118,4 +129,7 @@ Compras
 - unsafe units fail explicitly;
 - missing calculation evidence is not treated as zero;
 - shopping state is persisted independently from planner recalculation;
+- transformed meals derive shopping requirements from persisted transformation provenance;
+- missing or inconsistent transformation evidence fails shopping calculation explicitly rather than falling back to the source ingredient;
+- weekly-plan persistence is not reported as failed merely because the derivative shopping refresh failed;
 - browser code does not calculate authoritative shopping quantities.

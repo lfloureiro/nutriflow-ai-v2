@@ -1,5 +1,7 @@
+import ScheduledWeeks from "./ScheduledWeeks";
 import type { FamilyDashboard, FamilyDashboardMember } from "./api/types";
 import { useI18n, type Locale } from "./i18n";
+import "./planning-journey.css";
 
 export function memberDisplayName(member: FamilyDashboardMember): string {
   return [member.first_name, member.last_name].filter(Boolean).join(" ");
@@ -62,9 +64,13 @@ export default function FamilyHome({
   dashboard,
   onPlanMeal,
   onOpenPerson,
+  onOpenWeek,
+  weekDate,
 }: {
   dashboard: FamilyDashboard;
   onPlanMeal: () => void;
+  onOpenWeek?: (date:string) => void;
+  weekDate?: string;
   onOpenPerson: (personId: string) => void;
 }) {
   const { locale, t } = useI18n();
@@ -83,6 +89,15 @@ export default function FamilyHome({
           {t("home.planMeal")}
         </button>
       </header>
+
+      {onOpenWeek && <ScheduledWeeks initialWeek={weekDate} familyId={dashboard.family_id} referenceDate={dashboard.dashboard_date} onOpenWeek={onOpenWeek}/>}
+
+      <section className="planning-start-card">
+        <span className="eyebrow">{locale === "pt-PT" ? "Começa aqui" : "Start here"}</span>
+        <h2>{locale === "pt-PT" ? "O que vamos comer na próxima semana?" : "What are we eating next week?"}</h2>
+        <p>{locale === "pt-PT" ? "Escolhe quem participa, revê os ingredientes a evitar, gera as refeições e passa diretamente à lista de compras." : "Choose who joins, review ingredients to avoid, generate meals and go straight to the shopping list."}</p>
+        <button type="button" className="button primary" onClick={onPlanMeal}>{locale === "pt-PT" ? "Planear a próxima semana →" : "Plan next week →"}</button>
+      </section>
 
       <section className="home-section" aria-labelledby="family-members-heading">
         <div className="home-section__heading">

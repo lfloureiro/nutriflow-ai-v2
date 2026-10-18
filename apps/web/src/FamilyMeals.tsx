@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {listRecipeReviews,type ReviewRecipe} from "./api/dietaryReviewClient";
+import SavedMealChanges from "./SavedMealChanges";
+import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 
 import {
   ApiError,
@@ -22,8 +24,9 @@ import MealConsumptionControls from "./MealConsumptionControls";
 import MealPlanner from "./MealPlanner";
 import { localDateValue } from "./planning";
 import WeeklyProposalPreview from "./WeeklyProposalPreview";
+const PlanningJourney = lazy(() => import("./PlanningJourney"));
 
-export type FamilyMealsMode = "today" | "week" | "recommend";
+export type FamilyMealsMode = "prepare" | "today" | "week" | "recommend";
 
 const DEFAULT_TIMES: Record<MealType, string> = {
   breakfast: "08:30",
@@ -40,6 +43,13 @@ const COPY = {
     week: "Semana",
     recommend: "Recomendar",
     navigation: "Navegação do plano alimentar",
+    dateNavigation: "Navegação por datas",
+    previousDay: "‹ Dia anterior",
+    nextDay: "Dia seguinte ›",
+    previousWeek: "‹ Semana anterior",
+    nextWeek: "Semana seguinte ›",
+    backToToday: "Hoje",
+    backToThisWeek: "Esta semana",
     loading: "A carregar plano…",
     add: "Adicionar",
     edit: "Alterar",
@@ -78,6 +88,13 @@ const COPY = {
     week: "Week",
     recommend: "Recommend",
     navigation: "Meal plan navigation",
+    dateNavigation: "Date navigation",
+    previousDay: "‹ Previous day",
+    nextDay: "Next day ›",
+    previousWeek: "‹ Previous week",
+    nextWeek: "Next week ›",
+    backToToday: "Today",
+    backToThisWeek: "This week",
     loading: "Loading meal plan…",
     add: "Add",
     edit: "Edit",
@@ -124,12 +141,25 @@ type EditTarget = {
   entry: MealPlanEntry | null;
 };
 
-function errorText(error: unknown): string {
+export function mealPlanErrorText(error: unknown, locale: Locale): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const conflict = message.match(/^Recipe conflicts with active attendee restrictions: (.+)\. Choose and validate a compatible variant before saving\.$/);
+  if (locale === "pt-PT" && conflict) return `A receita tem ingredientes incompatíveis com as restrições dos presentes: ${conflict[1]}. Escolhe e valida uma variante compatível antes de guardar.`;
   if (error instanceof ApiError) {
     return `${error.message} (HTTP ${error.status})`;
   }
   return error instanceof Error ? error.message : String(error);
 }
+
+export function addPlanDays(isoDate: string, days: number): string {
+  const value = new Date(`${isoDate}T00:00:00Z`);
+  if (Number.isNaN(value.getTime())) {
+    throw new Error("Invalid ISO calendar date.");
+  }
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
 
 export function startOfWeekDate(isoDate: string): string {
   const value = new Date(`${isoDate}T00:00:00Z`);
@@ -276,7 +306,7 @@ function MealEditForm({
       }
       onDone();
     } catch (caught: unknown) {
-      setError(errorText(caught));
+      setError(mealPlanErrorText(caught, locale));
     } finally {
       setBusy(false);
     }
@@ -290,7 +320,7 @@ function MealEditForm({
       await cancelMealPlanEntry(familyId, entry.id);
       onDone();
     } catch (caught: unknown) {
-      setError(errorText(caught));
+      setError(mealPlanErrorText(caught, locale));
     } finally {
       setBusy(false);
     }
@@ -453,18 +483,23 @@ function MealEditForm({
 export default function FamilyMealsScreen({
   familyId,
   referenceDate,
+  initialDate,
   mode,
   onModeChange,
   onDataChanged,
 }: {
   familyId: string;
   referenceDate?: string;
+  initialDate?: string;
   mode: FamilyMealsMode;
   onModeChange: (mode: FamilyMealsMode) => void;
   onDataChanged?: () => void;
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
+  const [reviewLoadError,setReviewLoadError]=useState(false);
+  const [reviewRecipes,setReviewRecipes]=useState<ReviewRecipe[]>([]);
+  useEffect(()=>{let cancelled=false;setReviewLoadError(false);setReviewRecipes([]);void listRecipeReviews(familyId).then(r=>{if(!cancelled)setReviewRecipes(r);}).catch(()=>{if(!cancelled)setReviewLoadError(true);});return()=>{cancelled=true;};},[familyId]);
   const [plan, setPlan] = useState<FamilyMealPlan | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
@@ -472,15 +507,23 @@ export default function FamilyMealsScreen({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
+  const [browsingDate, setBrowsingDate] = useState(
+    initialDate ?? referenceDate ?? localDateValue(),
+  );
+
+  useEffect(() => {
+    setBrowsingDate(initialDate ?? referenceDate ?? localDateValue());
+    setEditing(null);
+  }, [familyId, referenceDate, initialDate]);
 
   const request = useMemo(() => {
-    if (mode === "recommend") return null;
-    if (mode === "today") return { startDate: referenceDate, days: 1 };
+    if (mode === "recommend" || mode === "prepare") return null;
+    if (mode === "today") return { startDate: browsingDate, days: 1 };
     return {
-      startDate: referenceDate ? startOfWeekDate(referenceDate) : undefined,
+      startDate: startOfWeekDate(browsingDate),
       days: 7,
     };
-  }, [mode, referenceDate]);
+  }, [mode, browsingDate]);
 
   useEffect(() => {
     if (!request) return;
@@ -502,7 +545,7 @@ export default function FamilyMealsScreen({
       .catch((caught: unknown) => {
         if (!cancelled) {
           setPlan(null);
-          setError(errorText(caught));
+          setError(mealPlanErrorText(caught, locale));
         }
       })
       .finally(() => {
@@ -523,7 +566,9 @@ export default function FamilyMealsScreen({
     refreshPlan();
   }
 
-  const consumptionDate = referenceDate ?? localDateValue();
+  const consumptionDate = browsingDate;
+
+  if (mode === "prepare") return <Suspense fallback={<p role="status">{copy.loading}</p>}><PlanningJourney key={familyId} familyId={familyId} referenceDate={referenceDate ?? localDateValue()} onPlanChanged={onDataChanged} onOpenAgenda={week => {if(week)setBrowsingDate(week);onModeChange("week");}} /></Suspense>;
 
   return (
     <div className="family-meals-screen">
@@ -534,7 +579,9 @@ export default function FamilyMealsScreen({
           <p>{copy.help}</p>
         </div>
       </header>
+      {reviewLoadError && <p role="status">{locale==="pt-PT"?"Não foi possível carregar as alternativas dos ingredientes.":"Ingredient alternatives could not be loaded."}</p>}
       <nav className="secondary-tabs family-meals-tabs" aria-label={copy.navigation}>
+        <button type="button" onClick={() => onModeChange("prepare")}>{locale === "pt-PT" ? "Planear próxima semana" : "Plan next week"}</button>
         <button
           className={mode === "today" ? "active" : ""}
           onClick={() => {
@@ -567,6 +614,41 @@ export default function FamilyMealsScreen({
         </button>
       </nav>
 
+      {mode !== "recommend" ? (
+        <nav className="family-meals-date-nav" aria-label={copy.dateNavigation}>
+          <button
+            className="button ghost"
+            onClick={() => {
+              setEditing(null);
+              setBrowsingDate((current) => addPlanDays(current, mode === "today" ? -1 : -7));
+            }}
+            type="button"
+          >
+            {mode === "today" ? copy.previousDay : copy.previousWeek}
+          </button>
+          <button
+            className="button secondary"
+            onClick={() => {
+              setEditing(null);
+              setBrowsingDate(referenceDate ?? localDateValue());
+            }}
+            type="button"
+          >
+            {mode === "today" ? copy.backToToday : copy.backToThisWeek}
+          </button>
+          <button
+            className="button ghost"
+            onClick={() => {
+              setEditing(null);
+              setBrowsingDate((current) => addPlanDays(current, mode === "today" ? 1 : 7));
+            }}
+            type="button"
+          >
+            {mode === "today" ? copy.nextDay : copy.nextWeek}
+          </button>
+        </nav>
+      ) : null}
+
       {mode === "recommend" ? <MealPlanner familyId={familyId} /> : null}
       {mode !== "recommend" && error ? (
         <div className="error-banner" role="alert">
@@ -592,6 +674,7 @@ export default function FamilyMealsScreen({
             onEdit={(date, mealType, entry) =>
               setEditing({ date, mealType, entry })
             }
+            onPlanChanged={refreshPlan}
             people={people}
             plan={plan}
             weekStart={plan.start_date}
@@ -660,6 +743,7 @@ export default function FamilyMealsScreen({
                                     {entryParticipants(entry) || copy.noPeople}
                                     {entry.location ? ` · ${entry.location}` : ""}
                                   </small>
+                                  <SavedMealChanges entry={entry} recipes={reviewRecipes}/>
                                   {entry.transformations.map((transformation) => (
                                     <span
                                       className="meal-plan-entry__transformation"

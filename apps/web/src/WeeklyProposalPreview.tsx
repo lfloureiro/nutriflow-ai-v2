@@ -1,8 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import SavedMealChanges from "./SavedMealChanges";
+import {listRecipeReviews,type ReviewRecipe} from "./api/dietaryReviewClient";
+import {listRetailAlternatives,type RetailAlternative} from "./api/planningWorkspaceClient";
+import {recipeProposedChanges} from "./mealAlternatives";
+import SelectedMealOptions from "./SelectedMealOptions";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
-import { ApiError, getFamilyMealPlan } from "./api/client";
+import { ApiError, cancelMealPlanEntry, getFamilyMealPlan } from "./api/client";
 import type { FamilyMealPlan, MealPlanEntry, MealType } from "./api/mealPlanTypes";
+import { refreshShoppingList } from "./api/pantryShoppingClient";
+import type { ShoppingList } from "./api/pantryShoppingTypes";
 import { getRecommendationBootstrap } from "./api/recommendationClient";
+import { proposeSharedMealTransformations } from "./api/sharedMealTransformationClient";
+import type {
+  SharedMealTransformationProposal,
+  SharedMealTransformationResult,
+} from "./api/sharedMealTransformationTypes";
 import {
   materializeSharedWeeklyPlan,
   requestSharedWeeklyPlanProposal,
@@ -10,10 +22,12 @@ import {
 import type {
   SharedWeeklyPlanChoice,
   SharedWeeklyPlanProposal,
+  SharedWeeklyPlanSkippedSlot,
   SharedWeeklyPlanProposalRequest,
   SharedWeeklyPlanRequest,
   SharedWeeklyPlanningSlotRequest,
 } from "./api/weeklyPlanningTypes";
+import type { MealDeliveryProviderKey } from "./api/mealDeliveryTypes";
 import type { Person } from "./api/types";
 import { useI18n, type Locale } from "./i18n";
 import { scheduledIso } from "./planning";
@@ -26,12 +40,30 @@ import {
 } from "./recommendationPlanning";
 import "./weekly-matrix.css";
 
+export function guidedMealSources(meal: MealType, configured?: Partial<Record<MealType,"home"|"delivery"|"restaurant">>): RecommendationSource[] {
+  const source=configured?.[meal] ?? (configured && meal==="lunch" ? "delivery":"home");
+  return source==="delivery" ? ["uber_eats","glovo","bolt_food"] : source==="restaurant" ? ["restaurant"] : ["cooked"];
+}
 const ALL_MEAL_TYPES: MealType[] = ["breakfast", "lunch", "snack", "dinner"];
 const PREVIEW_MAX_COMBINATIONS = 256;
 
 type BusyStage = "catalogue" | "planning";
-type DecisionBusy = "apply" | "reject" | null;
+type DecisionBusy = "apply" | "reject" | "remove" | null;
 type RejectedBySlot = Record<string, string[]>;
+
+export type ShoppingRefreshSummary = {
+  automaticNeeded: number;
+  planningIssues: number;
+};
+
+export function shoppingRefreshSummary(list: ShoppingList): ShoppingRefreshSummary {
+  return {
+    automaticNeeded: list.items.filter(
+      (item) => item.item_source === "automatic" && item.status === "needed",
+    ).length,
+    planningIssues: list.planning_issues.length,
+  };
+}
 
 const COPY = {
   "pt-PT": {
@@ -48,6 +80,7 @@ const COPY = {
     noCandidates: "Não existem opções compatíveis para os tempos de refeição ainda em aberto.",
     noOpenSlots: "Esta semana já tem todos os tempos de refeição planeados.",
     noPlan: "Não foi encontrada uma combinação semanal compatível com todas as regras obrigatórias.",
+    allOpenSlotsPending: "Não há uma combinação para optimizar porque todos os tempos de refeição ainda em aberto ficaram por decidir. Consulta cada slot para ver o motivo.",
     error: "Não foi possível calcular a proposta semanal",
     exact: "Pesquisa exacta",
     bounded: "Pesquisa optimizada",
@@ -56,6 +89,10 @@ const COPY = {
     chooseMeal: "Escolhe uma refeição para abrir o detalhe.",
     mealDetail: "Refeição",
     planned: "Planeada",
+    editPlanned: "Alterar",
+    viewPlanned: "Ver",
+    removePlanned: "Remover do plano",
+    confirmRemovePlanned: "Remover esta refeição do planeamento? O registo fica preservado como cancelado.",
     proposed: "Proposta",
     planAdapted: "Adaptada ao plano",
     preferenceVariant: "Variante por preferência",
@@ -63,13 +100,50 @@ const COPY = {
     rejectRecipe: "Recusar receita e procurar alternativa",
     empty: "Sem refeição",
     pending: "Por decidir",
-    nutritionReason: "Porque encaixa",
+    nutritionReason: "Sinais usados na escolha",
+    proposedPortion: "Porção proposta",
+    mealEnergyReference: "Referência energética da refeição",
+    nutritionComposition: "Composição nutricional da porção",
+    nutritionPlanComparison: "Comparação com o plano",
+    noStructuredPlanTarget: "O plano activo não tem um alvo quantitativo avaliável para estes nutrientes.",
+    qualitativePlanGuidance: "Outras indicações relevantes do plano",
+    qualitativeNotEvaluated: "Estas indicações são mostradas como contexto e ainda não são avaliadas automaticamente nesta receita.",
+    planTarget: "Alvo do plano",
+    observed: "Nesta porção",
+    adaptToPlan: "Adaptar ao plano",
+    suggestAdaptation: "Sugerir adaptação",
+    adaptingToPlan: "A procurar adaptações…",
+    adaptationTitle: "Sugestões de adaptação",
+    adaptationHelp: "Substituições avaliadas contra o plano e as preferências da família. Nenhuma alteração é aplicada automaticamente.",
+    noAdaptation: "Não foram encontradas substituições seguras configuradas que melhorem esta receita.",
+    planImprovesFor: "Melhora o plano para",
+    preferenceImprovesFor: "Melhora as preferências para",
+    beforeAfter: "Antes → depois",
+    nutritionPlan: "Plano nutricional",
+    mealPlanFit: "Avaliação da refeição",
+    activePlan: "Activo",
+    partialPlanCoverage: "Cobertura parcial",
+    noActivePlan: "Sem plano activo",
+    planConflict: "Conflito no plano",
+    fitPass: "Compatível",
+    fitPartial: "Parcial",
+    fitFail: "Não compatível",
+    fitUnknown: "Não avaliável",
+    fitConflict: "Conflito",
     noExplanation: "Sem explicação adicional para esta pessoa.",
     applyWeek: "Aplicar semana",
     applyingWeek: "A validar e aplicar semana…",
     reject: "Recusar e procurar alternativa",
     rejecting: "A procurar alternativa…",
     accepted: "A semana foi guardada no plano.",
+    shoppingUpdated: "A lista de compras da semana foi actualizada.",
+    shoppingEmpty: "Não há ingredientes automáticos em falta para as refeições calculáveis.",
+    shoppingOne: "1 ingrediente automático em falta.",
+    shoppingMany: "ingredientes automáticos em falta.",
+    shoppingIssueOne: "1 requisito não pôde ser calculado com segurança.",
+    shoppingIssueMany: "requisitos não puderam ser calculados com segurança.",
+    planRefreshFailed: "A semana foi guardada, mas não foi possível recarregar imediatamente a grelha.",
+    shoppingRefreshFailed: "A semana foi guardada, mas não foi possível actualizar a lista de compras.",
     weekdayLunchPending: "Almoço de dia útil: primeiro devem ser usadas sobras reais do jantar anterior; sem sobras, só entra uma opção Uber Eats/Glovo com disponibilidade conhecida. Ainda não existe uma opção automática segura para este slot.",
     unavailableSlot: "Não existem opções disponíveis para este slot com a política actual.",
     leftoversNotice: "As sobras ainda não são inventadas pelo planeador: só serão propostas quando houver quantidade reservada do jantar anterior.",
@@ -92,6 +166,7 @@ const COPY = {
     noCandidates: "There are no compatible options for the remaining open meal slots.",
     noOpenSlots: "Every meal slot is already planned for this week.",
     noPlan: "No weekly combination compatible with every mandatory rule was found.",
+    allOpenSlotsPending: "There is no combination to optimize because every remaining open meal slot stayed pending. Open each slot to see why.",
     error: "The weekly proposal could not be calculated",
     exact: "Exact search",
     bounded: "Optimized search",
@@ -100,6 +175,10 @@ const COPY = {
     chooseMeal: "Choose a meal to open its detail.",
     mealDetail: "Meal",
     planned: "Planned",
+    editPlanned: "Edit",
+    viewPlanned: "View",
+    removePlanned: "Remove from plan",
+    confirmRemovePlanned: "Remove this meal from planning? The record remains preserved as cancelled.",
     proposed: "Proposal",
     planAdapted: "Adapted to plan",
     preferenceVariant: "Preference variant",
@@ -107,13 +186,50 @@ const COPY = {
     rejectRecipe: "Reject recipe and find alternative",
     empty: "No meal",
     pending: "Pending",
-    nutritionReason: "Why it fits",
+    nutritionReason: "Signals used in selection",
+    proposedPortion: "Suggested portion",
+    mealEnergyReference: "Meal energy reference",
+    nutritionComposition: "Nutrition in the suggested portion",
+    nutritionPlanComparison: "Comparison with the plan",
+    noStructuredPlanTarget: "The active plan has no evaluable quantitative target for these nutrients.",
+    qualitativePlanGuidance: "Other relevant plan guidance",
+    qualitativeNotEvaluated: "These instructions are shown as context and are not yet evaluated automatically for this recipe.",
+    planTarget: "Plan target",
+    observed: "In this portion",
+    adaptToPlan: "Adapt to plan",
+    suggestAdaptation: "Suggest adaptation",
+    adaptingToPlan: "Finding adaptations…",
+    adaptationTitle: "Adaptation suggestions",
+    adaptationHelp: "Substitutions evaluated against the plan and Family preferences. No change is applied automatically.",
+    noAdaptation: "No configured safe substitutions were found that improve this recipe.",
+    planImprovesFor: "Improves the plan for",
+    preferenceImprovesFor: "Improves preferences for",
+    beforeAfter: "Before → after",
+    nutritionPlan: "Nutrition plan",
+    mealPlanFit: "Meal evaluation",
+    activePlan: "Active",
+    partialPlanCoverage: "Partial coverage",
+    noActivePlan: "No active plan",
+    planConflict: "Plan conflict",
+    fitPass: "Compatible",
+    fitPartial: "Partial",
+    fitFail: "Not compatible",
+    fitUnknown: "Not evaluable",
+    fitConflict: "Conflict",
     noExplanation: "No additional explanation for this Person.",
     applyWeek: "Apply week",
     applyingWeek: "Validating and applying week…",
     reject: "Reject and find alternative",
     rejecting: "Finding alternative…",
     accepted: "The week was saved to the plan.",
+    shoppingUpdated: "The weekly shopping list was refreshed.",
+    shoppingEmpty: "There are no automatically generated missing ingredients for calculable meals.",
+    shoppingOne: "1 automatically generated ingredient is missing.",
+    shoppingMany: "automatically generated ingredients are missing.",
+    shoppingIssueOne: "1 requirement could not be calculated safely.",
+    shoppingIssueMany: "requirements could not be calculated safely.",
+    planRefreshFailed: "The week was saved, but the grid could not be reloaded immediately.",
+    shoppingRefreshFailed: "The week was saved, but the shopping list could not be refreshed.",
     weekdayLunchPending: "Weekday lunch: real leftovers from the previous dinner come first; without leftovers, only an Uber Eats/Glovo option with known availability is allowed. There is no safe automatic option for this slot yet.",
     unavailableSlot: "No options are available for this slot under the current policy.",
     leftoversNotice: "The planner does not invent leftovers: they will only be proposed when quantity has been reserved from the previous dinner.",
@@ -151,6 +267,33 @@ export function weeklySourcesFor(
   return ["cooked"];
 }
 
+export function weeklySkippedSlotMessages(
+  slots: SharedWeeklyPlanSkippedSlot[],
+  locale: Locale,
+): Record<string, string> {
+  const copy = COPY[locale];
+  return Object.fromEntries(
+    slots.map((slot) => [
+      slot.slot_key,
+      slot.meal_type === "lunch" && !isWeekendDate(slot.planning_date)
+        ? copy.weekdayLunchPending
+        : copy.unavailableSlot,
+    ]),
+  );
+}
+
+export function proposalHasOnlySkippedSlots(
+  proposal: SharedWeeklyPlanProposal,
+): boolean {
+  return (
+    proposal.selected_plan === null &&
+    proposal.search_space_size === 0 &&
+    proposal.evaluated_combinations === 0 &&
+    proposal.skipped_slots.length > 0
+  );
+}
+
+
 function slotKey(planningDate: string, mealType: MealType): string {
   return `${planningDate}:${mealType}`;
 }
@@ -185,6 +328,316 @@ function displayName(person: Person): string {
 
 function mealLabel(mealType: MealType, locale: Locale): string {
   return COPY[locale][mealType];
+}
+
+export function nutritionPlanAuthorityLabel(
+  state: SharedWeeklyPlanChoice["participants"][number]["nutrition_plan_authority"],
+  locale: Locale,
+): string {
+  const copy = COPY[locale];
+  if (state === "active_plan") return copy.activePlan;
+  if (state === "partial_plan_coverage") return copy.partialPlanCoverage;
+  if (state === "plan_conflict") return copy.planConflict;
+  return copy.noActivePlan;
+}
+
+function planFitStatusLabel(
+  status: SharedWeeklyPlanChoice["participants"][number]["plan_fit_status"],
+  locale: Locale,
+): string {
+  const copy = COPY[locale];
+  if (status === "pass") return copy.fitPass;
+  if (status === "partial") return copy.fitPartial;
+  if (status === "fail") return copy.fitFail;
+  if (status === "conflict") return copy.fitConflict;
+  return copy.fitUnknown;
+}
+
+export function formatMealPortion(
+  quantity: string | null,
+  unit: string | null,
+  energyKcal: string | null,
+  locale: Locale,
+): string {
+  if (quantity === null) return "—";
+  const parsedQuantity = Number(quantity);
+  const quantityLabel = Number.isFinite(parsedQuantity)
+    ? new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(parsedQuantity)
+    : quantity;
+  const normalizedUnit = (unit ?? "").trim().toLowerCase();
+  let unitLabel = unit ?? "";
+  if (normalizedUnit === "serving") {
+    const singular = Number.isFinite(parsedQuantity) && parsedQuantity <= 1;
+    unitLabel =
+      locale === "pt-PT"
+        ? singular
+          ? "porção da receita"
+          : "porções da receita"
+        : singular
+          ? "recipe serving"
+          : "recipe servings";
+  }
+  const energy = energyKcal === null ? null : Number(energyKcal);
+  const energyLabel =
+    energy !== null && Number.isFinite(energy)
+      ? ` · ~${new Intl.NumberFormat(locale, {
+          maximumFractionDigits: 0,
+          useGrouping: false,
+        }).format(energy)} kcal`
+      : "";
+
+  return `${quantityLabel}${unitLabel ? ` ${unitLabel}` : ""}${energyLabel}`;
+}
+
+export function formatMealEnergyReference(
+  minimumKcal: string | null,
+  maximumKcal: string | null,
+  locale: Locale,
+): string | null {
+  const minimum = minimumKcal === null ? null : Number(minimumKcal);
+  const maximum = maximumKcal === null ? null : Number(maximumKcal);
+  const format = (value: number) =>
+    new Intl.NumberFormat(locale, {
+      maximumFractionDigits: 0,
+      useGrouping: false,
+    }).format(value);
+
+  if (
+    minimum !== null &&
+    Number.isFinite(minimum) &&
+    maximum !== null &&
+    Number.isFinite(maximum)
+  ) {
+    return `${format(minimum)}–${format(maximum)} kcal`;
+  }
+  if (minimum !== null && Number.isFinite(minimum)) return `≥ ${format(minimum)} kcal`;
+  if (maximum !== null && Number.isFinite(maximum)) return `≤ ${format(maximum)} kcal`;
+  return null;
+}
+
+type WeeklyNutrition =
+  SharedWeeklyPlanChoice["participants"][number]["nutrition"];
+type WeeklyPlanRule =
+  SharedWeeklyPlanChoice["participants"][number]["plan_rule_results"][number];
+
+const NUTRIENT_PRIORITY: Record<string, number> = {
+  protein: 0,
+  carbohydrate: 1,
+  carbohydrates: 1,
+  carbs: 1,
+  fat: 2,
+  total_fat: 2,
+  fiber: 3,
+  fibre: 3,
+  sodium: 4,
+  sugar: 5,
+  sugars: 5,
+};
+
+export function nutrientLabel(key: string, locale: Locale): string {
+  const normalized = key.toLowerCase();
+  const labels: Record<string, [string, string]> = {
+    protein: ["Proteína", "Protein"],
+    carbohydrate: ["Hidratos de carbono", "Carbohydrate"],
+    carbohydrates: ["Hidratos de carbono", "Carbohydrates"],
+    carbs: ["Hidratos de carbono", "Carbs"],
+    fat: ["Gordura", "Fat"],
+    total_fat: ["Gordura", "Total fat"],
+    saturated_fat: ["Gordura saturada", "Saturated fat"],
+    fiber: ["Fibra", "Fiber"],
+    fibre: ["Fibra", "Fibre"],
+    sodium: ["Sódio", "Sodium"],
+    sugar: ["Açúcares", "Sugar"],
+    sugars: ["Açúcares", "Sugars"],
+  };
+  const known = labels[normalized];
+  if (known) return locale === "pt-PT" ? known[0] : known[1];
+  return normalized
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+export function formatNutritionValue(
+  value: string | null,
+  unit: string | null,
+  locale: Locale,
+): string {
+  if (value === null) return "—";
+  const numeric = Number(value);
+  const formatted = Number.isFinite(numeric)
+    ? new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(numeric)
+    : value;
+  return `${formatted}${unit ? ` ${unit}` : ""}`;
+}
+
+export function nutritionSummaryRows(
+  nutrition: WeeklyNutrition,
+  locale: Locale,
+): Array<{ key: string; label: string; value: string }> {
+  const rows: Array<{ key: string; label: string; value: string }> = [];
+  if (nutrition.energy_kcal !== null) {
+    rows.push({
+      key: "energy",
+      label: locale === "pt-PT" ? "Energia" : "Energy",
+      value: formatNutritionValue(nutrition.energy_kcal, "kcal", locale),
+    });
+  }
+  const nutrients = Object.entries(nutrition.nutrients)
+    .sort(([left], [right]) => {
+      const leftRank = NUTRIENT_PRIORITY[left.toLowerCase()] ?? 100;
+      const rightRank = NUTRIENT_PRIORITY[right.toLowerCase()] ?? 100;
+      return leftRank - rightRank || left.localeCompare(right);
+    })
+    .slice(0, 6);
+  for (const [key, nutrient] of nutrients) {
+    rows.push({
+      key,
+      label: nutrientLabel(key, locale),
+      value: formatNutritionValue(nutrient.value, nutrient.unit, locale),
+    });
+  }
+  return rows;
+}
+
+export function formatPlanRuleTarget(rule: WeeklyPlanRule, locale: Locale): string {
+  const unit = rule.target_unit;
+  if (rule.target_min !== null && rule.target_max !== null) {
+    return `${formatNutritionValue(rule.target_min, null, locale)}–${formatNutritionValue(
+      rule.target_max,
+      unit,
+      locale,
+    )}`;
+  }
+  if (rule.target_value !== null) {
+    return `≈ ${formatNutritionValue(rule.target_value, unit, locale)}`;
+  }
+  if (rule.target_min !== null) {
+    return `≥ ${formatNutritionValue(rule.target_min, unit, locale)}`;
+  }
+  if (rule.target_max !== null) {
+    return `≤ ${formatNutritionValue(rule.target_max, unit, locale)}`;
+  }
+  return "—";
+}
+
+export function planRuleStatusLabel(
+  status: WeeklyPlanRule["status"],
+  locale: Locale,
+): string {
+  const pt = locale === "pt-PT";
+  if (status === "pass") return pt ? "Dentro do alvo" : "Within target";
+  if (status === "fail") return pt ? "Fora do alvo" : "Outside target";
+  if (status === "support") return pt ? "Apoia o plano" : "Supports plan";
+  return pt ? "Não avaliável" : "Not evaluable";
+}
+
+export function numericPlanComparisonRules(
+  rules: WeeklyPlanRule[],
+): WeeklyPlanRule[] {
+  return rules.filter(
+    (rule) =>
+      rule.target_type === "nutrient" &&
+      (rule.observed_value !== null ||
+        rule.target_min !== null ||
+        rule.target_max !== null ||
+        rule.target_value !== null),
+  );
+}
+
+export function peopleCountLabel(count: number, locale: Locale): string {
+  if (locale === "pt-PT") {
+    return `${count} ${count === 1 ? "pessoa" : "pessoas"}`;
+  }
+  return `${count} ${count === 1 ? "person" : "people"}`;
+}
+
+export function adaptationKindLabel(
+  proposal: SharedMealTransformationProposal,
+  locale: Locale,
+): string {
+  if (proposal.kind === "plan_adapted") {
+    return locale === "pt-PT" ? "Melhora o plano" : "Improves plan";
+  }
+  return locale === "pt-PT" ? "Variante por preferência" : "Preference variant";
+}
+
+export function weeklyExplanationLabel(
+  explanation: string,
+  locale: Locale,
+): string | null {
+  const pt = locale === "pt-PT";
+  if (
+    explanation.startsWith("plan_fit_status:") ||
+    explanation === "plan_fit_score_available" ||
+    explanation === "plan_fit_score_unavailable"
+  ) {
+    return null;
+  }
+  if (explanation === "candidate_fits_meal_energy") {
+    return pt
+      ? "A porção está ajustada à referência energética desta refeição."
+      : "The portion is aligned with this meal's energy reference.";
+  }
+  if (explanation === "candidate_fits_remaining_energy") {
+    return pt
+      ? "A porção é compatível com a energia restante do dia."
+      : "The portion is compatible with the day's remaining energy.";
+  }
+  if (explanation === "schedule_preferred_window") {
+    return pt
+      ? "Está dentro do horário preferido."
+      : "It is within the preferred time window.";
+  }
+  if (explanation === "schedule_available_window") {
+    return pt
+      ? "Está dentro de um horário disponível."
+      : "It is within an available time window.";
+  }
+  if (explanation.startsWith("planning_location:")) {
+    const location = explanation.slice("planning_location:".length);
+    return pt ? `Local de preparação: ${location}.` : `Planning location: ${location}.`;
+  }
+  if (explanation.startsWith("rated:")) {
+    const rating = explanation.slice(explanation.lastIndexOf(":") + 1);
+    return pt
+      ? `Avaliação pessoal desta receita: ${rating}/5.`
+      : `Personal recipe rating: ${rating}/5.`;
+  }
+  if (explanation.startsWith("family_rating:")) {
+    const rating = explanation.slice(explanation.lastIndexOf(":") + 1);
+    return pt
+      ? `Avaliação média da família: ${rating}/5.`
+      : `Average family rating: ${rating}/5.`;
+  }
+  if (explanation.startsWith("preferred:")) {
+    return pt ? "Corresponde a uma preferência registada." : "Matches a recorded preference.";
+  }
+  if (explanation.startsWith("disliked:")) {
+    return pt
+      ? "Existe uma preferência negativa registada, mas não é impeditiva."
+      : "A negative preference is recorded, but it is not blocking.";
+  }
+  if (explanation.startsWith("advisory_reaction:")) {
+    return pt
+      ? "Existe uma reacção alimentar não obrigatória registada."
+      : "A non-mandatory food reaction is recorded.";
+  }
+  if (explanation.startsWith("exceeds_remaining_max:")) {
+    const nutrient = explanation.slice("exceeds_remaining_max:".length).replaceAll("_", " ");
+    return pt
+      ? `Ultrapassa o máximo restante de ${nutrient}.`
+      : `Exceeds the remaining maximum for ${nutrient}.`;
+  }
+  return null;
+}
+
+export function weeklyExplanationLabels(
+  explanations: string[],
+  locale: Locale,
+): string[] {
+  return explanations
+    .map((explanation) => weeklyExplanationLabel(explanation, locale))
+    .filter((explanation): explanation is string => explanation !== null);
 }
 
 function entryName(entry: MealPlanEntry): string {
@@ -259,29 +712,61 @@ export default function WeeklyProposalPreview({
   people,
   plan: suppliedPlan,
   onEdit,
+  onPlanChanged,
+  planningOptions,
+  autoGenerate = false,
+  onApplied,
+  recipeAdaptations,
+  recipeAdaptationsForParticipants,
+  renderSelectedMeal,
+  recipeReviews,
 }: {
+  recipeReviews?: ReviewRecipe[];
+  renderSelectedMeal?: (context: {recipeId: string | null; planningDate: string; mealType: MealType; personIds: string[]; appliedChanges: string[]; onEvaluateDelivery?: (provider: MealDeliveryProviderKey) => void}) => ReactNode;
   familyId: string;
   weekStart?: string;
   people: Person[];
   plan?: FamilyMealPlan;
   onEdit?: (planningDate: string, mealType: MealType, entry: MealPlanEntry | null) => void;
+  onPlanChanged?: () => void;
+  planningOptions?: {mealSources?: Partial<Record<MealType,"home"|"delivery"|"restaurant">>; mealTypes: MealType[]; excludedFoodItemIds: string[]; attendance?: {planning_date: string; meal_type: MealType; person_ids: string[]}[]};
+  autoGenerate?: boolean;
+  onApplied?: (shoppingUpdated: boolean) => void;
+  recipeAdaptations?: Record<string,string[]>;
+  recipeAdaptationsForParticipants?: (day: string, meal: MealType, attendees: string[]) => Record<string,string[]>;
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
+  const [loadedReviews,setLoadedReviews]=useState<ReviewRecipe[]>([]);const [loadedRetail,setLoadedRetail]=useState<RetailAlternative[]>([]);const [reviewError,setReviewError]=useState("");const [reviewRevision,setReviewRevision]=useState(0);
+  const currentReviews=recipeReviews??loadedReviews;
+  useEffect(()=>{if(recipeReviews!==undefined)return;let cancelled=false;setLoadedReviews([]);setLoadedRetail([]);setReviewError("");
+    void listRecipeReviews(familyId).then(r=>{if(!cancelled)setLoadedReviews(r);}).catch(e=>{if(!cancelled)setReviewError(String(e));});
+    void listRetailAlternatives(familyId).then(r=>{if(!cancelled)setLoadedRetail(r);}).catch(()=>{});
+    return()=>{cancelled=true;};
+  },[familyId,recipeReviews,reviewRevision]);
+  const autoStarted = useRef(false);
   const [loadedPlan, setLoadedPlan] = useState<FamilyMealPlan | null>(null);
   const [refreshedPlan, setRefreshedPlan] = useState<FamilyMealPlan | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [proposal, setProposal] = useState<SharedWeeklyPlanProposal | null>(null);
   const [proposalRequest, setProposalRequest] = useState<SharedWeeklyPlanProposalRequest | null>(null);
   const [skippedSlots, setSkippedSlots] = useState<Record<string, string>>({});
+  const [sourceOverrides,setSourceOverrides]=useState<Record<string,RecommendationSource[]>>({});
   const [rejectedBySlot, setRejectedBySlot] = useState<RejectedBySlot>({});
   const [busy, setBusy] = useState(false);
   const [busyStage, setBusyStage] = useState<BusyStage | null>(null);
   const [decisionBusy, setDecisionBusy] = useState<DecisionBusy>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [shoppingSummary, setShoppingSummary] = useState<ShoppingRefreshSummary | null>(null);
+  const [planRefreshWarning, setPlanRefreshWarning] = useState<string | null>(null);
+  const [shoppingWarning, setShoppingWarning] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedMealType, setSelectedMealType] = useState<MealType | null>(null);
+  const [adaptationBusy, setAdaptationBusy] = useState(false);
+  const [adaptationResult, setAdaptationResult] =
+    useState<SharedMealTransformationResult | null>(null);
+  const [adaptationError, setAdaptationError] = useState<string | null>(null);
   const plan = refreshedPlan ?? suppliedPlan ?? loadedPlan;
   const effectiveWeekStart = refreshedPlan?.start_date ?? suppliedPlan?.start_date ?? weekStart;
 
@@ -290,8 +775,15 @@ export default function WeeklyProposalPreview({
     setProposal(null);
     setProposalRequest(null);
     setRejectedBySlot({});
+    setSourceOverrides({});
     setSkippedSlots({});
     setNotice(null);
+    setShoppingSummary(null);
+    setPlanRefreshWarning(null);
+    setShoppingWarning(null);
+    setAdaptationResult(null);
+    setAdaptationError(null);
+    setAdaptationBusy(false);
   }, [familyId, weekStart]);
 
   useEffect(() => {
@@ -335,18 +827,58 @@ export default function WeeklyProposalPreview({
     selectedDate && selectedMealType
       ? choiceFor(grouped, selectedDate, selectedMealType)
       : null;
+  const selectedChoiceHasPlan =
+    selectedChoice?.participants.some(
+      (participant) => participant.nutrition_plan_authority !== "no_active_plan",
+    ) ?? false;
   const selectedSlotKey =
     selectedDate && selectedMealType ? slotKey(selectedDate, selectedMealType) : null;
   const selectedSkippedReason = selectedSlotKey ? skippedSlots[selectedSlotKey] ?? null : null;
 
+  useEffect(() => {
+    setAdaptationResult(null);
+    setAdaptationError(null);
+    setAdaptationBusy(false);
+  }, [selectedChoice?.slot_key, selectedChoice?.candidate_key, selectedChoice?.recipe_id]);
+
+  async function suggestAdaptations() {
+    if (!selectedChoice?.recipe_id) return;
+    setAdaptationBusy(true);
+    setAdaptationError(null);
+    setAdaptationResult(null);
+    try {
+      const result = await proposeSharedMealTransformations(familyId, {
+        planning_date: selectedChoice.planning_date,
+        meal_type: selectedChoice.meal_type,
+        recipe_id: selectedChoice.recipe_id,
+        participants: selectedChoice.participants.map((participant) => ({
+          person_id: participant.person_id,
+          daily_nutrition_state_id: participant.daily_nutrition_state_id,
+          quantity: participant.quantity,
+          quantity_unit: participant.quantity_unit,
+        })),
+        max_proposals: 5,
+      });
+      setAdaptationResult(result);
+    } catch (caught: unknown) {
+      setAdaptationError(errorText(caught));
+    } finally {
+      setAdaptationBusy(false);
+    }
+  }
+
   async function generateProposal(
     rejectedOverride: RejectedBySlot = rejectedBySlot,
     resetSelection = true,
+    slotSources: Record<string,RecommendationSource[]> = sourceOverrides,
   ) {
     setBusy(true);
     setBusyStage("catalogue");
     setError(null);
     setNotice(null);
+    setShoppingSummary(null);
+    setPlanRefreshWarning(null);
+    setShoppingWarning(null);
     setProposal(null);
     if (resetSelection) setSelectedMealType(null);
     try {
@@ -356,13 +888,18 @@ export default function WeeklyProposalPreview({
       if (!firstPerson) throw new Error(copy.noPeople);
 
       const targets = weekDates.flatMap((planningDate) =>
-        ALL_MEAL_TYPES.flatMap((mealType) =>
-          mealEntryFor(plan, planningDate, mealType) === null
+        ALL_MEAL_TYPES.filter(mealType=>!planningOptions || planningOptions.mealTypes.includes(mealType) || slotSources[slotKey(planningDate,mealType)]).flatMap((mealType) =>
+          mealEntryFor(plan, planningDate, mealType) === null &&
+          (planningOptions?.attendance?.find(a=>a.planning_date===planningDate && a.meal_type===mealType)?.person_ids.length ?? people.length) >= 2 &&
+          (planningOptions?.attendance?.find(a=>a.planning_date===planningDate && a.meal_type===mealType)?.person_ids.length ?? people.length) >= 2
             ? [{ planningDate, mealType }]
             : [],
         ),
       );
-      if (targets.length === 0) throw new Error(copy.noOpenSlots);
+      if (targets.length === 0) {
+        setNotice(planningOptions ? (locale==="pt-PT" ? "As refeições selecionadas já estão planeadas nesta semana." : "The selected meals are already planned for this week.") : copy.noOpenSlots);
+        return;
+      }
 
       const planningDates = [...new Set(targets.map((target) => target.planningDate))];
       const catalogueEntries = await Promise.all(
@@ -384,14 +921,14 @@ export default function WeeklyProposalPreview({
 
       for (const { planningDate, mealType } of targets) {
         const key = slotKey(planningDate, mealType);
-        const sources = weeklySourcesFor(planningDate, mealType);
+        const sources: RecommendationSource[] = slotSources[key] ?? (planningOptions ? guidedMealSources(mealType,planningOptions.mealSources) : weeklySourcesFor(planningDate, mealType));
         const rejected = new Set(rejectedOverride[key] ?? []);
         const catalogue = (catalogues.get(planningDate) ?? []).filter(
           (candidate) => !rejected.has(candidate.catalog_key),
         );
         const candidates = recommendationCandidates(catalogue, sources, mealType);
         if (candidates.length === 0) {
-          skipped[key] =
+          skipped[key] = !sources.includes("cooked") ? (locale==="pt-PT" ? "Escolher prato de entrega ou restaurante; abre a refeição para consultar opções." : "Choose a delivery or restaurant dish; open the meal to browse options.") :
             mealType === "lunch" && !isWeekendDate(planningDate)
               ? copy.weekdayLunchPending
               : copy.unavailableSlot;
@@ -402,6 +939,7 @@ export default function WeeklyProposalPreview({
         const commercial = sources.some((source) => source !== "cooked");
         slots.push({
           slot_key: key,
+          person_ids: planningOptions?.attendance?.find(a=>a.planning_date===planningDate && a.meal_type===mealType)?.person_ids ?? people.map(p=>p.id),
           planning_date: planningDate,
           scheduled_at: scheduledIso(recommendationScheduledLocal(planningDate, mealType)),
           meal_type: mealType,
@@ -416,16 +954,28 @@ export default function WeeklyProposalPreview({
         });
       }
       setSkippedSlots(skipped);
-      if (slots.length === 0) throw new Error(copy.noCandidates);
+      if (slots.length === 0) {
+        if (targets.some(t=>!guidedMealSources(t.mealType,planningOptions?.mealSources).includes("cooked"))) {
+          setNotice(locale==="pt-PT" ? "As refeições de entrega/restaurante estão por escolher. Abre cada refeição para consultar as opções; ainda não foram guardadas no plano." : "Delivery/restaurant meals remain pending. Open each meal to browse options; they have not been saved in the plan.");
+          return;
+        }
+        throw new Error(copy.noCandidates);
+      }
 
       const request: SharedWeeklyPlanProposalRequest = {
         person_ids: people.map((person) => person.id),
+        ...(planningOptions ? {excluded_food_item_ids: planningOptions.excludedFoodItemIds} : {}),
         slots,
         max_combinations: PREVIEW_MAX_COMBINATIONS,
       };
       setProposalRequest(request);
       setBusyStage("planning");
       const result = await requestSharedWeeklyPlanProposal(familyId, request);
+      const serverSkipped = weeklySkippedSlotMessages(
+        result.skipped_slots,
+        locale,
+      );
+      setSkippedSlots({ ...skipped, ...serverSkipped });
       setProposal(result);
     } catch (caught: unknown) {
       setError(errorText(caught));
@@ -440,24 +990,77 @@ export default function WeeklyProposalPreview({
     setDecisionBusy("apply");
     setError(null);
     setNotice(null);
+    setShoppingSummary(null);
+    setPlanRefreshWarning(null);
+    setShoppingWarning(null);
+
     try {
       await materializeSharedWeeklyPlan(
         familyId,
         weeklyPlanRequest(proposalRequest, proposal.selected_plan.choices),
       );
+    } catch (caught: unknown) {
+      setError(errorText(caught));
+      setDecisionBusy(null);
+      return;
+    }
+
+    setProposal(null);
+    setProposalRequest(null);
+    setRejectedBySlot({});
+    setSkippedSlots({});
+    setNotice(copy.accepted);
+
+    try {
+      const updated = await getFamilyMealPlan(familyId, effectiveWeekStart, 7);
+      setRefreshedPlan(updated);
+    } catch (reloadError: unknown) {
+      setPlanRefreshWarning(errorText(reloadError));
+    }
+
+    let shoppingUpdated = false;
+    try {
+      const shoppingList = await refreshShoppingList(familyId, effectiveWeekStart, 7);
+      setShoppingSummary(shoppingRefreshSummary(shoppingList));
+      shoppingUpdated = true;
+    } catch (shoppingError: unknown) {
+      setShoppingWarning(errorText(shoppingError));
+    } finally {
+      setDecisionBusy(null);
+    }
+    onPlanChanged?.();
+    onApplied?.(shoppingUpdated);
+  }
+
+  async function removeSelectedEntry() {
+    if (
+      !selectedEntry ||
+      selectedEntry.status !== "planned" ||
+      !effectiveWeekStart ||
+      !window.confirm(copy.confirmRemovePlanned)
+    ) {
+      return;
+    }
+    setDecisionBusy("remove");
+    setError(null);
+    setNotice(null);
+    try {
+      await cancelMealPlanEntry(familyId, selectedEntry.id);
       const updated = await getFamilyMealPlan(familyId, effectiveWeekStart, 7);
       setRefreshedPlan(updated);
       setProposal(null);
       setProposalRequest(null);
       setRejectedBySlot({});
       setSkippedSlots({});
-      setNotice(copy.accepted);
+      setSelectedMealType(null);
+      onPlanChanged?.();
     } catch (caught: unknown) {
       setError(errorText(caught));
     } finally {
       setDecisionBusy(null);
     }
   }
+
 
   async function rejectSelectedChoice() {
     if (!selectedChoice) return;
@@ -487,6 +1090,13 @@ export default function WeeklyProposalPreview({
     setSelectedDate(planningDate);
     setSelectedMealType(mealType);
   }
+
+  useEffect(() => {
+    if (autoGenerate && plan && people.length >= 2 && !autoStarted.current) {
+      autoStarted.current = true;
+      void generateProposal();
+    }
+  }, [autoGenerate, plan, people]);
 
   return (
     <section className="meal-plan-editor weekly-proposal-preview">
@@ -536,6 +1146,37 @@ export default function WeeklyProposalPreview({
         </div>
       ) : null}
       {notice ? <div className="decision-result" role="status"><strong>{notice}</strong></div> : null}
+      {shoppingSummary ? (
+        <div className="decision-result" role="status">
+          <strong>{copy.shoppingUpdated}</strong>
+          <span>
+            {shoppingSummary.automaticNeeded === 0
+              ? copy.shoppingEmpty
+              : shoppingSummary.automaticNeeded === 1
+                ? copy.shoppingOne
+                : `${shoppingSummary.automaticNeeded} ${copy.shoppingMany}`}
+            {shoppingSummary.planningIssues > 0
+              ? ` · ${
+                  shoppingSummary.planningIssues === 1
+                    ? copy.shoppingIssueOne
+                    : `${shoppingSummary.planningIssues} ${copy.shoppingIssueMany}`
+                }`
+              : ""}
+          </span>
+        </div>
+      ) : null}
+      {planRefreshWarning ? (
+        <div className="error-banner" role="alert">
+          <strong>{copy.planRefreshFailed}</strong>
+          <span>{planRefreshWarning}</span>
+        </div>
+      ) : null}
+      {shoppingWarning ? (
+        <div className="error-banner" role="alert">
+          <strong>{copy.shoppingRefreshFailed}</strong>
+          <span>{shoppingWarning}</span>
+        </div>
+      ) : null}
       {proposal ? (
         <div className="decision-result" role="status">
           <strong>{copy.preview}</strong>
@@ -546,7 +1187,9 @@ export default function WeeklyProposalPreview({
         </div>
       ) : null}
       {proposal && !proposal.selected_plan ? (
-        <div className="family-meals-empty-day">{copy.noPlan}</div>
+        <div className="family-meals-empty-day">
+          {proposalHasOnlySkippedSlots(proposal) ? copy.allOpenSlotsPending : copy.noPlan}
+        </div>
       ) : null}
 
       {!plan ? (
@@ -574,6 +1217,9 @@ export default function WeeklyProposalPreview({
                       {ALL_MEAL_TYPES.map((mealType) => {
                         const entry = mealEntryFor(plan, planningDate, mealType);
                         const choice = choiceFor(grouped, planningDate, mealType);
+                        const attendingIds = (entry?.participants ?? choice?.participants ?? []).map(p=>p.person_id);
+                        const slotAdaptations = recipeAdaptationsForParticipants?.(planningDate,mealType,attendingIds) ?? recipeAdaptations;
+                        const ingredientProposals=recipeProposedChanges(currentReviews,entry?.recipe_id??choice?.recipe_id);
                         const pendingReason = skippedSlots[slotKey(planningDate, mealType)];
                         const state = entry ? "planned" : choice ? "proposed" : "empty";
                         const label = entry
@@ -606,17 +1252,22 @@ export default function WeeklyProposalPreview({
                               </em>
                             </span>
                             <strong>{label}</strong>
+                            {choice?.variant_changes?.map(change=><small className="weekly-grid-transformation" key={change}>{change}</small>)}
+                            {entry?.variant_changes?.map(change=><small className="weekly-grid-transformation" key={change}>{change}</small>)}
+                            {!(entry?.transformations.length || choice?.transformation) && ((entry?.variant_changes?.length || choice?.variant_changes?.length) ? [] : (ingredientProposals.length ? ingredientProposals : slotAdaptations?.[entry?.recipe_id ?? choice?.recipe_id ?? ""]??[])).map(change=><small className="weekly-grid-transformation" key={change}>{locale==="pt-PT" ? "Por aplicar: " : "Not applied: "}{change}</small>)}
                             {entry?.transformations[0] ? (
                               <small className="weekly-grid-transformation">
                                 {entry.transformations[0].transformation_kind === "plan_adapted"
                                   ? copy.planAdapted
                                   : copy.preferenceVariant}
+                                {": "}{entry.transformations[0].source_food_name} → {entry.transformations[0].replacement_food_name}
                               </small>
                             ) : choice?.transformation ? (
                               <small className="weekly-grid-transformation">
                                 {choice.transformation.kind === "plan_adapted"
                                   ? copy.planAdapted
                                   : copy.preferenceVariant}
+                                {": "}{choice.transformation.operation.source_food_name} → {choice.transformation.operation.replacement_food_name}
                               </small>
                             ) : null}
                           </button>
@@ -657,7 +1308,7 @@ export default function WeeklyProposalPreview({
                           {entry
                             ? entryName(entry)
                             : choice?.candidate_name ?? (pendingReason ? copy.pending : copy.empty)}
-                        </strong>
+                        </strong>{entry ? <SavedMealChanges entry={entry} recipes={currentReviews}/> : choice ? <SavedMealChanges entry={{recipe_id:choice.recipe_id,variant_changes:choice.variant_changes,transformations:choice.transformation?[{id:"proposal",transformation_kind:choice.transformation.kind,operation_type:"replace",source_food_name:choice.transformation.operation.source_food_name,replacement_food_name:choice.transformation.operation.replacement_food_name}]:[]}} recipes={currentReviews}/> : null}
                       </span>
                       <span className="weekly-day-meal__meta">
                         {entry
@@ -690,18 +1341,53 @@ export default function WeeklyProposalPreview({
                     {formatDate(selectedDate, locale)} · {mealLabel(selectedMealType, locale)}
                   </p>
                 </div>
-                {onEdit && selectedEntry ? (
-                  <button
-                    className="button ghost"
-                    disabled={selectedEntry.status !== "planned"}
-                    onClick={() => onEdit(selectedDate, selectedMealType, selectedEntry)}
-                    type="button"
-                  >
-                    {copy.planned}
-                  </button>
+                {selectedEntry ? (
+                  <div className="weekly-meal-detail__actions">
+                    {onEdit ? (
+                      <button
+                        className="button ghost"
+                        disabled={selectedEntry.status !== "planned" || decisionBusy !== null}
+                        onClick={() => onEdit(selectedDate, selectedMealType, selectedEntry)}
+                        type="button"
+                      >
+                        {selectedEntry.transformations.length > 0
+                          ? copy.viewPlanned
+                          : copy.editPlanned}
+                      </button>
+                    ) : null}
+                    <button
+                      className="button ghost"
+                      disabled={selectedEntry.status !== "planned" || decisionBusy !== null}
+                      onClick={() => void removeSelectedEntry()}
+                      type="button"
+                    >
+                      {copy.removePlanned}
+                    </button>
+                  </div>
+                ) : selectedChoice?.recipe_id ? (
+                  <div className="weekly-meal-detail__actions">
+                    <button
+                      className="button"
+                      disabled={busy || decisionBusy !== null || adaptationBusy}
+                      onClick={() => void suggestAdaptations()}
+                      type="button"
+                    >
+                      {adaptationBusy
+                        ? copy.adaptingToPlan
+                        : selectedChoiceHasPlan
+                          ? copy.adaptToPlan
+                          : copy.suggestAdaptation}
+                    </button>
+                  </div>
                 ) : null}
               </div>
 
+              {reviewError && <p role="alert">{locale==="pt-PT"?"Alternativas indisponíveis: ":"Alternatives unavailable: "}{reviewError}</p>}
+              {(selectedEntry?.variant_changes?.length || selectedChoice?.variant_changes?.length) ? <div className="weekly-transformation-summary"><strong>{locale==="pt-PT" ? "Ingredientes desta variante" : "Ingredients in this variant"}</strong><ul>{(selectedEntry?.variant_changes ?? selectedChoice?.variant_changes ?? []).map(change=><li key={change}>{change}</li>)}</ul></div> : null}
+              {(renderSelectedMeal ?? (context=><SelectedMealOptions key={`${context.planningDate}:${context.mealType}:${context.recipeId}`} familyId={familyId} context={context} recipes={currentReviews} products={loadedRetail} restrictions={{sources:[],excluded_food_item_ids:[],warnings:[]}} people={people} manualExclusions={[]} onVariantsChanged={()=>setReviewRevision(v=>v+1)}/>))({recipeId:selectedEntry?.recipe_id ?? selectedChoice?.recipe_id ?? null,planningDate:selectedDate,mealType:selectedMealType,personIds:(selectedEntry?.participants ?? selectedChoice?.participants)?.map(p=>p.person_id) ?? planningOptions?.attendance?.find(a=>a.planning_date===selectedDate && a.meal_type===selectedMealType)?.person_ids ?? people.map(p=>p.id),appliedChanges:selectedEntry?.variant_changes ?? selectedChoice?.variant_changes ?? [],onEvaluateDelivery:selectedEntry ? undefined : provider=>{
+                const next={...sourceOverrides,[slotKey(selectedDate,selectedMealType)]:[provider]};
+                setSourceOverrides(next);void generateProposal(rejectedBySlot,false,next);
+              }})}
               {selectedEntry ? (
                 <>
                   {selectedEntry.transformations.map((transformation) => (
@@ -730,12 +1416,12 @@ export default function WeeklyProposalPreview({
                               .join(" ")}
                           </strong>
                           <span>
-                            {participant.quantity !== null
-                              ? `${participant.quantity} ${participant.unit ?? ""}`
-                              : "—"}
-                            {participant.energy_kcal !== null
-                              ? ` · ${participant.energy_kcal} kcal`
-                              : ""}
+                            {formatMealPortion(
+                              participant.quantity,
+                              participant.unit,
+                              participant.energy_kcal,
+                              locale,
+                            )}
                           </span>
                         </div>
                       </article>
@@ -763,22 +1449,125 @@ export default function WeeklyProposalPreview({
                   <div className="weekly-person-detail-list">
                     {selectedChoice.participants.map((participant) => {
                       const person = peopleById.get(participant.person_id);
+                      const energyReference = formatMealEnergyReference(
+                        participant.meal_energy_target_min_kcal,
+                        participant.meal_energy_target_max_kcal,
+                        locale,
+                      );
+                      const explanationLabels = weeklyExplanationLabels(
+                        participant.explanation,
+                        locale,
+                      );
+                      const nutritionRows = nutritionSummaryRows(
+                        participant.nutrition,
+                        locale,
+                      );
+                      const comparisonRules = numericPlanComparisonRules(
+                        participant.plan_rule_results,
+                      );
+                      const hasActivePlan =
+                        participant.nutrition_plan_authority !== "no_active_plan";
                       return (
                         <article className="weekly-person-detail" key={participant.person_id}>
                           <div className="weekly-person-detail__heading">
                             <strong>{person ? displayName(person) : participant.person_id}</strong>
                             <span>
-                              {participant.quantity} {participant.quantity_unit}
-                              {participant.energy_kcal !== null
-                                ? ` · ${participant.energy_kcal} kcal`
-                                : ""}
+                              {copy.proposedPortion}:{" "}
+                              {formatMealPortion(
+                                participant.quantity,
+                                participant.quantity_unit,
+                                participant.energy_kcal,
+                                locale,
+                              )}
                             </span>
                           </div>
                           <div className="weekly-person-detail__reason">
+                            <small>{copy.nutritionComposition}</small>
+                            <dl className="weekly-nutrition-grid">
+                              {nutritionRows.map((row) => (
+                                <div key={row.key}>
+                                  <dt>{row.label}</dt>
+                                  <dd>{row.value}</dd>
+                                </div>
+                              ))}
+                            </dl>
+                            {hasActivePlan ? (
+                              <div className="weekly-plan-comparison">
+                                <small>{copy.nutritionPlanComparison}</small>
+                                {comparisonRules.length > 0 ? (
+                                  <div className="weekly-plan-comparison__rows">
+                                    {comparisonRules.map((rule) => (
+                                      <div
+                                        className="weekly-plan-comparison__row"
+                                        key={rule.rule_id}
+                                      >
+                                        <span>{nutrientLabel(rule.target_key, locale)}</span>
+                                        <span>
+                                          {copy.observed}:{" "}
+                                          <strong>
+                                            {formatNutritionValue(
+                                              rule.observed_value,
+                                              rule.observed_unit,
+                                              locale,
+                                            )}
+                                          </strong>
+                                        </span>
+                                        <span>
+                                          {copy.planTarget}:{" "}
+                                          <strong>{formatPlanRuleTarget(rule, locale)}</strong>
+                                        </span>
+                                        <em>{planRuleStatusLabel(rule.status, locale)}</em>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="muted compact">
+                                    {copy.noStructuredPlanTarget}
+                                  </p>
+                                )}
+                                {participant.plan_guidance.length > 0 ? (
+                                  <div className="weekly-plan-guidance">
+                                    <small>{copy.qualitativePlanGuidance}</small>
+                                    <ul className="compact-list">
+                                      {participant.plan_guidance.map((guidance) => (
+                                        <li key={guidance}>{guidance}</li>
+                                      ))}
+                                    </ul>
+                                    <p className="muted compact">
+                                      {copy.qualitativeNotEvaluated}
+                                    </p>
+                                  </div>
+                                ) : null}
+                              </div>
+                            ) : null}
+                            <small>{copy.nutritionPlan}</small>
+                            <p className="muted compact">
+                              <strong>
+                                {nutritionPlanAuthorityLabel(
+                                  participant.nutrition_plan_authority,
+                                  locale,
+                                )}
+                              </strong>
+                              {participant.active_plan_titles.length > 0
+                                ? ` · ${participant.active_plan_titles.join(", ")}`
+                                : ""}
+                            </p>
+                            <p className="muted compact">
+                              {copy.mealPlanFit}:{" "}
+                              {planFitStatusLabel(participant.plan_fit_status, locale)}
+                              {participant.plan_fit_score !== null
+                                ? ` · ${participant.plan_fit_score}`
+                                : ""}
+                            </p>
+                            {energyReference ? (
+                              <p className="muted compact">
+                                {copy.mealEnergyReference}: {energyReference}
+                              </p>
+                            ) : null}
                             <small>{copy.nutritionReason}</small>
-                            {participant.explanation.length > 0 ? (
+                            {explanationLabels.length > 0 ? (
                               <ul className="compact-list">
-                                {participant.explanation.slice(0, 4).map((message) => (
+                                {explanationLabels.slice(0, 4).map((message) => (
                                   <li key={message}>{message}</li>
                                 ))}
                               </ul>
@@ -790,10 +1579,101 @@ export default function WeeklyProposalPreview({
                       );
                     })}
                   </div>
+                  {adaptationError ? (
+                    <div className="error-banner" role="alert">
+                      <span>{adaptationError}</span>
+                    </div>
+                  ) : null}
+                  {adaptationResult ? (
+                    <section className="weekly-adaptation-panel">
+                      <div>
+                        <span className="eyebrow">{copy.adaptationTitle}</span>
+                        <p className="muted compact">{copy.adaptationHelp}</p>
+                      </div>
+                      {adaptationResult.proposals.length > 0 ? (
+                        <div className="weekly-adaptation-list">
+                          {adaptationResult.proposals.map((adaptation) => (
+                            <article
+                              className="weekly-adaptation-card"
+                              key={`${adaptation.operation.recipe_ingredient_id}:${adaptation.operation.replacement_food_item_id}`}
+                            >
+                              <div className="weekly-adaptation-card__heading">
+                                <span className="weekly-transformation-summary__kind">
+                                  {adaptationKindLabel(adaptation, locale)}
+                                </span>
+                                <strong>
+                                  {adaptation.operation.source_food_name} →{" "}
+                                  {adaptation.operation.replacement_food_name}
+                                </strong>
+                              </div>
+                              <p className="muted compact">
+                                {adaptation.plan_improvement_participants > 0
+                                  ? copy.planImprovesFor
+                                  : copy.preferenceImprovesFor}:{" "}
+                                <strong>
+                                  {peopleCountLabel(
+                                    adaptation.plan_improvement_participants > 0
+                                      ? adaptation.plan_improvement_participants
+                                      : adaptation.preference_improvement_participants,
+                                    locale,
+                                  )}
+                                </strong>
+                              </p>
+                              <div className="weekly-adaptation-people">
+                                {adaptation.participant_results.map((result) => {
+                                  const adaptedPerson = peopleById.get(result.person_id);
+                                  const beforeEnergy =
+                                    result.before_fit.candidate.nutrition.energy_kcal;
+                                  const afterEnergy =
+                                    result.after_fit.candidate.nutrition.energy_kcal;
+                                  return (
+                                    <div key={result.person_id}>
+                                      <strong>
+                                        {adaptedPerson
+                                          ? displayName(adaptedPerson)
+                                          : result.person_id}
+                                      </strong>
+                                      <span>
+                                        {copy.beforeAfter}:{" "}
+                                        {planFitStatusLabel(
+                                          result.before_fit.status,
+                                          locale,
+                                        )}{" "}
+                                        →{" "}
+                                        {planFitStatusLabel(
+                                          result.after_fit.status,
+                                          locale,
+                                        )}
+                                      </span>
+                                      <small>
+                                        {formatNutritionValue(
+                                          beforeEnergy,
+                                          "kcal",
+                                          locale,
+                                        )}{" "}
+                                        →{" "}
+                                        {formatNutritionValue(
+                                          afterEnergy,
+                                          "kcal",
+                                          locale,
+                                        )}
+                                      </small>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="muted compact">{copy.noAdaptation}</p>
+                      )}
+                    </section>
+                  ) : null}
                   <div className="meal-plan-editor__actions">
                     <button
                       className="button ghost"
-                      disabled={busy || decisionBusy !== null}
+                      disabled={busy || decisionBusy !== null || adaptationBusy}
                       onClick={() => void rejectSelectedChoice()}
                       type="button"
                     >
@@ -805,7 +1685,7 @@ export default function WeeklyProposalPreview({
                 <div className="family-meals-empty-day">
                   <strong>{copy.pending}</strong>
                   <p>{selectedSkippedReason}</p>
-                  {selectedMealType === "lunch" && !isWeekendDate(selectedDate) ? (
+                  {selectedMealType === "lunch" && !isWeekendDate(selectedDate) && guidedMealSources(selectedMealType,planningOptions?.mealSources).includes("cooked") ? (
                     <p className="muted compact">{copy.leftoversNotice}</p>
                   ) : null}
                 </div>

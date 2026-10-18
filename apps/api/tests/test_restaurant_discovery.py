@@ -239,3 +239,91 @@ def test_google_provider_failure_falls_back_to_osm(monkeypatch) -> None:
 
     assert result.provider == "openstreetmap_fallback"
     assert result.restaurants[0].name == "Fallback"
+
+
+def test_overpass_waits_for_its_query_budget_and_falls_back_on_timeout(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        restaurant_discovery.settings,
+        "restaurant_discovery_overpass_url",
+        "https://primary.invalid/api",
+    )
+    monkeypatch.setattr(
+        restaurant_discovery.settings,
+        "restaurant_discovery_overpass_fallback_url",
+        "https://fallback.invalid/api",
+    )
+
+    def request(url, **kwargs):
+        calls.append((url, kwargs))
+        if len(calls) == 1:
+            try:
+                raise TimeoutError("read timeout")
+            except TimeoutError as exc:
+                raise restaurant_discovery.RestaurantDiscoveryError("unavailable") from exc
+        return {"elements": []}
+
+    monkeypatch.setattr(restaurant_discovery, "_request_json", request)
+    assert restaurant_discovery._overpass_payload(b"query") == {"elements": []}
+    assert [c[0] for c in calls] == ["https://primary.invalid/api", "https://fallback.invalid/api"]
+    assert all(c[1]["timeout_seconds"] >= 25 for c in calls)
+
+
+def test_overpass_does_not_rotate_around_rate_limits(monkeypatch):
+    from urllib.error import HTTPError
+
+    import pytest
+
+    calls = []
+
+    def request(url, **kwargs):
+        calls.append(url)
+        try:
+            raise HTTPError(url, 429, "rate limited", {}, None)
+        except HTTPError as exc:
+            raise restaurant_discovery.RestaurantDiscoveryError("unavailable") from exc
+
+    monkeypatch.setattr(restaurant_discovery, "_request_json", request)
+    with pytest.raises(restaurant_discovery.RestaurantDiscoveryError):
+        restaurant_discovery._overpass_payload(b"query")
+    assert len(calls) == 1
+
+
+def test_restaurant_search_uses_bounded_real_metadata_fallback_without_inventing_scores(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        restaurant_discovery,
+        "_geocode_area",
+        lambda area: (Decimal(38), Decimal(-10), Decimal(39), Decimal(-9)),
+    )
+
+    def unavailable(query):
+        raise restaurant_discovery.RestaurantDiscoveryError("unavailable")
+
+    monkeypatch.setattr(restaurant_discovery, "_overpass_payload", unavailable)
+    urls = []
+
+    def places(url):
+        urls.append(url)
+        return [
+            {
+                "osm_type": "node",
+                "osm_id": 123,
+                "lat": "38.7",
+                "lon": "-9.5",
+                "type": "restaurant",
+                "name": "Observed restaurant",
+                "display_name": "Observed restaurant, Lisboa",
+                "extratags": {"website": "https://example.invalid/menu"},
+            }
+        ]
+
+    monkeypatch.setattr(restaurant_discovery, "_nominatim_request", places)
+    result = restaurant_discovery._fetch_restaurants("Lisboa", limit=12)
+    assert result.provider == "openstreetmap_nominatim"
+    assert "bounded=1" in urls[0] and "limit=12" in urls[0]
+    assert result.restaurants[0].name == "Observed restaurant"
+    assert result.restaurants[0].rating is None
+    assert result.restaurants[0].quality_score is None
+    assert result.restaurants[0].source_reference == "https://www.openstreetmap.org/node/123"

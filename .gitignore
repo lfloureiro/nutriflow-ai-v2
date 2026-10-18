@@ -59,3 +59,10 @@ logs/
 tmp/
 temp/
 .cache/
+
+# Local audits, backups and generated exports (may contain personal data)
+.pytest-tmp/
+backups/
+docs/audits/
+recipe_nutrition_export.json
+*.dump

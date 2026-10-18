@@ -30,6 +30,7 @@ from app.services.meal_suitability import (
     recipe_default_meal_types,
     resolve_meal_types,
 )
+from app.services.weekly_planning_request_cache import current_weekly_planning_cache
 
 DEFAULT_STANDARD_BREAKFAST_KCAL = Decimal(350)
 BREAKFAST_ASSUMPTION_CUTOFF = time(10, 0)
@@ -99,7 +100,9 @@ def _active_target(
             NutritionTarget.person_id == person_id,
             NutritionTarget.status == "active",
             NutritionTarget.valid_from <= planning_date,
-            or_(NutritionTarget.valid_until.is_(None), NutritionTarget.valid_until >= planning_date),
+            or_(
+                NutritionTarget.valid_until.is_(None), NutritionTarget.valid_until >= planning_date
+            ),
         )
         .options(selectinload(NutritionTarget.components))
         .order_by(
@@ -155,16 +158,12 @@ def _breakfast_assumption(
         ) from exc
     now_local = datetime.now(UTC).astimezone(zone)
     if planning_date > now_local.date():
-        return Decimal(0), {
-            "standard_breakfast": {"applied": False, "reason": "future_date"}
-        }
+        return Decimal(0), {"standard_breakfast": {"applied": False, "reason": "future_date"}}
     if (
         planning_date == now_local.date()
         and now_local.timetz().replace(tzinfo=None) < BREAKFAST_ASSUMPTION_CUTOFF
     ):
-        return Decimal(0), {
-            "standard_breakfast": {"applied": False, "reason": "before_cutoff"}
-        }
+        return Decimal(0), {"standard_breakfast": {"applied": False, "reason": "before_cutoff"}}
     if _declared_breakfast(session, person=person, planning_date=planning_date):
         return Decimal(0), {"standard_breakfast": {"applied": False, "reason": "declared"}}
 
@@ -269,14 +268,10 @@ def _planning_profile_maps(
         )
     ).all()
     food_profiles = {
-        profile.food_item_id: profile
-        for profile in profiles
-        if profile.food_item_id is not None
+        profile.food_item_id: profile for profile in profiles if profile.food_item_id is not None
     }
     recipe_profiles = {
-        profile.recipe_id: profile
-        for profile in profiles
-        if profile.recipe_id is not None
+        profile.recipe_id: profile for profile in profiles if profile.recipe_id is not None
     }
     return food_profiles, recipe_profiles
 
@@ -360,9 +355,21 @@ def _recipe_candidate_quantity(
     recipe: Recipe,
     snapshot: RecipeCompositionSnapshot,
 ) -> Decimal:
+    if snapshot.reference_unit == "serving":
+        return Decimal(1)
     if recipe.serving_count is None:
         return snapshot.reference_quantity
     return snapshot.reference_quantity / recipe.serving_count
+
+
+def _recipe_candidate_energy(
+    recipe: Recipe,
+    snapshot: RecipeCompositionSnapshot,
+) -> Decimal | None:
+    if snapshot.energy_kcal is None:
+        return None
+    quantity = _recipe_candidate_quantity(recipe, snapshot)
+    return snapshot.energy_kcal * quantity / snapshot.reference_quantity
 
 
 def _recipe_candidates(
@@ -398,6 +405,13 @@ def _recipe_candidates(
         if snapshot.id is None:
             raise PlanningBootstrapApiError("Recipe composition snapshot must be persisted.")
         recipe = snapshot.recipe
+        if recipe.source == "family_variant":
+            from app.services.recipe_variant_integrity import assert_variant_usable
+
+            try:
+                assert_variant_usable(session, recipe)
+            except ValueError:
+                continue
         result.append(
             PlanningCandidateRead(
                 candidate_kind="recipe",
@@ -409,11 +423,7 @@ def _recipe_candidates(
                 description=recipe.description,
                 reference_quantity=_recipe_candidate_quantity(recipe, snapshot),
                 reference_unit=snapshot.reference_unit,
-                energy_kcal=(
-                    snapshot.energy_kcal / recipe.serving_count
-                    if snapshot.energy_kcal is not None and recipe.serving_count is not None
-                    else snapshot.energy_kcal
-                ),
+                energy_kcal=_recipe_candidate_energy(recipe, snapshot),
                 composition_version=snapshot.composition_version,
                 composition_at=snapshot.computed_at,
                 suitable_meal_types=_resolved_meal_types(
@@ -433,38 +443,53 @@ def get_planning_bootstrap(
     scheduled_at: datetime,
     ensure_state: bool = False,
     force_state_refresh: bool = False,
+    include_candidates: bool = True,
 ) -> PlanningBootstrapRead:
     _validate_scheduled_at(scheduled_at)
     person = _load_person(session, person_id)
     planning_date = _planning_date(person, scheduled_at)
-    state = _latest_daily_state(
-        session,
-        person_id=person_id,
-        planning_date=planning_date,
-    )
-    should_refresh = force_state_refresh or state is None or not _preserve_synthetic_demo_state(state)
-    if ensure_state and should_refresh:
-        state = _ensure_daily_state(
+    cache = current_weekly_planning_cache(session)
+    state_key = (person_id, planning_date)
+    state = None
+    if ensure_state and not force_state_refresh and cache is not None:
+        state = cache.daily_states.get(state_key)
+
+    if state is None:
+        state = _latest_daily_state(
             session,
-            person=person,
+            person_id=person_id,
             planning_date=planning_date,
         )
-    food_profiles, recipe_profiles = _planning_profile_maps(
-        session,
-        family_id=person.family_id,
-    )
-    candidates = _food_candidates(
-        session,
-        family_id=person.family_id,
-        scheduled_at=scheduled_at,
-        profiles=food_profiles,
-    ) + _recipe_candidates(
-        session,
-        family_id=person.family_id,
-        scheduled_at=scheduled_at,
-        profiles=recipe_profiles,
-    )
-    candidates.sort(key=lambda candidate: (candidate.name.casefold(), candidate.catalog_key))
+        should_refresh = (
+            force_state_refresh or state is None or not _preserve_synthetic_demo_state(state)
+        )
+        if ensure_state and should_refresh:
+            state = _ensure_daily_state(
+                session,
+                person=person,
+                planning_date=planning_date,
+            )
+        if ensure_state and state is not None and cache is not None:
+            cache.daily_states[state_key] = state
+
+    candidates = []
+    if include_candidates:
+        food_profiles, recipe_profiles = _planning_profile_maps(
+            session,
+            family_id=person.family_id,
+        )
+        candidates = _food_candidates(
+            session,
+            family_id=person.family_id,
+            scheduled_at=scheduled_at,
+            profiles=food_profiles,
+        ) + _recipe_candidates(
+            session,
+            family_id=person.family_id,
+            scheduled_at=scheduled_at,
+            profiles=recipe_profiles,
+        )
+        candidates.sort(key=lambda candidate: (candidate.name.casefold(), candidate.catalog_key))
 
     return PlanningBootstrapRead(
         person_id=person.id,

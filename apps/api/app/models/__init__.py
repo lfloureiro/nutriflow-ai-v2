@@ -1,6 +1,13 @@
 from app.models.anthropometric_measurement import AnthropometricMeasurement
 from app.models.daily_health_state import DailyHealthState
 from app.models.daily_nutrition_state import DailyNutritionState, DailyNutritionStateComponent
+from app.models.dietary_review import (
+    FodmapReference,
+    FoodFodmapReference,
+    PersonHealthCondition,
+    PersonHealthConditionEvent,
+    RecipeSubstitutionReview,
+)
 from app.models.family import Family
 from app.models.food_adverse_reaction import FoodAdverseReaction
 from app.models.food_catalog import (
@@ -35,6 +42,7 @@ from app.models.nutrition_target import NutritionTarget, NutritionTargetComponen
 from app.models.pantry_stock import PantryStockLot
 from app.models.person import Person
 from app.models.person_profile import PersonProfile
+from app.models.planning_workspace import FamilyWeekSetup, RetailAlternative
 from app.models.recommendation_feedback import (
     MealRecommendationFeedback,
     MealRecommendationOption,
@@ -49,8 +57,12 @@ __all__ = [
     "DailyNutritionState",
     "DailyNutritionStateComponent",
     "Family",
+    "FamilyRecipeVariant",
+    "FamilyWeekSetup",
+    "FodmapReference",
     "FoodAdverseReaction",
     "FoodCompositionSnapshot",
+    "FoodFodmapReference",
     "FoodItem",
     "FoodNutrientComponent",
     "FoodPreference",
@@ -78,14 +90,21 @@ __all__ = [
     "NutritionTargetComponent",
     "PantryStockLot",
     "Person",
+    "PersonHealthCondition",
+    "PersonHealthConditionEvent",
     "PersonProfile",
     "Recipe",
     "RecipeCompositionSnapshot",
     "RecipeIngredient",
     "RecipeNutrientComponent",
+    "RecipeSubstitutionReview",
+    "RetailAlternative",
+    "RetailIngredientConfirmation",
     "ScheduleEntry",
     "Serving",
     "ServingNutritionComponent",
     "ShoppingList",
     "ShoppingListItem",
 ]
+from app.models.recipe_variant import FamilyRecipeVariant
+from app.models.retail_confirmation import RetailIngredientConfirmation
