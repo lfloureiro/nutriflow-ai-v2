@@ -100,6 +100,7 @@ class ShoppingListItemRead(BaseModel):
     sort_order: int
     version: int = 1
     product_selection: dict | None = None
+    pantry_receipt: dict | None = None
 
 
 class ShoppingListRefreshRequest(BaseModel):
@@ -127,3 +128,14 @@ class ShoppingProductSelect(BaseModel):
     expected_version: int = Field(gt=0)
     retail_product_id: uuid.UUID | None = None
     expected_fingerprint: str | None = Field(default=None, min_length=64, max_length=64)
+
+
+class ShoppingReceiptCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    expected_version: int = Field(gt=0)
+    quantity: Decimal = Field(gt=0, max_digits=14, decimal_places=4)
+    unit: str = Field(min_length=1, max_length=24)
+    location: str | None = Field(default=None, max_length=80)
+    expires_at: datetime | None = None
+    label_reviewed: Literal[True]

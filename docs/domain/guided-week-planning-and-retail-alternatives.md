@@ -108,3 +108,18 @@ uma variante com esse ingrediente, as compras permitem rever e guardar o número
 embalagens, o excedente e o custo observado. A ligação de proposta ao ingrediente
 original não basta para escolher o produto. Dados incompletos continuam bloqueados.
 Ver ADR-069 para snapshots, concorrência, alterações que exigem revisão e limitações.
+
+
+## Depois das compras: confirmar o que chegou
+
+Na lista de compras, assinalar um artigo como comprado. Abrir «Registar o que chegou
+à despensa», indicar a quantidade total realmente recebida, unidade, local e validade
+opcional. Confirmar o ingrediente, rótulo e quantidade e escolher «Adicionar à despensa».
+A quantidade começa vazia: 1.100 g em falta podem resultar em 1.500 g comprados, mas
+só o utilizador confirma o que chegou. A entrada atualiza o stock e as necessidades.
+
+O cartão conserva quantidade e local recebidos; ajustes posteriores fazem-se no lote
+na despensa. Repetir a confirmação não duplica stock. Se houver várias validades,
+registar lotes separados na despensa nesta fase. Artigos livres sem ingrediente não
+são associados automaticamente a um alimento. A escolha de embalagens passa a ser
+apresentada como histórico depois da entrada, sem texto riscado nos dados do produto.

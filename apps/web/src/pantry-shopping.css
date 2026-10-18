@@ -43,11 +43,11 @@
 }
 
 .pantry-row.inactive,
-.shopping-item.purchased {
+.shopping-item.purchased .shopping-check {
   opacity: 0.62;
 }
 
-.shopping-item.purchased strong {
+.shopping-item.purchased .shopping-check strong {
   text-decoration: line-through;
 }
 

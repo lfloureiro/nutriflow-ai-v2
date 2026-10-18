@@ -1,3 +1,14 @@
+## Entrada das compras na despensa — ADR-070 (18/10/2026)
+
+Cartão comprado permite confirmar quantidade real/unidade/local/validade e criar um lote.
+Versão, revisão explícita e unidade compatível obrigatórias; rótulos alterados bloqueiam.
+Snapshot histórico e chave única evitam duplicação por retry, mesmo após desativar o lote.
+Compras recebidas não são apagadas/desmarcadas; regenerar permite uma nova compra futura.
+Migration b781e265c904 aplicada após backup privado; família real sem entradas criadas.
+Interface verificada numa base sintética: 1.500 g recebidos mais 100 g existentes → falta zero.
+407 testes API e 132 frontend passaram; build, Ruff e Alembic check sem erros.
+Mais detalhes e limites em ADR-070; comparação entre lojas e receções parciais pendentes.
+
 ## Produtos confirmados e embalagens — ADR-069 (18/10/2026)
 
 Implementado ingrediente próprio a partir de rótulo revisto, ligação exata às compras,

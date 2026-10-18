@@ -54,6 +54,7 @@ export type ShoppingListItem = {
   sort_order: number;
   version?:number;
   product_selection?:ShoppingProductSelection|null;
+  pantry_receipt?:{lot_id:string;quantity:string;unit:string;location:string|null;expires_at:string|null;received_at:string}|null;
 };
 
 export type ShoppingList = {

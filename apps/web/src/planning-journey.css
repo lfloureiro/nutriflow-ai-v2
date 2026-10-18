@@ -51,3 +51,7 @@
 .retail-confirmation {display:grid;gap:.75rem;margin-top:1rem;}
 .retail-confirmation label {display:flex;align-items:start;gap:.65rem;line-height:1.5;}
 .retail-confirmation input {width:1.1rem;height:1.1rem;flex-shrink:0;accent-color:var(--accent);}
+
+.shopping-screen .shopping-receipt { grid-column: 1 / -1; padding: .8rem; border: 1px solid var(--border, #cbd5e1); border-radius: .7rem; overflow-wrap: anywhere; }
+.shopping-receipt summary { cursor: pointer; font-weight: 600; }
+.shopping-receipt form { display: grid; gap: .8rem; margin-top: .8rem; }

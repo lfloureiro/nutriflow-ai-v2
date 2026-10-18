@@ -105,6 +105,7 @@ class ShoppingListItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=True,
         index=True,
     )
+    pantry_receipt: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     product_selection: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     product_confirmation = relationship("RetailIngredientConfirmation")
 

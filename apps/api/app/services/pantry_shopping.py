@@ -502,6 +502,7 @@ def _item_read(item: ShoppingListItem, requirement=None) -> ShoppingListItemRead
         sort_order=item.sort_order,
         version=item.version,
         product_selection=selection_read(item, requirement),
+        pantry_receipt=item.pantry_receipt,
     )
 
 
@@ -555,8 +556,8 @@ def refresh_shopping_list(
     start_date: date,
     days: int,
 ) -> ShoppingListRead:
-    result = build_planned_requirements(db, family, start_date=start_date, days=days)
     shopping_list = _active_shopping_list(db, family)
+    result = build_planned_requirements(db, family, start_date=start_date, days=days)
     shopping_list.planning_start = start_date
     shopping_list.planning_end = start_date + timedelta(days=days - 1)
     shopping_list.generated_at = datetime.now(UTC)
@@ -566,7 +567,7 @@ def refresh_shopping_list(
     automatic = {
         item.food_item_id: item
         for item in shopping_list.items
-        if item.item_source == "automatic" and item.food_item_id is not None
+        if item.item_source == "automatic" and item.food_item_id is not None and not item.pantry_receipt
     }
     desired = {
         requirement.food_item_id: requirement
@@ -675,6 +676,10 @@ def update_shopping_item(
     data: ShoppingListItemUpdate,
 ) -> ShoppingListRead:
     item = _shopping_item(db, family.id, item_id)
+    if item.pantry_receipt and (data.status == "needed" or "quantity" in data.model_fields_set):
+        from fastapi import HTTPException
+
+        raise HTTPException(409, "Esta compra já entrou na despensa. Corrija o lote na despensa.")
     item.version += 1
     fields = data.model_fields_set
     if "name" in fields and data.name is not None:
@@ -696,5 +701,9 @@ def delete_shopping_item(
     item_id: uuid.UUID,
 ) -> None:
     item = _shopping_item(db, family_id, item_id)
+    if item.pantry_receipt:
+        from fastapi import HTTPException
+
+        raise HTTPException(409, "Esta compra já entrou na despensa e conserva o registo de entrada.")
     db.delete(item)
     db.commit()

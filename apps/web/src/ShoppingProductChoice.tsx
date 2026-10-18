@@ -25,14 +25,14 @@ export default function ShoppingProductChoice({familyId,item,products,onChanged,
   const shown=needsReview?preview:saved??preview;
   const number=(value:string|number)=>Number(value).toLocaleString(locale,{maximumFractionDigits:4});
   return <section className="shopping-product-choice" aria-label={pt?"Produto e embalagens":"Product and packages"}>
-    <h4>{saved&&!needsReview?pt?"Produto escolhido":"Selected product":pt?"Produto e embalagens para confirmar":"Product and packages to confirm"}</h4>
+    <h4>{item.pantry_receipt?(pt?"Escolha registada nesta compra":"Product choice for this purchase"):saved&&!needsReview?pt?"Produto escolhido":"Selected product":pt?"Produto e embalagens para confirmar":"Product and packages to confirm"}</h4>
     {needsReview&&<p role="status">{pt?"A escolha anterior precisa de revisão. Atualiza as compras se a quantidade mudou; revê o rótulo e a variante se mudou o produto.":"The previous choice needs review. Refresh shopping if quantities changed; review the label and variant if the product changed."}</p>}
     {loading&&<p role="status">{pt?"A calcular embalagens…":"Calculating packages…"}</p>}
     {error&&<p role="alert">{error}</p>}
     {shown&&<><strong>{shown.product_name}</strong><p>{number(shown.required_quantity)} {shown.required_unit} {pt?"necessários":"needed"} · {number(shown.pack_quantity)} {shown.pack_unit} {pt?"por embalagem":"per package"}</p>
-      {shown.package_count!==null&&<p><strong>{shown.package_count} {pt?"embalagens":"packages"}</strong> · {number(shown.total_quantity!)} {shown.pack_unit} {pt?"a comprar":"to buy"} · {number(shown.excess_quantity!)} {shown.pack_unit} {pt?"de excedente":"excess"}</p>}
+      {shown.package_count!==null&&<p><strong>{shown.package_count} {pt?"embalagens":"packages"}</strong> · {number(shown.total_quantity!)} {shown.pack_unit} {item.pantry_receipt?(pt?"previstos nesta compra":"planned for this purchase"):(pt?"a comprar":"to buy")} · {number(shown.excess_quantity!)} {shown.pack_unit} {pt?"de excedente":"excess"}</p>}
       <p>{shown.estimated_total!==null?`${pt?"Estimativa":"Estimate"}: ${Number(shown.estimated_total).toLocaleString(locale,{style:"currency",currency:"EUR"})}`:pt?"Preço por confirmar":"Price unconfirmed"} · {shown.retailer} · {shown.observed_on}</p>
-      <p className="muted">{pt?"Preço observado e stock por confirmar na loja. Escolher embalagens não altera a receita nem acrescenta stock à despensa.":"Observed price; confirm price and stock at the store. Choosing packages does not change the recipe or add pantry stock."}</p></>}
+      <p className="muted">{item.pantry_receipt?(pt?"Escolha histórica. A quantidade realmente recebida está no registo de entrada acima.":"Historical choice. Actual received quantity is in the receipt above."):pt?"Preço observado e stock por confirmar na loja. Escolher embalagens não altera a receita nem acrescenta stock à despensa.":"Observed price; confirm price and stock at the store. Choosing packages does not change the recipe or add pantry stock."}</p></>}
     {item.status==="needed"&&<div className="row-actions">{(!saved||needsReview)&&<button className="button secondary small" type="button" disabled={disabled||busy||loading||!preview||!product} onClick={()=>void choose()}>{pt?"Confirmar estas embalagens":"Confirm these packages"}</button>}{saved&&<button className="button ghost small" type="button" disabled={disabled||busy} onClick={()=>void choose(true)}>{pt?"Remover escolha do produto":"Clear product choice"}</button>}</div>}
   </section>;
 }

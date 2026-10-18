@@ -17,6 +17,7 @@ import { useI18n } from "./i18n";
 import { listRetailAlternatives, type RetailAlternative } from "./api/planningWorkspaceClient";
 import RetailAlternativeCards from "./RetailAlternativeCards";
 import ShoppingProductChoice from "./ShoppingProductChoice";
+import ShoppingReceiptEntry from "./ShoppingReceiptEntry";
 import "./planning-journey.css";
 
 function errorText(error: unknown): string {
@@ -338,7 +339,7 @@ export default function ShoppingListScreen({ familyId, initialStartDate }: { fam
                 <label className="shopping-check">
                   <input
                     checked={item.status === "purchased"}
-                    disabled={busy}
+                    disabled={busy || !!item.pantry_receipt}
                     onChange={() => void toggle(item)}
                     type="checkbox"
                   />
@@ -349,9 +350,10 @@ export default function ShoppingListScreen({ familyId, initialStartDate }: { fam
                 </label>
                 <span className="status-chip">{item.item_source === "automatic" ? copy.automatic : copy.manual}</span>
                 <div className="row-actions">
-                  <button className="button ghost small" aria-label={`${copy.edit}: ${item.name}`} onClick={() => startEdit(item)} type="button">{copy.edit}</button>
-                  <button className="button ghost small" aria-label={`${copy.remove}: ${item.name}`} onClick={() => void remove(item)} type="button">{copy.remove}</button>
+                  <button disabled={!!item.pantry_receipt} className="button ghost small" aria-label={`${copy.edit}: ${item.name}`} onClick={() => startEdit(item)} type="button">{copy.edit}</button>
+                  <button disabled={!!item.pantry_receipt} className="button ghost small" aria-label={`${copy.remove}: ${item.name}`} onClick={() => void remove(item)} type="button">{copy.remove}</button>
                 </div>
+                <ShoppingReceiptEntry key={`${familyId}:${item.id}`} familyId={familyId} item={item} onChanged={setData} disabled={busy}/>
                 <ShoppingProductChoice familyId={familyId} item={item} products={retail} onChanged={setData} disabled={busy}/>
                 {item.food_item_id && item.status === "needed" && retail.some(p=>p.applicable_food_item_ids.includes(item.food_item_id!)) ? <details className="shopping-retail"><summary>{locale === "pt-PT" ? "Ver alternativas e rótulos de supermercado" : "View supermarket alternatives and labels"}</summary><RetailAlternativeCards familyId={familyId} onConfirmed={()=>{void listRetailAlternatives(familyId).then(setRetail).catch(e=>setRetailError(String(e)));}} products={retail.filter(p => p.applicable_food_item_ids.includes(item.food_item_id!))}/>{!retail.some(p => p.applicable_food_item_ids.includes(item.food_item_id!)) && <p>{locale === "pt-PT" ? "Ainda não há um produto pesquisado para este ingrediente." : "No researched product for this ingredient yet."}</p>}</details> : null}
               </article>

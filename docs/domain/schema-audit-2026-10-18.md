@@ -75,3 +75,11 @@ por produto), e 3 colunas em `shopping_list_items`: versão, FK de confirmação
 JSON da escolha. Versão positiva validada por CHECK; FK nomeada para downgrade reversível.
 Índice por confirmação protege referências de compras. Alembic check sem diferenças.
 O inventário acima conserva o snapshot inicial da auditoria, anterior a esta migration.
+
+
+### Delta ADR-070 — b781e265c904
+
+Uma coluna JSON nullable `shopping_list_items.pantry_receipt` preserva a entrada real
+e a referência histórica ao lote. Total mantém 53 tabelas aplicacionais + Alembic.
+Sem novos índices: procura pelo PK do artigo e unicidade de stock_key já existentes.
+Bloqueio transacional e unicidade do lote impedem repetição da entrada.
