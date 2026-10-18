@@ -1,3 +1,13 @@
+## Auditoria e retalho após publicação — 18/10/2026
+
+Branch publicada, consolidação `5aab9e3`, sem merge. Onze observações de retalho
+após sete novas; importação idempotente, sem alteração de receitas/quantidades.
+Backup local anterior à importação preservado. Auditoria pública sanitizada em
+`docs/domain/technical-audit-2026-10-18.md`, inventário do esquema e fontes de retalho
+nos documentos da mesma data. 119 testes frontend e 14 testes workspace passaram;
+build final passou após lazy loading das compras. Regressão final completa: 388 testes API passaram.
+O histórico abaixo contém estados intermédios; o quadro de tarefas é a referência atual.
+
 ## Publicação e revisão — 18/10/2026
 
 Consolidação T01–T06/T08 preparada na branch v2 por autorização explícita.
@@ -695,3 +705,6 @@ The UI:
 - does not apply a suggested transformation automatically.
 
 No database migration is introduced. A later increment may let the user choose one displayed transformation and re-pin/revalidate that exact structured variant inside the weekly proposal before materialization.
+
+Validação final do incremento de auditoria: **388 testes API e 119 frontend passaram**;
+TypeScript/build, Ruff completo e Alembic check passaram. Sem nova migration.

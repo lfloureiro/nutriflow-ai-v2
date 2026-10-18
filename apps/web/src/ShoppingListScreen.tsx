@@ -149,6 +149,8 @@ export default function ShoppingListScreen({ familyId, initialStartDate }: { fam
   useEffect(load, [familyId]);
   useEffect(() => {
     let cancelled = false;
+    setRetail([]);
+    setRetailError("");
     void listRetailAlternatives(familyId).then(rows => {if (!cancelled) setRetail(rows);})
       .catch(e => {if (!cancelled) setRetailError(String(e));});
     return () => {cancelled = true;};
@@ -346,8 +348,8 @@ export default function ShoppingListScreen({ familyId, initialStartDate }: { fam
                 </label>
                 <span className="status-chip">{item.item_source === "automatic" ? copy.automatic : copy.manual}</span>
                 <div className="row-actions">
-                  <button className="button ghost small" onClick={() => startEdit(item)} type="button">{copy.edit}</button>
-                  <button className="button ghost small" onClick={() => void remove(item)} type="button">{copy.remove}</button>
+                  <button className="button ghost small" aria-label={`${copy.edit}: ${item.name}`} onClick={() => startEdit(item)} type="button">{copy.edit}</button>
+                  <button className="button ghost small" aria-label={`${copy.remove}: ${item.name}`} onClick={() => void remove(item)} type="button">{copy.remove}</button>
                 </div>
                 {item.food_item_id && item.status === "needed" && retail.some(p=>p.applicable_food_item_ids.includes(item.food_item_id!)) ? <details className="shopping-retail"><summary>{locale === "pt-PT" ? "Ver alternativas e rótulos de supermercado" : "View supermarket alternatives and labels"}</summary><RetailAlternativeCards products={retail.filter(p => p.applicable_food_item_ids.includes(item.food_item_id!))}/>{!retail.some(p => p.applicable_food_item_ids.includes(item.food_item_id!)) && <p>{locale === "pt-PT" ? "Ainda não há um produto pesquisado para este ingrediente." : "No researched product for this ingredient yet."}</p>}</details> : null}
               </article>
@@ -379,9 +381,9 @@ export default function ShoppingListScreen({ familyId, initialStartDate }: { fam
 
           <form className="shopping-manual-form" onSubmit={addManual}>
             <strong>{copy.addManual}</strong>
-            <input placeholder={copy.name} value={manualName} onChange={(event) => setManualName(event.target.value)} />
-            <input placeholder={copy.quantity} value={manualQuantity} onChange={(event) => setManualQuantity(event.target.value)} />
-            <input placeholder={copy.unit} value={manualUnit} onChange={(event) => setManualUnit(event.target.value)} />
+            <input aria-label={copy.name} placeholder={copy.name} value={manualName} onChange={(event) => setManualName(event.target.value)} />
+            <input aria-label={copy.quantity} placeholder={copy.quantity} value={manualQuantity} onChange={(event) => setManualQuantity(event.target.value)} />
+            <input aria-label={copy.unit} placeholder={copy.unit} value={manualUnit} onChange={(event) => setManualUnit(event.target.value)} />
             <button className="button primary" disabled={busy} type="submit">{copy.add}</button>
           </form>
         </>

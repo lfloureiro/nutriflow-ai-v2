@@ -1,6 +1,12 @@
 import type { RetailAlternative } from "./api/planningWorkspaceClient";
 import { useI18n } from "./i18n";
 
+export function retailEvidenceLabel(level: string, pt: boolean): string {
+  if (level === "retailer_ingredients_and_nutrition") return pt ? "Ingredientes e nutrição publicados" : "Ingredients and nutrition published";
+  if (level === "retailer_ingredients_only") return pt ? "Ingredientes publicados · nutrição por confirmar" : "Ingredients published · nutrition unconfirmed";
+  return pt ? "Rótulo completo por confirmar" : "Full label unconfirmed";
+}
+
 export default function RetailAlternativeCards({products}: {products: RetailAlternative[]}) {
   const {locale} = useI18n(); const pt = locale === "pt-PT";
   if (!products.length) return null;
@@ -13,7 +19,7 @@ export default function RetailAlternativeCards({products}: {products: RetailAlte
           {p.observed_price !== null ? ` · ${Number(p.observed_price).toLocaleString(locale, {style:"currency",currency:"EUR"})}` : ""}
         </p></div>
       <p>{p.ingredient_summary}</p>
-      <span className="dietary-badge">{p.evidence_level === "retailer_ingredients_and_nutrition" ? pt ? "Ingredientes e nutrição publicados" : "Ingredients and nutrition published" : pt ? "Rótulo completo por confirmar" : "Full label unconfirmed"}</span>
+      <span className="dietary-badge">{retailEvidenceLabel(p.evidence_level, pt)}</span>
       {p.nutrition_per_100 && <p>{pt ? "Por 100" : "Per 100"} {p.nutrition_per_100.reference_unit}: {p.nutrition_per_100.energy_kcal} kcal · {p.nutrition_per_100.protein_g} g {pt ? "proteína" : "protein"}</p>}
       <p className="muted">{pt ? "Consultado em" : "Checked"} {p.observed_on} · {pt ? "Preço e stock a confirmar na loja. Não certificado FODMAP para esta porção." : "Confirm current price and stock. Not FODMAP certified for this portion."}</p>
       <a className="button secondary small" href={p.product_url} target="_blank" rel="noreferrer">{pt ? "Ver produto e rótulo na loja ↗" : "View product and label at store ↗"}</a>

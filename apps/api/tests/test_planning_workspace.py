@@ -13,7 +13,7 @@ from app.models.dietary_review import PersonHealthCondition
 from app.models.nutrition_constraint import NutritionConstraint
 from app.models.nutrition_plan import NutritionPlan, NutritionPlanRule
 from app.models.planning_workspace import FamilyWeekSetup, RetailAlternative
-from app.retail_alternatives_seed import import_retail_observations
+from app.retail_alternatives_seed import ROWS, import_retail_observations
 from tests.test_weekly_planning_api import _setup, _slot
 
 
@@ -223,10 +223,10 @@ def test_week_setup_rejects_invalid_context_and_foreign_data(client, db_session)
 
 def test_retail_observations_are_idempotent_and_do_not_claim_product_tolerance(client, db_session):
     family, _, _, food, hidden = _family(db_session)
-    assert import_retail_observations(db_session) == 4
+    assert import_retail_observations(db_session) == len(ROWS)
     assert import_retail_observations(db_session) == 0
     products = client.get(f"/api/families/{family.id}/retail-alternatives").json()
-    assert len(products) == 4
+    assert len(products) == len(ROWS)
     pasta = [p for p in products if p["alternative_group"] == "rice-corn-pasta"]
     assert len(pasta) == 2
     assert all(str(food.id) in p["applicable_food_item_ids"] for p in pasta)
@@ -238,7 +238,7 @@ def test_retail_observations_are_idempotent_and_do_not_claim_product_tolerance(c
         "retailer_ingredients_and_nutrition",
     }
     assert not any("fodmap_certified" in p for p in products)
-    assert db_session.scalar(select(func.count()).select_from(RetailAlternative)) == 4
+    assert db_session.scalar(select(func.count()).select_from(RetailAlternative)) == len(ROWS)
     assert db_session.scalar(select(func.count()).select_from(MealEvent)) == 0
 
 
@@ -479,3 +479,26 @@ def test_week_setup_persists_meal_sources_and_rejects_unknown_modes(client, db_s
         ).status_code
         == 422
     )
+
+
+def test_expanded_retail_evidence_preserves_unknown_nutrition_and_known_allergens(
+    client, db_session
+):
+    family, _, _, _, _ = _family(db_session)
+    flour = FoodItem(catalog_key="legacy-v1:ingredient:58", name="Farinha de trigo")
+    db_session.add(flour)
+    db_session.flush()
+    import_retail_observations(db_session)
+    products = client.get(f"/api/families/{family.id}/retail-alternatives").json()
+    thickeners = [p for p in products if p["alternative_group"] == "rice-corn-thickener"]
+    assert len(thickeners) == 4
+    assert all(p["applicable_food_item_ids"] == [str(flour.id)] for p in thickeners)
+    rice = next(p for p in products if "3452448.html" in p["product_url"])
+    assert rice["nutrition_per_100"] is None
+    assert rice["evidence_level"] == "retailer_ingredients_only"
+    assert "ovo" in rice["ingredient_summary"]
+    chives = next(p for p in products if p["alternative_group"] == "chives-seasoning")
+    assert "mostarda" in chives["ingredient_summary"]
+    yogurt = next(p for p in products if "3921275.html" in p["product_url"])
+    assert yogurt["nutrition_per_100"]["energy_kcal"] == "38"
+    assert "leite" in yogurt["ingredient_summary"].lower()

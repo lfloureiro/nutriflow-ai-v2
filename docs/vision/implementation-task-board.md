@@ -12,17 +12,17 @@ o desenho detalhado está em `integrated-family-meal-planning-roadmap.md`.
 | T04 | Parcial: presenças semanais por refeição implementadas | Presenças por refeição | Padrões, exceções, grupos, ausência/incerteza e refeições individuais funcionam na mesma semana |
 | T05 | Parcial: seleção avalia os presentes de cada refeição | Escolher automaticamente original/variante | Entrar/sair um participante recalcula sem aplicar restrições de ausentes; escolhas fixadas são revalidadas |
 | T06 | Parcial: ingredientes da variante verificados; embalagens/retalho pendentes | Comprar ingredientes efetivos | Compras da variante por porções/stock, sem ingrediente substituído nem duplicações; embalagens e quantidades confirmáveis |
-| T07 | Por fazer | Ampliar alternativas e rótulos | Priorizar ingredientes usados; produtos com fonte/data e cobertura explícita de composição, sem certificação inventada |
+| T07 | Parcial: onze produtos observados em duas lojas | Ampliar alternativas e rótulos | Priorizar ingredientes usados; produtos com fonte/data e cobertura explícita de composição, sem certificação inventada |
 | T08 | Parcial: procura no detalhe da refeição | Pesquisa única e mapa | Casa/entrega/restaurante preservam participantes, data, zona e regras; mapa/lista sincronizados |
 | T09 | Dependente de acesso externo | Conectores reais autorizados | Adaptadores, credenciais adequadas e testes reais; falhas isoladas por fonte; não apresentar fixtures como live |
 | T10 | Por fazer | Sobras, consumo e feedback | Quantidades produzidas/consumidas/reservadas verificáveis; variedade sem relaxar regras |
 | T11 | Por fazer | Fases e tolerâncias alimentares | Perfil com validade, fase e exceções individuais explícitas, distinguindo regra de planeamento de prescrição clínica |
-| T12 | Por fazer | Consolidar e preparar integração | Rever branch empilhada, migrations e testes; separar dados pessoais/backups de código; publicação autorizada pelo utilizador, com revisão e sem dados pessoais |
+| T12 | Consolidada e publicada na branch; revisão continua | Consolidar e preparar integração | Rever branch empilhada, migrations e testes; separar dados pessoais/backups de código; publicação autorizada pelo utilizador, com revisão e sem dados pessoais |
 
 ## Ponto de partida
 
 Já existem percurso guiado, restrições automáticas configuradas, propostas visíveis e
-quatro observações de supermercado. Variantes completas já podem ser validadas e ativadas;
+onze observações de supermercado. Variantes completas já podem ser validadas e ativadas;
 propostas isoladas continuam sem aplicação automática. Presenças por refeição e consultas
 de semanas guardadas estão implementadas; padrões e refeições individuais permanecem pendentes.
 
@@ -120,3 +120,18 @@ nenhuma migration nova. Alterações locais, sem commit/push.
 
 Publicação autorizada explicitamente pelo utilizador. Backups, exportações e evidência
 visual com dados pessoais ficam locais; não são incluídos no repositório público.
+
+## Auditoria após publicação — 18/10/2026
+
+- Consolidação publicada em `5aab9e3`; não houve merge para main.
+- T07: sete novos produtos importados (total onze); farinha com tabela zerada mantém
+  nutrição desconhecida, cebolinho distingue seco/fresco e laticínios conservam alerta leite.
+- Interface: nível de evidência ingredientes sem nutrição; compras em chunk lazy, redução
+  do JS inicial de 470,51 para 430,53 kB. Associação de catálogo por índice em memória.
+- Inventário completo das tabelas em `../domain/schema-audit-2026-10-18.md`.
+- Achados e prioridades em `../domain/technical-audit-2026-10-18.md`.
+- Próximas tarefas: T04 padrões/individual, T05 escolhas fixadas, T06 embalagens,
+  T11 fases/tolerâncias e autenticação antes de deployment público.
+
+Validação final do incremento de auditoria: **388 testes API e 119 frontend passaram**;
+TypeScript/build, Ruff completo e Alembic check passaram. Sem nova migration.

@@ -1,3 +1,12 @@
+## Auditoria, publicação e retalho — 18/10/2026
+
+Consolidação publicada na branch v2, com CI API/Web bem-sucedido; sem merge.
+Catálogo passa a onze produtos observados Continente/Auchan, sete novos importados
+idempotentemente sem alterar receitas. Evidência distingue descrição, ingredientes e
+nutrição; zeros suspeitos da farinha não se tornam composição. Compras carregadas à
+abertura, com nomes acessíveis. Inventário completo do esquema e prioridades em
+`technical-audit-2026-10-18.md` e `schema-audit-2026-10-18.md`.
+
 ## Início, semanas guardadas e alternativas na linha — ADR-066 (18/10/2026)
 
 Implementado bloco de consulta de semanas no início, com datas, navegação e cartões das

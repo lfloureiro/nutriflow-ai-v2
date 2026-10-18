@@ -11,7 +11,7 @@ const HomeBase = lazy(() => import("./HomeBase"));
 import { useI18n, type Locale } from "./i18n";
 import PersonOverview from "./PersonOverview";
 import PersonSetupForm from "./PersonSetupForm";
-import ShoppingListScreen from "./ShoppingListScreen";
+const ShoppingListScreen = lazy(() => import("./ShoppingListScreen"));
 import { useTheme, type Appearance } from "./theme";
 
 const DEMO_FAMILY_ID = "11111111-1111-4111-8111-111111111111";
@@ -329,7 +329,7 @@ export default function App() {
           ) : null}
 
           {view === "house" ? <Suspense fallback={<p role="status">{t("home.loading")}</p>}><HomeBase familyId={activeFamilyId} /></Suspense> : null}
-          {view === "shopping" ? <ShoppingListScreen key={activeFamilyId} familyId={activeFamilyId} /> : null}
+          {view === "shopping" ? <Suspense fallback={<p role="status">{t("home.loading")}</p>}><ShoppingListScreen key={activeFamilyId} familyId={activeFamilyId} /></Suspense> : null}
 
           {view === "more" ? (
             <div className="settings-screen">

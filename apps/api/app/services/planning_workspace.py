@@ -122,6 +122,9 @@ def retail_alternatives(db: Session, family_id: uuid.UUID):
             or_(FoodItem.family_id == family_id, FoodItem.family_id.is_(None)),
         )
     ).all()
+    foods_by_key = {}
+    for food in foods:
+        foods_by_key.setdefault(food.catalog_key, []).append(food.id)
     result = []
     for product in db.scalars(
         select(RetailAlternative).order_by(
@@ -131,7 +134,9 @@ def retail_alternatives(db: Session, family_id: uuid.UUID):
     ):
         read = RetailAlternativeRead.model_validate(product)
         read.applicable_food_item_ids = [
-            food.id for food in foods if food.catalog_key in product.source_food_catalog_keys
+            food_id
+            for key in dict.fromkeys(product.source_food_catalog_keys)
+            for food_id in foods_by_key.get(key, [])
         ]
         result.append(read)
     return result
