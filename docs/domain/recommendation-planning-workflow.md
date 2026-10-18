@@ -1,5 +1,18 @@
 # Recommendation planning workflow
 
+## Next requested workflow — participants per meal (2026-10-18)
+
+The implemented flow below selects people for one recommendation request. The next increment
+must resolve participants separately for each meal/group using weekly patterns and dated
+exceptions, so individual and shared meals coexist in one week. A global `person_ids` list
+must not imply identical attendance across all slots.
+
+Carry that meal context through home recipes, Family variants, delivery dishes and nearby
+restaurant/menu discovery in one panel. Select the complete eligible variant when a present
+participant's explicit restrictions require it; revalidate if attendance or rules change.
+No disease-to-diet inference and no compatibility claim from a venue/cuisine label.
+Implementation sequence and acceptance cases: `docs/vision/integrated-family-meal-planning-roadmap.md`.
+
 The normal Family recommendation UI is a product workflow, not an engine-debug form.
 
 ## User flow

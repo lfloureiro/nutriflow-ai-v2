@@ -1,4 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import SavedMealChanges from "./SavedMealChanges";
+import {listRecipeReviews,type ReviewRecipe} from "./api/dietaryReviewClient";
+import {listRetailAlternatives,type RetailAlternative} from "./api/planningWorkspaceClient";
+import {recipeProposedChanges} from "./mealAlternatives";
+import SelectedMealOptions from "./SelectedMealOptions";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { ApiError, cancelMealPlanEntry, getFamilyMealPlan } from "./api/client";
 import type { FamilyMealPlan, MealPlanEntry, MealType } from "./api/mealPlanTypes";
@@ -22,6 +27,7 @@ import type {
   SharedWeeklyPlanRequest,
   SharedWeeklyPlanningSlotRequest,
 } from "./api/weeklyPlanningTypes";
+import type { MealDeliveryProviderKey } from "./api/mealDeliveryTypes";
 import type { Person } from "./api/types";
 import { useI18n, type Locale } from "./i18n";
 import { scheduledIso } from "./planning";
@@ -34,6 +40,10 @@ import {
 } from "./recommendationPlanning";
 import "./weekly-matrix.css";
 
+export function guidedMealSources(meal: MealType, configured?: Partial<Record<MealType,"home"|"delivery"|"restaurant">>): RecommendationSource[] {
+  const source=configured?.[meal] ?? (configured && meal==="lunch" ? "delivery":"home");
+  return source==="delivery" ? ["uber_eats","glovo","bolt_food"] : source==="restaurant" ? ["restaurant"] : ["cooked"];
+}
 const ALL_MEAL_TYPES: MealType[] = ["breakfast", "lunch", "snack", "dinner"];
 const PREVIEW_MAX_COMBINATIONS = 256;
 
@@ -703,22 +713,45 @@ export default function WeeklyProposalPreview({
   plan: suppliedPlan,
   onEdit,
   onPlanChanged,
+  planningOptions,
+  autoGenerate = false,
+  onApplied,
+  recipeAdaptations,
+  recipeAdaptationsForParticipants,
+  renderSelectedMeal,
+  recipeReviews,
 }: {
+  recipeReviews?: ReviewRecipe[];
+  renderSelectedMeal?: (context: {recipeId: string | null; planningDate: string; mealType: MealType; personIds: string[]; appliedChanges: string[]; onEvaluateDelivery?: (provider: MealDeliveryProviderKey) => void}) => ReactNode;
   familyId: string;
   weekStart?: string;
   people: Person[];
   plan?: FamilyMealPlan;
   onEdit?: (planningDate: string, mealType: MealType, entry: MealPlanEntry | null) => void;
   onPlanChanged?: () => void;
+  planningOptions?: {mealSources?: Partial<Record<MealType,"home"|"delivery"|"restaurant">>; mealTypes: MealType[]; excludedFoodItemIds: string[]; attendance?: {planning_date: string; meal_type: MealType; person_ids: string[]}[]};
+  autoGenerate?: boolean;
+  onApplied?: (shoppingUpdated: boolean) => void;
+  recipeAdaptations?: Record<string,string[]>;
+  recipeAdaptationsForParticipants?: (day: string, meal: MealType, attendees: string[]) => Record<string,string[]>;
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
+  const [loadedReviews,setLoadedReviews]=useState<ReviewRecipe[]>([]);const [loadedRetail,setLoadedRetail]=useState<RetailAlternative[]>([]);const [reviewError,setReviewError]=useState("");const [reviewRevision,setReviewRevision]=useState(0);
+  const currentReviews=recipeReviews??loadedReviews;
+  useEffect(()=>{if(recipeReviews!==undefined)return;let cancelled=false;setLoadedReviews([]);setLoadedRetail([]);setReviewError("");
+    void listRecipeReviews(familyId).then(r=>{if(!cancelled)setLoadedReviews(r);}).catch(e=>{if(!cancelled)setReviewError(String(e));});
+    void listRetailAlternatives(familyId).then(r=>{if(!cancelled)setLoadedRetail(r);}).catch(()=>{});
+    return()=>{cancelled=true;};
+  },[familyId,recipeReviews,reviewRevision]);
+  const autoStarted = useRef(false);
   const [loadedPlan, setLoadedPlan] = useState<FamilyMealPlan | null>(null);
   const [refreshedPlan, setRefreshedPlan] = useState<FamilyMealPlan | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [proposal, setProposal] = useState<SharedWeeklyPlanProposal | null>(null);
   const [proposalRequest, setProposalRequest] = useState<SharedWeeklyPlanProposalRequest | null>(null);
   const [skippedSlots, setSkippedSlots] = useState<Record<string, string>>({});
+  const [sourceOverrides,setSourceOverrides]=useState<Record<string,RecommendationSource[]>>({});
   const [rejectedBySlot, setRejectedBySlot] = useState<RejectedBySlot>({});
   const [busy, setBusy] = useState(false);
   const [busyStage, setBusyStage] = useState<BusyStage | null>(null);
@@ -742,6 +775,7 @@ export default function WeeklyProposalPreview({
     setProposal(null);
     setProposalRequest(null);
     setRejectedBySlot({});
+    setSourceOverrides({});
     setSkippedSlots({});
     setNotice(null);
     setShoppingSummary(null);
@@ -836,6 +870,7 @@ export default function WeeklyProposalPreview({
   async function generateProposal(
     rejectedOverride: RejectedBySlot = rejectedBySlot,
     resetSelection = true,
+    slotSources: Record<string,RecommendationSource[]> = sourceOverrides,
   ) {
     setBusy(true);
     setBusyStage("catalogue");
@@ -853,13 +888,18 @@ export default function WeeklyProposalPreview({
       if (!firstPerson) throw new Error(copy.noPeople);
 
       const targets = weekDates.flatMap((planningDate) =>
-        ALL_MEAL_TYPES.flatMap((mealType) =>
-          mealEntryFor(plan, planningDate, mealType) === null
+        ALL_MEAL_TYPES.filter(mealType=>!planningOptions || planningOptions.mealTypes.includes(mealType) || slotSources[slotKey(planningDate,mealType)]).flatMap((mealType) =>
+          mealEntryFor(plan, planningDate, mealType) === null &&
+          (planningOptions?.attendance?.find(a=>a.planning_date===planningDate && a.meal_type===mealType)?.person_ids.length ?? people.length) >= 2 &&
+          (planningOptions?.attendance?.find(a=>a.planning_date===planningDate && a.meal_type===mealType)?.person_ids.length ?? people.length) >= 2
             ? [{ planningDate, mealType }]
             : [],
         ),
       );
-      if (targets.length === 0) throw new Error(copy.noOpenSlots);
+      if (targets.length === 0) {
+        setNotice(planningOptions ? (locale==="pt-PT" ? "As refeições selecionadas já estão planeadas nesta semana." : "The selected meals are already planned for this week.") : copy.noOpenSlots);
+        return;
+      }
 
       const planningDates = [...new Set(targets.map((target) => target.planningDate))];
       const catalogueEntries = await Promise.all(
@@ -881,14 +921,14 @@ export default function WeeklyProposalPreview({
 
       for (const { planningDate, mealType } of targets) {
         const key = slotKey(planningDate, mealType);
-        const sources = weeklySourcesFor(planningDate, mealType);
+        const sources: RecommendationSource[] = slotSources[key] ?? (planningOptions ? guidedMealSources(mealType,planningOptions.mealSources) : weeklySourcesFor(planningDate, mealType));
         const rejected = new Set(rejectedOverride[key] ?? []);
         const catalogue = (catalogues.get(planningDate) ?? []).filter(
           (candidate) => !rejected.has(candidate.catalog_key),
         );
         const candidates = recommendationCandidates(catalogue, sources, mealType);
         if (candidates.length === 0) {
-          skipped[key] =
+          skipped[key] = !sources.includes("cooked") ? (locale==="pt-PT" ? "Escolher prato de entrega ou restaurante; abre a refeição para consultar opções." : "Choose a delivery or restaurant dish; open the meal to browse options.") :
             mealType === "lunch" && !isWeekendDate(planningDate)
               ? copy.weekdayLunchPending
               : copy.unavailableSlot;
@@ -899,6 +939,7 @@ export default function WeeklyProposalPreview({
         const commercial = sources.some((source) => source !== "cooked");
         slots.push({
           slot_key: key,
+          person_ids: planningOptions?.attendance?.find(a=>a.planning_date===planningDate && a.meal_type===mealType)?.person_ids ?? people.map(p=>p.id),
           planning_date: planningDate,
           scheduled_at: scheduledIso(recommendationScheduledLocal(planningDate, mealType)),
           meal_type: mealType,
@@ -913,10 +954,17 @@ export default function WeeklyProposalPreview({
         });
       }
       setSkippedSlots(skipped);
-      if (slots.length === 0) throw new Error(copy.noCandidates);
+      if (slots.length === 0) {
+        if (targets.some(t=>!guidedMealSources(t.mealType,planningOptions?.mealSources).includes("cooked"))) {
+          setNotice(locale==="pt-PT" ? "As refeições de entrega/restaurante estão por escolher. Abre cada refeição para consultar as opções; ainda não foram guardadas no plano." : "Delivery/restaurant meals remain pending. Open each meal to browse options; they have not been saved in the plan.");
+          return;
+        }
+        throw new Error(copy.noCandidates);
+      }
 
       const request: SharedWeeklyPlanProposalRequest = {
         person_ids: people.map((person) => person.id),
+        ...(planningOptions ? {excluded_food_item_ids: planningOptions.excludedFoodItemIds} : {}),
         slots,
         max_combinations: PREVIEW_MAX_COMBINATIONS,
       };
@@ -970,14 +1018,18 @@ export default function WeeklyProposalPreview({
       setPlanRefreshWarning(errorText(reloadError));
     }
 
+    let shoppingUpdated = false;
     try {
       const shoppingList = await refreshShoppingList(familyId, effectiveWeekStart, 7);
       setShoppingSummary(shoppingRefreshSummary(shoppingList));
+      shoppingUpdated = true;
     } catch (shoppingError: unknown) {
       setShoppingWarning(errorText(shoppingError));
     } finally {
       setDecisionBusy(null);
     }
+    onPlanChanged?.();
+    onApplied?.(shoppingUpdated);
   }
 
   async function removeSelectedEntry() {
@@ -1038,6 +1090,13 @@ export default function WeeklyProposalPreview({
     setSelectedDate(planningDate);
     setSelectedMealType(mealType);
   }
+
+  useEffect(() => {
+    if (autoGenerate && plan && people.length >= 2 && !autoStarted.current) {
+      autoStarted.current = true;
+      void generateProposal();
+    }
+  }, [autoGenerate, plan, people]);
 
   return (
     <section className="meal-plan-editor weekly-proposal-preview">
@@ -1158,6 +1217,9 @@ export default function WeeklyProposalPreview({
                       {ALL_MEAL_TYPES.map((mealType) => {
                         const entry = mealEntryFor(plan, planningDate, mealType);
                         const choice = choiceFor(grouped, planningDate, mealType);
+                        const attendingIds = (entry?.participants ?? choice?.participants ?? []).map(p=>p.person_id);
+                        const slotAdaptations = recipeAdaptationsForParticipants?.(planningDate,mealType,attendingIds) ?? recipeAdaptations;
+                        const ingredientProposals=recipeProposedChanges(currentReviews,entry?.recipe_id??choice?.recipe_id);
                         const pendingReason = skippedSlots[slotKey(planningDate, mealType)];
                         const state = entry ? "planned" : choice ? "proposed" : "empty";
                         const label = entry
@@ -1190,17 +1252,22 @@ export default function WeeklyProposalPreview({
                               </em>
                             </span>
                             <strong>{label}</strong>
+                            {choice?.variant_changes?.map(change=><small className="weekly-grid-transformation" key={change}>{change}</small>)}
+                            {entry?.variant_changes?.map(change=><small className="weekly-grid-transformation" key={change}>{change}</small>)}
+                            {!(entry?.transformations.length || choice?.transformation) && ((entry?.variant_changes?.length || choice?.variant_changes?.length) ? [] : (ingredientProposals.length ? ingredientProposals : slotAdaptations?.[entry?.recipe_id ?? choice?.recipe_id ?? ""]??[])).map(change=><small className="weekly-grid-transformation" key={change}>{locale==="pt-PT" ? "Por aplicar: " : "Not applied: "}{change}</small>)}
                             {entry?.transformations[0] ? (
                               <small className="weekly-grid-transformation">
                                 {entry.transformations[0].transformation_kind === "plan_adapted"
                                   ? copy.planAdapted
                                   : copy.preferenceVariant}
+                                {": "}{entry.transformations[0].source_food_name} → {entry.transformations[0].replacement_food_name}
                               </small>
                             ) : choice?.transformation ? (
                               <small className="weekly-grid-transformation">
                                 {choice.transformation.kind === "plan_adapted"
                                   ? copy.planAdapted
                                   : copy.preferenceVariant}
+                                {": "}{choice.transformation.operation.source_food_name} → {choice.transformation.operation.replacement_food_name}
                               </small>
                             ) : null}
                           </button>
@@ -1241,7 +1308,7 @@ export default function WeeklyProposalPreview({
                           {entry
                             ? entryName(entry)
                             : choice?.candidate_name ?? (pendingReason ? copy.pending : copy.empty)}
-                        </strong>
+                        </strong>{entry ? <SavedMealChanges entry={entry} recipes={currentReviews}/> : choice ? <SavedMealChanges entry={{recipe_id:choice.recipe_id,variant_changes:choice.variant_changes,transformations:choice.transformation?[{id:"proposal",transformation_kind:choice.transformation.kind,operation_type:"replace",source_food_name:choice.transformation.operation.source_food_name,replacement_food_name:choice.transformation.operation.replacement_food_name}]:[]}} recipes={currentReviews}/> : null}
                       </span>
                       <span className="weekly-day-meal__meta">
                         {entry
@@ -1315,6 +1382,12 @@ export default function WeeklyProposalPreview({
                 ) : null}
               </div>
 
+              {reviewError && <p role="alert">{locale==="pt-PT"?"Alternativas indisponíveis: ":"Alternatives unavailable: "}{reviewError}</p>}
+              {(selectedEntry?.variant_changes?.length || selectedChoice?.variant_changes?.length) ? <div className="weekly-transformation-summary"><strong>{locale==="pt-PT" ? "Ingredientes desta variante" : "Ingredients in this variant"}</strong><ul>{(selectedEntry?.variant_changes ?? selectedChoice?.variant_changes ?? []).map(change=><li key={change}>{change}</li>)}</ul></div> : null}
+              {(renderSelectedMeal ?? (context=><SelectedMealOptions key={`${context.planningDate}:${context.mealType}:${context.recipeId}`} familyId={familyId} context={context} recipes={currentReviews} products={loadedRetail} restrictions={{sources:[],excluded_food_item_ids:[],warnings:[]}} people={people} manualExclusions={[]} onVariantsChanged={()=>setReviewRevision(v=>v+1)}/>))({recipeId:selectedEntry?.recipe_id ?? selectedChoice?.recipe_id ?? null,planningDate:selectedDate,mealType:selectedMealType,personIds:(selectedEntry?.participants ?? selectedChoice?.participants)?.map(p=>p.person_id) ?? planningOptions?.attendance?.find(a=>a.planning_date===selectedDate && a.meal_type===selectedMealType)?.person_ids ?? people.map(p=>p.id),appliedChanges:selectedEntry?.variant_changes ?? selectedChoice?.variant_changes ?? [],onEvaluateDelivery:selectedEntry ? undefined : provider=>{
+                const next={...sourceOverrides,[slotKey(selectedDate,selectedMealType)]:[provider]};
+                setSourceOverrides(next);void generateProposal(rejectedBySlot,false,next);
+              }})}
               {selectedEntry ? (
                 <>
                   {selectedEntry.transformations.map((transformation) => (
@@ -1612,7 +1685,7 @@ export default function WeeklyProposalPreview({
                 <div className="family-meals-empty-day">
                   <strong>{copy.pending}</strong>
                   <p>{selectedSkippedReason}</p>
-                  {selectedMealType === "lunch" && !isWeekendDate(selectedDate) ? (
+                  {selectedMealType === "lunch" && !isWeekendDate(selectedDate) && guidedMealSources(selectedMealType,planningOptions?.mealSources).includes("cooked") ? (
                     <p className="muted compact">{copy.leftoversNotice}</p>
                   ) : null}
                 </div>

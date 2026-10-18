@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     restaurant_discovery_overpass_url: str = "https://overpass-api.de/api/interpreter"
     restaurant_discovery_user_agent: str = "NutriFlowAI/0.1 restaurant-discovery"
     restaurant_discovery_timeout_seconds: float = 8.0
+    restaurant_discovery_overpass_timeout_seconds: float = 25.0
+    restaurant_discovery_overpass_fallback_url: str | None = (
+        "https://overpass.private.coffee/api/interpreter"
+    )
     restaurant_discovery_cache_seconds: int = 21600
     restaurant_discovery_max_results: int = 40
 

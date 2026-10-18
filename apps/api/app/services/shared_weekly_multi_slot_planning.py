@@ -174,15 +174,18 @@ def _normalize_slots(
     if len(set(slot_keys)) != len(slot_keys):
         raise SharedWeeklyMultiSlotPlanningError("Shared planning slot keys must be unique.")
 
-    ordered = tuple(sorted(slots, key=lambda item: (item.planning_date, item.meal_type, item.slot_key)))
+    ordered = tuple(
+        sorted(slots, key=lambda item: (item.planning_date, item.meal_type, item.slot_key))
+    )
     if len({_week_start(slot.planning_date) for slot in ordered}) != 1:
         raise SharedWeeklyMultiSlotPlanningError(
             "All shared planning slots must belong to the same Monday-Sunday week."
         )
 
-    expected_participants: frozenset[uuid.UUID] | None = None
+    all_participants: set[uuid.UUID] = set()
     expected_family: uuid.UUID | None = None
     for slot in ordered:
+        expected_participants = None
         if not slot.candidates:
             raise SharedWeeklyMultiSlotPlanningError(
                 f"Shared planning slot {slot.slot_key!r} must contain at least one candidate."
@@ -194,22 +197,23 @@ def _normalize_slots(
             )
         for candidate in slot.candidates:
             participant_ids, family_id = _validate_candidate(slot, candidate)
+            all_participants.update(participant_ids)
             if expected_participants is None:
                 expected_participants = participant_ids
-                expected_family = family_id
-                continue
+                if expected_family is None:
+                    expected_family = family_id
             if participant_ids != expected_participants:
                 raise SharedWeeklyMultiSlotPlanningError(
-                    "Every shared weekly candidate must contain the same participant set."
+                    "Candidates within a meal must contain the same participant set."
                 )
             if family_id != expected_family:
                 raise SharedWeeklyMultiSlotPlanningError(
                     "Every shared weekly candidate must belong to the same Family."
                 )
 
-    if expected_participants is None or expected_family is None:
+    if not all_participants or expected_family is None:
         raise SharedWeeklyMultiSlotPlanningError("Shared weekly planning context is unavailable.")
-    return ordered, tuple(sorted(expected_participants, key=str)), expected_family
+    return ordered, tuple(sorted(all_participants, key=str)), expected_family
 
 
 def _person_weekly_result(
@@ -220,6 +224,8 @@ def _person_weekly_result(
     for choice in choices:
         participants = _participant_evaluations(choice.candidate.evaluation)
         fits = _plan_fits(choice.candidate)
+        if person_id not in participants:
+            continue
         participant = participants[person_id]
         fit = fits[person_id]
         person_slots.append(
@@ -247,7 +253,16 @@ def _evaluate_choices(
     choices: tuple[SharedWeeklyPlanChoice, ...],
     participant_ids: tuple[uuid.UUID, ...],
 ) -> tuple[SharedWeeklyPlanEvaluation | None, bool, bool]:
-    person_results = tuple(_person_weekly_result(person_id, choices) for person_id in participant_ids)
+    present_ids = {
+        p.person.id
+        for choice in choices
+        for p in choice.candidate.evaluation.participant_evaluations
+    }
+    person_results = tuple(
+        _person_weekly_result(person_id, choices)
+        for person_id in participant_ids
+        if person_id in present_ids
+    )
     rejected_by_weekly_maximum = any(
         result.rejected_by_mandatory_weekly_maximum > 0 for result in person_results
     )
@@ -260,12 +275,8 @@ def _evaluate_choices(
     person_plans = tuple(
         result.selected_plan for result in person_results if result.selected_plan is not None
     )
-    mandatory_values = tuple(
-        plan.mandatory_minimum_occurrences_supported for plan in person_plans
-    )
-    advisory_values = tuple(
-        plan.advisory_minimum_occurrences_supported for plan in person_plans
-    )
+    mandatory_values = tuple(plan.mandatory_minimum_occurrences_supported for plan in person_plans)
+    advisory_values = tuple(plan.advisory_minimum_occurrences_supported for plan in person_plans)
     minimum_scores = tuple(plan.minimum_score for plan in person_plans)
     average_scores = tuple(plan.average_score for plan in person_plans)
     candidate_keys = tuple(choice.candidate.evaluation.candidate_key for choice in choices)
@@ -284,14 +295,10 @@ def _evaluate_choices(
     known_categories = [category for category, _ in main_traits if category is not None]
     known_proteins = [protein for _, protein in main_traits if protein is not None]
     adjacent_category_repeat_count = sum(
-        1
-        for previous, current in pairwise(known_categories)
-        if previous == current
+        1 for previous, current in pairwise(known_categories) if previous == current
     )
     adjacent_protein_repeat_count = sum(
-        1
-        for previous, current in pairwise(known_proteins)
-        if previous == current
+        1 for previous, current in pairwise(known_proteins) if previous == current
     )
 
     return (

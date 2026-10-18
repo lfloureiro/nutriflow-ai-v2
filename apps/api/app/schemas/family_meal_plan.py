@@ -67,6 +67,7 @@ class MealPlanTransformationRead(BaseModel):
 
 
 class MealPlanEntryRead(BaseModel):
+    variant_changes: list[str] = Field(default_factory=list)
     id: uuid.UUID
     meal_type: MealType
     title: str | None

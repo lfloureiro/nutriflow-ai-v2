@@ -1,5 +1,10 @@
 # NutriFlow AI v2 — Nutrition Plan & Guidance Roadmap
 
+Next-work update (2026-10-18): `integrated-family-meal-planning-roadmap.md` and ADR-060 define
+the current cross-cutting sequence: per-meal participants, explicit dietary rules, complete
+Family variants and unified source discovery. Phase history remains below; the historical
+immediate-next-branch section is not the current starting point.
+
 ## Purpose
 
 The next major NutriFlow AI v2 evolution is to turn a coherent nutrition plan into practical food decisions.

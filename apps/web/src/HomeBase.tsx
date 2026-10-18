@@ -5,6 +5,7 @@ import IngredientCatalogue from "./IngredientCatalogue";
 import MealDiscoverySettings from "./MealDiscoverySettings";
 import PantryScreen from "./PantryScreen";
 import RecipeCatalogue from "./RecipeCatalogue";
+import RecipeDietaryReview from "./RecipeDietaryReview";
 import RecipePreferences from "./RecipePreferences";
 import RestaurantDiscoveryScreen from "./RestaurantDiscoveryScreen";
 import ShoppingListScreen from "./ShoppingListScreen";
@@ -12,6 +13,7 @@ import { useI18n } from "./i18n";
 
 type HomeBaseView =
   | "recipes"
+  | "substitutions"
   | "ingredients"
   | "pantry"
   | "shopping"
@@ -51,6 +53,10 @@ export default function HomeBase({ familyId }: { familyId: string }) {
   return (
     <div className="home-base">
       <nav className="secondary-tabs home-base-tabs" aria-label={copy.label}>
+        <button type="button" aria-current={view === "substitutions" ? "page" : undefined}
+          className={view === "substitutions" ? "active" : ""} onClick={() => setView("substitutions")}>
+          {locale === "pt-PT" ? "Substituições" : "Substitutions"}
+        </button>
         <button
           aria-current={view === "recipes" ? "page" : undefined}
           className={view === "recipes" ? "active" : ""}
@@ -117,6 +123,7 @@ export default function HomeBase({ familyId }: { familyId: string }) {
         </button>
       </nav>
       {view === "recipes" ? <RecipeCatalogue familyId={familyId} /> : null}
+      {view === "substitutions" ? <RecipeDietaryReview key={familyId} familyId={familyId} /> : null}
       {view === "ingredients" ? <IngredientCatalogue familyId={familyId} /> : null}
       {view === "pantry" ? <PantryScreen familyId={familyId} /> : null}
       {view === "shopping" ? <ShoppingListScreen familyId={familyId} /> : null}

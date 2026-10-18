@@ -100,7 +100,9 @@ def _active_target(
             NutritionTarget.person_id == person_id,
             NutritionTarget.status == "active",
             NutritionTarget.valid_from <= planning_date,
-            or_(NutritionTarget.valid_until.is_(None), NutritionTarget.valid_until >= planning_date),
+            or_(
+                NutritionTarget.valid_until.is_(None), NutritionTarget.valid_until >= planning_date
+            ),
         )
         .options(selectinload(NutritionTarget.components))
         .order_by(
@@ -156,16 +158,12 @@ def _breakfast_assumption(
         ) from exc
     now_local = datetime.now(UTC).astimezone(zone)
     if planning_date > now_local.date():
-        return Decimal(0), {
-            "standard_breakfast": {"applied": False, "reason": "future_date"}
-        }
+        return Decimal(0), {"standard_breakfast": {"applied": False, "reason": "future_date"}}
     if (
         planning_date == now_local.date()
         and now_local.timetz().replace(tzinfo=None) < BREAKFAST_ASSUMPTION_CUTOFF
     ):
-        return Decimal(0), {
-            "standard_breakfast": {"applied": False, "reason": "before_cutoff"}
-        }
+        return Decimal(0), {"standard_breakfast": {"applied": False, "reason": "before_cutoff"}}
     if _declared_breakfast(session, person=person, planning_date=planning_date):
         return Decimal(0), {"standard_breakfast": {"applied": False, "reason": "declared"}}
 
@@ -270,14 +268,10 @@ def _planning_profile_maps(
         )
     ).all()
     food_profiles = {
-        profile.food_item_id: profile
-        for profile in profiles
-        if profile.food_item_id is not None
+        profile.food_item_id: profile for profile in profiles if profile.food_item_id is not None
     }
     recipe_profiles = {
-        profile.recipe_id: profile
-        for profile in profiles
-        if profile.recipe_id is not None
+        profile.recipe_id: profile for profile in profiles if profile.recipe_id is not None
     }
     return food_profiles, recipe_profiles
 
@@ -411,6 +405,13 @@ def _recipe_candidates(
         if snapshot.id is None:
             raise PlanningBootstrapApiError("Recipe composition snapshot must be persisted.")
         recipe = snapshot.recipe
+        if recipe.source == "family_variant":
+            from app.services.recipe_variant_integrity import assert_variant_usable
+
+            try:
+                assert_variant_usable(session, recipe)
+            except ValueError:
+                continue
         result.append(
             PlanningCandidateRead(
                 candidate_kind="recipe",
@@ -460,9 +461,7 @@ def get_planning_bootstrap(
             planning_date=planning_date,
         )
         should_refresh = (
-            force_state_refresh
-            or state is None
-            or not _preserve_synthetic_demo_state(state)
+            force_state_refresh or state is None or not _preserve_synthetic_demo_state(state)
         )
         if ensure_state and should_refresh:
             state = _ensure_daily_state(

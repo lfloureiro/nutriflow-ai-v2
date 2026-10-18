@@ -1,4 +1,101 @@
+## Início, semanas guardadas e alternativas na linha — ADR-066 (18/10/2026)
+
+Implementado bloco de consulta de semanas no início, com datas, navegação e cartões das
+refeições realmente guardadas. Cada cartão inclui as suas alternativas; abrir leva à semana
+correta. Menu Plano abre agenda semanal. Data consultada separada de hoje e preservada
+para voltar ao início sem perder a semana aberta.
+
+Agenda semanal/diária e detalhe mantêm trocas visíveis; variantes/transformações aplicadas
+prevalecem sobre propostas. Revisão de ingredientes e compras mostram ingrediente →
+alternativa na mesma linha. Compras usam só propostas das receitas do intervalo guardado,
+não assumem quantidades equivalentes nem mudam os itens comprados. Botão de supermercado
+só aparece quando há produtos correspondentes, evitando detalhes vazios.
+
+118 testes frontend, TypeScript/build e diff check passaram. Interface real confirmou:
+início → próxima semana (7 refeições) → agenda de 19/10 → escalopes com trocas visíveis;
+revisão com cabeçalho ingrediente/alternativa e compras com alternativas diretas. Nenhuma
+refeição/quantidade foi alterada. Sem migration ou alteração backend neste incremento.
+
+Vite Windows passou a polling: havia módulos antigos em cache apesar de ficheiros alterados.
+Servidor atual Vite 5173 sessão 79136; API 8000 sessão 95485. Sem commit/push.
+Evidência: `docs/audits/2026-10-18/home-saved-weeks-alternatives.png` e
+`docs/audits/2026-10-18/shopping-inline-alternatives.png`.
+
+## Seleção do prato e almoços — 18/10/2026 (ADR-065)
+
+Corrigido o problema reportado no PDF do utilizador: o detalhe mostra só propostas do prato
+selecionado (incluindo ingredientes com proposta mas sem referência alta FODMAP) e as
+operações realmente aplicadas de variantes completas. Catálogo global removido do percurso.
+Revisão de ingredientes limitada a prato/data/tempo/presentes, com regras refrescadas pelo
+servidor mesmo para um almoço que não estava na lista de tempos a gerar.
+
+Origem por tipo de refeição guardada em `FamilyWeekSetup.settings.meal_sources`, sem
+migration. Almoços sugerem entrega, com escolha casa/restaurante. Sem prato elegível, ficam
+pendentes. Detalhe reúne plataformas e restaurantes, sem guardar/encomendar automaticamente.
+Conta normal de cliente confirmada pelo utilizador: nenhum acesso API consumer nem adaptador
+live; links funcionais não significam importação. Catálogo real de Uber/Glovo/Bolt pendente.
+
+OpenStreetMap: corrigido timeout HTTP inferior ao da query, recuperação de falhas temporárias,
+respeito por HTTP 4xx/429 e fallback Nominatim limitado à zona, identificado como seleção de
+correspondências, com cache curta e sem avaliações/nutrição inventadas. Teste direto real
+obteve 12 restaurantes em Lisboa; interface final confirmada: 12 resultados, mapa incorporado e seleção sincronizada.
+
+Validação: execução completa API 386 passou antes da extensão Nominatim; 14 testes de
+restaurantes/capacidades passaram na versão final. 114 frontend, TypeScript e build passaram.
+Sem commit/push. Serviços atuais: API 8000 sessão 95485, Vite 5173 sessão 84637.
+
+Verificação mais recente: 383 testes API e 106 frontend passaram; build e Ruff passaram. Presenças: ADR-064.
+
+## Presenças por refeição — incremento de 18 de outubro de 2026
+
+O percurso guiado permite exceções por data/refeição ao grupo habitual e guarda-as no
+JSON versionado da semana. Slots enviam os presentes ao motor; as exclusões automáticas,
+porções e limites nutricionais usam só esses participantes. Refeições sem presentes não
+são geradas. O backend rejeita participantes fora do grupo e sobreposições da mesma pessoa.
+
+T04 permanece parcial: padrões reutilizáveis, incerteza e refeições individuais no percurso
+ficam pendentes; para uma pessoa o ecrã indica a agenda e bloqueia geração incorreta.
+Não houve migration nem gravação de refeições pessoais nesta verificação de interface.
+
 # Domain implementation status
+
+Current local increment (2026-10-18, ADR-063): complete versioned Family recipe variants
+with immutable effective Recipe projections, full composition, participant validation,
+activation/retirement, source/label invalidation, weekly selection and effective shopping.
+Schema head `58960d47819f`. Full regression: 378 API / 102 web tests passed, build passed.
+Initial context is a selected group/date/meal; per-slot attendance and product-pack mapping
+remain pending. No real Family variant was activated in this verification.
+
+Final verification supersedes the intermediate count above: 379 API / 104 web tests,
+TypeScript/build passed; browser workflow reached applied weekly meals and substituted
+shopping on an isolated synthetic Family. See the current execution task board.
+
+Latest steering (2026-10-18): automatic restriction preselection from effective structured
+diet rules and a configured active SIBO/FODMAP planning profile; automatic rules are
+rechecked per weekly slot on preview/accept. Source/reason/date and base ingredient
+alternatives are visible. See ADR-062. Complete multi-operation variants remain pending;
+base recipe cards are explicitly review proposals, not applied substitutions.
+
+Latest local increment (2026-10-18, not merged): guided next-week planning through shopping,
+versioned Family week choices, additional explicit ingredient exclusions checked during
+proposal and acceptance, four sourced retail candidates, and verified snapshot batch basis
+for legacy shopping. Schema head `d7c626668227`; 359 API / 97 web tests passed.
+See `guided-week-planning-and-retail-alternatives.md`, ADR-061. Shared generation still
+uses one common group of at least two people; retail suggestions do not modify recipes.
+
+Next planned integration (2026-10-18, not implemented): per-meal attendance and groups,
+complete Family variants selected by present participants' explicit rules, and unified
+recipe/delivery/restaurant discovery plus map. See the current next-work plan in
+`docs/vision/integrated-family-meal-planning-roadmap.md` and ADR-060.
+
+## Latest local branch increment — 2026-10-18
+
+On `codex/health-conditions-fodmap-review` (not merged): Person health conditions with revision
+history, per-Family recipe substitution review, public educational FODMAP reference selection
+and UI under Person Health / Home Substitutions. Schema head `3ecd05b9b43a`.
+No automatic diet is inferred from a condition and no source recipe is changed by the review.
+See `health-conditions-and-fodmap-review.md`; schema labels in older sections below describe
+their original feature checkpoints.
 
 `docs/development-continuity.md` is the handover entry point. This file summarizes the current domain baseline and the next planned capability.
 

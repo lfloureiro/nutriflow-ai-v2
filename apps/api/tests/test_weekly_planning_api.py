@@ -251,8 +251,6 @@ def test_weekly_proposal_returns_selected_shared_plan_without_meal_events(
     assert meal_count == 0
 
 
-
-
 def test_weekly_proposal_exposes_person_specific_nutrition_plan_authority(
     db_session: Session,
 ) -> None:
@@ -305,8 +303,7 @@ def test_weekly_proposal_exposes_person_specific_nutrition_plan_authority(
     body = response.json()
     assert body["selected_plan"] is not None
     participants = {
-        item["person_id"]: item
-        for item in body["selected_plan"]["choices"][0]["participants"]
+        item["person_id"]: item for item in body["selected_plan"]["choices"][0]["participants"]
     }
 
     assert ana.id is not None
@@ -402,9 +399,7 @@ def test_weekly_proposal_exposes_plan_backed_nutrient_comparison(
     body = response.json()
     assert body["selected_plan"] is not None
     choice = body["selected_plan"]["choices"][0]
-    ana_read = next(
-        item for item in choice["participants"] if item["person_id"] == str(ana.id)
-    )
+    ana_read = next(item for item in choice["participants"] if item["person_id"] == str(ana.id))
 
     assert Decimal(ana_read["nutrition"]["nutrients"]["protein"]["value"]) == Decimal(45)
     assert ana_read["nutrition"]["nutrients"]["protein"]["unit"] == "g"
@@ -488,9 +483,9 @@ def test_weekly_proposal_skips_unavailable_slot_but_plans_remaining_slots(
     assert response.status_code == 201
     body = response.json()
     assert body["selected_plan"] is not None
-    assert [
-        choice["slot_key"] for choice in body["selected_plan"]["choices"]
-    ] == ["thu-dinner-available"]
+    assert [choice["slot_key"] for choice in body["selected_plan"]["choices"]] == [
+        "thu-dinner-available"
+    ]
     assert body["skipped_slots"] == [
         {
             "slot_key": "thu-lunch-unavailable",
@@ -672,6 +667,7 @@ def test_weekly_proposal_reuses_request_scoped_plan_context(
     assert calls["weekly_progress"] == 0
     assert calls["candidate_catalogue_loads"] == 3
 
+
 def test_weekly_progress_is_loaded_once_per_guided_person_for_the_week(
     db_session: Session,
     monkeypatch,
@@ -810,7 +806,6 @@ def test_weekly_proposal_rejects_duplicate_slot_keys_before_planning(
     assert "slot keys must be unique" in response.json()["detail"]
 
 
-
 def test_weekly_proposal_can_select_plan_adapted_variant_when_base_is_ineligible(
     db_session: Session,
     monkeypatch,
@@ -836,9 +831,7 @@ def test_weekly_proposal_can_select_plan_adapted_variant_when_base_is_ineligible
     )
 
     recipe = db_session.scalar(
-        select(Recipe).where(
-            Recipe.recipe_key == "breakfast:recipe:yogurt-muesli-banana"
-        )
+        select(Recipe).where(Recipe.recipe_key == "breakfast:recipe:yogurt-muesli-banana")
     )
     assert recipe is not None
     composition = db_session.scalar(
@@ -889,21 +882,14 @@ def test_weekly_proposal_can_select_plan_adapted_variant_when_base_is_ineligible
     assert choice["candidate_key"] == recipe.recipe_key
     assert choice["transformation"] is not None
     assert choice["transformation"]["kind"] == "plan_adapted"
-    assert (
-        choice["transformation"]["operation"]["replacement_food_name"]
-        == "Iogurte grego"
-    )
+    assert choice["transformation"]["operation"]["replacement_food_name"] == "Iogurte grego"
     assert choice["transformation"]["plan_improvement_participants"] == 1
     assert "weekly-transformations-v1" in body["slot_engine_versions"]["tue-breakfast"]
 
     primary = next(
-        item
-        for item in choice["participants"]
-        if item["person_id"] == str(DEMO_PERSON_ID)
+        item for item in choice["participants"] if item["person_id"] == str(DEMO_PERSON_ID)
     )
     assert primary["score"] is not None
-
-
 
 
 def _expected_choices_from_proposal(body: dict[str, object]) -> list[dict[str, str]]:
@@ -923,9 +909,7 @@ def _expected_choices_from_proposal(body: dict[str, object]) -> list[dict[str, s
             operation = transformation["operation"]
             assert isinstance(operation, dict)
             choice["recipe_ingredient_id"] = str(operation["recipe_ingredient_id"])
-            choice["replacement_food_item_id"] = str(
-                operation["replacement_food_item_id"]
-            )
+            choice["replacement_food_item_id"] = str(operation["replacement_food_item_id"])
         result.append(choice)
     return result
 
@@ -1114,9 +1098,7 @@ def test_weekly_plan_rolls_back_earlier_slot_when_later_slot_conflicts(
     assert response.status_code == 409
     assert "already planned" in response.json()["detail"]
     events = list(
-        db_session.scalars(
-            select(MealEvent).where(MealEvent.family_id == family.id)
-        ).all()
+        db_session.scalars(select(MealEvent).where(MealEvent.family_id == family.id)).all()
     )
     assert [event.id for event in events] == [conflict.id]
 
@@ -1146,9 +1128,7 @@ def test_weekly_plan_materializes_selected_transformation(
     db_session.commit()
 
     recipe = db_session.scalar(
-        select(Recipe).where(
-            Recipe.recipe_key == "breakfast:recipe:yogurt-muesli-banana"
-        )
+        select(Recipe).where(Recipe.recipe_key == "breakfast:recipe:yogurt-muesli-banana")
     )
     assert recipe is not None
     composition = db_session.scalar(
@@ -1200,9 +1180,7 @@ def test_weekly_plan_materializes_selected_transformation(
                 f"/api/families/{DEMO_FAMILY_ID}/weekly-planning/plan",
                 json={
                     **proposal_payload,
-                    "expected_choices": _expected_choices_from_proposal(
-                        proposal_body
-                    ),
+                    "expected_choices": _expected_choices_from_proposal(proposal_body),
                 },
             )
     finally:
@@ -1227,11 +1205,58 @@ def test_weekly_plan_materializes_selected_transformation(
 
     servings = list(
         db_session.scalars(
-            select(Serving).where(
-                Serving.id.in_(planned_choice["serving_ids"])
-            )
+            select(Serving).where(Serving.id.in_(planned_choice["serving_ids"]))
         ).all()
     )
     assert len(servings) == 2
     assert all(serving.recipe_id == recipe.id for serving in servings)
     assert all(serving.nutrition_source == "transformed" for serving in servings)
+
+
+def test_weekly_attendance_changes_group_and_does_not_count_absent_person(db_session):
+    family, ana, bruno, recipe, composition = _setup(db_session, "attendance")
+    carla = Person(family_id=family.id, first_name="Carla")
+    db_session.add(carla)
+    db_session.flush()
+    db_session.add(
+        DailyNutritionState(
+            person_id=carla.id,
+            state_date=PLANNING_DATE,
+            timezone="Europe/Lisbon",
+            energy_consumed_kcal=Decimal(1000),
+            energy_planned_kcal=Decimal(0),
+            energy_remaining_min_kcal=Decimal(400),
+            energy_remaining_max_kcal=Decimal(1600),
+            calculation_version="attendance-test",
+            computed_at=LUNCH_AT,
+        )
+    )
+    db_session.flush()
+    _activate_recipe_maximum(db_session, person=ana, recipe=recipe, maximum=1)
+    lunch = _slot("lunch", scheduled_at=LUNCH_AT, meal_type="lunch", composition=composition)
+    dinner = _slot("dinner", scheduled_at=DINNER_AT, meal_type="dinner", composition=composition)
+    lunch["person_ids"] = [str(ana.id), str(bruno.id)]
+    dinner["person_ids"] = [str(bruno.id), str(carla.id)]
+    payload = {"person_ids": [str(p.id) for p in (ana, bruno, carla)], "slots": [lunch, dinner]}
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    try:
+        with TestClient(app) as client:
+            path = f"/api/families/{family.id}/weekly-planning/proposals"
+            response = client.post(path, json=payload)
+            assert response.status_code == 201, response.text
+            selected = response.json()["selected_plan"]
+            assert selected is not None, response.text
+            groups = {
+                c["slot_key"]: {p["person_id"] for p in c["participants"]}
+                for c in selected["choices"]
+            }
+            assert groups == {
+                "lunch": set(lunch["person_ids"]),
+                "dinner": set(dinner["person_ids"]),
+            }
+            dinner["person_ids"] = [str(ana.id), str(carla.id)]
+            assert client.post(path, json=payload).json()["selected_plan"] is None
+            dinner["person_ids"] = [str(bruno.id), str(carla.id), str(carla.id)]
+            assert client.post(path, json=payload).status_code == 422
+    finally:
+        app.dependency_overrides.clear()

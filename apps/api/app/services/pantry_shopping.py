@@ -1,7 +1,7 @@
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import or_, select
@@ -185,6 +185,11 @@ def _utc_bounds(family: Family, start_date: date, days: int) -> tuple[datetime, 
 
 def _serving_options():
     return (
+        selectinload(Serving.recipe_composition_snapshot),
+        selectinload(Serving.meal_participant)
+        .selectinload(MealParticipant.meal_event)
+        .selectinload(MealEvent.transformation_applications)
+        .selectinload(MealTransformationApplication.source_recipe_composition_snapshot),
         selectinload(Serving.recipe)
         .selectinload(Recipe.ingredients)
         .selectinload(RecipeIngredient.food_item),
@@ -256,6 +261,47 @@ def _effective_serving_ingredients(
     return effective
 
 
+def _snapshot_batch_basis(serving: Serving, recipe: Recipe):
+    composition = serving.recipe_composition_snapshot
+    if composition is None:
+        applications = serving.meal_participant.meal_event.transformation_applications
+        sources = [
+            app.source_recipe_composition_snapshot
+            for app in applications
+            if app.recipe_id == recipe.id
+        ]
+        if sources and all(source is not None and source.id == sources[0].id for source in sources):
+            composition = sources[0]
+    if (
+        composition is None
+        or composition.recipe_id != recipe.id
+        or composition.reference_unit != "serving"
+    ):
+        return None
+    inputs = composition.calculation_inputs
+    if not isinstance(inputs, dict) or not isinstance(inputs.get("ingredients"), list):
+        return None
+    try:
+        original = sorted(
+            (
+                str(row["recipe_ingredient_id"]),
+                str(row["food_item_id"]),
+                Decimal(str(row["quantity"])),
+                row["unit"],
+            )
+            for row in inputs["ingredients"]
+        )
+        current = sorted(
+            (str(row.id), str(row.food_item_id), row.quantity, row.unit)
+            for row in recipe.ingredients
+        )
+    except (KeyError, TypeError, ValueError, InvalidOperation):
+        return None
+    if not current or original != current:
+        return None
+    return composition
+
+
 def _batch_multiplier(serving: Serving, recipe: Recipe) -> Decimal:
     quantity = serving.quantity_planned
     unit = serving.quantity_unit
@@ -276,6 +322,10 @@ def _batch_multiplier(serving: Serving, recipe: Recipe) -> Decimal:
         return quantity / recipe.serving_count
     if unit == "recipe":
         return quantity
+    if unit == "serving":
+        composition = _snapshot_batch_basis(serving, recipe)
+        if composition is not None and composition.reference_quantity > ZERO:
+            return quantity / composition.reference_quantity
     raise PantryShoppingError(
         f"Recipe {recipe.name!r} needs yield evidence or serving-based portions "
         "for shopping calculation."
@@ -317,6 +367,13 @@ def _aggregate_planned_ingredients(
         except PantryShoppingError as exc:
             issues.append(str(exc))
             continue
+
+        if recipe.serving_count is None and serving.quantity_unit == "serving":
+            basis = _snapshot_batch_basis(serving, recipe)
+            if basis is not None and basis.calculation_inputs.get("serving_count_estimated"):
+                issues.append(
+                    f"Recipe {recipe.name!r}: shopping quantities use the same estimated serving count as meal planning; confirm yield before purchasing."
+                )
 
         for food, ingredient_quantity, ingredient_unit in effective_ingredients:
             if food.id in invalid_food_ids:

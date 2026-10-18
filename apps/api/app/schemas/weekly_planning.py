@@ -20,6 +20,7 @@ from app.schemas.practical_recommendation import (
 
 
 class SharedWeeklyPlanningSlotCreate(BaseModel):
+    person_ids: list[uuid.UUID] | None = Field(default=None, min_length=2, max_length=20)
     slot_key: str = Field(min_length=1, max_length=120)
     planning_date: date
     scheduled_at: datetime
@@ -43,6 +44,7 @@ class SharedWeeklyPlanningSlotCreate(BaseModel):
 
 class SharedWeeklyPlanProposalCreate(BaseModel):
     person_ids: list[uuid.UUID] = Field(min_length=2, max_length=20)
+    excluded_food_item_ids: list[uuid.UUID] = Field(default_factory=list, max_length=100)
     slots: list[SharedWeeklyPlanningSlotCreate] = Field(min_length=1, max_length=28)
     max_combinations: int = Field(default=10_000, ge=1, le=10_000)
 
@@ -87,6 +89,7 @@ class SharedWeeklyPlanChoiceRead(BaseModel):
     candidate_name: str
     candidate_kind: str
     recipe_id: uuid.UUID | None = None
+    variant_changes: list[str] = Field(default_factory=list)
     minimum_score: Decimal | None
     average_score: Decimal | None
     participants: list[SharedWeeklyPlanParticipantRead]

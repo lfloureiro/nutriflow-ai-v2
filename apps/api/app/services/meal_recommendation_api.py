@@ -76,9 +76,7 @@ def _load_daily_state(
     if state is None:
         raise MealRecommendationApiNotFoundError("DailyNutritionState not found.")
     if state.person_id != person.id:
-        raise MealRecommendationApiError(
-            "DailyNutritionState belongs to a different Person."
-        )
+        raise MealRecommendationApiError("DailyNutritionState belongs to a different Person.")
     return state
 
 
@@ -89,9 +87,7 @@ def _validate_catalog_family(
     candidate_key: str,
 ) -> None:
     if object_family_id not in {None, family_id}:
-        raise MealRecommendationApiError(
-            f"Candidate {candidate_key!r} belongs to another Family."
-        )
+        raise MealRecommendationApiError(f"Candidate {candidate_key!r} belongs to another Family.")
 
 
 def _build_food_candidate(
@@ -134,9 +130,7 @@ def _load_food_candidate(
         candidate_key=food_item.catalog_key,
     )
     if not food_item.is_active:
-        raise MealRecommendationApiError(
-            f"Candidate {food_item.catalog_key!r} is inactive."
-        )
+        raise MealRecommendationApiError(f"Candidate {food_item.catalog_key!r} is inactive.")
 
     return _build_food_candidate(composition, data)
 
@@ -183,9 +177,13 @@ def _load_recipe_candidate(
         candidate_key=recipe.recipe_key,
     )
     if not recipe.is_active:
-        raise MealRecommendationApiError(
-            f"Candidate {recipe.recipe_key!r} is inactive."
-        )
+        raise MealRecommendationApiError(f"Candidate {recipe.recipe_key!r} is inactive.")
+    from app.services.recipe_variant_integrity import assert_variant_usable
+
+    try:
+        assert_variant_usable(session, recipe)
+    except ValueError as exc:
+        raise MealRecommendationApiError(str(exc)) from exc
     for ingredient in recipe.ingredients:
         _validate_catalog_family(
             family_id=family_id,
@@ -243,9 +241,7 @@ def _candidate_meal_types(
         catalogue = candidate.food_item.suitable_meal_types
         defaults = food_default_meal_types(candidate.food_item.food_kind)
     else:
-        raise MealRecommendationApiError(
-            f"Candidate {candidate.key!r} has no catalogue entity."
-        )
+        raise MealRecommendationApiError(f"Candidate {candidate.key!r} has no catalogue entity.")
     try:
         return resolve_meal_types(
             profile=profile,

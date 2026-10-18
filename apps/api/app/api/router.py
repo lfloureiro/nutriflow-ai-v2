@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.routes.dietary_review import router as dietary_review_router
 from app.api.routes.families import router as families_router
 from app.api.routes.health import router as health_router
 from app.api.routes.ingredients import router as ingredients_router
@@ -13,10 +14,12 @@ from app.api.routes.nutrition_plans import router as nutrition_plans_router
 from app.api.routes.pantry_shopping import router as pantry_shopping_router
 from app.api.routes.persons import router as persons_router
 from app.api.routes.planning_bootstrap import router as planning_bootstrap_router
+from app.api.routes.planning_workspace import router as planning_workspace_router
 from app.api.routes.practical_meal_recommendations import (
     router as practical_meal_recommendations_router,
 )
 from app.api.routes.recipe_preferences import router as recipe_preferences_router
+from app.api.routes.recipe_variants import router as recipe_variants_router
 from app.api.routes.recipes import router as recipes_router
 from app.api.routes.recommendation_decisions import router as recommendation_decisions_router
 from app.api.routes.restaurant_discovery import router as restaurant_discovery_router
@@ -28,6 +31,8 @@ from app.api.routes.weekly_frequency_progress import router as weekly_frequency_
 from app.api.routes.weekly_planning import router as weekly_planning_router
 
 api_router = APIRouter(prefix="/api")
+api_router.include_router(recipe_variants_router)
+api_router.include_router(dietary_review_router)
 
 api_router.include_router(health_router)
 api_router.include_router(families_router)
@@ -43,6 +48,7 @@ api_router.include_router(meal_plan_fit_router)
 api_router.include_router(meal_transformations_router)
 api_router.include_router(shared_meal_transformations_router)
 api_router.include_router(planning_bootstrap_router)
+api_router.include_router(planning_workspace_router)
 api_router.include_router(meal_recommendations_router)
 api_router.include_router(practical_meal_recommendations_router)
 api_router.include_router(shared_practical_recommendations_router)

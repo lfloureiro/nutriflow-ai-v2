@@ -11,6 +11,7 @@ export type NutritionPlanAuthorityState =
 export type MealPlanFitStatus = "pass" | "partial" | "fail" | "unknown" | "conflict";
 
 export type SharedWeeklyPlanningSlotRequest = {
+  person_ids?: string[];
   slot_key: string;
   planning_date: string;
   scheduled_at: string;
@@ -27,6 +28,7 @@ export type SharedWeeklyPlanningSlotRequest = {
 
 export type SharedWeeklyPlanProposalRequest = {
   person_ids: string[];
+  excluded_food_item_ids?: string[];
   slots: SharedWeeklyPlanningSlotRequest[];
   max_combinations?: number;
 };
@@ -91,6 +93,7 @@ export type SharedWeeklyPlanParticipant = {
 };
 
 export type SharedWeeklyPlanChoice = {
+  variant_changes?: string[];
   slot_key: string;
   planning_date: string;
   scheduled_at: string;

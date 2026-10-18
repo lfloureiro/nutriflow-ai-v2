@@ -116,7 +116,20 @@ def _participant_serving(
 def _entry_read(event: MealEvent, family_timezone: ZoneInfo) -> MealPlanEntryRead:
     recipe = _event_recipe(event)
     recipe_id = recipe.id if recipe is not None else None
+    changes = []
+    if recipe is not None and recipe.source == "family_variant":
+        from sqlalchemy.orm import object_session
+
+        from app.services.recipe_variant_integrity import variant_for_recipe
+
+        row = variant_for_recipe(object_session(recipe), recipe.id)
+        if row:
+            changes = [
+                f"{o['source_name']} → {o['replacement_name']} ({o['quantity']} {o['unit']})"
+                for o in row.operations
+            ]
     return MealPlanEntryRead(
+        variant_changes=changes,
         id=event.id,
         meal_type=event.meal_type,
         title=event.title,
@@ -145,9 +158,7 @@ def _entry_read(event: MealEvent, family_timezone: ZoneInfo) -> MealPlanEntryRea
                 serving_id=serving.id if serving is not None else None,
                 status=serving.status if serving is not None else participant.status,
                 quantity=serving.quantity_planned if serving is not None else None,
-                quantity_consumed=(
-                    serving.quantity_consumed if serving is not None else None
-                ),
+                quantity_consumed=(serving.quantity_consumed if serving is not None else None),
                 unit=serving.quantity_unit if serving is not None else None,
                 energy_kcal=serving.energy_planned_kcal if serving is not None else None,
                 energy_consumed_kcal=(
@@ -255,6 +266,7 @@ def _replace_participants(
     values: list[MealPlanParticipantWrite],
 ) -> None:
     people = _people_for_participants(db, family_id, values)
+    _validate_variant_context(db, family_id, recipe, event, values)
     event.participants.clear()
     db.flush()
 
@@ -338,9 +350,7 @@ def _validate_recipe_meal_type(
     except MealSuitabilityError as exc:
         raise MealPlanError(str(exc)) from exc
     if meal_type not in suitable_meal_types:
-        raise MealPlanError(
-            f"Recipe is not suitable for meal type {meal_type!r}."
-        )
+        raise MealPlanError(f"Recipe is not suitable for meal type {meal_type!r}.")
 
 
 def _planning_recipe(
@@ -356,6 +366,12 @@ def _planning_recipe(
         raise MealPlanError("Recipe not found for this Family.") from exc
     if not recipe.is_active:
         raise MealPlanError("Inactive recipes cannot be added to the plan.")
+    from app.services.recipe_variant_integrity import assert_variant_usable
+
+    try:
+        assert_variant_usable(db, recipe)
+    except ValueError as exc:
+        raise MealPlanError(str(exc)) from exc
     _validate_recipe_meal_type(
         db,
         family_id=family_id,
@@ -363,6 +379,39 @@ def _planning_recipe(
         meal_type=meal_type,
     )
     return recipe
+
+
+def _validate_variant_context(db, family_id, recipe, event, values):
+    if recipe.source != "family_variant":
+        return
+    from app.schemas.recipe_variant import VariantParticipant, VariantValidationRequest
+    from app.services.recipe_variant import validate_variant
+    from app.services.recipe_variant_integrity import variant_for_recipe
+
+    row = variant_for_recipe(db, recipe.id)
+    if row is None or row.status != "active":
+        raise MealPlanError("Variant is not active")
+    if any(v.unit not in (None, "serving") for v in values):
+        raise MealPlanError("Variant portions must use the confirmed serving basis")
+    result = validate_variant(
+        db,
+        family_id,
+        row.id,
+        VariantValidationRequest(
+            expected_version=row.version,
+            planning_date=event.scheduled_at.astimezone(ZoneInfo(event.timezone)).date(),
+            meal_type=event.meal_type,
+            participants=[
+                VariantParticipant(person_id=v.person_id, quantity=v.quantity or Decimal(1))
+                for v in values
+            ],
+        ),
+    )
+    if not result.eligible:
+        raise MealPlanError(
+            "Variant is incompatible or missing evidence for these participants: "
+            + result.model_dump_json()
+        )
 
 
 def create_meal_plan_entry(
@@ -437,9 +486,7 @@ def update_meal_plan_entry(
         else local.timetz().replace(tzinfo=None)
     )
     next_meal_type = (
-        data.meal_type
-        if "meal_type" in fields and data.meal_type is not None
-        else event.meal_type
+        data.meal_type if "meal_type" in fields and data.meal_type is not None else event.meal_type
     )
     if fields.intersection({"date", "meal_type"}):
         _assert_slot_available(
@@ -489,6 +536,20 @@ def update_meal_plan_entry(
             ]
         _replace_participants(db, event, family.id, recipe, participant_values)
 
+    if (
+        recipe is not None
+        and recipe.source == "family_variant"
+        and not (recipe_changed or participants_changed)
+    ):
+        values = [
+            MealPlanParticipantWrite(
+                person_id=p.person_id,
+                quantity=p.servings[0].quantity_planned if p.servings else None,
+                unit="serving",
+            )
+            for p in event.participants
+        ]
+        _validate_variant_context(db, family.id, recipe, event, values)
     db.commit()
     event = _get_event(db, family.id, meal_event_id)
     return _entry_read(event, ZoneInfo(family.timezone))

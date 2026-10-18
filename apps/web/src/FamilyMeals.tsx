@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {listRecipeReviews,type ReviewRecipe} from "./api/dietaryReviewClient";
+import SavedMealChanges from "./SavedMealChanges";
+import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 
 import {
   ApiError,
@@ -22,8 +24,9 @@ import MealConsumptionControls from "./MealConsumptionControls";
 import MealPlanner from "./MealPlanner";
 import { localDateValue } from "./planning";
 import WeeklyProposalPreview from "./WeeklyProposalPreview";
+const PlanningJourney = lazy(() => import("./PlanningJourney"));
 
-export type FamilyMealsMode = "today" | "week" | "recommend";
+export type FamilyMealsMode = "prepare" | "today" | "week" | "recommend";
 
 const DEFAULT_TIMES: Record<MealType, string> = {
   breakfast: "08:30",
@@ -477,18 +480,23 @@ function MealEditForm({
 export default function FamilyMealsScreen({
   familyId,
   referenceDate,
+  initialDate,
   mode,
   onModeChange,
   onDataChanged,
 }: {
   familyId: string;
   referenceDate?: string;
+  initialDate?: string;
   mode: FamilyMealsMode;
   onModeChange: (mode: FamilyMealsMode) => void;
   onDataChanged?: () => void;
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
+  const [reviewLoadError,setReviewLoadError]=useState(false);
+  const [reviewRecipes,setReviewRecipes]=useState<ReviewRecipe[]>([]);
+  useEffect(()=>{let cancelled=false;setReviewLoadError(false);setReviewRecipes([]);void listRecipeReviews(familyId).then(r=>{if(!cancelled)setReviewRecipes(r);}).catch(()=>{if(!cancelled)setReviewLoadError(true);});return()=>{cancelled=true;};},[familyId]);
   const [plan, setPlan] = useState<FamilyMealPlan | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
@@ -497,16 +505,16 @@ export default function FamilyMealsScreen({
   const [error, setError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
   const [browsingDate, setBrowsingDate] = useState(
-    referenceDate ?? localDateValue(),
+    initialDate ?? referenceDate ?? localDateValue(),
   );
 
   useEffect(() => {
-    setBrowsingDate(referenceDate ?? localDateValue());
+    setBrowsingDate(initialDate ?? referenceDate ?? localDateValue());
     setEditing(null);
-  }, [familyId, referenceDate]);
+  }, [familyId, referenceDate, initialDate]);
 
   const request = useMemo(() => {
-    if (mode === "recommend") return null;
+    if (mode === "recommend" || mode === "prepare") return null;
     if (mode === "today") return { startDate: browsingDate, days: 1 };
     return {
       startDate: startOfWeekDate(browsingDate),
@@ -557,6 +565,8 @@ export default function FamilyMealsScreen({
 
   const consumptionDate = browsingDate;
 
+  if (mode === "prepare") return <Suspense fallback={<p role="status">{copy.loading}</p>}><PlanningJourney key={familyId} familyId={familyId} referenceDate={referenceDate ?? localDateValue()} onPlanChanged={onDataChanged} onOpenAgenda={week => {if(week)setBrowsingDate(week);onModeChange("week");}} /></Suspense>;
+
   return (
     <div className="family-meals-screen">
       <header className="screen-header compact-screen-header family-meals-header">
@@ -566,7 +576,9 @@ export default function FamilyMealsScreen({
           <p>{copy.help}</p>
         </div>
       </header>
+      {reviewLoadError && <p role="status">{locale==="pt-PT"?"Não foi possível carregar as alternativas dos ingredientes.":"Ingredient alternatives could not be loaded."}</p>}
       <nav className="secondary-tabs family-meals-tabs" aria-label={copy.navigation}>
+        <button type="button" onClick={() => onModeChange("prepare")}>{locale === "pt-PT" ? "Planear próxima semana" : "Plan next week"}</button>
         <button
           className={mode === "today" ? "active" : ""}
           onClick={() => {
@@ -728,6 +740,7 @@ export default function FamilyMealsScreen({
                                     {entryParticipants(entry) || copy.noPeople}
                                     {entry.location ? ` · ${entry.location}` : ""}
                                   </small>
+                                  <SavedMealChanges entry={entry} recipes={reviewRecipes}/>
                                   {entry.transformations.map((transformation) => (
                                     <span
                                       className="meal-plan-entry__transformation"

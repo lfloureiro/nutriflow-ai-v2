@@ -9,6 +9,7 @@ import type {
 import { getMealDiscoveryCapabilities } from "./api/setupClient";
 import type { MealDiscoveryCapability } from "./api/setupTypes";
 import { useI18n } from "./i18n";
+import {restaurantMapUrl} from "./restaurantMap";
 import "./restaurant-discovery.css";
 
 const COPY = {
@@ -118,6 +119,7 @@ export function restaurantCapabilityMessage(
 function providerLabel(provider: string, locale: "pt-PT" | "en"): string {
   const copy = COPY[locale];
   if (provider === "google_places") return copy.sourceGoogle;
+  if (provider === "openstreetmap_nominatim") return locale==="pt-PT" ? "OpenStreetMap · seleção de correspondências na zona" : "OpenStreetMap · selected area matches";
   if (provider === "openstreetmap_fallback") return copy.sourceOsmFallback;
   return copy.sourceOsm;
 }
@@ -150,13 +152,15 @@ function serviceLabels(
   return labels.filter((value): value is string => value !== null);
 }
 
-export default function RestaurantDiscoveryScreen({ familyId }: { familyId: string }) {
+export default function RestaurantDiscoveryScreen({ familyId, embedded=false }: { familyId: string; embedded?: boolean }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
   const [area, setArea] = useState("");
   const [discovery, setDiscovery] = useState<RestaurantDiscovery | null>(null);
   const [capability, setCapability] = useState<MealDiscoveryCapability | null>(null);
   const [capabilityLoaded, setCapabilityLoaded] = useState(false);
+  const [selectedPlace,setSelectedPlace]=useState<string|null>(null);
+  const mapUrl=restaurantMapUrl(discovery?.restaurants??[],selectedPlace);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -187,6 +191,7 @@ export default function RestaurantDiscoveryScreen({ familyId }: { familyId: stri
     setError(null);
     try {
       setDiscovery(await discoverRestaurants(familyId, area));
+      setSelectedPlace(null);
     } catch (caught: unknown) {
       setDiscovery(null);
       setError(errorText(caught, locale));
@@ -202,8 +207,8 @@ export default function RestaurantDiscoveryScreen({ familyId }: { familyId: stri
     <div className="restaurant-discovery-screen">
       <header className="screen-header compact-screen-header">
         <div>
-          <span className="eyebrow">{copy.eyebrow}</span>
-          <h1>{copy.title}</h1>
+          {!embedded && <span className="eyebrow">{copy.eyebrow}</span>}
+          {embedded ? <h4>{copy.title}</h4> : <h1>{copy.title}</h1>}
           <p>{copy.help}</p>
         </div>
       </header>
@@ -211,7 +216,7 @@ export default function RestaurantDiscoveryScreen({ familyId }: { familyId: stri
       {capabilityLoaded ? (
         <div className={`restaurant-capability status-${capabilityState}`}>
           <span aria-hidden="true" className="restaurant-capability__dot" />
-          <span>{restaurantCapabilityMessage(capability, locale)}</span>
+          <span>{embedded && capability?.status==="ready" ? (locale==="pt-PT" ? "Pesquisa de restaurantes disponível nesta refeição" : "Restaurant search available for this meal") : restaurantCapabilityMessage(capability, locale)}</span>
         </div>
       ) : null}
 
@@ -251,6 +256,10 @@ export default function RestaurantDiscoveryScreen({ familyId }: { familyId: stri
             </div>
             <small>{discovery.attribution}</small>
           </div>
+          {mapUrl && <section aria-label={locale==="pt-PT"?"Mapa dos restaurantes":"Restaurant map"} className="restaurant-map">
+            <iframe title={locale==="pt-PT"?"Localização do restaurante selecionado":"Selected restaurant location"} src={mapUrl} loading="lazy" referrerPolicy="no-referrer" style={{width:"100%",height:320,border:0,borderRadius:12}}/>
+            <p>{locale==="pt-PT"?"Seleciona «Ver no mapa» num restaurante para mudar a localização apresentada.":"Select Show on map on a restaurant to change the displayed location."}</p>
+          </section>}
           {discovery.restaurants.length === 0 ? (
             <div className="empty-state compact-empty-state"><p>{copy.empty}</p></div>
           ) : (
@@ -260,6 +269,7 @@ export default function RestaurantDiscoveryScreen({ familyId }: { familyId: stri
                 const price = priceLabel(restaurant.price_level, locale);
                 return (
                   <article className="restaurant-card" key={restaurant.provider_place_id}>
+                    <button type="button" className="button ghost small" aria-pressed={(selectedPlace??discovery.restaurants[0]?.provider_place_id)===restaurant.provider_place_id} onClick={()=>setSelectedPlace(restaurant.provider_place_id)}>{locale==="pt-PT"?"Ver no mapa":"Show on map"} · {restaurant.name}</button>
                     <div className="restaurant-card__heading">
                       <div>
                         <h3>{restaurant.name}</h3>

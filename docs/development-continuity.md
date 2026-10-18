@@ -1,4 +1,184 @@
+## Publicação e revisão — 18/10/2026
+
+Consolidação T01–T06/T08 preparada na branch v2 por autorização explícita.
+118 testes web e build passaram; Ruff e Alembic check passaram. Auditoria do esquema
+inventaria 52 tabelas de aplicação e a tabela Alembic; sem exportar linhas pessoais.
+Backups, capturas e relatórios pessoais em docs/audits ficam locais e ignorados pelo Git.
+O quadro de tarefas distingue execução atual de registos históricos abaixo.
+
+## Início, semanas guardadas e alternativas na linha — ADR-066 (18/10/2026)
+
+Implementado bloco de consulta de semanas no início, com datas, navegação e cartões das
+refeições realmente guardadas. Cada cartão inclui as suas alternativas; abrir leva à semana
+correta. Menu Plano abre agenda semanal. Data consultada separada de hoje e preservada
+para voltar ao início sem perder a semana aberta.
+
+Agenda semanal/diária e detalhe mantêm trocas visíveis; variantes/transformações aplicadas
+prevalecem sobre propostas. Revisão de ingredientes e compras mostram ingrediente →
+alternativa na mesma linha. Compras usam só propostas das receitas do intervalo guardado,
+não assumem quantidades equivalentes nem mudam os itens comprados. Botão de supermercado
+só aparece quando há produtos correspondentes, evitando detalhes vazios.
+
+118 testes frontend, TypeScript/build e diff check passaram. Interface real confirmou:
+início → próxima semana (7 refeições) → agenda de 19/10 → escalopes com trocas visíveis;
+revisão com cabeçalho ingrediente/alternativa e compras com alternativas diretas. Nenhuma
+refeição/quantidade foi alterada. Sem migration ou alteração backend neste incremento.
+
+Vite Windows passou a polling: havia módulos antigos em cache apesar de ficheiros alterados.
+Servidor atual Vite 5173 sessão 79136; API 8000 sessão 95485. Sem commit/push.
+Evidência: `docs/audits/2026-10-18/home-saved-weeks-alternatives.png` e
+`docs/audits/2026-10-18/shopping-inline-alternatives.png`.
+
+## Seleção do prato e almoços — 18/10/2026 (ADR-065)
+
+Corrigido o problema reportado no PDF do utilizador: o detalhe mostra só propostas do prato
+selecionado (incluindo ingredientes com proposta mas sem referência alta FODMAP) e as
+operações realmente aplicadas de variantes completas. Catálogo global removido do percurso.
+Revisão de ingredientes limitada a prato/data/tempo/presentes, com regras refrescadas pelo
+servidor mesmo para um almoço que não estava na lista de tempos a gerar.
+
+Origem por tipo de refeição guardada em `FamilyWeekSetup.settings.meal_sources`, sem
+migration. Almoços sugerem entrega, com escolha casa/restaurante. Sem prato elegível, ficam
+pendentes. Detalhe reúne plataformas e restaurantes, sem guardar/encomendar automaticamente.
+Conta normal de cliente confirmada pelo utilizador: nenhum acesso API consumer nem adaptador
+live; links funcionais não significam importação. Catálogo real de Uber/Glovo/Bolt pendente.
+
+OpenStreetMap: corrigido timeout HTTP inferior ao da query, recuperação de falhas temporárias,
+respeito por HTTP 4xx/429 e fallback Nominatim limitado à zona, identificado como seleção de
+correspondências, com cache curta e sem avaliações/nutrição inventadas. Teste direto real
+obteve 12 restaurantes em Lisboa; interface final confirmada: 12 resultados, mapa incorporado e seleção sincronizada.
+
+Validação: execução completa API 386 passou antes da extensão Nominatim; 14 testes de
+restaurantes/capacidades passaram na versão final. 114 frontend, TypeScript e build passaram.
+Sem commit/push. Serviços atuais: API 8000 sessão 95485, Vite 5173 sessão 84637.
+
+Verificação mais recente: 383 testes API e 106 frontend passaram; build e Ruff passaram. Presenças: ADR-064.
+
+## Presenças por refeição — incremento de 18 de outubro de 2026
+
+O percurso guiado permite exceções por data/refeição ao grupo habitual e guarda-as no
+JSON versionado da semana. Slots enviam os presentes ao motor; as exclusões automáticas,
+porções e limites nutricionais usam só esses participantes. Refeições sem presentes não
+são geradas. O backend rejeita participantes fora do grupo e sobreposições da mesma pessoa.
+
+T04 permanece parcial: padrões reutilizáveis, incerteza e refeições individuais no percurso
+ficam pendentes; para uma pessoa o ecrã indica a agenda e bloqueia geração incorreta.
+Não houve migration nem gravação de refeições pessoais nesta verificação de interface.
+
 # NutriFlow AI v2 development continuity
+
+## Complete recipe variants — current increment (2026-10-18)
+
+Final verification: 379 API tests, 104 web tests and final build passed. Browser test
+completed draft → validation → activation → weekly application → effective shopping on
+the isolated DB. UI regressions fixed: active variants missing from base summaries,
+false error on already-planned slots, unnecessary decimal zeros. See
+`docs/audits/2026-10-18/complete-variant-interface-verification.md`. T02/T03 are locally
+verified; T04 attendance is next, T05/T06 remain partial. No real Family variant was created.
+
+Schema head `58960d47819f`, parent `d7c626668227`. FamilyRecipeVariant now stores
+immutable complete ingredient projections through ordinary Family Recipe/Composition
+entities, with lineage/revision, concurrency version, operation evidence and fingerprints.
+Draft → validation for selected people/date/meal → activation is exposed inside the
+existing substitution review. Base recipes remain unchanged; generic mutation is blocked.
+Active fresh variants enter normal recommendation/weekly planning and effective shopping.
+Proposal and saved grid show operation summaries. Server validation/acceptance checks all
+participants; changed source/label evidence blocks new use. Retired variants preserve history.
+
+378 full API tests, 102 frontend tests and production build passed before final interface
+verification. Isolated migration upgrade/downgrade/upgrade and live Alembic check passed.
+Live migration followed `backups/pre-complete-variants-2026-10-18.dump`. No real Family
+variant or meal was activated/applied by the agent. ADR-063 records design and limitations.
+
+UI integration uses a second API on 8001 and Vite on 5174 targeting
+`nutriflow_review_test`, with `python -m tests.seed_variant_ui` (database-name guarded).
+Default app remains 8000/5173. Never seed that synthetic fixture into the live database.
+Per-slot attendance, richer product linking/pack selection and external discovery remain
+pending; complete variants do not imply those capabilities are finished.
+
+Execution task board: `docs/vision/implementation-task-board.md`. The current next slice
+is editing existing substitution quantities/units/preparation notes; complete variants,
+attendance, automatic variant selection and substituted shopping remain tracked there.
+
+T01 completed locally: existing substitution PUT can update/clear quantity+unit together
+while omitted fields are preserved. Review UI edits whole-recipe replacement quantity,
+unit and notes. Version conflicts and invalid pairs are rejected; base recipes unchanged.
+21 dietary-review API tests, 99 web tests, TypeScript and production build passed.
+No migration. Next: complete pilot variant (T02) and all-participant validation (T03).
+
+## Latest steering — automatic defaults and visible substitutions (2026-10-18)
+
+ADR-062 supersedes manual-only defaults from ADR-061. Added scoped POST
+`/api/families/{family_id}/planning-restrictions`: selected participants/date/meal-aware
+effective plan exclusions and the explicitly requested `sibo` → FODMAP planning profile.
+Weekly preview/accept recompute automatic exclusions per slot. UI preselects and explains
+the source; manual week selections are stored separately. No migration was needed.
+Base recipe cards expose all affected ingredients, alternatives, review state and missing
+quantities; existing executable transformations now display the actual swap in the grid.
+Validation: 98 web tests and final production build passed; 23 weekly/workspace API
+integration tests passed after a cache-ordering regression found in the full run was
+fixed. See ADR-062 for the exact validation scope.
+
+Verified locally: the affected participant activates the profile for 19–25 October; 57 catalogue recipes
+have mapped affected ingredients, with visible pending changes. These are review drafts,
+not complete executable variants. Unchanged incompatible bases remain blocked by the
+weekly engine. Full multi-operation validation/materialization/shopping is still pending.
+
+## Latest local increment — guided week and shopping (2026-10-18)
+
+Implemented locally on `codex/health-conditions-fodmap-review`: Home → Plan next week →
+people/meal types → explicit ingredient exclusions → review/apply → shopping. Versioned
+Family week setup, exclusion checks on preview and accept, four sourced supermarket
+observations, shopping suggestions and verified snapshot serving-basis fallback.
+Schema head `d7c626668227` is applied locally. Public educational references total 23;
+no licensed FODMAP database was extracted. Validation: 359 API tests, 97 web tests,
+TypeScript and production build passed. See
+`docs/domain/guided-week-planning-and-retail-alternatives.md` and ADR-061.
+
+The shared wizard uses one group (at least two people) for its generated meals. Per-slot
+attendance, complete multi-operation variants and live delivery integrations remain
+unfinished. The roadmap below remains the target; the older “no implementation” statement
+describes that earlier planning-only checkpoint, not this new increment.
+
+## Next product sequence — integrated Family planning (2026-10-18)
+
+Authoritative next-work plan: `docs/vision/integrated-family-meal-planning-roadmap.md`, ADR-060.
+Resolve participants per meal/group using weekly patterns and date exceptions, then explicit
+restrictions, complete Family variants and shared source discovery. A global weekly `person_ids`
+list is insufficient. Reuse individual/shared evaluators; do not infer diets from conditions.
+
+First functional increment: attendance + usable restrictions + one verified complete recipe
+variant through daily/weekly planning. Then catalogue coverage, unified source panel/map and
+authorized live adapters. The 130 current alternatives remain review proposals.
+
+Current local provider diagnosis: no credentials, consumer enablement or registered live adapter
+for Uber Eats/Glovo/Bolt Food; Google Places key absent; OSM discovery implemented. Family area
+and delivery defaults exist. No external network smoke test was run in this planning review.
+Official Uber consumer access is approval-controlled; Glovo Partner docs do not prove consumer
+marketplace access. Adding keys alone does not implement adapters.
+
+This sequence supersedes older next-branch suggestions below. No implementation, provider
+activation, recipe application or database mutation was performed for this planning update.
+
+## Latest local increment — health conditions and FODMAP substitution review (2026-10-18)
+
+Current branch: `codex/health-conditions-fodmap-review`, based on weekly comparison head
+`9823b4d716e34b0829b6b57ff3732c46d5bc156c`. This is stacked review work, not an integration
+of the pending weekly branches. New schema head: `3ecd05b9b43a` (parent `e3f7a2b6c1d9`).
+
+Implemented Person health-condition create/revise/history, immutable condition event snapshots,
+Family-scoped recipe substitution review and a documented 22-item public Monash guidance import.
+UI: `Pessoas → pessoa → Saúde` and `Casa → Substituições`. Local Family data has 130 review
+proposals; source recipes and historical Servings were not changed. A requested user-reported
+condition was registered separately through the service without baking patient data into code.
+
+Validation: isolated-database migration downgrade/upgrade, Alembic check, Ruff, 349 API tests,
+92 web tests, TypeScript/build and browser read-only smoke checks passed. See
+`docs/domain/health-conditions-and-fodmap-review.md` and ADR-059 for source limitations and
+the next stage. No diagnosis-to-diet automation, licensed laboratory database import or actual
+recipe application was introduced. Existing pending PRs were not merged.
+
+The remaining sections preserve prior checkpoints; branch/schema labels below are historical.
 
 This is the authoritative handover entry point for NutriFlow AI v2. Repository code, migrations, tests, domain docs and ADRs take precedence over conversation history.
 

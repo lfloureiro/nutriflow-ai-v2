@@ -1,3 +1,4 @@
+import json
 import uuid
 from collections import Counter
 from dataclasses import dataclass, replace
@@ -7,6 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.models.family import Family
 from app.models.food_catalog import FoodItem
+from app.models.meal import MealEvent
+from app.models.nutrition_constraint import NutritionConstraint
 from app.schemas.shared_meal_transformation import (
     SharedMealTransformationCreate,
     SharedMealTransformationParticipantCreate,
@@ -26,6 +29,10 @@ from app.schemas.weekly_planning import (
     SharedWeeklyPlanSkippedSlotRead,
     SharedWeeklyPlanTransformationRead,
 )
+from app.services.dietary_review import require_person
+from app.services.meal_recommendation import _mandatory_constraint_exclusion
+from app.services.planning_restrictions import automatic_excluded_foods
+from app.services.planning_workspace import validate_food_exclusions
 from app.services.recommendation_weekly_frequency import weekly_support_counts
 from app.services.serving_nutrition import NutrientSnapshot, NutritionSnapshot
 from app.services.shared_family_meal import (
@@ -75,6 +82,22 @@ class WeeklyPlanningApiError(ValueError):
     pass
 
 
+def _variant_changes(session, recipe):
+    if recipe is None or recipe.source != "family_variant":
+        return []
+    from app.services.recipe_variant_integrity import variant_for_recipe
+
+    row = variant_for_recipe(session, recipe.id)
+    return (
+        [
+            f"{o['source_name']} → {o['replacement_name']} ({o['quantity']} {o['unit']})"
+            for o in row.operations
+        ]
+        if row
+        else []
+    )
+
+
 class WeeklyPlanningStaleError(WeeklyPlanningApiError):
     pass
 
@@ -90,9 +113,7 @@ class _WeeklyTransformationEvidence:
             recipe_id=self.recipe_id,
             operation=self.proposal.operation,
             plan_improvement_participants=self.proposal.plan_improvement_participants,
-            preference_improvement_participants=(
-                self.proposal.preference_improvement_participants
-            ),
+            preference_improvement_participants=(self.proposal.preference_improvement_participants),
             explanation=list(self.proposal.explanation),
         )
 
@@ -115,10 +136,7 @@ def _transformation_variant_key(
     recipe_ingredient_id: uuid.UUID,
     replacement_food_item_id: uuid.UUID,
 ) -> str:
-    return (
-        f"{candidate_key}::replace:"
-        f"{recipe_ingredient_id}:{replacement_food_item_id}"
-    )
+    return f"{candidate_key}::replace:{recipe_ingredient_id}:{replacement_food_item_id}"
 
 
 def _transformed_weekly_candidate(
@@ -341,10 +359,7 @@ def _plan_fit_blocker_labels(fit) -> list[str]:
         if conflict.severity == "mandatory"
     )
     labels.extend(
-        (
-            f"rule:{rule.target_type}:{rule.target_key}:"
-            f"{rule.operator}:{rule.scope}:{rule.status}"
-        )
+        (f"rule:{rule.target_type}:{rule.target_key}:{rule.operator}:{rule.scope}:{rule.status}")
         for rule in fit.rule_results
         if rule.is_mandatory and rule.status in {"fail", "unknown", "not_evaluated"}
     )
@@ -355,8 +370,7 @@ def _plan_fit_blocker_labels(fit) -> list[str]:
             f"{guideline.status}"
         )
         for guideline in fit.guideline_results
-        if guideline.is_mandatory
-        and guideline.status in {"fail", "unknown", "not_evaluated"}
+        if guideline.is_mandatory and guideline.status in {"fail", "unknown", "not_evaluated"}
     )
     return labels
 
@@ -377,9 +391,7 @@ def _debug_slot_plan_fit(
     for person_id, fits in sorted(by_person.items(), key=lambda item: str(item[0])):
         ineligible = [fit for fit in fits if not fit.eligible]
         blocker_counts = Counter(
-            label
-            for fit in ineligible
-            for label in _plan_fit_blocker_labels(fit)
+            label for fit in ineligible for label in _plan_fit_blocker_labels(fit)
         )
         weekly_debug(
             "PLANFIT-VERBOSE",
@@ -390,8 +402,7 @@ def _debug_slot_plan_fit(
             eligible=sum(fit.eligible for fit in fits),
             ineligible=len(ineligible),
             top_blockers="|".join(
-                f"{label}x{count}"
-                for label, count in blocker_counts.most_common(12)
+                f"{label}x{count}" for label, count in blocker_counts.most_common(12)
             )
             or "none",
         )
@@ -408,8 +419,7 @@ def _debug_slot_plan_fit(
                 continue
             labels = _plan_fit_blocker_labels(fit)
             per_person.append(
-                f"{fit.person_id}=>"
-                + (",".join(labels[:8]) if labels else f"status:{fit.status}")
+                f"{fit.person_id}=>" + (",".join(labels[:8]) if labels else f"status:{fit.status}")
             )
         weekly_debug(
             "PLANFIT-VERBOSE",
@@ -421,12 +431,79 @@ def _debug_slot_plan_fit(
         )
 
 
+def _with_requested_food_exclusions(
+    candidate: SharedWeeklyPlanningCandidate,
+    foods: list[FoodItem],
+) -> SharedWeeklyPlanningCandidate:
+    """Apply explicit and configured automatic exclusions through the hard-rule matcher.
+
+    These are configured planning criteria, not a clinical disease prescription or
+    proof of low-FODMAP suitability. Check each complete transformed candidate.
+    """
+    participants = []
+    blocked = False
+    fits = {fit.person_id: fit for fit in candidate.plan_fits}
+    for participant in candidate.evaluation.participant_evaluations:
+        reasons = []
+        meal = participant.evaluation.candidate
+        if (meal.recipe is not None and not meal.recipe.ingredients) or (
+            meal.food_item is not None and meal.food_item.food_kind in {"dish", "product"}
+        ):
+            reasons.append("requested_exclusions:ingredient_evidence_missing")
+        for food in foods:
+            rule = NutritionConstraint(
+                constraint_type="exclusion",
+                target_type="food_item",
+                target_key=food.catalog_key,
+                operator="exclude",
+                is_mandatory=True,
+                source="user",
+            )
+            reason = _mandatory_constraint_exclusion(rule, meal, None)
+            if reason:
+                reasons.append(f"requested_exclusions:{food.catalog_key}")
+        if reasons:
+            blocked = True
+            evaluation = replace(
+                participant.evaluation,
+                eligible=False,
+                rank=None,
+                score=None,
+                exclusion_reasons=tuple(
+                    sorted(set(participant.evaluation.exclusion_reasons) | set(reasons))
+                ),
+            )
+            fit = fits[participant.person.id].model_copy(
+                update={
+                    "eligible": False,
+                    "status": "fail",
+                    "safety_issues": [*fits[participant.person.id].safety_issues, *reasons],
+                }
+            )
+            fits[participant.person.id] = fit
+            participant = replace(participant, evaluation=evaluation, plan_fit=fit)
+        participants.append(participant)
+    if not blocked:
+        return candidate
+    evaluation = replace(
+        candidate.evaluation,
+        eligible=False,
+        rank=None,
+        minimum_score=None,
+        average_score=None,
+        participant_evaluations=tuple(participants),
+        exclusion_reasons=_participant_exclusions(tuple(participants)),
+    )
+    return replace(candidate, evaluation=evaluation, plan_fits=tuple(fits.values()))
+
+
 def _planning_slot(
     session: Session,
     *,
     family: Family,
     person_ids: list[uuid.UUID],
     slot: SharedWeeklyPlanningSlotCreate,
+    excluded_foods: list[FoodItem] | None = None,
 ) -> tuple[
     SharedWeeklyPlanningSlot,
     str,
@@ -463,9 +540,7 @@ def _planning_slot(
             redistribute_remaining_energy=False,
         )
     contexts_by_person_id = {
-        context.person.id: context
-        for context in contexts
-        if context.person.id is not None
+        context.person.id: context for context in contexts if context.person.id is not None
     }
 
     candidates: list[SharedWeeklyPlanningCandidate] = []
@@ -503,6 +578,23 @@ def _planning_slot(
         candidates.extend(transformed_candidates)
         transformation_metadata.update(transformed_metadata)
 
+    # Reuse the effective plans compiled above rather than compiling a parallel
+    # context before the recommendation path has populated its request cache.
+    excluded_foods = list(
+        {
+            f.id: f
+            for f in [
+                *(excluded_foods or []),
+                *automatic_excluded_foods(
+                    session, family.id, person_ids, slot.planning_date, slot.meal_type
+                ),
+            ]
+        }.values()
+    )
+    if excluded_foods:
+        candidates = [
+            _with_requested_food_exclusions(candidate, excluded_foods) for candidate in candidates
+        ]
     eligible_candidates = [
         candidate
         for candidate in candidates
@@ -562,6 +654,10 @@ def _compute_shared_weekly_plan_uncached(
 ) -> _ComputedWeeklyPlan:
     if family.id is None:
         raise WeeklyPlanningApiError("Weekly planning requires a persisted Family.")
+    try:
+        excluded_foods = validate_food_exclusions(session, family.id, data.excluded_food_item_ids)
+    except ValueError as exc:
+        raise WeeklyPlanningApiError(str(exc)) from exc
     if len(data.person_ids) != len(set(data.person_ids)):
         raise WeeklyPlanningApiError(
             "Each Person can appear only once in a weekly planning proposal."
@@ -569,6 +665,15 @@ def _compute_shared_weekly_plan_uncached(
     slot_keys = [slot.slot_key for slot in data.slots]
     if len(slot_keys) != len(set(slot_keys)):
         raise WeeklyPlanningApiError("Weekly planning slot keys must be unique.")
+    for person_id in data.person_ids:
+        require_person(session, family.id, person_id)
+    attendance_keys = set()
+    for slot in data.slots:
+        for person_id in slot.person_ids if slot.person_ids is not None else data.person_ids:
+            key = (slot.planning_date, slot.meal_type, person_id)
+            if key in attendance_keys:
+                raise WeeklyPlanningApiError("A Person cannot attend overlapping meal slots.")
+            attendance_keys.add(key)
 
     weekly_debug(
         "WEEKLY",
@@ -587,6 +692,11 @@ def _compute_shared_weekly_plan_uncached(
     ] = {}
     slots_by_key = {slot.slot_key: slot for slot in data.slots}
     for slot in data.slots:
+        attendees = slot.person_ids if slot.person_ids is not None else data.person_ids
+        if len(attendees) != len(set(attendees)) or not set(attendees) <= set(data.person_ids):
+            raise WeeklyPlanningApiError(
+                "Slot attendees must be unique members of the selected group."
+            )
         with weekly_debug_span(
             "WEEKLY",
             "slot",
@@ -598,14 +708,14 @@ def _compute_shared_weekly_plan_uncached(
             planning_slot, engine_version, transformation_metadata = _planning_slot(
                 session,
                 family=family,
-                person_ids=data.person_ids,
+                person_ids=attendees,
                 slot=slot,
+                excluded_foods=excluded_foods,
             )
         eligible_candidates = tuple(
             candidate
             for candidate in planning_slot.candidates
-            if candidate.evaluation.eligible
-            and all(fit.eligible for fit in candidate.plan_fits)
+            if candidate.evaluation.eligible and all(fit.eligible for fit in candidate.plan_fits)
         )
         slot_engine_versions[slot.slot_key] = engine_version
         transformations_by_slot[slot.slot_key] = transformation_metadata
@@ -704,9 +814,7 @@ def _compute_shared_weekly_plan_uncached(
     )
 
     if result.family_id != family.id:
-        raise WeeklyPlanningApiError(
-            "Weekly planning result belongs to a different Family."
-        )
+        raise WeeklyPlanningApiError("Weekly planning result belongs to a different Family.")
 
     earliest = min(slot.planning_date for slot in data.slots)
     week_start = earliest - timedelta(days=earliest.weekday())
@@ -784,6 +892,7 @@ def _compute_shared_weekly_plan_uncached(
                     candidate_name=choice.candidate.evaluation.candidate_name,
                     candidate_kind=choice.candidate.evaluation.candidate_kind,
                     recipe_id=selected_recipe.id if selected_recipe is not None else None,
+                    variant_changes=_variant_changes(session, selected_recipe),
                     minimum_score=choice.candidate.evaluation.minimum_score,
                     average_score=choice.candidate.evaluation.average_score,
                     participants=participant_reads,
@@ -836,7 +945,6 @@ def _compute_shared_weekly_plan_uncached(
     )
 
 
-
 def _compute_shared_weekly_plan(
     session: Session,
     *,
@@ -858,6 +966,7 @@ def _compute_shared_weekly_plan(
             family=family,
             data=data,
         )
+
 
 def propose_shared_weekly_plan(
     session: Session,
@@ -896,33 +1005,25 @@ def materialize_shared_weekly_plan(
     )
     selected = computed.result.selected_plan
     if selected is None:
-        raise WeeklyPlanningStaleError(
-            "The weekly proposal is no longer feasible."
-        )
+        raise WeeklyPlanningStaleError("The weekly proposal is no longer feasible.")
 
     expected_by_slot = {item.slot_key: item for item in data.expected_choices}
     selected_slots = {choice.slot_key for choice in selected.choices}
     if set(expected_by_slot) != selected_slots:
-        raise WeeklyPlanningStaleError(
-            "The weekly proposal selection changed since preview."
-        )
+        raise WeeklyPlanningStaleError("The weekly proposal selection changed since preview.")
 
     for choice in selected.choices:
         expected = expected_by_slot[choice.slot_key]
         evidence = computed.transformations_by_slot[choice.slot_key].get(
             choice.candidate.selection_key
         )
-        recipe_ingredient_id, replacement_food_item_id = _actual_transformation_ids(
-            evidence
-        )
+        recipe_ingredient_id, replacement_food_item_id = _actual_transformation_ids(evidence)
         if (
             expected.candidate_key != choice.candidate.evaluation.candidate_key
             or expected.recipe_ingredient_id != recipe_ingredient_id
             or expected.replacement_food_item_id != replacement_food_item_id
         ):
-            raise WeeklyPlanningStaleError(
-                "The weekly proposal selection changed since preview."
-            )
+            raise WeeklyPlanningStaleError("The weekly proposal selection changed since preview.")
 
     materialized: list[SharedWeeklyPlanMaterializedChoiceRead] = []
     with session.begin_nested():
@@ -943,14 +1044,21 @@ def materialize_shared_weekly_plan(
                     title=choice.candidate.evaluation.candidate_name,
                     location=request_slot.location,
                 )
+                if data.excluded_food_item_ids:
+                    event = session.get(MealEvent, planned.meal_event_id)
+                    event.notes = json.dumps(
+                        {
+                            "requested_group_food_exclusions": [
+                                str(v) for v in data.excluded_food_item_ids
+                            ]
+                        }
+                    )
                 materialized.append(
                     SharedWeeklyPlanMaterializedChoiceRead(
                         slot_key=choice.slot_key,
                         meal_event_id=planned.meal_event_id,
                         candidate_key=choice.candidate.evaluation.candidate_key,
-                        transformation_application_id=(
-                            planned.transformation_application_id
-                        ),
+                        transformation_application_id=(planned.transformation_application_id),
                         serving_ids=planned.serving_ids,
                     )
                 )
@@ -969,20 +1077,24 @@ def materialize_shared_weekly_plan(
                 meal_type=choice.meal_type,
                 location=request_slot.location,
             )
+            if data.excluded_food_item_ids:
+                planned.meal_event.notes = json.dumps(
+                    {
+                        "requested_group_food_exclusions": [
+                            str(v) for v in data.excluded_food_item_ids
+                        ]
+                    }
+                )
             session.flush()
             if planned.meal_event.id is None:
-                raise WeeklyPlanningApiError(
-                    "A weekly MealEvent was not persisted."
-                )
+                raise WeeklyPlanningApiError("A weekly MealEvent was not persisted.")
             serving_ids = [
                 participant.serving.id
                 for participant in planned.participants
                 if participant.serving.id is not None
             ]
             if len(serving_ids) != len(planned.participants):
-                raise WeeklyPlanningApiError(
-                    "Weekly servings were not fully persisted."
-                )
+                raise WeeklyPlanningApiError("Weekly servings were not fully persisted.")
             materialized.append(
                 SharedWeeklyPlanMaterializedChoiceRead(
                     slot_key=choice.slot_key,
@@ -992,7 +1104,6 @@ def materialize_shared_weekly_plan(
                     serving_ids=serving_ids,
                 )
             )
-
 
     session.commit()
     return SharedWeeklyPlanRead(
