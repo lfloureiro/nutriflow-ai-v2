@@ -147,6 +147,8 @@ def retail_alternatives(db: Session, family_id: uuid.UUID):
         for row in confirmations
         if confirmation_current(row)
     }
+    from app.services.retail_pricing import retail_unit_price
+
     result = []
     for product in db.scalars(
         select(RetailAlternative).order_by(
@@ -160,6 +162,9 @@ def retail_alternatives(db: Session, family_id: uuid.UUID):
             for key in dict.fromkeys(product.source_food_catalog_keys)
             for food_id in foods_by_key.get(key, [])
         ]
+        read.price_comparison = retail_unit_price(
+            product.pack_quantity, product.pack_unit, product.observed_price
+        )
         read.evidence_fingerprint = label_fingerprint(product)
         read.ingredient_confirmation_issue = confirmation_issue(product)
         read.confirmed_food_item_id = confirmed.get(product.id)

@@ -123,3 +123,14 @@ na despensa. Repetir a confirmação não duplica stock. Se houver várias valid
 registar lotes separados na despensa nesta fase. Artigos livres sem ingrediente não
 são associados automaticamente a um alimento. A escolha de embalagens passa a ser
 apresentada como histórico depois da entrada, sem texto riscado nos dados do produto.
+
+
+## Comparar lojas sem perder o ingrediente em revisão
+
+Abrir «Comparar lojas e rever rótulos» no artigo das compras. A tabela mostra embalagem,
+preço observado por kg/l, loja, data e informação disponível. Produtos do mesmo grupo
+podem ter composições e funções culinárias diferentes: o preço não decide a substituição.
+Escolher «Rever rótulo» abre apenas esse detalhe. Informação incompleta exige consulta
+e revisão; não permite criar um ingrediente utilizável nesta fase. Um ingrediente já
+confirmado continua a mostrar opções de outras lojas, mas a escolha efetiva nas compras
+mantém a exigência de identidade exata e variante validada.

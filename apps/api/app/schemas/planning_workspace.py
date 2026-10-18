@@ -56,6 +56,13 @@ class WeekSetupRead(BaseModel):
     attendance: list[MealAttendance] = Field(default_factory=list)
 
 
+class RetailUnitPriceRead(BaseModel):
+    currency: Literal["EUR"] = "EUR"
+    reference_unit: Literal["kg", "l"] | None = None
+    unit_price: Decimal | None = None
+    issue: Literal["price_unavailable", "invalid_price", "invalid_pack", "unit_not_comparable"] | None = None
+
+
 class RetailAlternativeRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
@@ -75,6 +82,7 @@ class RetailAlternativeRead(BaseModel):
     ingredient_confirmation_issue: str | None = None
     confirmed_food_item_id: uuid.UUID | None = None
     applicable_food_item_ids: list[uuid.UUID] = Field(default_factory=list)
+    price_comparison: RetailUnitPriceRead | None = None
 
 
 class PlanningRestrictionsRequest(BaseModel):

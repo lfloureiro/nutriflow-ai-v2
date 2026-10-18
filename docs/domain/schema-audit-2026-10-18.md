@@ -83,3 +83,10 @@ Uma coluna JSON nullable `shopping_list_items.pantry_receipt` preserva a entrada
 e a referência histórica ao lote. Total mantém 53 tabelas aplicacionais + Alembic.
 Sem novos índices: procura pelo PK do artigo e unicidade de stock_key já existentes.
 Bloqueio transacional e unicidade do lote impedem repetição da entrada.
+
+
+### Delta ADR-071 — preço de comparação derivado
+
+Sem alteração de tabela/índice/migration. Campo `price_comparison` acrescentado ao modelo
+de leitura das observações, calculado com Decimal e unidades físicas conhecidas. Sem
+preço normalizado persistido, sem consultas por linha adicionais. Head b781e265c904.

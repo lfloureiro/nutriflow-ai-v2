@@ -1,3 +1,4 @@
+import {relatedRetailAlternatives} from "./retailComparison";
 import { useState } from "react";
 import type { ReviewRecipe } from "./api/dietaryReviewClient";
 import type { PlanningRestrictions, RetailAlternative } from "./api/planningWorkspaceClient";
@@ -45,7 +46,7 @@ export default function RecipeAdaptationCards({recipes, excluded, products, rest
             <p className="muted">{option.status==="reviewed" ? (pt ? "Revista" : "Reviewed") : (pt ? "Proposta por rever" : "Proposal to review")} · {option.replacement_quantity ? `${option.replacement_quantity} ${option.replacement_unit}` : (pt ? "Quantidade por definir; não aplicar grama por grama" : "Quantity needed; do not replace gram for gram")}</p>
             <p>{option.notes}</p>
           </div>)}
-          <details><summary>{pt ? "Alternativas de supermercado" : "Supermarket alternatives"}</summary><RetailAlternativeCards products={products.filter(p=>p.applicable_food_item_ids.includes(i.food_item_id))}/></details>
+          <details><summary>{pt ? "Alternativas de supermercado" : "Supermarket alternatives"}</summary><RetailAlternativeCards products={relatedRetailAlternatives(products,i.food_item_id)}/></details>
         </div>;
       })}
     </article>)}</div>

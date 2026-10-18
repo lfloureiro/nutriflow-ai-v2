@@ -16,6 +16,7 @@ import type { ShoppingList, ShoppingListItem } from "./api/pantryShoppingTypes";
 import { useI18n } from "./i18n";
 import { listRetailAlternatives, type RetailAlternative } from "./api/planningWorkspaceClient";
 import RetailAlternativeCards from "./RetailAlternativeCards";
+import {relatedRetailAlternatives} from "./retailComparison";
 import ShoppingProductChoice from "./ShoppingProductChoice";
 import ShoppingReceiptEntry from "./ShoppingReceiptEntry";
 import "./planning-journey.css";
@@ -355,7 +356,7 @@ export default function ShoppingListScreen({ familyId, initialStartDate }: { fam
                 </div>
                 <ShoppingReceiptEntry key={`${familyId}:${item.id}`} familyId={familyId} item={item} onChanged={setData} disabled={busy}/>
                 <ShoppingProductChoice familyId={familyId} item={item} products={retail} onChanged={setData} disabled={busy}/>
-                {item.food_item_id && item.status === "needed" && retail.some(p=>p.applicable_food_item_ids.includes(item.food_item_id!)) ? <details className="shopping-retail"><summary>{locale === "pt-PT" ? "Ver alternativas e rótulos de supermercado" : "View supermarket alternatives and labels"}</summary><RetailAlternativeCards familyId={familyId} onConfirmed={()=>{void listRetailAlternatives(familyId).then(setRetail).catch(e=>setRetailError(String(e)));}} products={retail.filter(p => p.applicable_food_item_ids.includes(item.food_item_id!))}/>{!retail.some(p => p.applicable_food_item_ids.includes(item.food_item_id!)) && <p>{locale === "pt-PT" ? "Ainda não há um produto pesquisado para este ingrediente." : "No researched product for this ingredient yet."}</p>}</details> : null}
+                {item.food_item_id && item.status === "needed" && relatedRetailAlternatives(retail,item.food_item_id,item.product_selection?.product_url).length>0 ? <details className="shopping-retail"><summary>{locale === "pt-PT" ? "Comparar lojas e rever rótulos" : "Compare stores and review labels"}</summary><RetailAlternativeCards familyId={familyId} onConfirmed={()=>{void listRetailAlternatives(familyId).then(setRetail).catch(e=>setRetailError(String(e)));}} products={relatedRetailAlternatives(retail,item.food_item_id,item.product_selection?.product_url)}/></details> : null}
               </article>
             ))}
           </section>

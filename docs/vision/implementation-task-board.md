@@ -11,7 +11,7 @@ o desenho detalhado está em `integrated-family-meal-planning-roadmap.md`.
 | T03 | Concluída localmente para regras registadas/contexto escolhido | Validar variante para todos os presentes | Nenhuma troca parcial é apresentada como solução completa; conflitos e falta de evidência ficam visíveis |
 | T04 | Parcial: presenças por refeição, cópia de semana e repetição de grupos | Presenças por refeição | Padrões, exceções, grupos, ausência/incerteza e refeições individuais funcionam na mesma semana |
 | T05 | Parcial: seleção e agenda manual revalidam presentes/data | Escolher automaticamente original/variante | Entrar/sair um participante recalcula sem aplicar restrições de ausentes; escolhas fixadas são revalidadas |
-| T06 | Parcial: ingrediente efetivo, embalagens e entrada real na despensa implementados | Comprar ingredientes efetivos | Compras da variante por porções/stock, sem ingrediente substituído nem duplicações; embalagens e quantidades confirmáveis |
+| T06 | Parcial: ingrediente efetivo, comparação de lojas, embalagens e entrada real na despensa | Comprar ingredientes efetivos | Compras da variante por porções/stock, sem ingrediente substituído nem duplicações; embalagens e quantidades confirmáveis |
 | T07 | Parcial: onze produtos observados em duas lojas | Ampliar alternativas e rótulos | Priorizar ingredientes usados; produtos com fonte/data e cobertura explícita de composição, sem certificação inventada |
 | T08 | Parcial: procura no detalhe da refeição | Pesquisa única e mapa | Casa/entrega/restaurante preservam participantes, data, zona e regras; mapa/lista sincronizados |
 | T09 | Dependente de acesso externo | Conectores reais autorizados | Adaptadores, credenciais adequadas e testes reais; falhas isoladas por fonte; não apresentar fixtures como live |
@@ -190,3 +190,22 @@ pré-visualização → guardar 3 embalagens → recarregar → escolha preserva
 - Validação ADR-070: 407 testes API completos, 132 frontend, TypeScript/build e Ruff
   passaram. Os quatro testes inicialmente bloqueados pela pasta temporária do Windows
   passaram na regressão completa com pasta temporária própria do projeto.
+
+
+## Continuação — comparação contextual de lojas (ADR-071)
+
+- Implementado: preço observado por kg/l, embalagem, loja, fonte/data e indicação de
+  informação incompleta; dimensões físicas e grupos comerciais separados.
+- Implementado: opções de outras lojas mantidas para ingredientes já confirmados, sem
+  lhes atribuir equivalência de composição ou relaxar a validação das variantes/compras.
+- Implementado: tabela nos detalhes relevantes, com apenas um rótulo aberto de cada vez;
+  a confirmação de revisão está ligada à impressão atual do rótulo.
+- Verificado no browser: reposição de um ingrediente confirmado mostra Auchan e Continente;
+  alternar rótulo fecha o anterior; informação incompleta bloqueia criação de ingrediente.
+- Sem migration. Reutiliza onze observações, sem apresentar os preços como consulta live.
+- Próximas tarefas: ampliar e atualizar rótulos; comparação de cesto por loja e entrega;
+  receções parciais/lotes por validade; sobras/consumo; refeições individuais e presenças;
+  fases e tolerâncias alimentares. Integrações de entrega continuam dependentes de acesso.
+
+Validação ADR-071: 421 API completos, 36 focados e 140 frontend passaram; TypeScript/build,
+Ruff e Alembic check sem erros. Interface verificada em base sintética separada.

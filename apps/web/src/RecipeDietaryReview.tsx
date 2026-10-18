@@ -1,3 +1,4 @@
+import {relatedRetailAlternatives} from "./retailComparison";
 import IngredientAlternativeLine from "./IngredientAlternativeLine";
 import { useEffect, useState } from "react";
 import {
@@ -137,7 +138,7 @@ export default function RecipeDietaryReview({familyId,planningDate,personIds,onV
           {!i.references.length && <p>{pt ? "Sem referência associada — não significa baixo teor." : "No linked reference — this does not mean low content."}</p>}
           {i.references.map(ref => <p key={ref.id}><span className={`dietary-badge ${ref.classification}`}>{labels[ref.classification]}</span> <a href={ref.source_url} target="_blank" rel="noreferrer">{ref.source_name}</a> · {pt ? "Categoria geral; produto e dose por verificar." : "General category; product and dose unverified."}</p>)}
           {i.substitutions.map(s => <SubstitutionCard key={`${s.id}:${s.version}`} familyId={familyId} row={s} reference={s.reference_id ? refById.get(s.reference_id) : undefined} onChanged={() => setRevision(x => x + 1)} />)}
-          <RetailAlternativeCards familyId={familyId} products={retail.filter(p => p.applicable_food_item_ids.includes(i.food_item_id))}/>
+          <RetailAlternativeCards familyId={familyId} products={relatedRetailAlternatives(retail,i.food_item_id)}/>
           <NewSubstitution key={`${i.id}:${revision}`} familyId={familyId} ingredient={i} references={refs} onChanged={() => setRevision(x => x + 1)} />
         </div>)}
       </article>}

@@ -1,3 +1,14 @@
+## Comparação de lojas no ingrediente — ADR-071 (18/10/2026)
+
+Comparação por €/kg ou €/l, com preço por embalagem, fonte/data e cobertura do rótulo.
+Grupos comerciais e dimensões físicas separados; nenhum produto vira equivalente clínico
+ou substituição aplicada por aparecer com menor preço. Descoberta mantém outras lojas
+para ingredientes confirmados, sem relaxar a identidade exigida para comprar o produto.
+Só um detalhe de rótulo aberto de cada vez. Onze observações existentes; sem consulta live
+neste incremento. Sem migration; head b781e265c904 e 53 tabelas aplicacionais preservados.
+421 testes API completos, 36 focados e 140 frontend passaram; build, Ruff e Alembic check sem erros.
+Browser verificado numa família sintética, sem alterar a família real.
+
 ## Entrada das compras na despensa — ADR-070 (18/10/2026)
 
 Cartão comprado permite confirmar quantidade real/unidade/local/validade e criar um lote.

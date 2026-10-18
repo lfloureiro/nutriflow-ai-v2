@@ -55,3 +55,13 @@
 .shopping-screen .shopping-receipt { grid-column: 1 / -1; padding: .8rem; border: 1px solid var(--border, #cbd5e1); border-radius: .7rem; overflow-wrap: anywhere; }
 .shopping-receipt summary { cursor: pointer; font-weight: 600; }
 .shopping-receipt form { display: grid; gap: .8rem; margin-top: .8rem; }
+
+.retail-comparison { min-width:0; }
+.retail-comparison-scroll { overflow-x:auto; border:1px solid var(--border); border-radius:.7rem; margin:.8rem 0; }
+.retail-comparison table { width:100%; border-collapse:collapse; min-width:620px; font-size:.9rem; }
+.retail-comparison caption { text-align:left; padding:.8rem; font-weight:700; }
+.retail-comparison th, .retail-comparison td { text-align:left; padding:.7rem; vertical-align:top; border-top:1px solid var(--border); }
+.retail-comparison tbody th { min-width:160px; max-width:240px; overflow-wrap:anywhere; }
+.retail-comparison small { display:block; margin:.3rem 0; color:var(--muted); font-weight:400; }
+.retail-comparison tr.selected { background:var(--surface-raised,var(--surface)); outline:2px solid var(--accent); outline-offset:-2px; }
+.retail-comparison a { color:var(--accent); }

@@ -3,7 +3,12 @@ import type { MealType } from "./mealPlanTypes";
 
 export type MealAttendance = {planning_date: string; meal_type: MealType; person_ids: string[]};
 export type WeekSetup = {week_start: string; version: number; attendance?: MealAttendance[]; meal_sources?: Partial<Record<MealType,"home"|"delivery"|"restaurant">>; person_ids: string[]; meal_types: MealType[]; excluded_food_item_ids: string[]};
+export type RetailPriceComparison = {
+  currency:"EUR"; reference_unit:"kg"|"l"|null; unit_price:string|null;
+  issue:"price_unavailable"|"invalid_price"|"invalid_pack"|"unit_not_comparable"|null;
+};
 export type RetailAlternative = {
+  price_comparison?:RetailPriceComparison|null;
   evidence_fingerprint?:string; ingredient_confirmation_issue?:string|null; confirmed_food_item_id?:string|null;
   id: string; retailer: string; name: string; alternative_group: string; product_url: string;
   pack_quantity: string; pack_unit: string; ingredient_summary: string;
