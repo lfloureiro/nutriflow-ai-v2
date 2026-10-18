@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    JSON,
     CheckConstraint,
     Date,
     DateTime,
@@ -84,6 +85,7 @@ class ShoppingListItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             name="ck_shopping_list_items_quantity_unit_shape",
         ),
         CheckConstraint("sort_order >= 0", name="ck_shopping_list_items_sort_nonnegative"),
+        CheckConstraint("version > 0", name="ck_shopping_list_items_version"),
         UniqueConstraint(
             "shopping_list_id",
             "item_key",
@@ -92,6 +94,19 @@ class ShoppingListItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("ix_shopping_list_items_list_status", "shopping_list_id", "status"),
         Index("ix_shopping_list_items_food", "food_item_id"),
     )
+
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    product_confirmation_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey(
+            "retail_ingredient_confirmations.id",
+            ondelete="RESTRICT",
+            name="fk_shopping_items_product_confirmation",
+        ),
+        nullable=True,
+        index=True,
+    )
+    product_selection: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    product_confirmation = relationship("RetailIngredientConfirmation")
 
     shopping_list_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True),

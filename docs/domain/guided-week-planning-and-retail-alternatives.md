@@ -100,3 +100,11 @@ missing-evidence rejection, and matching/stale snapshot shopping calculations.
 
 Delivery integrations and restaurant map remain as described in ADR-060: no live Uber,
 Glovo or Bolt adapter was activated by this increment.
+
+## Produto concreto e embalagens — ADR-069
+
+O rótulo completo pode originar um ingrediente próprio confirmado. Depois de validar
+uma variante com esse ingrediente, as compras permitem rever e guardar o número de
+embalagens, o excedente e o custo observado. A ligação de proposta ao ingrediente
+original não basta para escolher o produto. Dados incompletos continuam bloqueados.
+Ver ADR-069 para snapshots, concorrência, alterações que exigem revisão e limitações.

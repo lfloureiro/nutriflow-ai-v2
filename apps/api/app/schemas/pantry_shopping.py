@@ -98,6 +98,8 @@ class ShoppingListItemRead(BaseModel):
     status: ShoppingItemStatus
     notes: str | None
     sort_order: int
+    version: int = 1
+    product_selection: dict | None = None
 
 
 class ShoppingListRefreshRequest(BaseModel):
@@ -118,3 +120,10 @@ class ShoppingListRead(BaseModel):
     items: list[ShoppingListItemRead]
     created_at: datetime
     updated_at: datetime
+
+
+class ShoppingProductSelect(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_version: int = Field(gt=0)
+    retail_product_id: uuid.UUID | None = None
+    expected_fingerprint: str | None = Field(default=None, min_length=64, max_length=64)

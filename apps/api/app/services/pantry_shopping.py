@@ -447,13 +447,27 @@ def build_planned_requirements(
 
 
 def _shopping_options():
-    return (selectinload(ShoppingList.items).selectinload(ShoppingListItem.food_item),)
+    from app.models.food_catalog import FoodCompositionSnapshot
+    from app.models.retail_confirmation import RetailIngredientConfirmation
+
+    confirmation = selectinload(ShoppingList.items).selectinload(
+        ShoppingListItem.product_confirmation
+    )
+    return (
+        selectinload(ShoppingList.items).selectinload(ShoppingListItem.food_item),
+        confirmation.selectinload(RetailIngredientConfirmation.retail_product),
+        confirmation.selectinload(RetailIngredientConfirmation.food_item)
+        .selectinload(FoodItem.compositions)
+        .selectinload(FoodCompositionSnapshot.nutrients),
+    )
 
 
 def _active_shopping_list(db: Session, family: Family) -> ShoppingList:
     shopping_list = db.scalar(
         select(ShoppingList)
         .options(*_shopping_options())
+        .with_for_update(of=ShoppingList)
+        .execution_options(populate_existing=True)
         .where(ShoppingList.family_id == family.id, ShoppingList.status == "active")
         .order_by(ShoppingList.created_at.desc())
         .limit(1)
@@ -473,7 +487,9 @@ def _active_shopping_list(db: Session, family: Family) -> ShoppingList:
     return shopping_list
 
 
-def _item_read(item: ShoppingListItem) -> ShoppingListItemRead:
+def _item_read(item: ShoppingListItem, requirement=None) -> ShoppingListItemRead:
+    from app.services.retail_purchase import selection_read
+
     return ShoppingListItemRead(
         id=item.id,
         food_item_id=item.food_item_id,
@@ -484,6 +500,8 @@ def _item_read(item: ShoppingListItem) -> ShoppingListItemRead:
         status=item.status,
         notes=item.notes,
         sort_order=item.sort_order,
+        version=item.version,
+        product_selection=selection_read(item, requirement),
     )
 
 
@@ -491,6 +509,7 @@ def _shopping_read(
     shopping_list: ShoppingList,
     result: PlannedRequirementsResult,
 ) -> ShoppingListRead:
+    requirements_by_food = {r.food_item_id: r for r in result.requirements}
     return ShoppingListRead(
         id=shopping_list.id,
         family_id=shopping_list.family_id,
@@ -501,7 +520,13 @@ def _shopping_read(
         generated_at=shopping_list.generated_at,
         requirements=list(result.requirements),
         planning_issues=list(result.issues),
-        items=[_item_read(item) for item in shopping_list.items],
+        items=[
+            _item_read(
+                item,
+                requirements_by_food.get(item.food_item_id),
+            )
+            for item in shopping_list.items
+        ],
         created_at=shopping_list.created_at,
         updated_at=shopping_list.updated_at,
     )
@@ -558,6 +583,11 @@ def refresh_shopping_list(
         existing = automatic.get(requirement.food_item_id)
         if existing is not None:
             if existing.status == "needed":
+                if (
+                    existing.quantity != requirement.missing_quantity
+                    or existing.unit != requirement.unit
+                ):
+                    existing.version += 1
                 existing.name = requirement.food_item_name
                 existing.quantity = requirement.missing_quantity
                 existing.unit = requirement.unit
@@ -617,8 +647,15 @@ def _shopping_item(
     family_id: uuid.UUID,
     item_id: uuid.UUID,
 ) -> ShoppingListItem:
+    db.scalar(
+        select(ShoppingList)
+        .where(ShoppingList.family_id == family_id, ShoppingList.status == "active")
+        .with_for_update()
+    )
     item = db.scalar(
         select(ShoppingListItem)
+        .with_for_update(of=ShoppingListItem)
+        .execution_options(populate_existing=True)
         .join(ShoppingListItem.shopping_list)
         .where(
             ShoppingListItem.id == item_id,
@@ -638,6 +675,7 @@ def update_shopping_item(
     data: ShoppingListItemUpdate,
 ) -> ShoppingListRead:
     item = _shopping_item(db, family.id, item_id)
+    item.version += 1
     fields = data.model_fields_set
     if "name" in fields and data.name is not None:
         item.name = data.name

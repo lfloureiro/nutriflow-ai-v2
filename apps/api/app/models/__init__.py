@@ -99,6 +99,7 @@ __all__ = [
     "RecipeNutrientComponent",
     "RecipeSubstitutionReview",
     "RetailAlternative",
+    "RetailIngredientConfirmation",
     "ScheduleEntry",
     "Serving",
     "ServingNutritionComponent",
@@ -106,3 +107,4 @@ __all__ = [
     "ShoppingListItem",
 ]
 from app.models.recipe_variant import FamilyRecipeVariant
+from app.models.retail_confirmation import RetailIngredientConfirmation

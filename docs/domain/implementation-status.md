@@ -1,3 +1,13 @@
+## Produtos confirmados e embalagens — ADR-069 (18/10/2026)
+
+Implementado ingrediente próprio a partir de rótulo revisto, ligação exata às compras,
+pré-visualização e escolha versionada de embalagens. Quantidades são as efetivas depois
+do stock; propostas do original não servem como identidade do substituto. Mudanças
+invalidam nova utilização e exigem revisão; compras históricas mantêm snapshot.
+Migration 93c8e18311c4 em teste/live, com backup e ciclo reversível na base isolada.
+20 testes API focados, 128 frontend e build passaram; regressão completa 399 passou
+antes dos ajustes finais de catálogo/rollback. Interface em base sintética própria.
+
 ## Continuação: organização reutilizável e agenda segura — ADR-068
 
 Copiar semana anterior e repetir um grupo por tempo implementados no percurso. As regras
@@ -388,3 +398,8 @@ After this slice is reviewed and eventually merged, the next Phase 8 work should
 
 Execução focada final: 14 testes de agenda/variantes passaram, incluindo grupo com
 mais de 20 pessoas e rejeição do ingrediente para o último participante.
+
+Validação final T06: 34 API focados e 128 frontend passaram; regressão completa API 399
+passou neste incremento. Build, Ruff e Alembic check passaram. Interface isolada confirmou
+pré-visualização → guardar 3 embalagens → recarregar → escolha preservada. Captura local
+`docs/audits/2026-10-18/confirmed-shopping-packages-interface.png`, sem publicação de dados.

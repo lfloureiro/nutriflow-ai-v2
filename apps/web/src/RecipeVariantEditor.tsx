@@ -34,6 +34,7 @@ export default function RecipeVariantEditor({familyId,recipe,planningDate,person
   return <section className="journey-card" aria-label={pt?"Variante completa da receita":"Complete recipe variant"}>
     <h3>{pt?"Variante familiar completa":"Complete Family variant"}</h3>
     <p>{pt?"Escolhe todas as trocas necessárias, identifica os ingredientes concretos e confirma as quantidades para a receita inteira. Guardar cria um rascunho; só uma variante validada pode ser ativada para aparecer no planeamento.":"Choose every required change, identify the actual ingredients and confirm whole-recipe quantities. Saving creates a draft; only a validated variant can be activated for planning."}</p>
+    <button type="button" className="button secondary small" disabled={busy||loading} onClick={()=>void run(async()=>{setFoods(await listFamilyIngredients(familyId));setNotice(pt?"Ingredientes atualizados. Já podes escolher os produtos confirmados.":"Ingredients refreshed. Confirmed products are now available to select.");})}>{pt?"Atualizar ingredientes":"Refresh ingredients"}</button>
     {loading&&<p role="status">{pt?"A carregar ingredientes e variantes…":"Loading ingredients and variants…"}</p>}
     {error&&<p role="alert" className="error-banner">{error}</p>}{notice&&<p role="status">{notice}</p>}
     <details><summary>{pt?"Preparar nova variante ou revisão":"Prepare a new variant or revision"}</summary>

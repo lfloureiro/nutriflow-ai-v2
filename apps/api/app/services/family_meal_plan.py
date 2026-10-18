@@ -382,6 +382,10 @@ def _planning_recipe(
 
 
 def _validate_recipe_context(db, family_id, recipe, event, values):
+    from app.services.retail_purchase import retail_recipe_issues
+
+    if issues := retail_recipe_issues(db, recipe):
+        raise MealPlanError("Recipe retail evidence needs review: " + "; ".join(issues))
     if recipe.source != "family_variant":
         from app.services.meal_recommendation import _food_subjects
         from app.services.planning_restrictions import automatic_excluded_foods

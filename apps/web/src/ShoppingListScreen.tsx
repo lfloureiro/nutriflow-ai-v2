@@ -16,6 +16,7 @@ import type { ShoppingList, ShoppingListItem } from "./api/pantryShoppingTypes";
 import { useI18n } from "./i18n";
 import { listRetailAlternatives, type RetailAlternative } from "./api/planningWorkspaceClient";
 import RetailAlternativeCards from "./RetailAlternativeCards";
+import ShoppingProductChoice from "./ShoppingProductChoice";
 import "./planning-journey.css";
 
 function errorText(error: unknown): string {
@@ -351,7 +352,8 @@ export default function ShoppingListScreen({ familyId, initialStartDate }: { fam
                   <button className="button ghost small" aria-label={`${copy.edit}: ${item.name}`} onClick={() => startEdit(item)} type="button">{copy.edit}</button>
                   <button className="button ghost small" aria-label={`${copy.remove}: ${item.name}`} onClick={() => void remove(item)} type="button">{copy.remove}</button>
                 </div>
-                {item.food_item_id && item.status === "needed" && retail.some(p=>p.applicable_food_item_ids.includes(item.food_item_id!)) ? <details className="shopping-retail"><summary>{locale === "pt-PT" ? "Ver alternativas e rótulos de supermercado" : "View supermarket alternatives and labels"}</summary><RetailAlternativeCards products={retail.filter(p => p.applicable_food_item_ids.includes(item.food_item_id!))}/>{!retail.some(p => p.applicable_food_item_ids.includes(item.food_item_id!)) && <p>{locale === "pt-PT" ? "Ainda não há um produto pesquisado para este ingrediente." : "No researched product for this ingredient yet."}</p>}</details> : null}
+                <ShoppingProductChoice familyId={familyId} item={item} products={retail} onChanged={setData} disabled={busy}/>
+                {item.food_item_id && item.status === "needed" && retail.some(p=>p.applicable_food_item_ids.includes(item.food_item_id!)) ? <details className="shopping-retail"><summary>{locale === "pt-PT" ? "Ver alternativas e rótulos de supermercado" : "View supermarket alternatives and labels"}</summary><RetailAlternativeCards familyId={familyId} onConfirmed={()=>{void listRetailAlternatives(familyId).then(setRetail).catch(e=>setRetailError(String(e)));}} products={retail.filter(p => p.applicable_food_item_ids.includes(item.food_item_id!))}/>{!retail.some(p => p.applicable_food_item_ids.includes(item.food_item_id!)) && <p>{locale === "pt-PT" ? "Ainda não há um produto pesquisado para este ingrediente." : "No researched product for this ingredient yet."}</p>}</details> : null}
               </article>
             ))}
           </section>

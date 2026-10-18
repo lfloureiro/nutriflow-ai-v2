@@ -52,6 +52,8 @@ export type ShoppingListItem = {
   status: "needed" | "purchased";
   notes: string | null;
   sort_order: number;
+  version?:number;
+  product_selection?:ShoppingProductSelection|null;
 };
 
 export type ShoppingList = {
@@ -82,4 +84,11 @@ export type ShoppingListItemUpdate = {
   unit?: string | null;
   status?: "needed" | "purchased";
   notes?: string | null;
+};
+
+export type ShoppingProductSelection = {
+  product_name:string; retailer:string; product_url:string; observed_on:string; observed_price:string|null;
+  pack_quantity:string;pack_unit:string; required_quantity:string;required_unit:string;
+  package_count:number|null;total_quantity:string|null;excess_quantity:string|null;estimated_total:string|null;
+  status?:"confirmed"|"needs_review";issues?:string[];
 };

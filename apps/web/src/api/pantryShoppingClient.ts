@@ -115,3 +115,10 @@ export function deleteShoppingItem(familyId: string, itemId: string): Promise<vo
     { method: "DELETE" },
   );
 }
+
+export function selectShoppingProduct(familyId:string,itemId:string,payload:{expected_version:number;retail_product_id:string|null;expected_fingerprint?:string}) {
+  return request<ShoppingList>(`${familyShoppingListPath(familyId)}/items/${encodeURIComponent(itemId)}/product`,{method:"PUT",body:JSON.stringify(payload)});
+}
+export function previewShoppingProduct(familyId:string,itemId:string,payload:{expected_version:number;retail_product_id:string;expected_fingerprint:string}) {
+  return request<import("./pantryShoppingTypes").ShoppingProductSelection>(`${familyShoppingListPath(familyId)}/items/${encodeURIComponent(itemId)}/product-preview`,{method:"POST",body:JSON.stringify(payload)});
+}

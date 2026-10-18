@@ -4,9 +4,9 @@ from datetime import date, timedelta
 from fastapi import HTTPException
 from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from app.models.food_catalog import FoodItem
+from app.models.food_catalog import FoodCompositionSnapshot, FoodItem
 from app.models.person import Person
 from app.models.planning_workspace import FamilyWeekSetup, RetailAlternative
 from app.schemas.planning_workspace import RetailAlternativeRead, WeekSetupRead, WeekSetupWrite
@@ -125,6 +125,28 @@ def retail_alternatives(db: Session, family_id: uuid.UUID):
     foods_by_key = {}
     for food in foods:
         foods_by_key.setdefault(food.catalog_key, []).append(food.id)
+    from app.models.retail_confirmation import RetailIngredientConfirmation
+    from app.services.retail_purchase import (
+        confirmation_current,
+        confirmation_issue,
+        label_fingerprint,
+    )
+
+    confirmations = db.scalars(
+        select(RetailIngredientConfirmation)
+        .where(RetailIngredientConfirmation.family_id == family_id)
+        .options(
+            selectinload(RetailIngredientConfirmation.retail_product),
+            selectinload(RetailIngredientConfirmation.food_item)
+            .selectinload(FoodItem.compositions)
+            .selectinload(FoodCompositionSnapshot.nutrients),
+        )
+    ).all()
+    confirmed = {
+        row.retail_product_id: row.food_item_id
+        for row in confirmations
+        if confirmation_current(row)
+    }
     result = []
     for product in db.scalars(
         select(RetailAlternative).order_by(
@@ -138,5 +160,13 @@ def retail_alternatives(db: Session, family_id: uuid.UUID):
             for key in dict.fromkeys(product.source_food_catalog_keys)
             for food_id in foods_by_key.get(key, [])
         ]
+        read.evidence_fingerprint = label_fingerprint(product)
+        read.ingredient_confirmation_issue = confirmation_issue(product)
+        read.confirmed_food_item_id = confirmed.get(product.id)
+        if (
+            read.confirmed_food_item_id
+            and read.confirmed_food_item_id not in read.applicable_food_item_ids
+        ):
+            read.applicable_food_item_ids.append(read.confirmed_food_item_id)
         result.append(read)
     return result

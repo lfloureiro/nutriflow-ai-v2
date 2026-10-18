@@ -59,6 +59,10 @@ def variant_issues(db, row):
     base = load_recipe(db, row.base_recipe_id)
     recipe = load_recipe(db, row.recipe_id)
     issues = []
+    from app.services.retail_purchase import retail_recipe_issues
+
+    if recipe is not None:
+        issues.extend(retail_recipe_issues(db, recipe))
     if base is None or not base.is_active or recipe_fingerprint(base) != row.base_fingerprint:
         issues.append("base_recipe_changed: criar uma nova revisão da variante")
     if recipe is None or recipe_fingerprint(recipe) != row.variant_fingerprint:
@@ -84,6 +88,10 @@ def variant_for_recipe(db, recipe_id):
 
 
 def assert_variant_usable(db, recipe):
+    from app.services.retail_purchase import retail_recipe_issues
+
+    if issues := retail_recipe_issues(db, recipe):
+        raise ValueError("Recipe retail evidence needs review: " + "; ".join(issues))
     if recipe.source != "family_variant":
         return
     row = variant_for_recipe(db, recipe.id)

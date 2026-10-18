@@ -66,3 +66,12 @@ Sem linhas de dados pessoais. Inspeção PostgreSQL e metadados SQLAlchemy.
 - Retalho: chave única, embalagem positiva e preço não negativo; valores observados não são stock em tempo real.
 - Índices não foram adicionados sem evidência de lentidão; medir EXPLAIN com volume representativo antes de otimizar planos SQL.
 - Os testes usam exclusivamente uma base separada; Alembic check sem diferenças.
+
+## Evolução após o inventário — ADR-069
+
+Head `93c8e18311c4`: 53 tabelas de aplicação, mais `alembic_version`.
+Acrescentada `retail_ingredient_confirmations` (9 colunas, 3 FK, 2 unicidades e índice
+por produto), e 3 colunas em `shopping_list_items`: versão, FK de confirmação e snapshot
+JSON da escolha. Versão positiva validada por CHECK; FK nomeada para downgrade reversível.
+Índice por confirmação protege referências de compras. Alembic check sem diferenças.
+O inventário acima conserva o snapshot inicial da auditoria, anterior a esta migration.

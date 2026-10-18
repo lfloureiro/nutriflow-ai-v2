@@ -45,3 +45,9 @@
 .shopping-screen .requirement-row > .ingredient-alternative-line {grid-column:1 / -1;}
 
 .shopping-screen .shopping-item > .status-chip {justify-self:start;}
+
+.shopping-product-choice {grid-column:1 / -1;border-top:1px solid var(--border);padding-top:1rem;min-width:0;}
+.shopping-product-choice p {overflow-wrap:anywhere;line-height:1.5;}
+.retail-confirmation {display:grid;gap:.75rem;margin-top:1rem;}
+.retail-confirmation label {display:flex;align-items:start;gap:.65rem;line-height:1.5;}
+.retail-confirmation input {width:1.1rem;height:1.1rem;flex-shrink:0;accent-color:var(--accent);}

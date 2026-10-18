@@ -2,7 +2,7 @@ import uuid
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -10,11 +10,14 @@ from app.schemas.planning_workspace import (
     PlanningRestrictionsRead,
     PlanningRestrictionsRequest,
     RetailAlternativeRead,
+    RetailIngredientConfirmRead,
+    RetailIngredientConfirmRequest,
     WeekSetupRead,
     WeekSetupWrite,
 )
 from app.services.planning_restrictions import planning_restrictions
 from app.services.planning_workspace import get_setup, retail_alternatives, save_setup
+from app.services.retail_purchase import confirm_ingredient
 
 router = APIRouter(prefix="/families/{family_id}", tags=["planning workspace"])
 DB = Annotated[Session, Depends(get_db)]
@@ -38,3 +41,17 @@ def write_setup(family_id: uuid.UUID, week_start: date, data: WeekSetupWrite, db
 @router.get("/retail-alternatives", response_model=list[RetailAlternativeRead])
 def list_alternatives(family_id: uuid.UUID, db: DB):
     return retail_alternatives(db, family_id)
+
+
+@router.post(
+    "/retail-alternatives/{product_id}/confirm-ingredient",
+    response_model=RetailIngredientConfirmRead,
+)
+def confirm_retail_ingredient(
+    family_id: uuid.UUID, product_id: uuid.UUID, data: RetailIngredientConfirmRequest, db: DB
+):
+    try:
+        return confirm_ingredient(db, family_id, product_id, data)
+    except HTTPException:
+        db.rollback()
+        raise

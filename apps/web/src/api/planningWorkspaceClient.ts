@@ -4,6 +4,7 @@ import type { MealType } from "./mealPlanTypes";
 export type MealAttendance = {planning_date: string; meal_type: MealType; person_ids: string[]};
 export type WeekSetup = {week_start: string; version: number; attendance?: MealAttendance[]; meal_sources?: Partial<Record<MealType,"home"|"delivery"|"restaurant">>; person_ids: string[]; meal_types: MealType[]; excluded_food_item_ids: string[]};
 export type RetailAlternative = {
+  evidence_fingerprint?:string; ingredient_confirmation_issue?:string|null; confirmed_food_item_id?:string|null;
   id: string; retailer: string; name: string; alternative_group: string; product_url: string;
   pack_quantity: string; pack_unit: string; ingredient_summary: string;
   evidence_level: string; observed_price: string | null; observed_on: string; notes: string;
@@ -32,3 +33,5 @@ export type PlanningRestrictions = {
 export const getPlanningRestrictions = (familyId: string, setup: WeekSetup) => request<PlanningRestrictions>(`${base(familyId)}/planning-restrictions`, {
   method: "POST", body: JSON.stringify({person_ids:setup.person_ids,week_start:setup.week_start,meal_types:setup.meal_types,attendance:setup.attendance ?? []}),
 });
+
+export const confirmRetailIngredient = (familyId:string,product:RetailAlternative) => request<{food_item_id:string;confirmation_id:string}>(`${base(familyId)}/retail-alternatives/${encodeURIComponent(product.id)}/confirm-ingredient`, {method:"POST",body:JSON.stringify({expected_fingerprint:product.evidence_fingerprint,label_reviewed:true})});

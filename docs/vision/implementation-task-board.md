@@ -11,7 +11,7 @@ o desenho detalhado está em `integrated-family-meal-planning-roadmap.md`.
 | T03 | Concluída localmente para regras registadas/contexto escolhido | Validar variante para todos os presentes | Nenhuma troca parcial é apresentada como solução completa; conflitos e falta de evidência ficam visíveis |
 | T04 | Parcial: presenças por refeição, cópia de semana e repetição de grupos | Presenças por refeição | Padrões, exceções, grupos, ausência/incerteza e refeições individuais funcionam na mesma semana |
 | T05 | Parcial: seleção e agenda manual revalidam presentes/data | Escolher automaticamente original/variante | Entrar/sair um participante recalcula sem aplicar restrições de ausentes; escolhas fixadas são revalidadas |
-| T06 | Parcial: ingredientes da variante verificados; embalagens/retalho pendentes | Comprar ingredientes efetivos | Compras da variante por porções/stock, sem ingrediente substituído nem duplicações; embalagens e quantidades confirmáveis |
+| T06 | Parcial: ingrediente efetivo, produto confirmado e embalagens implementados | Comprar ingredientes efetivos | Compras da variante por porções/stock, sem ingrediente substituído nem duplicações; embalagens e quantidades confirmáveis |
 | T07 | Parcial: onze produtos observados em duas lojas | Ampliar alternativas e rótulos | Priorizar ingredientes usados; produtos com fonte/data e cobertura explícita de composição, sem certificação inventada |
 | T08 | Parcial: procura no detalhe da refeição | Pesquisa única e mapa | Casa/entrega/restaurante preservam participantes, data, zona e regras; mapa/lista sincronizados |
 | T09 | Dependente de acesso externo | Conectores reais autorizados | Adaptadores, credenciais adequadas e testes reais; falhas isoladas por fonte; não apresentar fixtures como live |
@@ -156,3 +156,20 @@ TypeScript/build, Ruff completo e Alembic check passaram. Sem nova migration.
 
 Execução focada final: 14 testes de agenda/variantes passaram, incluindo grupo com
 mais de 20 pessoas e rejeição do ingrediente para o último participante.
+
+## T06 — produto confirmado e embalagens (ADR-069)
+
+- Confirmação explícita de rótulo cria ingrediente próprio, disponível no editor de variantes;
+  registo idempotente e familiar, com evidência imutável. Dados em falta não são inventados.
+- Compras aceitam só o produto do ingrediente efetivo. Proposta ligada ao ingrediente
+  original não permite calcular embalagens do substituto.
+- Pré-visualização antes de guardar: embalagens arredondadas para cima, excedente e custo
+  observado. Quantidades/estado/rótulo mudados exigem revisão; comprado mantém histórico.
+- Migration 93c8e18311c4 testada com recuo e aplicada após backup; sem alterar receitas pessoais.
+- 399 API completos, 20 API focados e 128 frontend passaram em verificações deste bloco;
+  últimos ajustes e interface em validação. Faltam comparar lojas e entrada real de stock.
+
+Validação final T06: 34 API focados e 128 frontend passaram; regressão completa API 399
+passou neste incremento. Build, Ruff e Alembic check passaram. Interface isolada confirmou
+pré-visualização → guardar 3 embalagens → recarregar → escolha preservada. Captura local
+`docs/audits/2026-10-18/confirmed-shopping-packages-interface.png`, sem publicação de dados.

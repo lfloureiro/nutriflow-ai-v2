@@ -71,6 +71,9 @@ class RetailAlternativeRead(BaseModel):
     observed_price: Decimal | None
     observed_on: date
     notes: str
+    evidence_fingerprint: str = ""
+    ingredient_confirmation_issue: str | None = None
+    confirmed_food_item_id: uuid.UUID | None = None
     applicable_food_item_ids: list[uuid.UUID] = Field(default_factory=list)
 
 
@@ -98,3 +101,14 @@ class PlanningRestrictionsRead(BaseModel):
     attendance: list[MealAttendance] = Field(default_factory=list)
     sources: list[AutomaticRestrictionSource]
     warnings: list[str]
+
+
+class RetailIngredientConfirmRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_fingerprint: str = Field(min_length=64, max_length=64)
+    label_reviewed: Literal[True]
+
+
+class RetailIngredientConfirmRead(BaseModel):
+    food_item_id: uuid.UUID
+    confirmation_id: uuid.UUID
