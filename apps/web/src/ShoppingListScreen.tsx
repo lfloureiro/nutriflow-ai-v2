@@ -1,3 +1,4 @@
+import {orderedShoppingItems} from "./shoppingDisplay";
 import {getFamilyMealPlan} from "./api/client";
 import {listRecipeReviews,type ReviewRecipe} from "./api/dietaryReviewClient";
 import {foodAlternativeNames,calendarDateOffset} from "./mealAlternatives";
@@ -65,7 +66,7 @@ export default function ShoppingListScreen({ familyId, initialStartDate }: { fam
           refresh: "Atualizar a partir do plano",
           needs: "Necessidades do plano",
           required: "necessário",
-          stock: "em stock",
+          stock: "utilizáveis no plano",
           missing: "falta",
           list: "Lista de compras",
           addManual: "Adicionar item manual",
@@ -94,7 +95,7 @@ export default function ShoppingListScreen({ familyId, initialStartDate }: { fam
           refresh: "Refresh from plan",
           needs: "Plan requirements",
           required: "required",
-          stock: "in stock",
+          stock: "usable for this plan",
           missing: "missing",
           list: "Shopping list",
           addManual: "Add manual item",
@@ -326,6 +327,7 @@ export default function ShoppingListScreen({ familyId, initialStartDate }: { fam
                 <span>{formatShoppingQuantity(requirement.required_quantity,locale)} {requirement.unit} {copy.required}</span>
                 <span>{formatShoppingQuantity(requirement.available_quantity,locale)} {requirement.unit} {copy.stock}</span>
                 <span>{formatShoppingQuantity(requirement.missing_quantity,locale)} {requirement.unit} {copy.missing}</span>
+                {Number(requirement.incoming_quantity??0)>0&&<div className="requirement-delivery-note"><span>{formatShoppingQuantity(requirement.incoming_quantity!,locale)} {requirement.unit} {locale==="pt-PT"?"previstos por receber (não é stock)":"expected to arrive (not stock)"}</span><span>{formatShoppingQuantity(requirement.to_buy_quantity??requirement.missing_quantity,locale)} {requirement.unit} {locale==="pt-PT"?"ainda por comprar":"still to buy"}</span></div>}
               </div>
             ))}
           </section>
@@ -335,7 +337,7 @@ export default function ShoppingListScreen({ familyId, initialStartDate }: { fam
             {alternativesError && <p role="status">{locale==="pt-PT"?"Não foi possível carregar as alternativas deste plano.":"Alternatives for this plan could not be loaded."}</p>}
             {data.items.some(i=>i.status==="needed"&&foodAlternativeNames(planRecipes,i.food_item_id).length>0)&&<p className="journey-context">{locale==="pt-PT"?"As trocas marcadas «por aplicar» são propostas. As quantidades abaixo ainda pertencem à receita original; aplica uma variante validada no plano para atualizar as compras.":"Changes marked not applied are proposals. Quantities still belong to the original recipe; apply a validated variant in the plan to update shopping."}</p>}
             {data.items.length === 0 ? <div className="empty-card">{copy.empty}</div> : null}
-            {data.items.map((item) => (
+            {orderedShoppingItems(data.items).map((item) => (
               <article className={`shopping-item ${item.status === "purchased" ? "purchased" : ""}`} key={item.id}>
                 <label className="shopping-check">
                   <input

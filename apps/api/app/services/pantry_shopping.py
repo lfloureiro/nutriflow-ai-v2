@@ -23,7 +23,7 @@ from app.schemas.pantry_shopping import (
     ShoppingListItemUpdate,
     ShoppingListRead,
 )
-from app.services.pantry_planning import PantryPlanningError, assess_food_pantry_stock
+from app.services.pantry_planning import PantryPlanningError, assess_timed_food_pantry_stock
 from app.services.serving_nutrition import UnsupportedUnitConversionError, convert_quantity
 
 ZERO = Decimal(0)
@@ -337,7 +337,7 @@ def _aggregate_planned_ingredients(
     family: Family,
     start_date: date,
     days: int,
-) -> tuple[dict[uuid.UUID, tuple[FoodItem, Decimal, str]], list[str]]:
+) -> tuple[dict[uuid.UUID, tuple[FoodItem, Decimal, str]], list[str], dict]:
     start_at, end_at = _utc_bounds(family, start_date, days)
     servings = db.scalars(
         select(Serving)
@@ -355,6 +355,7 @@ def _aggregate_planned_ingredients(
     ).all()
 
     grouped: dict[uuid.UUID, tuple[FoodItem, Decimal, str]] = {}
+    demands: dict[uuid.UUID, list[tuple[datetime, Decimal]]] = {}
     invalid_food_ids: set[uuid.UUID] = set()
     issues: list[str] = []
     for serving in servings:
@@ -382,6 +383,7 @@ def _aggregate_planned_ingredients(
             existing = grouped.get(food.id)
             if existing is None:
                 grouped[food.id] = (food, required, ingredient_unit)
+                demands[food.id] = [(serving.meal_participant.meal_event.scheduled_at, required)]
                 continue
             existing_food, existing_quantity, existing_unit = existing
             try:
@@ -394,12 +396,13 @@ def _aggregate_planned_ingredients(
                 invalid_food_ids.add(food.id)
                 grouped.pop(food.id, None)
                 continue
+            demands[food.id].append((serving.meal_participant.meal_event.scheduled_at, converted))
             grouped[food.id] = (
                 existing_food,
                 existing_quantity + converted,
                 existing_unit,
             )
-    return grouped, issues
+    return grouped, issues, demands
 
 
 def build_planned_requirements(
@@ -412,18 +415,18 @@ def build_planned_requirements(
 ) -> PlannedRequirementsResult:
     if not 1 <= days <= 14:
         raise PantryShoppingError("days must be between 1 and 14.")
-    grouped, issues = _aggregate_planned_ingredients(db, family, start_date, days)
+    grouped, issues, demands = _aggregate_planned_ingredients(db, family, start_date, days)
     instant = as_of or datetime.now(UTC)
     requirements: list[PlannedRequirementRead] = []
     for food, required_quantity, unit in sorted(
         grouped.values(), key=lambda value: value[0].name.lower()
     ):
         try:
-            assessment = assess_food_pantry_stock(
+            assessment = assess_timed_food_pantry_stock(
                 db,
                 family_id=family.id,
                 food_item=food,
-                required_quantity=required_quantity,
+                demands=demands[food.id],
                 required_unit=unit,
                 as_of=instant,
             )
@@ -506,11 +509,40 @@ def _item_read(item: ShoppingListItem, requirement=None) -> ShoppingListItemRead
     )
 
 
+def requirements_with_incoming(shopping_list, result):
+    incoming = {}
+    for item in shopping_list.items:
+        receipt = item.pantry_receipt
+        if not receipt or receipt.get("status") != "partial" or item.food_item_id is None:
+            continue
+        incoming.setdefault(item.food_item_id, []).append(receipt)
+    rows = []
+    for requirement in result.requirements:
+        quantity = ZERO
+        for receipt in incoming.get(requirement.food_item_id, []):
+            try:
+                quantity += convert_quantity(
+                    Decimal(receipt["remaining_quantity"]), receipt["unit"], requirement.unit
+                )
+            except UnsupportedUnitConversionError:
+                continue
+        rows.append(
+            requirement.model_copy(
+                update={
+                    "incoming_quantity": quantity,
+                    "to_buy_quantity": max(ZERO, requirement.missing_quantity - quantity),
+                }
+            )
+        )
+    return rows
+
+
 def _shopping_read(
     shopping_list: ShoppingList,
     result: PlannedRequirementsResult,
 ) -> ShoppingListRead:
-    requirements_by_food = {r.food_item_id: r for r in result.requirements}
+    requirements = requirements_with_incoming(shopping_list, result)
+    requirements_by_food = {r.food_item_id: r for r in requirements}
     return ShoppingListRead(
         id=shopping_list.id,
         family_id=shopping_list.family_id,
@@ -519,7 +551,7 @@ def _shopping_read(
         planning_start=shopping_list.planning_start,
         planning_end=shopping_list.planning_end,
         generated_at=shopping_list.generated_at,
-        requirements=list(result.requirements),
+        requirements=requirements,
         planning_issues=list(result.issues),
         items=[
             _item_read(
@@ -567,12 +599,14 @@ def refresh_shopping_list(
     automatic = {
         item.food_item_id: item
         for item in shopping_list.items
-        if item.item_source == "automatic" and item.food_item_id is not None and not item.pantry_receipt
+        if item.item_source == "automatic"
+        and item.food_item_id is not None
+        and not item.pantry_receipt
     }
     desired = {
         requirement.food_item_id: requirement
-        for requirement in result.requirements
-        if requirement.missing_quantity > ZERO
+        for requirement in requirements_with_incoming(shopping_list, result)
+        if requirement.to_buy_quantity > ZERO
     }
 
     for food_item_id, item in list(automatic.items()):
@@ -585,12 +619,12 @@ def refresh_shopping_list(
         if existing is not None:
             if existing.status == "needed":
                 if (
-                    existing.quantity != requirement.missing_quantity
+                    existing.quantity != requirement.to_buy_quantity
                     or existing.unit != requirement.unit
                 ):
                     existing.version += 1
                 existing.name = requirement.food_item_name
-                existing.quantity = requirement.missing_quantity
+                existing.quantity = requirement.to_buy_quantity
                 existing.unit = requirement.unit
                 existing.sort_order = sort_order
             continue
@@ -599,7 +633,7 @@ def refresh_shopping_list(
                 food_item_id=requirement.food_item_id,
                 item_key=f"food:{requirement.food_item_id}",
                 name=requirement.food_item_name,
-                quantity=requirement.missing_quantity,
+                quantity=requirement.to_buy_quantity,
                 unit=requirement.unit,
                 item_source="automatic",
                 status="needed",
@@ -704,6 +738,8 @@ def delete_shopping_item(
     if item.pantry_receipt:
         from fastapi import HTTPException
 
-        raise HTTPException(409, "Esta compra já entrou na despensa e conserva o registo de entrada.")
+        raise HTTPException(
+            409, "Esta compra já entrou na despensa e conserva o registo de entrada."
+        )
     db.delete(item)
     db.commit()

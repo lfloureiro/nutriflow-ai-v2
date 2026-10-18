@@ -53,6 +53,8 @@ class PlannedRequirementRead(BaseModel):
     required_quantity: Decimal
     available_quantity: Decimal
     missing_quantity: Decimal
+    incoming_quantity: Decimal = Decimal(0)
+    to_buy_quantity: Decimal | None = None
     unit: str
 
 
@@ -139,3 +141,27 @@ class ShoppingReceiptCreate(BaseModel):
     location: str | None = Field(default=None, max_length=80)
     expires_at: datetime | None = None
     label_reviewed: Literal[True]
+
+
+class ShoppingReceiptLot(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    quantity: Decimal = Field(gt=0, max_digits=14, decimal_places=4)
+    unit: str = Field(min_length=1, max_length=24)
+    location: str | None = Field(default=None, max_length=80)
+    expires_at: datetime | None = None
+
+
+class ShoppingReceiptBatchCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    request_id: uuid.UUID
+    expected_version: int = Field(gt=0)
+    lots: list[ShoppingReceiptLot] = Field(max_length=20)
+    expected_quantity: Decimal | None = Field(default=None, gt=0, max_digits=14, decimal_places=4)
+    complete: bool
+    label_reviewed: Literal[True]
+
+    @model_validator(mode="after")
+    def nonempty_delivery(self):
+        if not self.lots and not self.complete:
+            raise ValueError("Uma receção parcial precisa de pelo menos um lote.")
+        return self

@@ -39,6 +39,8 @@ export type PlannedRequirement = {
   required_quantity: string;
   available_quantity: string;
   missing_quantity: string;
+  incoming_quantity?:string;
+  to_buy_quantity?:string|null;
   unit: string;
 };
 
@@ -54,7 +56,7 @@ export type ShoppingListItem = {
   sort_order: number;
   version?:number;
   product_selection?:ShoppingProductSelection|null;
-  pantry_receipt?:{lot_id:string;quantity:string;unit:string;location:string|null;expires_at:string|null;received_at:string}|null;
+  pantry_receipt?:ShoppingReceipt|null;
 };
 
 export type ShoppingList = {
@@ -93,3 +95,12 @@ export type ShoppingProductSelection = {
   package_count:number|null;total_quantity:string|null;excess_quantity:string|null;estimated_total:string|null;
   status?:"confirmed"|"needs_review";issues?:string[];
 };
+
+
+export type ShoppingReceiptLot={quantity:string;unit:string;location:string|null;expires_at:string|null;lot_id?:string};
+export type ShoppingReceipt={
+  lot_id?:string;quantity:string;unit:string;location?:string|null;expires_at?:string|null;received_at:string;
+  format_version?:number;status?:"partial"|"complete";expected_quantity?:string|null;remaining_quantity?:string;
+  batches?:{request_id:string;received_at:string;complete:boolean;lots:ShoppingReceiptLot[]}[];
+};
+export type ShoppingReceiptBatchCreate={request_id:string;expected_version:number;lots:ShoppingReceiptLot[];complete:boolean;expected_quantity?:string|null;label_reviewed:true};

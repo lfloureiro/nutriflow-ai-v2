@@ -90,3 +90,14 @@ Bloqueio transacional e unicidade do lote impedem repetição da entrada.
 Sem alteração de tabela/índice/migration. Campo `price_comparison` acrescentado ao modelo
 de leitura das observações, calculado com Decimal e unidades físicas conhecidas. Sem
 preço normalizado persistido, sem consultas por linha adicionais. Head b781e265c904.
+
+
+### Delta ADR-072 — entregas e avaliação temporal do stock
+
+Sem migration/tabela/índice. Snapshot JSON existente suporta formato 2 com eventos de
+receção, estado, esperado e restante. Até 32 entregas de 20 lotes, com fecho sem produtos
+permitido mesmo no limite. Chaves únicas de stock e bloqueio de lista/artigo continuam
+a proteger a transação. Flush explícito compatível com sessões `autoflush=False` antes
+de recarregar dados. Necessidades por data/hora e orçamento FEFO são calculados sem
+movimentos persistidos. Um livro de movimentos separado permanece futuro para inventário
+mais extenso. Head b781e265c904; 53 tabelas aplicacionais.

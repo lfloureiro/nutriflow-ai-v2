@@ -16,6 +16,9 @@ describe("exact product shopping",()=>{
    expect(matchingConfirmedProduct([{...product,confirmed_food_item_id:"rice"}],"rice")?.id).toBe("p");
    expect(renderToStaticMarkup(<ShoppingProductChoice familyId="f" item={item} products={[product]} onChanged={()=>{}} disabled={false}/>)).toBe("");
  });
+ it("does not show an empty product-history panel for a purchase without a selected product",()=>{
+   expect(renderToStaticMarkup(<ShoppingProductChoice familyId="f" item={{...item,status:"purchased"}} products={[{...product,confirmed_food_item_id:"rice"}]} onChanged={()=>{}} disabled={false}/>)).toBe("");
+ });
  it("does not expose a stale package count as an active choice",()=>{
    const stale={...item,product_selection:{product_name:"Massa de arroz",retailer:"Loja",product_url:product.product_url,observed_on:"2026-10-18",observed_price:"1.75",pack_quantity:"500",pack_unit:"g",required_quantity:"1100",required_unit:"g",package_count:null,total_quantity:null,excess_quantity:null,estimated_total:null,status:"needs_review" as const,issues:["quantity_changed"]}};
    const html=renderToStaticMarkup(<ShoppingProductChoice familyId="f" item={stale} products={[]} onChanged={()=>{}} disabled={false}/>);

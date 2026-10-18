@@ -81,9 +81,7 @@ def _validate_food_scope(food_item: FoodItem, family_id: uuid.UUID) -> uuid.UUID
             f"FoodItem {food_item.catalog_key!r} must be persisted before pantry evaluation."
         )
     if food_item.family_id not in {None, family_id}:
-        raise PantryPlanningError(
-            f"FoodItem {food_item.catalog_key!r} belongs to another Family."
-        )
+        raise PantryPlanningError(f"FoodItem {food_item.catalog_key!r} belongs to another Family.")
     return food_item.id
 
 
@@ -180,6 +178,68 @@ def assess_food_pantry_stock(
         missing_quantity=missing,
         unit=required_unit,
         stock_lot_ids=lot_ids,
+    )
+
+
+def assess_timed_food_pantry_stock(
+    session: Session,
+    *,
+    family_id: uuid.UUID,
+    food_item: FoodItem,
+    demands: list[tuple[datetime, Decimal]],
+    required_unit: str,
+    as_of: datetime,
+) -> FoodPantryAssessment:
+    """Allocate a read-only FEFO budget at each meal time; never consume inventory."""
+    _validate_as_of(as_of)
+    food_id = _validate_food_scope(food_item, family_id)
+    if not demands or any(quantity <= ZERO for _, quantity in demands):
+        raise PantryPlanningError("Timed food demands must be positive.")
+    for instant, _quantity in demands:
+        _validate_as_of(instant)
+    lots = _active_stock_lots(session, family_id=family_id, food_item_id=food_id, as_of=as_of)
+    # PostgreSQL places null expiries last: use short-lived lots before long-lived ones.
+    balances = [
+        (
+            lot,
+            _convert_stock_quantity(
+                lot.quantity_available, lot.unit, required_unit, catalog_key=food_item.catalog_key
+            ),
+        )
+        for lot in lots
+    ]
+    allocated = ZERO
+    for meal_at, required in sorted(demands, key=lambda row: row[0]):
+        cutoff = max(as_of, meal_at)
+        remaining = required
+        for index, (lot, balance) in enumerate(balances):
+            if balance <= ZERO or (lot.expires_at is not None and lot.expires_at <= cutoff):
+                continue
+            taken = min(balance, remaining)
+            balances[index] = (lot, balance - taken)
+            remaining -= taken
+            allocated += taken
+            if remaining == ZERO:
+                break
+    last_meal = max(as_of, max(instant for instant, _ in demands))
+    usable_excess = sum(
+        (
+            balance
+            for lot, balance in balances
+            if lot.expires_at is None or lot.expires_at > last_meal
+        ),
+        start=ZERO,
+    )
+    required = sum((quantity for _, quantity in demands), start=ZERO)
+    return FoodPantryAssessment(
+        food_item_id=food_id,
+        catalog_key=food_item.catalog_key,
+        name=food_item.name,
+        required_quantity=required,
+        available_quantity=allocated + usable_excess,
+        missing_quantity=required - allocated if required > allocated else ZERO,
+        unit=required_unit,
+        stock_lot_ids=tuple(lot.id for lot in lots),
     )
 
 

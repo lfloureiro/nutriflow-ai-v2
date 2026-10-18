@@ -204,11 +204,13 @@ def package_amounts(quantity, unit, product):
 def requirement_matches(item, requirement):
     if requirement is None or item.quantity is None or item.unit is None:
         return False
+    needed = (
+        requirement.to_buy_quantity
+        if requirement.to_buy_quantity is not None
+        else requirement.missing_quantity
+    )
     try:
-        return (
-            convert_quantity(item.quantity, item.unit, requirement.unit)
-            == requirement.missing_quantity
-        )
+        return convert_quantity(item.quantity, item.unit, requirement.unit) == needed
     except UnsupportedUnitConversionError:
         return False
 
@@ -300,7 +302,10 @@ def select_product(db, family, item_id, data, *, preview=False):
         if item.quantity is None or item.unit is None or item.quantity <= 0:
             raise HTTPException(422, "A confirmed ingredient quantity and unit are required")
         if item.item_source == "automatic":
-            from app.services.pantry_shopping import build_planned_requirements
+            from app.services.pantry_shopping import (
+                build_planned_requirements,
+                requirements_with_incoming,
+            )
 
             if shopping_list.planning_start is None or shopping_list.planning_end is None:
                 raise HTTPException(
@@ -313,7 +318,12 @@ def select_product(db, family, item_id, data, *, preview=False):
                 days=(shopping_list.planning_end - shopping_list.planning_start).days + 1,
             )
             requirement = next(
-                (r for r in result.requirements if r.food_item_id == item.food_item_id), None
+                (
+                    r
+                    for r in requirements_with_incoming(shopping_list, result)
+                    if r.food_item_id == item.food_item_id
+                ),
+                None,
             )
             if not requirement_matches(item, requirement):
                 raise HTTPException(

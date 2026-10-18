@@ -11,7 +11,7 @@ o desenho detalhado está em `integrated-family-meal-planning-roadmap.md`.
 | T03 | Concluída localmente para regras registadas/contexto escolhido | Validar variante para todos os presentes | Nenhuma troca parcial é apresentada como solução completa; conflitos e falta de evidência ficam visíveis |
 | T04 | Parcial: presenças por refeição, cópia de semana e repetição de grupos | Presenças por refeição | Padrões, exceções, grupos, ausência/incerteza e refeições individuais funcionam na mesma semana |
 | T05 | Parcial: seleção e agenda manual revalidam presentes/data | Escolher automaticamente original/variante | Entrar/sair um participante recalcula sem aplicar restrições de ausentes; escolhas fixadas são revalidadas |
-| T06 | Parcial: ingrediente efetivo, comparação de lojas, embalagens e entrada real na despensa | Comprar ingredientes efetivos | Compras da variante por porções/stock, sem ingrediente substituído nem duplicações; embalagens e quantidades confirmáveis |
+| T06 | Parcial: ingrediente efetivo, comparação, embalagens, receções parciais e validade por refeição | Comprar ingredientes efetivos | Compras da variante por porções/stock, sem ingrediente substituído nem duplicações; embalagens e quantidades confirmáveis |
 | T07 | Parcial: onze produtos observados em duas lojas | Ampliar alternativas e rótulos | Priorizar ingredientes usados; produtos com fonte/data e cobertura explícita de composição, sem certificação inventada |
 | T08 | Parcial: procura no detalhe da refeição | Pesquisa única e mapa | Casa/entrega/restaurante preservam participantes, data, zona e regras; mapa/lista sincronizados |
 | T09 | Dependente de acesso externo | Conectores reais autorizados | Adaptadores, credenciais adequadas e testes reais; falhas isoladas por fonte; não apresentar fixtures como live |
@@ -209,3 +209,26 @@ pré-visualização → guardar 3 embalagens → recarregar → escolha preserva
 
 Validação ADR-071: 421 API completos, 36 focados e 140 frontend passaram; TypeScript/build,
 Ruff e Alembic check sem erros. Interface verificada em base sintética separada.
+
+
+## Continuação — receções parciais e validade no plano (ADR-072)
+
+- Implementado: entregas sucessivas e vários lotes com unidades/locais/validades próprios;
+  total esperado confirmado pelo utilizador, fecho sem mais stock e histórico preservado.
+- Implementado: previsão por receber separada de stock; compras líquidas dessa previsão;
+  receções e recálculo persistem numa transação, com proteção de versão e idempotência.
+- Corrigido: a validade do stock é avaliada por hora/data das refeições, distribuindo
+  quantidades pelos lotes que expiram primeiro sem consumir fisicamente inventário.
+- Corrigido após teste de interface: persistir explicitamente o snapshot antes de recarregar
+  a lista, respeitando `autoflush=False` usado na aplicação real. Testes cobrem essa sessão.
+- Implementado: fecho permitido após o limite de 32 entregas; histórico limitado por compra;
+  entradas antigas não podem ser duplicadas pelo novo protocolo. Painel de produto vazio ocultado.
+- Validação: 438 API completos, 17 focados com configuração de produção, 147 frontend e build
+  passaram. Ruff e Alembic check sem erros. Sem migration, sem entradas na família real pelo agente.
+- Próximas tarefas: consumo real, sobras e estornos; ETA de entregas; atualização de mais
+  rótulos; custo total de cesto/entrega por loja; refeições individuais e padrões de presença;
+  fases e tolerâncias. Autenticação permanece necessária antes de disponibilizar a API publicamente.
+
+- Interface ADR-072: dois lotes de 500 g com validades distintas, 500 g pendentes,
+  persistência após recarregar; fechar sem mais produtos cria imediatamente a falta de
+  200 g. Compras novas e receções pendentes aparecem antes do histórico concluído.

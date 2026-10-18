@@ -1,3 +1,16 @@
+## Receções parciais e validade por refeição — ADR-072 (18/10/2026)
+
+Compras recebem vários lotes com local/validade próprios e entregas parciais versionadas.
+Stock útil, previsão por receber e quantidade por comprar são separados. Fechar sem mais
+produtos recalcula a falta imediatamente; pedidos repetidos não recriam lotes/histórico.
+Correção da validade: orçamento FEFO por data/hora das refeições, sem consumir inventário.
+Sessão real `autoflush=False` coberta por testes; flush explícito antes do recálculo evita
+perder o novo snapshot. Entradas antigas continuam concluídas e compatíveis.
+Sem migration: head b781e265c904 e 53 tabelas aplicacionais. Família real sem entradas
+criadas pelo agente; verificação no browser numa base sintética separada.
+438 testes API completos, 17 focados de produção e 147 frontend passaram; build, Ruff e
+Alembic check sem erros. Interface verificada com persistência e fecho de entrega incompleta.
+
 ## Comparação de lojas no ingrediente — ADR-071 (18/10/2026)
 
 Comparação por €/kg ou €/l, com preço por embalagem, fonte/data e cobertura do rótulo.

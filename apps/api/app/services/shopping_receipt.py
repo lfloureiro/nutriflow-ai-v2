@@ -18,6 +18,8 @@ def receive_shopping_item(db, family, item_id, data: ShoppingReceiptCreate):
     item = _shopping_item(db, family.id, item_id)
     if data.expires_at and data.expires_at.tzinfo is None:
         raise HTTPException(422, "Indique o fuso horário da validade.")
+    if item.pantry_receipt and item.pantry_receipt.get("format_version") == 2:
+        raise HTTPException(409, "Use o registo de receções desta compra para continuar.")
     received = {
         "quantity": format(data.quantity.normalize(), "f"),
         "unit": data.unit.lower(),
@@ -32,25 +34,13 @@ def receive_shopping_item(db, family, item_id, data: ShoppingReceiptCreate):
         raise HTTPException(409, "A compra mudou. Atualize a lista antes de registar a entrada.")
     if item.status != "purchased" or item.food_item_id is None:
         raise HTTPException(422, "Assinale a compra e associe um ingrediente antes da entrada.")
-    _pantry_food(db, family.id, item.food_item_id)
-    if item.unit is None:
-        raise HTTPException(422, "A compra precisa de uma unidade conhecida.")
+    validate_received_ingredient(db, family, item)
     try:
         convert_quantity(data.quantity, data.unit.lower(), item.unit)
     except UnsupportedUnitConversionError as exc:
         raise HTTPException(
             422, "Use uma unidade compatível com o ingrediente, sem estimar densidades."
         ) from exc
-    confirmation = db.scalar(
-        select(RetailIngredientConfirmation).where(
-            RetailIngredientConfirmation.food_item_id == item.food_item_id,
-            RetailIngredientConfirmation.family_id == family.id,
-        )
-    )
-    if confirmation and not confirmation_current(confirmation):
-        raise HTTPException(
-            409, "O rótulo ou ingrediente mudou. Reveja o produto antes da entrada."
-        )
     lot = PantryStockLot(
         family_id=family.id,
         food_item_id=item.food_item_id,
@@ -76,3 +66,19 @@ def receive_shopping_item(db, family, item_id, data: ShoppingReceiptCreate):
     item.version += 1
     db.commit()
     return get_shopping_list(db, family)
+
+
+def validate_received_ingredient(db, family, item):
+    _pantry_food(db, family.id, item.food_item_id)
+    if item.unit is None:
+        raise HTTPException(422, "A compra precisa de uma unidade conhecida.")
+    confirmation = db.scalar(
+        select(RetailIngredientConfirmation).where(
+            RetailIngredientConfirmation.food_item_id == item.food_item_id,
+            RetailIngredientConfirmation.family_id == family.id,
+        )
+    )
+    if confirmation and not confirmation_current(confirmation):
+        raise HTTPException(
+            409, "O rótulo ou ingrediente mudou. Reveja o produto antes da entrada."
+        )

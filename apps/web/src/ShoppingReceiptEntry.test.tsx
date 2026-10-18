@@ -1,7 +1,7 @@
 import {afterEach,describe,expect,it,vi} from "vitest";
 import {renderToStaticMarkup} from "react-dom/server";
 import ShoppingReceiptEntry from "./ShoppingReceiptEntry";
-import {receiveShoppingItem} from "./api/pantryShoppingClient";
+import {receiveShoppingItem,receiveShoppingBatch} from "./api/pantryShoppingClient";
 import type {ShoppingListItem} from "./api/pantryShoppingTypes";
 vi.mock("./i18n",()=>({useI18n:()=>({locale:"pt-PT"})}));
 afterEach(()=>vi.unstubAllGlobals());
@@ -22,5 +22,27 @@ describe("shopping receipt",()=>{
    const payload={expected_version:4,quantity:"1500",unit:"g",label_reviewed:true as const};
    await receiveShoppingItem("family","i",payload);
    expect(fetchMock.mock.calls[0]?.[0]).toContain("/items/i/receipt");expect(JSON.parse(fetchMock.mock.calls[0]?.[1]?.body)).toEqual(payload);
+ });
+});
+
+
+describe("partial and split receipts",()=>{
+ const receipt={format_version:2,status:"partial" as const,quantity:"500",unit:"g",expected_quantity:"1500",remaining_quantity:"1000",received_at:"2030-01-07T10:00:00Z",batches:[{request_id:"r",received_at:"2030-01-07T10:00:00Z",complete:false,lots:[{lot_id:"one",quantity:"200",unit:"g",location:"A",expires_at:"2030-02-01T23:59:59Z"},{lot_id:"two",quantity:"300",unit:"g",location:"B",expires_at:"2030-03-01T23:59:59Z"}]}]};
+ it("shows the received quantity and outstanding delivery separately with a next-delivery action",()=>{
+   const markup=html({...item,pantry_receipt:receipt});
+   expect(markup).toContain("Receção parcial");expect(markup).toContain("por receber");expect(markup).toContain("Registar a próxima entrega");expect(markup).toContain("não conta como stock");expect(markup).toContain("Concluir sem receber mais");
+ });
+ it("preserves separate lot locations and expiry dates after completion without another form",()=>{
+   const markup=html({...item,pantry_receipt:{...receipt,status:"complete"}});
+   expect(markup).toContain("Ver lotes e validades");expect(markup).toContain("200");expect(markup).toContain("300");expect(markup).toContain("Validade");expect(markup).not.toContain("<form");expect(markup).toContain("não recebidos");
+ });
+ it("offers explicit multiple lots without assuming the planned quantity was received",()=>{
+   const markup=html(item);expect(markup).toContain("Adicionar lote com outra validade/local");expect(markup).toContain("não vai chegar mais");expect(markup).not.toContain('value="1100"');
+ });
+ it("sends stable request identity, separate lots and completion without using the legacy receipt endpoint",async()=>{
+   const fetchMock=vi.fn().mockResolvedValue({ok:true,json:async()=>({})});vi.stubGlobal("fetch",fetchMock);
+   const payload={request_id:"delivery",expected_version:4,lots:[{quantity:"500",unit:"g",location:"A",expires_at:null}],complete:false,expected_quantity:"1500",label_reviewed:true as const};
+   await receiveShoppingBatch("family","i",payload);await receiveShoppingBatch("family","i",{...payload,lots:[],complete:true,expected_quantity:null});
+   expect(fetchMock.mock.calls[0]?.[0]).toContain("/items/i/receipts");expect(JSON.parse(fetchMock.mock.calls[0]?.[1]?.body)).toEqual(payload);expect(JSON.parse(fetchMock.mock.calls[1]?.[1]?.body).lots).toEqual([]);
  });
 });

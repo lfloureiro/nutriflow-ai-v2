@@ -20,7 +20,7 @@ export default function ShoppingProductChoice({familyId,item,products,onChanged,
     return()=>{cancelled=true;};
   },[familyId,item.id,item.version,item.status,product?.id,product?.evidence_fingerprint]);
   async function choose(clear=false){if(!item.version)return;setBusy(true);setError("");try{onChanged(await selectShoppingProduct(familyId,item.id,{expected_version:item.version,retail_product_id:clear?null:product!.id,...(!clear?{expected_fingerprint:product!.evidence_fingerprint}:{})}));}catch(e){setError(retailActionError(e,pt));}finally{setBusy(false);}}
-  if(!product&&!item.product_selection)return null;
+  if((item.status==="purchased"&&!item.product_selection)||(!product&&!item.product_selection))return null;
   const saved=item.product_selection;const needsReview=saved?.status==="needs_review";
   const shown=needsReview?preview:saved??preview;
   const number=(value:string|number)=>Number(value).toLocaleString(locale,{maximumFractionDigits:4});

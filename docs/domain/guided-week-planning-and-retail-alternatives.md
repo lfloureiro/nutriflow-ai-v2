@@ -134,3 +134,21 @@ Escolher «Rever rótulo» abre apenas esse detalhe. Informação incompleta exi
 e revisão; não permite criar um ingrediente utilizável nesta fase. Um ingrediente já
 confirmado continua a mostrar opções de outras lojas, mas a escolha efetiva nas compras
 mantém a exigência de identidade exata e variante validada.
+
+
+## Receber em partes ou com validades diferentes
+
+No cartão comprado, abrir «Registar o que chegou à despensa». Introduzir apenas a
+quantidade recebida agora. Usar «Adicionar lote com outra validade/local» se necessário.
+Se ainda falta uma entrega, desmarcar «Esta receção conclui a compra» e indicar o total
+esperado na unidade mostrada. Confirmar o ingrediente/rótulo e as quantidades recebidas.
+
+O cartão passa a mostrar recebido e restante pendente; «Ver lotes e validades» conserva
+cada lote. «Registar a próxima entrega» acrescenta stock apenas quando chega. «Concluir
+sem receber mais» fecha o pendente e faz reaparecer a compra em falta, se o plano precisar.
+Uma entrega prevista evita uma segunda encomenda, mas nunca conta como stock disponível:
+a falta física mantém-se visível. Não há data automática garantida de chegada.
+
+As necessidades mostram stock **utilizável nas datas das refeições**: um lote que expira
+antes de uma refeição não a cobre. A distribuição simulada usa primeiro os lotes de menor
+validade e não abate saldos da despensa. Consumo real/sobras permanecem uma fase seguinte.

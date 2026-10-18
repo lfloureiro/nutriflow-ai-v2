@@ -65,3 +65,11 @@
 .retail-comparison small { display:block; margin:.3rem 0; color:var(--muted); font-weight:400; }
 .retail-comparison tr.selected { background:var(--surface-raised,var(--surface)); outline:2px solid var(--accent); outline-offset:-2px; }
 .retail-comparison a { color:var(--accent); }
+
+.shopping-delivery-fields { display:grid; gap:1rem; border:0; padding:0; min-width:0; }
+.shopping-delivery-lot { border-top:1px solid var(--border); padding-top:.8rem; }
+.shopping-receipt-history { display:grid; gap:.5rem; margin-bottom:.8rem; }
+.shopping-receipt-history p { margin:.2rem 0; }
+.shopping-receipt-history li { margin:.5rem 0; overflow-wrap:anywhere; }
+
+.requirement-delivery-note { grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:.5rem 1.5rem; border-top:1px solid var(--border); padding-top:.5rem; color:var(--muted); }

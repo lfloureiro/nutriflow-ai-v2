@@ -126,3 +126,7 @@ export function previewShoppingProduct(familyId:string,itemId:string,payload:{ex
 export function receiveShoppingItem(familyId:string,itemId:string,payload:{expected_version:number;quantity:string;unit:string;location?:string|null;expires_at?:string|null;label_reviewed:true}) {
   return request<ShoppingList>(`${familyShoppingListPath(familyId)}/items/${encodeURIComponent(itemId)}/receipt`,{method:"POST",body:JSON.stringify(payload)});
 }
+
+export function receiveShoppingBatch(familyId:string,itemId:string,payload:import("./pantryShoppingTypes").ShoppingReceiptBatchCreate) {
+  return request<ShoppingList>(`${familyShoppingListPath(familyId)}/items/${encodeURIComponent(itemId)}/receipts`,{method:"POST",body:JSON.stringify(payload)});
+}
