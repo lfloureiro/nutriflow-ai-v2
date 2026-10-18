@@ -1,3 +1,12 @@
+## Continuação: organização reutilizável e agenda segura — ADR-068
+
+Copiar semana anterior e repetir um grupo por tempo implementados no percurso. As regras
+são recalculadas e a configuração só persiste após revisão. Agenda manual de receitas-base
+passa a rejeitar ingredientes excluídos para os presentes/data, com rollback integral.
+Sem migration; sem alteração de refeições pessoais nesta implementação. Testes focados
+390 API completos e 123 frontend passaram; interface verificada sem guardar alterações.
+Caso adicional de grupo grande coberto pela execução focada final. Ruff e Alembic check passaram.
+
 ## Auditoria e retalho após publicação — 18/10/2026
 
 Branch publicada, consolidação `5aab9e3`, sem merge. Onze observações de retalho
@@ -708,3 +717,6 @@ No database migration is introduced. A later increment may let the user choose o
 
 Validação final do incremento de auditoria: **388 testes API e 119 frontend passaram**;
 TypeScript/build, Ruff completo e Alembic check passaram. Sem nova migration.
+
+Execução focada final: 14 testes de agenda/variantes passaram, incluindo grupo com
+mais de 20 pessoas e rejeição do ingrediente para o último participante.

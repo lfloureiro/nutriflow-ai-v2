@@ -141,7 +141,10 @@ type EditTarget = {
   entry: MealPlanEntry | null;
 };
 
-function errorText(error: unknown): string {
+export function mealPlanErrorText(error: unknown, locale: Locale): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const conflict = message.match(/^Recipe conflicts with active attendee restrictions: (.+)\. Choose and validate a compatible variant before saving\.$/);
+  if (locale === "pt-PT" && conflict) return `A receita tem ingredientes incompatíveis com as restrições dos presentes: ${conflict[1]}. Escolhe e valida uma variante compatível antes de guardar.`;
   if (error instanceof ApiError) {
     return `${error.message} (HTTP ${error.status})`;
   }
@@ -303,7 +306,7 @@ function MealEditForm({
       }
       onDone();
     } catch (caught: unknown) {
-      setError(errorText(caught));
+      setError(mealPlanErrorText(caught, locale));
     } finally {
       setBusy(false);
     }
@@ -317,7 +320,7 @@ function MealEditForm({
       await cancelMealPlanEntry(familyId, entry.id);
       onDone();
     } catch (caught: unknown) {
-      setError(errorText(caught));
+      setError(mealPlanErrorText(caught, locale));
     } finally {
       setBusy(false);
     }
@@ -542,7 +545,7 @@ export default function FamilyMealsScreen({
       .catch((caught: unknown) => {
         if (!cancelled) {
           setPlan(null);
-          setError(errorText(caught));
+          setError(mealPlanErrorText(caught, locale));
         }
       })
       .finally(() => {

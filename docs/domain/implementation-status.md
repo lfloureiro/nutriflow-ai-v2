@@ -1,3 +1,12 @@
+## Continuação: organização reutilizável e agenda segura — ADR-068
+
+Copiar semana anterior e repetir um grupo por tempo implementados no percurso. As regras
+são recalculadas e a configuração só persiste após revisão. Agenda manual de receitas-base
+passa a rejeitar ingredientes excluídos para os presentes/data, com rollback integral.
+Sem migration; sem alteração de refeições pessoais nesta implementação. Testes focados
+390 API completos e 123 frontend passaram; interface verificada sem guardar alterações.
+Caso adicional de grupo grande coberto pela execução focada final. Ruff e Alembic check passaram.
+
 ## Auditoria, publicação e retalho — 18/10/2026
 
 Consolidação publicada na branch v2, com CI API/Web bem-sucedido; sem merge.
@@ -376,3 +385,6 @@ After this slice is reviewed and eventually merged, the next Phase 8 work should
 - explicit leftover/reservation inventory evidence;
 - richer across-week category/protein diversity;
 - npm lockfile / `npm ci` production hardening.
+
+Execução focada final: 14 testes de agenda/variantes passaram, incluindo grupo com
+mais de 20 pessoas e rejeição do ingrediente para o último participante.

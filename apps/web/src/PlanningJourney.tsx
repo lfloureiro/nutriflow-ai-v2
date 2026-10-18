@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { listFamilyPersons } from "./api/client";
 import { listRecipeReviews, type ReviewRecipe } from "./api/dietaryReviewClient";
 import { getWeekSetup, getPlanningRestrictions, listRetailAlternatives, saveWeekSetup, type PlanningRestrictions, type RetailAlternative, type WeekSetup } from "./api/planningWorkspaceClient";
@@ -11,6 +11,8 @@ import SelectedMealOptions from "./SelectedMealOptions";
 import RetailAlternativeCards from "./RetailAlternativeCards";
 import {adaptationSummaries} from "./RecipeAdaptationCards";
 import "./planning-journey.css";
+import {copyWeeklyOrganisation, repeatMealAttendance} from "./weeklyAttendance";
+import {calendarDateOffset} from "./mealAlternatives";
 
 export function nextWeekMonday(referenceDate: string): string {
   const date = new Date(`${referenceDate}T12:00:00Z`);
@@ -40,6 +42,10 @@ export default function PlanningJourney({familyId, referenceDate, onPlanChanged,
   const [people, setPeople] = useState<Person[]>([]); const [recipes, setRecipes] = useState<ReviewRecipe[]>([]);
   const [products, setProducts] = useState<RetailAlternative[]>([]);
   const [setup, setSetup] = useState<WeekSetup>({week_start:week, version:0, person_ids:[], meal_types:["dinner"], excluded_food_item_ids:[]});
+  const choiceRevision=useRef(0);
+  const copyRequest=useRef(0);
+  const [copyBusy,setCopyBusy]=useState(false);
+  const [organisationNotice,setOrganisationNotice]=useState("");
   const [step, setStep] = useState(1); const [error, setError] = useState("");
   const [busy, setBusy] = useState(true); const [loadedWeek, setLoadedWeek] = useState("");
   const [applied, setApplied] = useState(false);
@@ -52,6 +58,7 @@ export default function PlanningJourney({familyId, referenceDate, onPlanChanged,
   const [rulesError, setRulesError] = useState("");
   const mealLabels = pt ? {breakfast:"Pequeno-almoço",lunch:"Almoço",snack:"Lanche",dinner:"Jantar"} : {breakfast:"Breakfast",lunch:"Lunch",snack:"Snack",dinner:"Dinner"};
   useEffect(() => {
+    choiceRevision.current++; copyRequest.current++; setCopyBusy(false); setOrganisationNotice("");
     let cancelled = false; setBusy(true); setError(""); setLoadedWeek(""); setRetailWarning(false);
     void Promise.all([listFamilyPersons(familyId), listRecipeReviews(familyId), getWeekSetup(familyId,week), listRetailAlternatives(familyId).catch(() => {if (!cancelled) setRetailWarning(true);return [];})])
       .then(([persons,catalogue,saved,retail]) => {
@@ -60,7 +67,7 @@ export default function PlanningJourney({familyId, referenceDate, onPlanChanged,
         setSetup(saved ?? {week_start:week,version:0,person_ids:persons.map(p => p.id),meal_types:["dinner"],excluded_food_item_ids:[]});
         setLoadedWeek(week);
       }).catch(e => {if (!cancelled) setError(String(e));}).finally(() => {if (!cancelled) setBusy(false);});
-    return () => {cancelled=true;};
+    return () => {cancelled=true;choiceRevision.current++;copyRequest.current++;};
   }, [familyId,week,loadRevision]);
   const peopleKey=setup.person_ids.join(","); const mealsKey=setup.meal_types.join(",");
   useEffect(()=>{
@@ -79,10 +86,26 @@ export default function PlanningJourney({familyId, referenceDate, onPlanChanged,
   const effectiveExcluded=[...new Set([...automatic.excluded_food_item_ids,...setup.excluded_food_item_ids])];
   const groups = exclusionGroups(recipes);
   function changeChoices(update: (previous: WeekSetup) => WeekSetup) {
+    choiceRevision.current++;
     setSetup(previous => {
       const next = update(previous);
       return {...next, attendance: (next.attendance ?? []).filter(a=>next.meal_types.includes(a.meal_type)).map(a=>({...a,person_ids:a.person_ids.filter(id=>next.person_ids.includes(id))}))};
     }); setConfirmed(false); setApplied(false);
+  }
+  async function copyPreviousWeek() {
+    const request=++choiceRevision.current;
+    const copyId=++copyRequest.current;
+    setCopyBusy(true);setError("");setOrganisationNotice("");
+    try {
+      const source=await getWeekSetup(familyId,calendarDateOffset(week,-7));
+      if(request!==choiceRevision.current)return;
+      if(!source){setOrganisationNotice(pt?"A semana anterior ainda não tem uma organização guardada.":"The previous week has no saved organisation yet.");return;}
+      const copied=copyWeeklyOrganisation(source,setup,people.map(p=>p.id));
+      changeChoices(()=>copied);
+      setOrganisationNotice(pt?"Presenças e origens copiadas. Revê as restrições recalculadas antes de gerar; não foram copiadas refeições.":"Attendance and sources copied. Review recalculated restrictions before generating; meals were not copied.");
+    } catch(e) {
+      if(request===choiceRevision.current)setError(e instanceof Error && e.message==="unavailable_attendee" ? (pt?"Há uma pessoa da semana anterior que já não está disponível. Escolhe os presentes manualmente.":"A previous attendee is unavailable. Select attendance manually.") : String(e));
+    } finally {if(copyId===copyRequest.current)setCopyBusy(false);}
   }
   const labels = pt ? ["Semana e pessoas", "Restrições", "Rever refeições", "Compras"] : ["Week and people", "Restrictions", "Review meals", "Shopping"];
   async function proceed() {
@@ -102,24 +125,26 @@ export default function PlanningJourney({familyId, referenceDate, onPlanChanged,
     {busy && loadedWeek!==week && <p role="status">{pt ? "A preparar a tua semana…" : "Preparing your week…"}</p>}
     {step===1 && <section className="journey-card">
       <h2>{pt ? "1. Quando e quem come em casa?" : "1. When and who eats at home?"}</h2>
-      <label className="field"><span>{pt ? "Semana a começar na segunda-feira" : "Week starting Monday"}</span><input type="date" min="1990-01-01" step={7} value={week} disabled={busy} onChange={e => {setWeek(e.target.value);setApplied(false);setConfirmed(false);}} /></label>
+      <label className="field"><span>{pt ? "Semana a começar na segunda-feira" : "Week starting Monday"}</span><input type="date" min="1990-01-01" step={7} value={week} disabled={busy||copyBusy} onChange={e => {setWeek(e.target.value);setApplied(false);setConfirmed(false);}} /></label>
+      <button type="button" className="button secondary" disabled={busy||copyBusy||loadedWeek!==week} onClick={()=>void copyPreviousWeek()}>{copyBusy ? pt?"A copiar…":"Copying…" : pt?"Copiar organização da semana anterior":"Copy previous week's organisation"}</button>
+      {organisationNotice&&<p role="status">{organisationNotice}</p>}
       <fieldset><legend>{pt ? "Pessoas para estas refeições" : "People for these meals"}</legend>
         <p className="muted">{pt ? "Seleciona o grupo habitual e ajusta os presentes em cada refeição abaixo. Sem pessoas, essa refeição não será gerada." : "Select the usual group and adjust attendance for each meal below. Meals with nobody attending will not be generated."}</p>
-        <div className="journey-checks">{people.map(p => <label key={p.id}><input type="checkbox" disabled={busy} checked={setup.person_ids.includes(p.id)} onChange={e => changeChoices(s => ({...s,person_ids:e.target.checked ? [...s.person_ids,p.id] : s.person_ids.filter(id=>id!==p.id)}))} />{p.first_name} {p.last_name}</label>)}</div>
+        <div className="journey-checks">{people.map(p => <label key={p.id}><input type="checkbox" disabled={busy||copyBusy} checked={setup.person_ids.includes(p.id)} onChange={e => changeChoices(s => ({...s,person_ids:e.target.checked ? [...s.person_ids,p.id] : s.person_ids.filter(id=>id!==p.id)}))} />{p.first_name} {p.last_name}</label>)}</div>
       </fieldset>
-      <fieldset><legend>{pt ? "Que refeições queres gerar?" : "Which meals should be generated?"}</legend><div className="journey-checks">{meals.map(m => <label key={m}><input type="checkbox" disabled={busy} checked={setup.meal_types.includes(m)} onChange={e => changeChoices(s => ({...s,meal_types:e.target.checked ? [...s.meal_types,m] : s.meal_types.filter(v=>v!==m)}))}/>{mealLabels[m]}</label>)}</div></fieldset>
+      <fieldset><legend>{pt ? "Que refeições queres gerar?" : "Which meals should be generated?"}</legend><div className="journey-checks">{meals.map(m => <label key={m}><input type="checkbox" disabled={busy||copyBusy} checked={setup.meal_types.includes(m)} onChange={e => changeChoices(s => ({...s,meal_types:e.target.checked ? [...s.meal_types,m] : s.meal_types.filter(v=>v!==m)}))}/>{mealLabels[m]}</label>)}</div></fieldset>
       <fieldset><legend>{pt?"De onde vem cada refeição?":"Where does each meal come from?"}</legend>
-        {setup.meal_types.map(meal=><label className="field" key={meal}><span>{mealLabels[meal]}</span><select value={setup.meal_sources?.[meal] ?? (meal==="lunch" ? "delivery":"home")} onChange={e=>changeChoices(s=>({...s,meal_sources:{...s.meal_sources,[meal]:e.target.value as "home"|"delivery"|"restaurant"}}))}><option value="home">{pt?"Cozinhar em casa":"Cook at home"}</option><option value="delivery">{pt?"Entrega · Uber Eats / Glovo / Bolt Food":"Delivery · Uber Eats / Glovo / Bolt Food"}</option><option value="restaurant">{pt?"Restaurante":"Restaurant"}</option></select></label>)}
+        {setup.meal_types.map(meal=><label className="field" key={meal}><span>{mealLabels[meal]}</span><select disabled={busy||copyBusy} value={setup.meal_sources?.[meal] ?? (meal==="lunch" ? "delivery":"home")} onChange={e=>changeChoices(s=>({...s,meal_sources:{...s.meal_sources,[meal]:e.target.value as "home"|"delivery"|"restaurant"}}))}><option value="home">{pt?"Cozinhar em casa":"Cook at home"}</option><option value="delivery">{pt?"Entrega · Uber Eats / Glovo / Bolt Food":"Delivery · Uber Eats / Glovo / Bolt Food"}</option><option value="restaurant">{pt?"Restaurante":"Restaurant"}</option></select></label>)}
         <p>{pt?"Nos almoços começamos pela entrega. Sem catálogo ligado, a refeição fica por escolher: abre-a na semana para consultar as plataformas e os restaurantes.":"Lunch starts with delivery. Without a connected catalogue, the meal remains pending: open it in the week to browse platforms and restaurants."}</p>
       </fieldset>
       <details><summary>{pt ? "Quem está em cada refeição?" : "Who attends each meal?"}</summary>
         {Array.from({length:7},(_,offset)=>{const d=new Date(`${week}T12:00:00Z`);d.setUTCDate(d.getUTCDate()+offset);return d.toISOString().slice(0,10);}).flatMap(day=>setup.meal_types.map(meal=>{
           const attendees=setup.attendance?.find(a=>a.planning_date===day && a.meal_type===meal)?.person_ids ?? setup.person_ids;
-          return <fieldset key={`${day}:${meal}`}><legend>{day} · {mealLabels[meal]}</legend><div className="journey-checks">{people.filter(p=>setup.person_ids.includes(p.id)).map(p=><label key={p.id}><input type="checkbox" disabled={busy} checked={attendees.includes(p.id)} onChange={e=>changeChoices(s=>({...s,attendance:[...(s.attendance ?? []).filter(a=>a.planning_date!==day || a.meal_type!==meal),{planning_date:day,meal_type:meal,person_ids:e.target.checked ? [...attendees,p.id] : attendees.filter(id=>id!==p.id)}]}))}/>{p.first_name}</label>)}</div>{attendees.length===0 && <p>{pt ? "Sem refeição a gerar." : "No meal to generate."}</p>}{attendees.length===1 && <p role="alert">{pt ? "Por agora, planeia esta refeição individual na agenda ou seleciona pelo menos duas pessoas." : "For now, plan this individual meal in the agenda or select at least two people."}</p>}</fieldset>;
+          return <fieldset key={`${day}:${meal}`}><legend>{day} · {mealLabels[meal]}</legend><div className="journey-checks">{people.filter(p=>setup.person_ids.includes(p.id)).map(p=><label key={p.id}><input type="checkbox" disabled={busy||copyBusy} checked={attendees.includes(p.id)} onChange={e=>changeChoices(s=>({...s,attendance:[...(s.attendance ?? []).filter(a=>a.planning_date!==day || a.meal_type!==meal),{planning_date:day,meal_type:meal,person_ids:e.target.checked ? [...attendees,p.id] : attendees.filter(id=>id!==p.id)}]}))}/>{p.first_name}</label>)}</div><button type="button" className="button ghost small" disabled={busy||copyBusy||attendees.length===1} onClick={()=>{changeChoices(s=>repeatMealAttendance(s,meal,attendees));setOrganisationNotice(pt?"Presenças repetidas nesta refeição durante os sete dias. Podes ajustar exceções abaixo.":"Attendance repeated for this meal across all seven days. You can adjust exceptions below.");}}>{pt?"Repetir estas presenças em todos os dias":"Repeat these attendees on every day"}</button>{attendees.length===0 && <p>{pt ? "Sem refeição a gerar." : "No meal to generate."}</p>}{attendees.length===1 && <p role="alert">{pt ? "Por agora, planeia esta refeição individual na agenda ou seleciona pelo menos duas pessoas." : "For now, plan this individual meal in the agenda or select at least two people."}</p>}</fieldset>;
         }))}
       </details>
       <p>{pt ? "Começamos pelos jantares; podes incluir os outros tempos. As refeições já guardadas são preservadas." : "Start with dinners; you can include other meals. Already saved meals are preserved."}</p>
-      <button type="button" className="button primary" disabled={busy || loadedWeek!==week || setup.person_ids.length<2 || invalidAttendance || !setup.meal_types.length} onClick={()=>setStep(2)}>{pt ? "Continuar para restrições →" : "Continue to restrictions →"}</button>
+      <button type="button" className="button primary" disabled={busy || copyBusy || loadedWeek!==week || setup.person_ids.length<2 || invalidAttendance || !setup.meal_types.length} onClick={()=>setStep(2)}>{pt ? "Continuar para restrições →" : "Continue to restrictions →"}</button>
       {!busy && setup.person_ids.length<2 && <p>{pt ? "A geração partilhada precisa de pelo menos duas pessoas. Usa a agenda para refeições individuais." : "Shared generation needs at least two people. Use the agenda for individual meals."}</p>}
     </section>}
     {step===2 && <section className="journey-card">

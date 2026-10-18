@@ -266,7 +266,7 @@ def _replace_participants(
     values: list[MealPlanParticipantWrite],
 ) -> None:
     people = _people_for_participants(db, family_id, values)
-    _validate_variant_context(db, family_id, recipe, event, values)
+    _validate_recipe_context(db, family_id, recipe, event, values)
     event.participants.clear()
     db.flush()
 
@@ -381,8 +381,35 @@ def _planning_recipe(
     return recipe
 
 
-def _validate_variant_context(db, family_id, recipe, event, values):
+def _validate_recipe_context(db, family_id, recipe, event, values):
     if recipe.source != "family_variant":
+        from app.services.meal_recommendation import _food_subjects
+        from app.services.planning_restrictions import automatic_excluded_foods
+
+        person_ids = [value.person_id for value in values]
+        excluded = [
+            food
+            for offset in range(0, len(person_ids), 20)
+            for food in automatic_excluded_foods(
+                db,
+                family_id,
+                person_ids[offset : offset + 20],
+                event.scheduled_at.astimezone(ZoneInfo(event.timezone)).date(),
+                event.meal_type,
+            )
+        ]
+        excluded_subjects = {subject for food in excluded for subject in _food_subjects(food)}
+        blocked = {
+            ingredient.food_item.name
+            for ingredient in recipe.ingredients
+            if _food_subjects(ingredient.food_item) & excluded_subjects
+        }
+        if blocked:
+            raise MealPlanError(
+                "Recipe conflicts with active attendee restrictions: "
+                + ", ".join(sorted(blocked))
+                + ". Choose and validate a compatible variant before saving."
+            )
         return
     from app.schemas.recipe_variant import VariantParticipant, VariantValidationRequest
     from app.services.recipe_variant import validate_variant
@@ -538,7 +565,10 @@ def update_meal_plan_entry(
 
     if (
         recipe is not None
-        and recipe.source == "family_variant"
+        and (
+            recipe.source == "family_variant"
+            or fields.intersection({"date", "local_time", "meal_type"})
+        )
         and not (recipe_changed or participants_changed)
     ):
         values = [
@@ -549,7 +579,7 @@ def update_meal_plan_entry(
             )
             for p in event.participants
         ]
-        _validate_variant_context(db, family.id, recipe, event, values)
+        _validate_recipe_context(db, family.id, recipe, event, values)
     db.commit()
     event = _get_event(db, family.id, meal_event_id)
     return _entry_read(event, ZoneInfo(family.timezone))
