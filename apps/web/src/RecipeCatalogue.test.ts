@@ -83,6 +83,7 @@ describe("recipe catalogue helpers", () => {
             sort_order: 0,
             has_nutrition: false,
             has_energy: false,
+            classifications: [],
           },
           {
             id: "ingredient-2",
@@ -95,6 +96,7 @@ describe("recipe catalogue helpers", () => {
             sort_order: 1,
             has_nutrition: true,
             has_energy: false,
+            classifications: [],
           },
           {
             id: "ingredient-3",
@@ -107,6 +109,7 @@ describe("recipe catalogue helpers", () => {
             sort_order: 2,
             has_nutrition: true,
             has_energy: true,
+            classifications: [],
           },
         ]),
       ),
