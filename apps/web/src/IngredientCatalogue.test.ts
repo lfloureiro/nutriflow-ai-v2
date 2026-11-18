@@ -34,6 +34,7 @@ function ingredient(composition: Ingredient["latest_composition"]): Ingredient {
     source: "user",
     is_active: true,
     recipe_usage_count: 0,
+    classifications: [],
     latest_composition: composition,
     created_at: "2026-08-22T10:00:00Z",
     updated_at: "2026-08-22T10:00:00Z",
