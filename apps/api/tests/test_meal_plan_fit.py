@@ -241,8 +241,9 @@ def test_plan_fit_food_category_exclusion_uses_only_persisted_classification(
         for rule in without_metadata.rule_results
         if rule.target_type == "food_category" and rule.target_key == "gluten"
     )
-    assert unclassified_rule.status == "pass"
+    assert unclassified_rule.status == "not_evaluated"
     assert without_metadata.eligible is True
+    assert without_metadata.status == "unknown"
 
     composition.food_item.classifications.append(
         FoodItemClassification(
