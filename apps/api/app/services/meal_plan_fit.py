@@ -37,6 +37,13 @@ ZERO = Decimal(0)
 ONE = Decimal(1)
 SCORE_QUANTUM = Decimal("0.0001")
 
+_POSITIVE_ONLY_CLASSIFICATION_TARGET_TYPES = {
+    "food_category",
+    "allergen",
+    "processing_class",
+    "protein_source",
+}
+
 _CANDIDATE_TARGET_TYPES = {
     "food",
     "food_item",
@@ -284,16 +291,31 @@ def _evaluate_rule(
 ) -> MealPlanFitRuleRead:
     if rule.target_type in _CANDIDATE_TARGET_TYPES and rule.operator == "exclude":
         matched = _candidate_matches(candidate, rule.target_type, rule.target_key)
+        if matched:
+            return _rule_result(
+                rule,
+                scope="candidate",
+                status="fail",
+                score=ZERO,
+                explanation="Candidate contains an excluded food or recipe subject.",
+            )
+        if rule.target_type in _POSITIVE_ONLY_CLASSIFICATION_TARGET_TYPES:
+            return _rule_result(
+                rule,
+                scope="candidate",
+                status="not_evaluated",
+                explanation=(
+                    "No persisted classification confirms the excluded category. "
+                    "Missing classification evidence is not treated as proof that "
+                    "the candidate is free of that category."
+                ),
+            )
         return _rule_result(
             rule,
             scope="candidate",
-            status="fail" if matched else "pass",
-            score=ZERO if matched else ONE,
-            explanation=(
-                "Candidate contains an excluded food or recipe subject."
-                if matched
-                else "Candidate does not contain the excluded subject."
-            ),
+            status="pass",
+            score=ONE,
+            explanation="Candidate does not contain the excluded subject.",
         )
 
     if rule.target_type != "nutrient":
