@@ -93,6 +93,17 @@ def save_setup(db: Session, family_id: uuid.UUID, week: date, data: WeekSetupWri
         if not {person.person_id for person in entry.people} <= set(data.person_ids):
             raise HTTPException(422, "Attendance decisions must use selected people")
 
+    guest_keys = set()
+    for entry in data.guest_notices:
+        key = (entry.planning_date, entry.meal_type)
+        if key in guest_keys:
+            raise HTTPException(422, "Duplicate guest headcount for the same meal")
+        guest_keys.add(key)
+        if not week <= entry.planning_date < week + timedelta(days=7):
+            raise HTTPException(422, "Guest headcount must belong to the selected week")
+        if entry.meal_type not in data.meal_types:
+            raise HTTPException(422, "Guest headcount must use a selected meal type")
+
     settings = data.model_dump(mode="json", exclude={"expected_version"})
     try:
         if data.expected_version == 0:
@@ -113,6 +124,8 @@ def save_setup(db: Session, family_id: uuid.UUID, week: date, data: WeekSetupWri
             # An explicit [] remains a deliberate clear operation.
             if "attendance_decisions" not in data.model_fields_set:
                 settings["attendance_decisions"] = row.settings.get("attendance_decisions", [])
+            if "guest_notices" not in data.model_fields_set:
+                settings["guest_notices"] = row.settings.get("guest_notices", [])
             result = db.execute(
                 update(FamilyWeekSetup)
                 .where(
