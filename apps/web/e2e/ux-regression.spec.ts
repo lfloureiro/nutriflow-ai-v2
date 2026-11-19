@@ -138,6 +138,29 @@ test("recipe catalogue stays mounted when closing and reopening a detail",async 
   expect(requests).toBe(0);
 });
 
+test("meal edit cancel leaves weekly calendar and data untouched without a refetch",async ({page,request})=>{
+  const fixture=await seed(request);
+  await openFamily(page,fixture.family.id,`/#/meals?date=${DATE}&mode=week`);
+  const slot=page.getByRole("button",{name:/Prato sintético QA/}).first();
+  await slot.click();
+  const dialog=page.getByRole("dialog");
+  await expect(dialog).toHaveCount(1);
+  let refetches=0;
+  page.on("request",r=>{
+    if(r.url().includes(`/api/families/${fixture.family.id}/meal-plan?`) && r.method()==="GET")refetches++;
+  });
+  await dialog.getByRole("button",{name:"Alterar",exact:true}).click();
+  await expect(dialog).toHaveCount(1);
+  await expect(dialog.locator("form.meal-plan-form")).toBeVisible();
+  await dialog.getByRole("button",{name:"Fechar detalhe"}).count().then(async count=>{
+    if(count)await dialog.getByRole("button",{name:"Fechar detalhe"}).click();
+    else await page.keyboard.press("Escape");
+  });
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator(".weekly-day-grid")).toBeVisible();
+  expect(refetches).toBe(0);
+});
+
 test("weekly map: editing a saved or empty meal never stacks two side drawers",async ({page,request})=>{
   const fixture=await seed(request);
   await page.setViewportSize({width:1440,height:900});
