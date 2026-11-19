@@ -523,3 +523,35 @@ test("UI adaptation draft: save an incomplete recipe and resume after drawer rel
   await expect(drawer.getByText(/Rascunho recuperado com os dados em falta preservados/)).toBeVisible();
   await expect(drawer.getByRole("button",{name:"Guardar para continuar depois"})).toBeVisible();
 });
+
+test("stale draft: changed source recipe is flagged and shown for review without applying the edit",async ({page,request})=>{
+  const fixture=await seed(request);
+  const base=`/families/${fixture.family.id}`;
+  const recipe=await getJson<{ingredients:{id:string}[]}>(request,`${base}/recipes/${fixture.recipe.id}`);
+  const ingredientId=recipe.ingredients[0]!.id;
+  const draft=await postJson<{id:string}>(request,`${base}/meal-adaptation-drafts`,{
+    base_recipe_id:fixture.recipe.id,meal_event_id:fixture.meal.id,planning_date:DATE,meal_type:"dinner",
+    name:"Rascunho sujeito a alteração QA",serving_count:"",
+    operations:[{recipe_ingredient_id:ingredientId,replacement_food_item_id:null,
+      replacement_name:"Alternativa por decidir",quantity:"",unit:"",preparation:""}],
+    participants:[{person_id:fixture.person.id,quantity:"",unit:"serving"}],
+    decisions:{[ingredientId]:"manual"},
+  });
+  const changed=await request.patch(`${API}${base}/recipes/${fixture.recipe.id}`,{
+    data:{name:"Prato original revisto QA"},
+  });
+  expect(changed.ok(),`Cannot update original recipe: ${changed.status()} ${await changed.text()}`).toBe(true);
+  const drafts=await getJson<{id:string,base_changed:boolean}[]>(request,
+    `${base}/meal-adaptation-drafts?base_recipe_id=${fixture.recipe.id}`);
+  expect(drafts.find(row=>row.id===draft.id)?.base_changed).toBe(true);
+  await openFamily(page,fixture.family.id,`/#/meals?date=${DATE}&meal=dinner&mode=week`);
+  const drawer=page.getByRole("dialog");
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole("button",{name:"Preparar as trocas"}).click();
+  await drawer.getByRole("button",{name:/Retomar rascunho: /}).click();
+  await expect(drawer.getByText(/A receita base mudou desde este rascunho/)).toBeVisible();
+  const current=await getJson<{days:{date:string,slots:{meal_type:string,meals:{id:string,recipe_id:string}[]}[]}[]}>(
+    request,`${base}/meal-plan?start_date=2026-11-16&days=7`);
+  expect(current.days.find(day=>day.date===DATE)?.slots.find(slot=>slot.meal_type==="dinner")?.meals[0]).toEqual(
+    expect.objectContaining({id:fixture.meal.id,recipe_id:fixture.recipe.id}));
+});
