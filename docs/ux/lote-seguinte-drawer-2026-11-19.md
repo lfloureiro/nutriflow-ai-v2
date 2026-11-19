@@ -9,7 +9,7 @@
 
 - [x] **01 — Componente base de drawer acessível.** Criar um painel reutilizável responsivo, sem regras clínicas ou dados embutidos, com foco inicial e restaurado, Escape, bloqueio de scroll, aria-modal, título acessível, adaptação a mobile e movimento reduzido. **Estado:** código adicionado; testes ainda pendentes.
 - [ ] **02 — Testar o drawer isoladamente.** Cobrir foco inicial/retorno, Tab/Shift+Tab, Escape, fundo inacessível, mobile, 200% zoom, temas e múltiplos ciclos abrir/fechar.
-- [ ] **03 — Converter detalhe da refeição em contexto lateral.** Na semana, manter visível o mapa ao abrir uma refeição; preservar a célula/dia/modo e não duplicar edição nem motores nutricionais.
+- [ ] **03 — Converter detalhe da refeição em contexto lateral.** Na semana, manter visível o mapa ao abrir uma refeição; preservar a célula/dia/modo e não duplicar edição nem motores nutricionais. **Parcial:** o editor manual de refeições foi ligado ao drawer sem desmontar a semana; o detalhe de avaliação/adaptação da proposta continua inline.
 - [ ] **04 — Guardas e recuperação de contexto.** Fechar drawer, navegar e voltar apenas após resolver alterações por guardar; URL e browser back/forward recuperam refeição/aba; erro e reload não perdem rascunho guardado.
 - [ ] **05 — Migrar o fluxo de adaptação corrigido para o drawer.** Aceitar proposta diretamente → rever receita preenchida (edição opcional) → confirmar no plano; conservar rascunhos, herança de unidade/quantidade/rendimento ausente e a identidade de ingredientes declarados.
 - [ ] **06 — Detalhe por pessoa sem aprovação implícita.** Mostrar presença, dose, regra e fonte; separar adequação nutricional, preferência/estrelas e estado desconhecido; evitar criar score sem evidência.
@@ -36,3 +36,10 @@ UX-021/049 (importação NLP com revisão) → UX-051 (eventos/dataset temporal)
 ## Evidência desta abertura
 
 A branch foi criada a partir de main; apenas os ficheiros indicados no commit da branch foram modificados. Nesta sessão, o checkout local do repositório, a DB local e o preview local do utilizador **não estão acessíveis**. Não reportar testes npm/pytest, E2E ou CI como realizados até serem executados e observados.
+
+## Incremento de código iniciado nesta branch
+
+- `apps/web/src/ui/ContextDrawer.tsx` e `.css`: drawer por portal, tokens dos dois temas, foco inicial/retorno, Tab/Shift+Tab, Escape, `inert` do conteúdo principal, scroll bloqueado, mobile e movimento reduzido.
+- `apps/web/src/FamilyMeals.tsx`: o editor manual de uma refeição abre nesse drawer sem substituir a semana ou o dia. A chamada de fecho usa `useUnsavedChanges.confirmDiscard()` já existente. Gravação/remoção continuam nos mesmos endpoints e sem alteração de contratos.
+- Verificação nesta sessão: presença dos ficheiros e dos pontos de integração na branch; **não equivale a compilação TypeScript, Vitest ou E2E**. Abrir/fechar, rascunhos, edição manual, alterações de tema e responsive continuam por testar no ambiente de execução antes de PR/merge.
+- A referência visual enviada nesta conversa não deve ser substituída pela cópia anterior do ZIP. Nenhum dado da família real foi consultado ou alterado nesta branch.
