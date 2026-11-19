@@ -147,3 +147,10 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Acrescentado E2E **pelos botões do drawer**: escolher ingrediente manualmente, deixar quantidade explicitamente em branco, guardar para continuar depois, recarregar, abrir as trocas e retomar rascunho; verificar que mantém os dados incompletos e não aplica a refeição.
 - Versão do frontend passa a **v2.0.6**; é patch Z e não requer validação manual. **Só declarar sucesso após CI Web, API e UX E2E no SHA final**; caso haja falha, usar logs do job e corrigir, sem tocar nos dados reais.
 - Ainda pendem revisão com várias pessoas/presenças, rascunho após alteração da receita base, comparação com orientações profissionais e zoom 200%.
+
+## Patch 2.0.7 — sinalizar rascunho após revisão da receita original (19 novembro 2026)
+
+- Novo E2E com API/PostgreSQL sintéticos: criar rascunho incompleto ligado a uma refeição, alterar depois o nome da receita original, confirmar que o servidor devolve `base_changed=true`, reabrir o drawer e verificar aviso explícito «A receita base mudou desde este rascunho. Revê as escolhas antes de aplicar.».
+- O teste confirma que o ato de retomar o rascunho desatualizado não altera o `recipe_id` da refeição. Não marcar uma revisão como conclusão sem nova confirmação do utilizador.
+- Continua a ser permitida a **revisão manual** de um rascunho antigo; não o apagar automaticamente nem converter dados nutricionais ausentes em valores.
+- Versão de interface **v2.0.7** (patch Z). Web/API/UX E2E só ficam aprovados quando verdes no SHA final; teste manual reservado para a próxima versão X/Y consolidada.
