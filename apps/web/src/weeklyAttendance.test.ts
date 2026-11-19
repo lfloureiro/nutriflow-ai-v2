@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {copyWeeklyOrganisation,repeatMealAttendance,setWeeklyAttendanceDecision} from "./weeklyAttendance";
+import {copyWeeklyOrganisation,repeatMealAttendance,setWeeklyAttendanceDecision,setWeeklyGuestCount} from "./weeklyAttendance";
 import {mealPlanErrorText} from "./FamilyMeals";
 import {ApiError} from "./api/client";
 import type {WeekSetup} from "./api/planningWorkspaceClient";
@@ -42,6 +42,16 @@ describe("reusable attendance",()=>{
    expect(next.attendance_decisions?.[0]?.people[0]?.decision).toBe("unconfirmed");
    expect(()=>setWeeklyAttendanceDecision(source,"2026-11-02","dinner","a","present")).toThrow("invalid_attendance_decision");
    expect(()=>setWeeklyAttendanceDecision(source,"2026-10-20","dinner","outsider","present")).toThrow("invalid_attendance_decision");
+ });
+ it("records guest headcounts without attaching them to family people or copying them weekly",()=>{
+   const withGuests=setWeeklyGuestCount(source,"2026-10-20","dinner",2);
+   expect(withGuests.guest_notices).toEqual([{planning_date:"2026-10-20",meal_type:"dinner",guest_count:2}]);
+   expect(withGuests.attendance).toEqual(source.attendance);
+   expect(copyWeeklyOrganisation(withGuests,target,source.person_ids).guest_notices).toEqual([]);
+   expect(setWeeklyGuestCount(withGuests,"2026-10-20","dinner",0).guest_notices).toEqual([]);
+   expect(()=>setWeeklyGuestCount(source,"2026-10-20","dinner",13)).toThrow("invalid_guest_headcount");
+   expect(()=>setWeeklyGuestCount(source,"2026-10-20","dinner",1.5)).toThrow("invalid_guest_headcount");
+   expect(()=>setWeeklyGuestCount(source,"2026-10-26","dinner",1)).toThrow("invalid_guest_headcount");
  });
  it("blocks unavailable attendees and invalid source slots rather than dropping people silently",()=>{
    expect(()=>copyWeeklyOrganisation(source,target,["a","b"])).toThrow("unavailable_attendee");
