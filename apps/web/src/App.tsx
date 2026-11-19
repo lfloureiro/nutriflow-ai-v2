@@ -71,8 +71,8 @@ export default function App() {
   useEffect(()=>{window.scrollTo(0,0);},[view]);
   const selectedPersonId=route.person??null;const setSelectedPersonId=(person:string|null)=>navigate({person:person??undefined});
   const [showPersonSetup, setShowPersonSetup] = useState(false);
-  const mealsDate=route.date;const setMealsDate=(date:string|undefined)=>navigate({date});
-  const mealsMode=route.mode;const setMealsMode=(mode:FamilyMealsMode)=>navigate({mode});
+  const mealsDate=route.date;const setMealsDate=(date:string|undefined)=>navigate({date,meal:undefined});
+  const mealsMode=route.mode;const setMealsMode=(mode:FamilyMealsMode)=>navigate({mode,meal:undefined});
 
   useEffect(() => {
     if (!activeFamilyId) {
@@ -132,11 +132,11 @@ export default function App() {
   }
 
   function openPrimaryView(nextView: View) {
-    if(!navigate({view:nextView,...(nextView==="people"?{person:undefined}:{}),...(nextView==="meals"?{mode:"week" as const}:{}),...(nextView==="house"?{house:"recipes" as const}:{})}))return;
+    if(!navigate({view:nextView,...(nextView==="people"?{person:undefined}:{}),...(nextView==="meals"?{mode:"week" as const,meal:undefined}:{}),...(nextView==="house"?{house:"recipes" as const}:{})}))return;
     if(nextView==="people")setShowPersonSetup(false);
   }
-  function openWeek(date:string){navigate({date,mode:"week",view:"meals"});}
-  function openMealPlan(){navigate({date:undefined,mode:"prepare",view:"meals"});}
+  function openWeek(date:string){navigate({date,mode:"week",view:"meals",meal:undefined});}
+  function openMealPlan(){navigate({date:undefined,mode:"prepare",view:"meals",meal:undefined});}
 
   function changeFamily() {
     if(!navigate({view:"home",mode:"today",date:undefined,person:undefined,house:"recipes"}))return;
@@ -247,6 +247,8 @@ export default function App() {
               onModeChange={setMealsMode}
               initialDate={mealsDate}
               onDateChange={setMealsDate}
+              selectedMealType={route.meal}
+              onMealSelectionChange={(selection) => navigate({date:selection?.date,meal:selection?.mealType,view:"meals",mode:"week"})}
               referenceDate={dashboard?.dashboard_date}
             />
           ) : null}
