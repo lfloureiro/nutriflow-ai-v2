@@ -85,6 +85,59 @@ test("desktop: meal drawer, deep-link, history, focus and persistence", async ({
   expect(stored.days.find(d=>d.date===DATE)?.slots.find(s=>s.meal_type==="dinner")?.meals.some(m=>m.id===fixture.meal.id)).toBe(true);
 });
 
+test("weekly day changes preserve the calendar without intermediate loading or plan refetch",async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.setViewportSize({width:390,height:844});
+  await openFamily(page,fixture.family.id,`/#/meals?date=${DATE}&mode=week`);
+  const grid=page.locator(".weekly-day-grid");
+  await expect(grid).toBeVisible();
+  await page.evaluate(()=>{
+    const key="nf-week-grid-remounts-qa";
+    (window as typeof window & {__nfWeekGridRemounts?:number}).__nfWeekGridRemounts=0;
+    new MutationObserver(()=>{
+      if(!document.querySelector(".weekly-day-grid"))
+        (window as typeof window & {__nfWeekGridRemounts?:number}).__nfWeekGridRemounts!++;
+    }).observe(document.querySelector(".family-meals-screen")!,{subtree:true,childList:true});
+    document.body.dataset.nfGridKey=key;
+  });
+  let planRequests=0;
+  page.on("request",r=>{if(r.url().includes("/api/families/")&&r.url().includes("/meal-plan?"))planRequests++;});
+  const dayButtons=page.locator(".nf-week-day-picker button");
+  await expect(dayButtons).toHaveCount(7);
+  await dayButtons.nth(1).click();
+  await expect(dayButtons.nth(1)).toHaveAttribute("aria-pressed","true");
+  await dayButtons.nth(3).click();
+  await expect(dayButtons.nth(3)).toHaveAttribute("aria-pressed","true");
+  await page.getByRole("button",{name:/Prato sintético QA/}).first().click();
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await page.getByRole("dialog").getByRole("button",{name:"Fechar detalhe"}).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(grid).toBeVisible();
+  expect(planRequests).toBe(0);
+  expect(await page.evaluate(()=>(window as typeof window & {__nfWeekGridRemounts?:number}).__nfWeekGridRemounts)).toBe(0);
+});
+
+test("recipe catalogue stays mounted when closing and reopening a detail",async ({page,request})=>{
+  const fixture=await seed(request);
+  await openFamily(page,fixture.family.id,"/#/house?tab=recipes");
+  const grid=page.locator(".nf-recipe-grid");
+  const recipe=page.getByRole("button",{name:/Prato sintético QA/}).first();
+  await expect(recipe).toBeVisible();
+  let requests=0;
+  page.on("request",r=>{if(r.url().includes("/api/families/")&&r.url().includes("/recipes?"))requests++;});
+  await recipe.click();
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await expect(grid).toBeAttached();
+  await page.getByRole("dialog").getByRole("button",{name:"Fechar detalhe"}).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(recipe).toBeVisible();
+  await recipe.click();
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await page.getByRole("dialog").getByRole("button",{name:"Fechar detalhe"}).click();
+  await expect(grid).toBeVisible();
+  expect(requests).toBe(0);
+});
+
 test("weekly map: editing a saved or empty meal never stacks two side drawers",async ({page,request})=>{
   const fixture=await seed(request);
   await page.setViewportSize({width:1440,height:900});
