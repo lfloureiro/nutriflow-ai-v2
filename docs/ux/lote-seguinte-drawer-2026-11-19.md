@@ -9,7 +9,7 @@
 
 - [x] **01 — Componente base de drawer acessível.** Criar um painel reutilizável responsivo, sem regras clínicas ou dados embutidos, com foco inicial e restaurado, Escape, bloqueio de scroll, aria-modal, título acessível, adaptação a mobile e movimento reduzido. **Estado:** código adicionado; testes ainda pendentes.
 - [ ] **02 — Testar o drawer isoladamente.** Cobrir foco inicial/retorno, Tab/Shift+Tab, Escape, fundo inacessível, mobile, 200% zoom, temas e múltiplos ciclos abrir/fechar.
-- [ ] **03 — Converter detalhe da refeição em contexto lateral.** Na semana, manter visível o mapa ao abrir uma refeição; preservar a célula/dia/modo e não duplicar edição nem motores nutricionais. **Parcial:** o editor manual de refeições foi ligado ao drawer sem desmontar a semana; o detalhe de avaliação/adaptação da proposta continua inline.
+- [x] **03 — Converter detalhe da refeição em contexto lateral.** Na semana, manter visível o mapa ao abrir uma refeição; preservar a célula/dia/modo e não duplicar edição nem motores nutricionais. **Implementação ligada, regressão visual e E2E pendentes:** editor manual e detalhe de avaliação/adaptação semanal utilizam o drawer; transição detalhe → editor evita dois diálogos em simultâneo.
 - [ ] **04 — Guardas e recuperação de contexto.** Fechar drawer, navegar e voltar apenas após resolver alterações por guardar; URL e browser back/forward recuperam refeição/aba; erro e reload não perdem rascunho guardado.
 - [ ] **05 — Migrar o fluxo de adaptação corrigido para o drawer.** Aceitar proposta diretamente → rever receita preenchida (edição opcional) → confirmar no plano; conservar rascunhos, herança de unidade/quantidade/rendimento ausente e a identidade de ingredientes declarados.
 - [ ] **06 — Detalhe por pessoa sem aprovação implícita.** Mostrar presença, dose, regra e fonte; separar adequação nutricional, preferência/estrelas e estado desconhecido; evitar criar score sem evidência.
@@ -43,3 +43,10 @@ A branch foi criada a partir de main; apenas os ficheiros indicados no commit da
 - `apps/web/src/FamilyMeals.tsx`: o editor manual de uma refeição abre nesse drawer sem substituir a semana ou o dia. A chamada de fecho usa `useUnsavedChanges.confirmDiscard()` já existente. Gravação/remoção continuam nos mesmos endpoints e sem alteração de contratos.
 - Verificação nesta sessão: presença dos ficheiros e dos pontos de integração na branch; **não equivale a compilação TypeScript, Vitest ou E2E**. Abrir/fechar, rascunhos, edição manual, alterações de tema e responsive continuam por testar no ambiente de execução antes de PR/merge.
 - A referência visual enviada nesta conversa não deve ser substituída pela cópia anterior do ZIP. Nenhum dado da família real foi consultado ou alterado nesta branch.
+
+## Continuação do incremento
+
+- `apps/web/src/WeeklyProposalPreview.tsx`: detalhe da refeição guardada, proposta, avaliação por pessoa e componente existente `SelectedMealOptions` aparecem no drawer responsivo, sem alterar os serviços de adaptação, compras ou planeamento. Removido o scroll automático para o detalhe inline.
+- O fecho do detalhe passa por `requestNavigation()`, respeitando bloqueios existentes de alterações não guardadas; abrir o editor fecha o drawer de detalhe para não acumular dois diálogos.
+- PR de CI criado em modo **draft**: https://github.com/lfloureiro/nutriflow-ai-v2/pull/76. Não integrar sem gates verdes no último SHA e validação E2E isolada.
+- Resultado anterior de CI web no SHA `86356b2731dce8ea5700fb214c8e3ac7bc909217`: success; **não valida os commits posteriores de integração semanal**.
