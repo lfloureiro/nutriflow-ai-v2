@@ -108,6 +108,11 @@ def save_setup(db: Session, family_id: uuid.UUID, week: date, data: WeekSetupWri
             )
             if row is None:
                 raise HTTPException(409, "Planning setup changed; reload")
+            # An older client can still save the existing planning fields without
+            # erasing newly stored attendance decisions it does not understand.
+            # An explicit [] remains a deliberate clear operation.
+            if "attendance_decisions" not in data.model_fields_set:
+                settings["attendance_decisions"] = row.settings.get("attendance_decisions", [])
             result = db.execute(
                 update(FamilyWeekSetup)
                 .where(
