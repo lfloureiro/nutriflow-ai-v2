@@ -197,3 +197,12 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Em `ContextDrawer.tsx`, a navegação Tab/Shift+Tab deixa de depender do foco nativo do browser para mover-se entre itens não extremos: todos os passos de Tab passam a calcular e focar explicitamente o próximo elemento visível/ativo no diálogo, com wrap entre o primeiro e o último. Escape e restauração de foco mantêm-se.
 - O E2E existente verifica foco inicial, Shift+Tab, retorno ao botão de fecho, doze passos Tab sem fuga, Escape e retorno do foco à célula de refeição. Executar novamente Web/API/UX E2E no **SHA final da v2.0.12** e registar se o teste volta a requerer retry.
 - A mudança é de acessibilidade/navegação, sem alteração de dados ou contratos e sem pedir teste manual na série Z.
+
+## Patch v2.0.13 — contextualização de convidados e presenças no drawer (19 novembro 2026)
+
+- O detalhe de refeição no `WeeklyProposalPreview` recebe os `guest_notices` e `attendance_decisions` da semana ativa, apenas quando a pessoa está no assistente de planeamento. O aviso é limitado **ao dia e tipo de refeição do drawer**; não transfere números de convidados ou decisões pendentes de outro slot.
+- **Convidados sem perfil:** a contagem é só previsão; não participa nos cálculos nutricionais, nas doses, nas compras automáticas ou na validação de restrições. O drawer exige expressamente revisão manual.
+- **Por confirmar:** mostra o número de decisões ainda abertas e informa que a seleção semanal **não altera automaticamente** participantes de uma refeição já guardada.
+- Sem novo endpoint, migração ou alteração do motor nutricional; apenas integração de dados previamente persistidos e apresentação contextual.
+- Testes Vitest novos verificam ausência de contaminação entre dias, tempos alimentares e setups inexistentes. Validar Web CI, API CI e UX E2E no SHA final. A cobertura browser específica deste aviso deve continuar no checklist antes da versão 2.1.0.
+- Incremento Z: sem pedido de testes manuais, sem utilização da DB familiar real e sem merge na `main`.
