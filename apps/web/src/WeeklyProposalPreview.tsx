@@ -736,7 +736,7 @@ export default function WeeklyProposalPreview({
 }: {
   onMealCommitted?:()=>void;
   initialSelection?: {date:string;mealType:MealType} | null;
-  onSelectionChange?: (selection:{date:string;mealType:MealType})=>void;
+  onSelectionChange?: (selection:{date:string;mealType:MealType}|null)=>boolean|void;
   recipeReviews?: ReviewRecipe[];
   renderSelectedMeal?: (context: SelectedMealContext) => ReactNode;
   familyId: string;
@@ -780,6 +780,10 @@ export default function WeeklyProposalPreview({
   const [shoppingWarning, setShoppingWarning] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(initialSelection?.date ?? null);
   const [selectedMealType, setSelectedMealType] = useState<MealType | null>(initialSelection?.mealType ?? null);
+  useEffect(() => {
+    if (initialSelection) setSelectedDate(initialSelection.date);
+    setSelectedMealType(initialSelection?.mealType ?? null);
+  }, [initialSelection?.date, initialSelection?.mealType]);
   const [adaptationBusy, setAdaptationBusy] = useState(false);
   const [adaptationResult, setAdaptationResult] =
     useState<SharedMealTransformationResult | null>(null);
@@ -1120,14 +1124,15 @@ export default function WeeklyProposalPreview({
   }
 
   function selectDay(planningDate: string) {
+    if (onSelectionChange?.(null) === false) return;
     setSelectedDate(planningDate);
     setSelectedMealType(null);
   }
 
   function selectMeal(planningDate: string, mealType: MealType) {
+    if (onSelectionChange?.({date:planningDate,mealType}) === false) return;
     setSelectedDate(planningDate);
     setSelectedMealType(mealType);
-    onSelectionChange?.({date:planningDate,mealType});
     // The drawer owns focus and scrolling; leave the weekly map in place.
   }
 
@@ -1278,7 +1283,7 @@ export default function WeeklyProposalPreview({
                                 : ""
                             }`}
                             key={mealType}
-                            onClick={() => {if(!entry && !choice && !pendingReason && onEdit){onSelectionChange?.({date:planningDate,mealType});onEdit(planningDate,mealType,null);}else selectMeal(planningDate,mealType);}}
+                            onClick={() => {if(!entry && !choice && !pendingReason && onEdit){if(onSelectionChange?.({date:planningDate,mealType})!==false)onEdit(planningDate,mealType,null);}else selectMeal(planningDate,mealType);}}
                             type="button"
                           >
                             <span className="weekly-grid-meal__label">
@@ -1358,13 +1363,14 @@ export default function WeeklyProposalPreview({
               wide
               closeLabel={locale === "pt-PT" ? "Fechar detalhe" : "Close meal detail"}
               onRequestClose={() => {
+                if (onSelectionChange?.(null) === false) return false;
                 if (!requestNavigation()) return false;
                 setSelectedMealType(null);
                 return true;
               }}
             >
             <section className="weekly-meal-detail" id="nf-selected-meal" tabIndex={-1}>
-              <button className="button ghost small nf-detail-close" type="button" onClick={()=>{if(requestNavigation())setSelectedMealType(null);}}><Icon name="arrow"/>{locale === "pt-PT" ? "Voltar ao mapa" : "Back to planner"}</button>
+              <button className="button ghost small nf-detail-close" type="button" onClick={()=>{if(onSelectionChange?.(null)!==false&&requestNavigation())setSelectedMealType(null);}}><Icon name="arrow"/>{locale === "pt-PT" ? "Voltar ao mapa" : "Back to planner"}</button>
               <div className="weekly-section-heading weekly-meal-detail__heading">
                 <div>
                   <span className="eyebrow">{copy.mealDetail}</span>
@@ -1383,7 +1389,7 @@ export default function WeeklyProposalPreview({
                       <button
                         className="button ghost"
                         disabled={selectedEntry.status !== "planned" || decisionBusy !== null}
-                        onClick={() => {if(requestNavigation()){setSelectedMealType(null);onEdit(selectedDate, selectedMealType, selectedEntry);}}}
+                        onClick={() => {if(onSelectionChange?.(null)!==false&&requestNavigation()){setSelectedMealType(null);onEdit(selectedDate, selectedMealType, selectedEntry);}}}
                         type="button"
                       >
                         {selectedEntry.transformations.length > 0
@@ -1416,7 +1422,7 @@ export default function WeeklyProposalPreview({
                           : copy.suggestAdaptation}
                     </button>
                   </div>
-                ) : !selectedEntry && !selectedChoice && onEdit ? <button type="button" className="button primary" onClick={()=>{if(requestNavigation()){setSelectedMealType(null);onEdit(selectedDate,selectedMealType,null);}}}>{locale === "pt-PT" ? "Escolher receita" : "Choose recipe"}</button> : null}
+                ) : !selectedEntry && !selectedChoice && onEdit ? <button type="button" className="button primary" onClick={()=>{if(onSelectionChange?.(null)!==false&&requestNavigation()){setSelectedMealType(null);onEdit(selectedDate,selectedMealType,null);}}}>{locale === "pt-PT" ? "Escolher receita" : "Choose recipe"}</button> : null}
               </div>
 
               {reviewError && <p role="alert">{locale==="pt-PT"?"Alternativas indisponíveis: ":"Alternatives unavailable: "}{reviewError}</p>}
