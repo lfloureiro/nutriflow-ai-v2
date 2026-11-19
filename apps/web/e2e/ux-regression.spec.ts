@@ -235,6 +235,41 @@ test("ingredient: draft warning and optional nutrition persist in isolated datab
   await expect(page.getByText("Ingrediente de teste sem energia")).toBeVisible();
 });
 
+test("ingredient editor reflows at 320 and 390 CSS pixels in light and dark themes",async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.emulateMedia({reducedMotion:"reduce"});
+  for(const width of [320,390]){
+    await page.setViewportSize({width,height:800});
+    for(const theme of ["light","dark"]){
+      await openFamily(page,fixture.family.id,"/#/house?tab=ingredients");
+      await page.evaluate(value=>window.localStorage.setItem("nutriflow-appearance",value),theme);
+      await page.reload();
+      await expect(page.locator("html")).toHaveAttribute("data-theme",theme);
+      await page.getByRole("button",{name:/Novo ingrediente/}).click();
+      const name=page.getByLabel("Nome",{exact:true});
+      await expect(name).toBeVisible();
+      await name.fill(`Ingrediente responsivo QA ${width} ${theme}`);
+      await expect(page.getByText("Alterações por guardar")).toBeVisible();
+      const geometry=await page.evaluate(()=>{
+        const field=document.querySelector<HTMLInputElement>('input[name="name"]');
+        const rect=field?.getBoundingClientRect();
+        return {
+          viewport:window.innerWidth,
+          documentWidth:document.documentElement.scrollWidth,
+          fieldLeft:rect?.left??null,
+          fieldRight:rect?.right??null,
+        };
+      });
+      expect(geometry.documentWidth,`Page overflow at ${width}px / ${theme}`).toBeLessThanOrEqual(geometry.viewport+1);
+      if(geometry.fieldLeft!==null&&geometry.fieldRight!==null){
+        expect(geometry.fieldLeft).toBeGreaterThanOrEqual(-1);
+        expect(geometry.fieldRight).toBeLessThanOrEqual(geometry.viewport+1);
+      }
+      await expect(page.getByRole("button",{name:"Guardar",exact:true})).toBeVisible();
+    }
+  }
+});
+
 test("person: switching local tabs does not discard an unsaved condition",async ({page,request})=>{
   const fixture=await seed(request);
   await openFamily(page,fixture.family.id,`/#/people?person=${fixture.person.id}`);
