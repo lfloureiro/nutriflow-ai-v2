@@ -95,7 +95,7 @@ test("weekly map: editing a saved or empty meal never stacks two side drawers",a
   await expect(dialog).toHaveCount(1);
   await dialog.getByRole("button",{name:"Alterar",exact:true}).click();
   await expect(dialog).toHaveCount(1);
-  await expect(page.locator("form.meal-plan-editor, form.meal-plan-editor__form")).toHaveCount(1);
+  await expect(page.locator("form.meal-plan-form")).toHaveCount(1);
   await expect(page).not.toHaveURL(/meal=dinner/);
   await dialog.getByRole("button",{name:"Cancelar",exact:true}).first().click();
   await expect(dialog).toHaveCount(0);
@@ -105,7 +105,7 @@ test("weekly map: editing a saved or empty meal never stacks two side drawers",a
   await expect(empty).toBeVisible();
   await empty.click();
   await expect(dialog).toHaveCount(1);
-  await expect(page.locator("form.meal-plan-editor, form.meal-plan-editor__form")).toHaveCount(1);
+  await expect(page.locator("form.meal-plan-form")).toHaveCount(1);
   await dialog.getByRole("button",{name:"Cancelar",exact:true}).first().click();
   await expect(dialog).toHaveCount(0);
   await expect(page.locator(".weekly-day-grid")).toBeVisible();
