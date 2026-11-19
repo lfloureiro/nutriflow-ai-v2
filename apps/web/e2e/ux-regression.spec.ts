@@ -507,6 +507,7 @@ test("UI adaptation draft: save an incomplete recipe and resume after drawer rel
   await drawer.getByLabel("Ingrediente da receita").selectOption({index:1});
   await drawer.getByRole("button",{name:"Adicionar troca manual"}).click();
   await drawer.getByLabel("Trocar por (ingrediente do catálogo)").selectOption(replacement.id);
+  await drawer.getByLabel("Quantidade na receita inteira").fill("");
   await drawer.getByRole("button",{name:"Usar esta escolha manual"}).click();
   await drawer.getByRole("button",{name:"Rever receita com estas escolhas"}).click();
   await expect(drawer.getByRole("button",{name:"Guardar para continuar depois"})).toBeVisible();
