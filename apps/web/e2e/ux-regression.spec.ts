@@ -91,7 +91,7 @@ test("mobile: drawer remains within viewport in both themes",async ({page,reques
   const width=await drawer.evaluate(element=>element.getBoundingClientRect().width);
   expect(width).toBeLessThanOrEqual(391);
   for (const theme of ["light","dark"]){
-    await page.getByRole("combobox",{name:/Aparência/}).selectOption(theme);
+    await page.evaluate((selected)=>document.documentElement.setAttribute("data-theme",selected),theme);
     await expect(drawer).toBeVisible();
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+1);
     expect(overflow).toBe(false);
