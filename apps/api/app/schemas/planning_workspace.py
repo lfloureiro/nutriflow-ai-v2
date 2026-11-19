@@ -22,6 +22,27 @@ class MealAttendance(BaseModel):
         return value
 
 
+class PersonAttendanceDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    person_id: uuid.UUID
+    decision: Literal["present", "absent", "unconfirmed"]
+
+
+class MealAttendanceDecisions(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    planning_date: date
+    meal_type: Literal["breakfast", "lunch", "snack", "dinner"]
+    people: list[PersonAttendanceDecision] = Field(max_length=20)
+
+    @field_validator("people")
+    @classmethod
+    def unique_people(cls, value):
+        ids = [row.person_id for row in value]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Duplicate attendance decisions are not allowed")
+        return value
+
+
 class WeekSetupWrite(BaseModel):
     model_config = ConfigDict(extra="forbid")
     person_ids: list[uuid.UUID] = Field(min_length=2, max_length=20)
@@ -34,6 +55,7 @@ class WeekSetupWrite(BaseModel):
         Literal["breakfast", "lunch", "snack", "dinner"], Literal["home", "delivery", "restaurant"]
     ] = Field(default_factory=dict, max_length=4)
     attendance: list[MealAttendance] = Field(default_factory=list, max_length=28)
+    attendance_decisions: list[MealAttendanceDecisions] = Field(default_factory=list, max_length=28)
     expected_version: int = Field(default=0, ge=0)
 
     @field_validator("person_ids", "meal_types", "excluded_food_item_ids")
@@ -87,6 +109,7 @@ class RetailAlternativeRead(BaseModel):
 
 class PlanningRestrictionsRequest(BaseModel):
     attendance: list[MealAttendance] = Field(default_factory=list, max_length=28)
+    attendance_decisions: list[MealAttendanceDecisions] = Field(default_factory=list, max_length=28)
     person_ids: list[uuid.UUID] = Field(min_length=1, max_length=20)
     week_start: date
     meal_types: list[Literal["breakfast", "lunch", "snack", "dinner"]] = Field(
