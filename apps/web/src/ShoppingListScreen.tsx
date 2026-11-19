@@ -5,7 +5,9 @@ import {getFamilyMealPlan} from "./api/client";
 import {listRecipeReviews,type ReviewRecipe} from "./api/dietaryReviewClient";
 import {foodAlternativeNames,calendarDateOffset} from "./mealAlternatives";
 import IngredientAlternativeLine from "./IngredientAlternativeLine";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import ContextDrawer from "./ui/ContextDrawer";
+import { registerNavigationBlocker } from "./navigation";
 
 import { ApiError } from "./api/client";
 import {
@@ -129,7 +131,33 @@ export default function ShoppingListScreen({ familyId, initialStartDate, onOpenP
   const [manualUnit, setManualUnit] = useState("");
   const [editing, setEditing] = useState<ShoppingListItem | null>(null);
   const [editValues, setEditValues] = useState<EditValues>({ name: "", quantity: "", unit: "" });
+  const editBaseline = useRef<EditValues>({ name: "", quantity: "", unit: "" });
+  const editDirty = editing !== null && JSON.stringify(editValues) !== JSON.stringify(editBaseline.current);
+  const editDirtyRef = useRef(editDirty);
+  editDirtyRef.current = editDirty;
+  const busyRef = useRef(false);
+  const confirmDiscard = () => !editDirtyRef.current || window.confirm(
+    locale === "pt-PT"
+      ? "Tens alterações neste artigo por guardar. Descartá-las?"
+      : "You have unsaved item changes. Discard them?",
+  );
+  useEffect(() => {
+    const release = registerNavigationBlocker(confirmDiscard);
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (!editDirtyRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => { release(); window.removeEventListener("beforeunload", beforeUnload); };
+  }, [locale]);
+  function closeEditor(): boolean {
+    if (busyRef.current || !confirmDiscard()) return false;
+    setEditing(null);
+    return true;
+  }
   const [busy, setBusy] = useState(false);
+  busyRef.current = busy;
   const [error, setError] = useState<string | null>(null);
 
   const [query,setQuery]=useState("");
@@ -244,11 +272,13 @@ export default function ShoppingListScreen({ familyId, initialStartDate, onOpenP
   function startEdit(item: ShoppingListItem) {
     setError(null);
     setEditing(item);
-    setEditValues({
+    const next = {
       name: item.name,
       quantity: item.quantity ?? "",
       unit: item.unit ?? "",
-    });
+    };
+    editBaseline.current = next;
+    setEditValues(next);
   }
 
   async function saveEdit(event: FormEvent) {
@@ -383,7 +413,14 @@ export default function ShoppingListScreen({ familyId, initialStartDate, onOpenP
           </section>
 
           {editing ? (
+            <ContextDrawer
+              title={copy.edit + " · " + editing.name}
+              closeLabel={locale === "pt-PT" ? "Fechar detalhe" : "Close detail"}
+              wide
+              onRequestClose={closeEditor}
+            >
             <form className="house-editor-card shopping-edit-card" onSubmit={saveEdit}>
+              {editDirty ? <p className="nf-draft-state" role="status">{locale === "pt-PT" ? "Alterações por guardar" : "Unsaved changes"}</p> : null}
               <label className="field">
                 <span>{copy.name}</span>
                 <input value={editValues.name} onChange={(event) => setEditValues((v) => ({ ...v, name: event.target.value }))} />
@@ -400,9 +437,10 @@ export default function ShoppingListScreen({ familyId, initialStartDate, onOpenP
               </div>
               <div className="editor-actions">
                 <button className="button primary" disabled={busy} type="submit">{copy.save}</button>
-                <button className="button ghost" onClick={() => setEditing(null)} type="button">{copy.cancel}</button>
+                <button className="button ghost" onClick={closeEditor} type="button">{copy.cancel}</button>
               </div>
             </form>
+            </ContextDrawer>
           ) : null}
 
           <details className="nf-manual-shopping"><summary>{copy.addManual}</summary><form className="shopping-manual-form" onSubmit={addManual}>
