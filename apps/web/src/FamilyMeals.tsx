@@ -574,20 +574,21 @@ export default function FamilyMealsScreen({
 
   useEffect(() => {
     setBrowsingDate(initialDate ?? referenceDate ?? localDateValue());
-    setEditing(null);
   }, [familyId, initialDate]);
+  useEffect(() => {
+    setEditing(null);
+  }, [familyId]);
   useEffect(() => {
     setMealSelection(initialDate && selectedMealType ? {date:initialDate,mealType:selectedMealType} : null);
   }, [familyId, initialDate, selectedMealType]);
 
+  // Keep the plan request identity stable when selecting another day or meal
+  // inside the same week. Changing the URL must not unmount the weekly map.
+  const scopeDate = mode === "week" ? startOfWeekDate(browsingDate) : browsingDate;
   const request = useMemo(() => {
     if (mode === "recommend" || mode === "prepare") return null;
-    if (mode === "today") return { startDate: browsingDate, days: 1 };
-    return {
-      startDate: startOfWeekDate(browsingDate),
-      days: 7,
-    };
-  }, [mode, browsingDate]);
+    return {startDate: scopeDate, days: mode === "today" ? 1 : 7};
+  }, [mode, scopeDate]);
 
   useEffect(() => {
     if (!request) return;
