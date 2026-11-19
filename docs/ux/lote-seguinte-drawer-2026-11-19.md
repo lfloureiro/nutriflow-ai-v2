@@ -206,3 +206,9 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Sem novo endpoint, migração ou alteração do motor nutricional; apenas integração de dados previamente persistidos e apresentação contextual.
 - Testes Vitest novos verificam ausência de contaminação entre dias, tempos alimentares e setups inexistentes. Validar Web CI, API CI e UX E2E no SHA final. A cobertura browser específica deste aviso deve continuar no checklist antes da versão 2.1.0.
 - Incremento Z: sem pedido de testes manuais, sem utilização da DB familiar real e sem merge na `main`.
+
+## Patch v2.0.14 — proteção contra atualização obsoleta dos convidados (19 novembro 2026)
+
+- Reforçado o cenário E2E API/PostgreSQL temporário de `guest_notices`: após um cliente antigo atualizar o planeamento sem apagar os convidados, uma escrita com `expected_version` obsoleta tenta alterar a contagem de 2 para 3 e deve devolver HTTP 409.
+- O teste relê a API depois da rejeição para confirmar que a contagem original permanece inalterada; o cenário também preserva a verificação de limpeza explícita de convidados e de ausência de alterações nos participantes do plano.
+- Não foram alterados modelos, endpoints, cálculos nutricionais, compras nem dados reais. Versão visível **v2.0.14** (Z): sem pedido de testes manuais. Validar Web CI, API CI e UX E2E no SHA exato e manter o PR #76 em draft.
