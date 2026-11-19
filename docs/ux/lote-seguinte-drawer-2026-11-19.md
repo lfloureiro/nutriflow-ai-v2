@@ -128,5 +128,14 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Testes novos cobrem criar `recipe_edit` a partir de receita familiar, manter porções, unidades e rendimento herdados, aplicar a variante **apenas à refeição escolhida**, atualizar compras após confirmação e manter a receita original intacta.
 - Outra via agora coberta: substituição aceite por descrição, sem associação inicial ao catálogo, cria ingrediente declarado pela família, não atribui energia/nutrientes sem evidência e só aparece nas compras após confirmação.
 - Corrigido `apps/api/app/services/recipe_edit.py` para preservar `preparation=None` quando a fonte não tinha preparação e a edição não acrescentou informação. Teste integrado verifica o valor realmente devolvido pela API.
-- Acrescentado um décimo cenário de regressão: duas refeições partilham a receita base; uma adapta-se, a outra mantém-se intacta; compras refletem ambos os ingredientes e, ao cancelar apenas a refeição adaptada, removem a necessidade exclusiva dessa adaptação. **Este cenário ainda requer CI no SHA final.**
+- Acrescentado um décimo cenário de regressão: duas refeições partilham a receita base; uma adapta-se, a outra mantém-se intacta; compras refletem ambos os ingredientes e, ao cancelar apenas a refeição adaptada, removem a necessidade exclusiva dessa adaptação. **Este cenário passou na regressão E2E (run 44547405963).**
 - Versão visível: **v2.0.5**. Alteração Z: não pedir teste manual; aguardar avaliação da próxima X/Y. Não declarar concluído o fluxo completo UI sem cobertura de clique em cada etapa.
+
+## Fecho do patch 2.0.5 — evidência funcional (19 novembro 2026)
+
+- SHA de código `dbf7fa33dc55f29eb730279875ee38650355d0e7`: Web CI **success**, API CI **success**, UX E2E PostgreSQL isolado **success**, run `44547405963`, **11/11 testes**.
+- Teste 10 confirmou que editar uma refeição entre duas que partilham a receita original não altera a segunda; compras incluem simultaneamente ingredientes originais e adaptados; cancelar a refeição adaptada retira só a sua necessidade da lista.
+- Teste 11 executou **os botões da UI**: Preparar as trocas → Rever receita → Usar adaptação guardada → Seguir para confirmação final → Confirmar esta refeição no plano, validando que o aviso **«Escolha da família · não é validação nutricional»** é mostrado antes de guardar e o plano só muda na confirmação.
+- `MealAdaptationFlow` deixou de fabricar `eligible=true` para `confirmation_mode=recipe_edit`. A decisão da família não certifica nutrição/segurança clínica; permanece a validação de restrições obrigatórias na gravação pela API.
+- Não interpretar os 11/11 como cobertura total: rascunhos incompletos, revisão profissional, presenças excepcionais, aquisições reais e acessibilidade zoom 200% ainda requerem trabalhos específicos.
+- O último commit após documentação deverá voltar a passar os três gates. O número visível mantém-se **v2.0.5**, sem solicitar teste manual ao utilizador.
