@@ -223,3 +223,77 @@ test("API: concurrent daily nutrition refreshes create a single state without a 
   expect(states.every(id=>typeof id==="string")).toBe(true);
   expect(new Set(states).size).toBe(1);
 });
+
+test("adaptation: accepted recipe edit updates only selected meal and shopping after confirmation",async ({request})=>{
+  const fixture=await seed(request);
+  const familyId=fixture.family.id;
+  const basePath=`/families/${familyId}`;
+  const replacement=await postJson<{id:string}>(request,`${basePath}/ingredients`,{
+    name:"Batata sintética QA",brand:null,description:null,composition:null,
+  });
+  const baseRecipe=await getJson<{
+    id:string;serving_count:string|null;yield_quantity:string|null;yield_unit:string|null;
+    ingredients:{id:string,food_item_id:string,quantity:string,unit:string,preparation:string|null}[]
+  }>(request,`${basePath}/recipes/${fixture.recipe.id}`);
+  expect(baseRecipe.ingredients).toHaveLength(1);
+  const original=baseRecipe.ingredients[0]!;
+  const edit=await postJson<{id:string,recipe_id:string,confirmation_mode:string}>(request,`${basePath}/recipe-variants/recipe-edit`,{
+    base_recipe_id:fixture.recipe.id,
+    name:"Prato sintético adaptado QA",
+    serving_count:null,
+    operations:[{
+      recipe_ingredient_id:original.id,
+      replacement_food_item_id:replacement.id,
+      replacement_name:"Batata sintética QA",
+      quantity:String(original.quantity),
+      unit:original.unit,
+      preparation:original.preparation??"",
+    }],
+  });
+  expect(edit.confirmation_mode).toBe("recipe_edit");
+  expect(edit.recipe_id).not.toBe(fixture.recipe.id);
+  const revised=await getJson<typeof baseRecipe>(request,`${basePath}/recipes/${edit.recipe_id}`);
+  expect(revised.serving_count).toBe(baseRecipe.serving_count);
+  expect(revised.yield_quantity).toBe(baseRecipe.yield_quantity);
+  expect(revised.yield_unit).toBe(baseRecipe.yield_unit);
+  expect(revised.ingredients).toEqual([
+    expect.objectContaining({
+      food_item_id:replacement.id,
+      quantity:original.quantity,
+      unit:original.unit,
+      preparation:original.preparation,
+    }),
+  ]);
+  // Merely reviewing / saving a variant must not rewrite the existing meal or shopping.
+  const originalPlan=await getJson<{days:{date:string,slots:{meal_type:string,meals:{id:string,recipe_id:string}[]}[]}[]}>(request,
+    `${basePath}/meal-plan?start_date=2026-11-16&days=7`);
+  const beforeEntry=originalPlan.days.find(day=>day.date===DATE)?.slots.find(slot=>slot.meal_type==="dinner")?.meals[0];
+  expect(beforeEntry?.recipe_id).toBe(fixture.recipe.id);
+  const beforeShopping=await postJson<{
+    requirements:{food_item_id:string,required_quantity:string}[];
+    planning_issues:string[];
+  }>(request,`${basePath}/shopping-list/refresh`,{start_date:"2026-11-16",days:7});
+  expect(beforeShopping.requirements.some(row=>row.food_item_id===fixture.ingredient.id)).toBe(true);
+  expect(beforeShopping.requirements.some(row=>row.food_item_id===replacement.id)).toBe(false);
+
+  const changed=await request.patch(`${API}${basePath}/meal-plan/${fixture.meal.id}`,{
+    data:{
+      expected_updated_at:(await getJson<{
+        days:{date:string,slots:{meal_type:string,meals:{id:string,updated_at:string}[]}[]}[]
+      }>(request,`${basePath}/meal-plan?start_date=2026-11-16&days=7`))
+        .days.find(day=>day.date===DATE)?.slots.find(slot=>slot.meal_type==="dinner")?.meals[0]?.updated_at,
+      recipe_id:edit.recipe_id,
+      participants:[{person_id:fixture.person.id,quantity:"1",unit:"serving"}],
+    },
+  });
+  expect(changed.ok(),`Recipe edit cannot be confirmed: HTTP ${changed.status()} ${await changed.text()}`).toBe(true);
+  const confirmed=await changed.json() as {recipe_id:string,recipe_name:string};
+  expect(confirmed.recipe_id).toBe(edit.recipe_id);
+  const afterShopping=await postJson<typeof beforeShopping>(request,`${basePath}/shopping-list/refresh`,{
+    start_date:"2026-11-16",days:7,
+  });
+  expect(afterShopping.requirements.some(row=>row.food_item_id===replacement.id)).toBe(true);
+  expect(afterShopping.requirements.some(row=>row.food_item_id===fixture.ingredient.id)).toBe(false);
+  const stillOriginal=await getJson<typeof baseRecipe>(request,`${basePath}/recipes/${fixture.recipe.id}`);
+  expect(stillOriginal.ingredients[0]?.food_item_id).toBe(fixture.ingredient.id);
+});
