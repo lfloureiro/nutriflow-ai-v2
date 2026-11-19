@@ -248,7 +248,7 @@ export default function App() {
               initialDate={mealsDate}
               onDateChange={setMealsDate}
               selectedMealType={route.meal}
-              onMealSelectionChange={(selection) => navigate({date:selection?.date,meal:selection?.mealType,view:"meals",mode:"week"})}
+              onMealSelectionChange={(selection) => navigate({date:selection?.date ?? route.date,meal:selection?.mealType,view:"meals",mode:"week"})}
               referenceDate={dashboard?.dashboard_date}
             />
           ) : null}
