@@ -103,6 +103,23 @@ test("mobile: drawer remains within viewport in both themes",async ({page,reques
   await expect(drawer).toHaveCount(0);
 });
 
+test("narrow viewport: weekly drawer reflows at 320 CSS px without horizontal scrolling", async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.setViewportSize({width:320,height:640});
+  await openFamily(page,fixture.family.id,`/#/meals?date=${DATE}&meal=dinner&mode=week`);
+  const drawer=page.getByRole("dialog");
+  await expect(drawer).toBeVisible();
+  await expect(drawer).toContainText("Prato sintético QA");
+  const bounds=await drawer.evaluate(element=>element.getBoundingClientRect());
+  expect(bounds.left).toBeGreaterThanOrEqual(-1);
+  expect(bounds.right).toBeLessThanOrEqual(321);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(321);
+  const close=drawer.getByRole("button",{name:"Fechar detalhe"});
+  await expect(close).toBeVisible();
+  await close.click();
+  await expect(drawer).toHaveCount(0);
+});
+
 test("ingredient: draft warning and optional nutrition persist in isolated database", async ({page,request})=>{
   const fixture=await seed(request);
   await openFamily(page,fixture.family.id,"/#/house?tab=ingredients");
