@@ -701,3 +701,41 @@ test("weekly attendance decisions persist separately, reject invalid people and 
   expect(original?.id).toBe(fixture.meal.id);
   expect(original?.participants.map(person=>person.person_id)).toEqual([fixture.person.id]);
 });
+
+test("UI weekly attendance: confirmation survives a reload without changing saved meal participation",async ({page,request})=>{
+  const fixture=await seed(request);
+  const familyId=fixture.family.id;
+  const second=await postJson<{id:string}>(request,`/families/${familyId}/persons`,{
+    first_name:"Segundo membro QA",last_name:null,birth_date:null,
+    preferred_locale:"pt-PT",timezone:"Europe/Lisbon",meal_discovery:null,
+  });
+  await openFamily(page,familyId,"/#/meals?date=2026-11-12&mode=prepare");
+  await expect(page.getByRole("heading",{name:"Vamos planear a próxima semana"})).toBeVisible();
+  await page.getByText("Quem está em cada refeição?",{exact:true}).click();
+  const personDecision=page.getByRole("combobox",{name:"Pessoa QA · 2026-11-19 · Jantar · Confirmação"});
+  const secondDecision=page.getByRole("combobox",{name:"Segundo membro QA · 2026-11-19 · Jantar · Confirmação"});
+  await expect(personDecision).toHaveValue("unconfirmed");
+  await personDecision.selectOption("present");
+  await secondDecision.selectOption("unconfirmed");
+  await page.getByRole("button",{name:/Continuar para restrições/}).click();
+  await page.getByRole("checkbox",{name:/Revi as pessoas, refeições e exclusões/}).check();
+  await page.getByRole("button",{name:/Guardar escolhas e gerar refeições/}).click();
+  await expect.poll(async()=>{
+    const setup=await getJson<{attendance_decisions:{planning_date:string;meal_type:string;people:{person_id:string;decision:string}[]}[]}>(request,
+      `/families/${familyId}/planning-setup/2026-11-16`);
+    return setup.attendance_decisions.find(item=>item.planning_date===DATE&&item.meal_type==="dinner")?.people;
+  }).toEqual([
+    {person_id:fixture.person.id,decision:"present"},
+    {person_id:second.id,decision:"unconfirmed"},
+  ]);
+  await page.goto("/#/meals?date=2026-11-12&mode=prepare");
+  await expect(page.getByRole("heading",{name:"Vamos planear a próxima semana"})).toBeVisible();
+  await page.getByText("Quem está em cada refeição?",{exact:true}).click();
+  await expect(page.getByRole("combobox",{name:"Pessoa QA · 2026-11-19 · Jantar · Confirmação"})).toHaveValue("present");
+  await expect(page.getByRole("combobox",{name:"Segundo membro QA · 2026-11-19 · Jantar · Confirmação"})).toHaveValue("unconfirmed");
+  const plan=await getJson<{days:{date:string;slots:{meal_type:string;meals:{id:string;participants:{person_id:string}[]}[]}[]}[]}>(
+    request,`/families/${familyId}/meal-plan?start_date=2026-11-16&days=7`);
+  const original=plan.days.find(day=>day.date===DATE)?.slots.find(slot=>slot.meal_type==="dinner")?.meals[0];
+  expect(original?.id).toBe(fixture.meal.id);
+  expect(original?.participants.map(person=>person.person_id)).toEqual([fixture.person.id]);
+});
