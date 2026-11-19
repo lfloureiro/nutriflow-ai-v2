@@ -13,7 +13,7 @@
 - [ ] **04 — Guardas e recuperação de contexto.** Fechar drawer, navegar e voltar apenas após resolver alterações por guardar; URL e browser back/forward recuperam refeição/aba; erro e reload não perdem rascunho guardado. **Parcial:** URL com `date`, `mode=week` e `meal=...` adicionada para os quatro tempos, seleção/fecho sincronizados e testes unitários do parser. Navegação browser/rascunhos ainda aguardam E2E.
 - [ ] **05 — Migrar o fluxo de adaptação corrigido para o drawer.** Aceitar proposta diretamente → rever receita preenchida (edição opcional) → confirmar no plano; conservar rascunhos, herança de unidade/quantidade/rendimento ausente e a identidade de ingredientes declarados.
 - [ ] **06 — Detalhe por pessoa sem aprovação implícita.** Mostrar presença, dose, regra e fonte; separar adequação nutricional, preferência/estrelas e estado desconhecido; evitar criar score sem evidência. **Parcial:** painel expansível mostra por pessoa as regras e fontes efetivamente devolvidas pela API para a data/slot; ausência de resultados é explicitamente não-validação. Faltam rastreio da dose, distinção completa preferências/estrelas e regressão em navegador.
-- [ ] **07 — Uniformizar formulários secundários.** Aplicar os mesmos padrões a receita, ingrediente e pessoa, sem tornar rendimento, preparação ou valores de energia obrigatórios.
+- [ ] **07 — Uniformizar formulários secundários.** Aplicar os mesmos padrões a receita, ingrediente e pessoa, sem tornar rendimento, preparação ou valores de energia obrigatórios. **Parcial:** formulário de condições de saúde por pessoa com proteção de rascunho, estados visíveis e layout mobile. Restantes formulários ainda pendentes.
 - [ ] **08 — Rever ações e layout nos quatro tamanhos.** 1440, 1024, 768 e 390 px, claro/escuro; sem overflow, regressos coerentes ou cortes nas ações.
 - [ ] **09 — Completar painel de restrições individuais.** Alergias, intolerâncias, exclusões, preferências, tolerâncias, validade, fonte e incerteza, sem inferir protocolo FODMAP a partir de diagnóstico.
 - [ ] **10 — Integrar plano profissional e autoridade.** Mostrar origem/versão/validade de regras, separar importação revista de ativação e impedir que informação desconhecida seja contada como segura.
@@ -64,3 +64,10 @@ A branch foi criada a partir de main; apenas os ficheiros indicados no commit da
 - A apresentação é compacta no drawer para desktop e mobile e usa os tokens claro/escuro existentes; não muda o motor, os contratos de dados, nem faz qualquer gravação na base.
 - `SelectedMealOptions.test.ts` acrescenta casos de participantes presentes/ausentes, dias distintos, horários distintos, avisos e ausência de regras. A CI web foi acionada para o último SHA e precisa de passar antes de pedir teste manual.
 - **Pendentes:** avaliação end-to-end com API real numa DB sintética, visita a 1440/1024/768/390, confirmação de contraste/teclado e comparação com o HTML aprovado. Não houve acesso à família do utilizador.
+
+## Incremento — proteção de alterações em saúde individual (19 novembro 2026)
+
+- `PersonHealthConditions`: formulário distingue abertura sem modificações de alterações reais. Ao navegar, fechar/recarregar a página, trocar de condição ou cancelar, um rascunho modificado pede confirmação de descarte. Guardar mantém os contratos API atuais e preserva revisões anteriores.
+- `dietary-review.css`: campos e ações mais compactos no formulário secundário e disposição de uma coluna em mobile, preservando tokens dos temas aprovados e foco existente.
+- Testes `PersonHealthConditions.test.ts`: verificação de formulário intacto, fonte/datas/notas alteradas e reposição do valor original.
+- **Sem alteração do esquema de dados, sem dados clínicos inventados e sem leitura/escrita na família real.** Testes unitários são insuficientes para declarar a proteção completa sem E2E de navegação por separadores e refresh, ainda pendente.
