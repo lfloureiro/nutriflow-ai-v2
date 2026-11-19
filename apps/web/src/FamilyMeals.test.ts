@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { addPlanDays, copyAttendanceSelection, recipesForMealType, startOfWeekDate } from "./FamilyMeals";
+import { addPlanDays, copyAttendanceSelection, recipesForMealType, startOfWeekDate, type ParticipantDraft } from "./FamilyMeals";
 import type { Recipe } from "./api/recipeTypes";
 
 function recipe(id: string, suitableMealTypes: Recipe["suitable_meal_types"]): Recipe {
@@ -41,7 +41,7 @@ describe("family meal-plan helpers", () => {
   });
 
   it("copies only attendance and leaves every recorded quantity and unit unchanged", () => {
-    const original=[
+    const original:ParticipantDraft[]=[
       {personId:"a",attendance:"present",quantity:"2.500",unit:"emb"},
       {personId:"b",attendance:"absent",quantity:"0.75",unit:"serving"},
       {personId:"c",attendance:"present",quantity:"",unit:"g"},
@@ -58,7 +58,7 @@ describe("family meal-plan helpers", () => {
   });
 
   it("never silently treats undecided attendance as confirmed or absent before copying", () => {
-    const input=[
+    const input:ParticipantDraft[]=[
       {personId:"one",attendance:"unconfirmed" as const,quantity:"",unit:"serving"},
       {personId:"two",attendance:"unconfirmed" as const,quantity:"2",unit:"emb"},
     ];
