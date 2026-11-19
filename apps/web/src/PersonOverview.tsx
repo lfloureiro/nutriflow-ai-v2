@@ -1,4 +1,5 @@
 import AvatarAppearanceEditor from "./ui/AvatarAppearanceEditor";
+import { requestNavigation } from "./navigation";
 import PersonAvatar from "./ui/PersonAvatar";
 import { useEffect, useMemo, useState } from "react";
 
@@ -333,6 +334,7 @@ export default function PersonOverview({
             className={section === item ? "active" : ""}
             key={item}
             onClick={() => {
+              if (item === section || !requestNavigation()) return;
               setProfileEditing(false);
               setSection(item);
             }}
