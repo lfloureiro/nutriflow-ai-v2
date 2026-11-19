@@ -602,3 +602,30 @@ test("attendance reuse: copy only people from an earlier dinner and keep source 
   expect(original?.id).toBe(fixture.meal.id);
   expect(original?.participants.map(p=>p.person_id)).toEqual([fixture.person.id]);
 });
+
+test("attendance tri-state: unconfirmed is not an implicit absence or a writable meal",async ({page,request})=>{
+  const fixture=await seed(request);
+  await openFamily(page,fixture.family.id,"/#/meals?date=2026-11-18&meal=dinner&mode=week");
+  const detail=page.getByRole("dialog");
+  await expect(detail).toBeVisible();
+  await detail.getByRole("button",{name:"Escolher receita"}).click();
+  const editor=page.getByRole("dialog");
+  await expect(editor.getByRole("heading",{name:"Jantar",exact:true})).toBeVisible();
+  const decision=editor.getByRole("combobox",{name:"Presença"});
+  await expect(decision).toHaveValue("unconfirmed");
+  await expect(editor.getByText(/1 por confirmar/)).toBeVisible();
+  const save=editor.getByRole("button",{name:"Guardar no plano"});
+  await expect(save).toBeDisabled();
+  await decision.selectOption("absent");
+  await expect(save).toBeDisabled(); // No attending person; cannot save an empty attendance set.
+  await decision.selectOption("present");
+  await expect(save).toBeEnabled();
+  const before=await getJson<{days:{date:string,slots:{meal_type:string,meals:{id:string}[]}[]}[]}>(
+    request,`/families/${fixture.family.id}/meal-plan?start_date=2026-11-16&days=7`);
+  expect(before.days.find(d=>d.date==="2026-11-18")?.slots.find(s=>s.meal_type==="dinner")?.meals).toEqual([]);
+  await save.click();
+  await expect(editor).toHaveCount(0);
+  const after=await getJson<{days:{date:string,slots:{meal_type:string,meals:{participants:{person_id:string}[]}[]}[]}[]}>(
+    request,`/families/${fixture.family.id}/meal-plan?start_date=2026-11-16&days=7`);
+  expect(after.days.find(d=>d.date==="2026-11-18")?.slots.find(s=>s.meal_type==="dinner")?.meals[0]?.participants.map(p=>p.person_id)).toEqual([fixture.person.id]);
+});
