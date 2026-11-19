@@ -442,3 +442,53 @@ test("UI adaptation flow: family recipe edit is explicitly not certified before 
     return after.days.find(d=>d.date===DATE)?.slots.find(s=>s.meal_type==="dinner")?.meals[0]?.recipe_id;
   }).toBe(edit.recipe_id);
 });
+
+test("drafts: save incomplete substitution, reload, update optimistically and leave meal/shopping unchanged",async ({request})=>{
+  const fixture=await seed(request);
+  const base=`/families/${fixture.family.id}`;
+  const recipe=await getJson<{ingredients:{id:string}[]}>(request,`${base}/recipes/${fixture.recipe.id}`);
+  const ingredientId=recipe.ingredients[0]!.id;
+  const shoppingBefore=await postJson<{
+    requirements:{food_item_id:string,required_quantity:string}[];
+  }>(request,`${base}/shopping-list/refresh`,{start_date:"2026-11-16",days:7});
+  const snapshot={
+    base_recipe_id:fixture.recipe.id,meal_event_id:fixture.meal.id,
+    planning_date:DATE,meal_type:"dinner",
+    name:"Adaptação incompleta QA",serving_count:"",
+    operations:[{recipe_ingredient_id:ingredientId,replacement_food_item_id:null,
+      replacement_name:"Alternativa por decidir",quantity:"",unit:"",preparation:""}],
+    participants:[{person_id:fixture.person.id,quantity:"",unit:"serving"}],
+    decisions:{[ingredientId]:"manual"},
+  };
+  const saved=await postJson<{id:string,version:number,status:string,snapshot:typeof snapshot}>(
+    request,`${base}/meal-adaptation-drafts`,snapshot);
+  expect(saved.status).toBe("draft");
+  expect(saved.snapshot.operations[0]?.quantity).toBe("");
+  expect(saved.snapshot.serving_count).toBe("");
+  expect(saved.snapshot.participants[0]?.quantity).toBe("");
+  const resumed=await getJson<{id:string,version:number,snapshot:typeof snapshot}[]>(
+    request,`${base}/meal-adaptation-drafts?base_recipe_id=${fixture.recipe.id}`);
+  expect(resumed.find(item=>item.id===saved.id)?.snapshot).toEqual(saved.snapshot);
+
+  const amended={...snapshot,name:"Adaptação retomada QA",
+    operations:[{...snapshot.operations[0],quantity:"150",unit:"g"}]};
+  const update=await request.put(`${API}${base}/meal-adaptation-drafts/${saved.id}`,{
+    data:{...amended,expected_version:saved.version},
+  });
+  expect(update.ok(),`Cannot resume draft: ${update.status()} ${await update.text()}`).toBe(true);
+  const current=await update.json() as {version:number,snapshot:typeof snapshot};
+  expect(current.version).toBe(saved.version+1);
+  expect(current.snapshot.operations[0]?.quantity).toBe("150");
+  expect(current.snapshot.participants[0]?.quantity).toBe("");
+  const stale=await request.put(`${API}${base}/meal-adaptation-drafts/${saved.id}`,{
+    data:{...snapshot,expected_version:saved.version},
+  });
+  expect(stale.status()).toBe(409);
+  const plan=await getJson<{days:{date:string,slots:{meal_type:string,meals:{id:string,recipe_id:string}[]}[]}[]}>(
+    request,`${base}/meal-plan?start_date=2026-11-16&days=7`);
+  expect(plan.days.find(day=>day.date===DATE)?.slots.find(slot=>slot.meal_type==="dinner")?.meals[0]).toEqual(
+    expect.objectContaining({id:fixture.meal.id,recipe_id:fixture.recipe.id}));
+  const shoppingAfter=await postJson<typeof shoppingBefore>(
+    request,`${base}/shopping-list/refresh`,{start_date:"2026-11-16",days:7});
+  expect(shoppingAfter.requirements).toEqual(shoppingBefore.requirements);
+});
