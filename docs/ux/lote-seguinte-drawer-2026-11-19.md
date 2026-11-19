@@ -162,3 +162,13 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - `copyAttendanceSelection` tem teste unitário explícito com quantidades `emb`/`serving` e valores vazios, verificando a ausência de mutação da entrada. A regressão browser com duas pessoas fictícias verifica a cópia da seleção, a ausência de gravação antecipada, o destino após guardar e a preservação da refeição origem.
 - A apresentação utiliza o tema e as larguras responsivas existentes. **Isto não constitui ainda um sistema de padrões persistentes/visitantes**; a expansão dessa função pertence ao marco funcional futuro, não a este patch.
 - Versão visível **2.0.8**; validar os três CI no SHA final antes de declarar concluído o patch. Respeitar a cadência de patches Z sem novos testes manuais.
+
+## Patch v2.0.9 — presenças por confirmar antes de gravar (19 novembro 2026)
+
+- O editor manual distingue **Presente, Ausente e Por confirmar** para cada pessoa enquanto a refeição é criada. Por omissão, os participantes de uma nova refeição estão *por confirmar* — não são automaticamente tratados como ausentes. Ao abrir uma refeição já guardada, os presentes são recuperados do plano e os restantes membros da família aparecem como ausentes **apenas para efeitos de edição**, dado que o contrato de persistência atual contém só participantes.
+- O botão de guardar é desativado enquanto existirem decisões por confirmar ou não houver ninguém presente. A lista enviada ao backend inclui **apenas** pessoas confirmadas como presentes; alterações individuais mantêm a validação de restrições pela API.
+- «Selecionar todos/nenhum» e «Reutilizar presenças» são ações explícitas que resolvem a decisão de presença para os membros listados, sem mexer nas quantidades e unidades nem na refeição de origem. O aviso indica quantas decisões faltam.
+- Testes Vitest cobrem estados e preservação de quantidades/unidades. E2E com PostgreSQL temporário verifica os estados iniciais, bloqueio da gravação prematura, reutilização de presenças, decisão individual e persistência depois de confirmar. **Não declarar aprovado até Web CI, API CI e UX E2E verdes no SHA final.**
+- **Limite de modelo:** por confirmar é um estado do rascunho do editor, não é ainda um estado persistido de ausência na API. Para suportar padrões semanais guardados, convidados e exceções pendentes entre sessões será necessária modelação própria, migração segura e regras de autorização. Esta tarefa 11 permanece **parcial**. Não introduzir estados fictícios no registo clínico, nem inferir adequação nutricional.
+- Versão visível **v2.0.9**, incremento Z sem pedir teste manual; preparar demonstração consolidada só quando os restantes blocos estiverem validados para X/Y.
+
