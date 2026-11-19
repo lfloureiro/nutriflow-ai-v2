@@ -543,9 +543,6 @@ export default function IngredientCatalogue({ familyId }: { familyId: string }) 
   const [revision, setRevision] = useState(0);
 
   useEffect(() => {
-    if (selected !== undefined) {
-      return;
-    }
     let cancelled = false;
     const timer = window.setTimeout(() => {
       setBusy(true);
@@ -572,7 +569,7 @@ export default function IngredientCatalogue({ familyId }: { familyId: string }) 
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [familyId, query, includeInactive, revision, selected]);
+  }, [familyId, query, includeInactive, revision]);
 
   const hasSearch = useMemo(
     () => query.trim().length > 0 || nutritionFilter !== "all",
@@ -649,11 +646,11 @@ export default function IngredientCatalogue({ familyId }: { familyId: string }) 
         </div>
       ) : null}
 
-      {busy ? (
+      {busy && ingredients.length === 0 ? (
         <div className="shell-loading" role="status">
           {copy.loading}
         </div>
-      ) : filteredIngredients.length === 0 ? (
+      ) : filteredIngredients.length === 0 && !busy ? (
         <div className="ingredient-empty">{hasSearch ? copy.emptySearch : copy.empty}</div>
       ) : (
         <div className="ingredient-list">
