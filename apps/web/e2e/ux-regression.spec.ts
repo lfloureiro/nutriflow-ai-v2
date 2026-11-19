@@ -313,8 +313,8 @@ test("person profile editor: narrow responsive layout and unsaved draft guard",a
     page.once("dialog",dialog=>dialog.accept());
     await form.getByRole("button",{name:"Cancelar"}).click();
     await expect(form).toHaveCount(0);
-    const persisted=await getJson<{first_name:string}>(request,`/persons/${fixture.person.id}`);
-    expect(persisted.first_name).toBe("Pessoa");
+    const persisted=await getJson<{id:string;first_name:string}[]>(request,`/families/${fixture.family.id}/persons`);
+    expect(persisted.find(person=>person.id===fixture.person.id)?.first_name).toBe("Pessoa QA");
   }
 });
 
