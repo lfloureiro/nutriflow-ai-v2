@@ -718,17 +718,21 @@ test("UI weekly attendance: confirmation survives a reload without changing save
   await expect(personDecision).toHaveValue("unconfirmed");
   await personDecision.selectOption("present");
   await secondDecision.selectOption("unconfirmed");
+  await page.getByRole("spinbutton",{name:"2026-11-19 · Jantar · Convidados sem perfil"}).fill("2");
   await page.getByRole("button",{name:/Continuar para restrições/}).click();
   await page.getByRole("checkbox",{name:/Revi as pessoas, refeições e exclusões/}).check();
   await page.getByRole("button",{name:/Guardar escolhas e gerar refeições/}).click();
   await expect.poll(async()=>{
-    const setup=await getJson<{attendance_decisions:{planning_date:string;meal_type:string;people:{person_id:string;decision:string}[]}[]}>(request,
+    const setup=await getJson<{attendance_decisions:{planning_date:string;meal_type:string;people:{person_id:string;decision:string}[]}[];guest_notices:{planning_date:string;meal_type:string;guest_count:number}[]}>(request,
       `/families/${familyId}/planning-setup/2026-11-16`);
     return setup.attendance_decisions.find(item=>item.planning_date===DATE&&item.meal_type==="dinner")?.people;
   }).toEqual([
     {person_id:fixture.person.id,decision:"present"},
     {person_id:second.id,decision:"unconfirmed"},
   ]);
+  const guestSetup=await getJson<{guest_notices:{planning_date:string;meal_type:string;guest_count:number}[]}>(request,
+    `/families/${familyId}/planning-setup/2026-11-16`);
+  expect(guestSetup.guest_notices).toEqual([{planning_date:DATE,meal_type:"dinner",guest_count:2}]);
   await page.goto("/#/meals?date=2026-11-12&mode=prepare");
   await page.reload(); // Recreate the planning journey rather than retaining its previous step.
   await expect(page.getByRole("heading",{name:"Vamos planear a próxima semana"})).toBeVisible();
@@ -736,6 +740,7 @@ test("UI weekly attendance: confirmation survives a reload without changing save
   await page.getByText("Quem está em cada refeição?",{exact:true}).click();
   await expect(page.getByRole("combobox",{name:"Pessoa QA · 2026-11-19 · Jantar · Confirmação"})).toHaveValue("present");
   await expect(page.getByRole("combobox",{name:"Segundo membro QA · 2026-11-19 · Jantar · Confirmação"})).toHaveValue("unconfirmed");
+  await expect(page.getByRole("spinbutton",{name:"2026-11-19 · Jantar · Convidados sem perfil"})).toHaveValue("2");
   const plan=await getJson<{days:{date:string;slots:{meal_type:string;meals:{id:string;participants:{person_id:string}[]}[]}[]}[]}>(
     request,`/families/${familyId}/meal-plan?start_date=2026-11-16&days=7`);
   const original=plan.days.find(day=>day.date===DATE)?.slots.find(slot=>slot.meal_type==="dinner")?.meals[0];
