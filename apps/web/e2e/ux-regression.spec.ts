@@ -684,6 +684,19 @@ test("weekly attendance decisions persist separately, reject invalid people and 
     }],
   }]}});
   expect(invalidDate.status()).toBe(422);
+  const duplicateSlot=await request.put(url,{data:{
+    ...base,attendance_decisions:[base.attendance_decisions[0],base.attendance_decisions[0]],
+  }});
+  expect(duplicateSlot.status()).toBe(422);
+  const duplicatePerson=await request.put(url,{data:{
+    ...base,attendance_decisions:[{
+      planning_date:DATE,meal_type:"dinner",people:[
+        {person_id:fixture.person.id,decision:"present"},
+        {person_id:fixture.person.id,decision:"absent"},
+      ],
+    }],
+  }});
+  expect(duplicatePerson.status()).toBe(422);
   const created=await request.put(url,{data:base});
   expect(created.ok(),`Cannot persist family decisions: ${created.status()} ${await created.text()}`).toBe(true);
   const saved=await created.json() as {version:number;attendance_decisions:typeof base.attendance_decisions};
