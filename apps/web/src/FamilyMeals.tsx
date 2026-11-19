@@ -501,6 +501,8 @@ export default function FamilyMealsScreen({
   referenceDate,
   initialDate,
   onDateChange,
+  selectedMealType,
+  onMealSelectionChange,
   mode,
   onModeChange,
   onDataChanged,
@@ -509,6 +511,8 @@ export default function FamilyMealsScreen({
   referenceDate?: string;
   initialDate?: string;
   onDateChange?:(date:string)=>boolean;
+  selectedMealType?: MealType;
+  onMealSelectionChange?: (selection: {date: string; mealType: MealType} | null) => boolean | void;
   mode: FamilyMealsMode;
   onModeChange: (mode: FamilyMealsMode) => boolean|void;
   onDataChanged?: () => void;
@@ -523,7 +527,7 @@ export default function FamilyMealsScreen({
   const [people, setPeople] = useState<Person[]>([]);
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const requestEditorClose = useRef<() => void>(() => {});
-  const [mealSelection,setMealSelection]=useState<{date:string;mealType:MealType}|null>(null);
+  const [mealSelection,setMealSelection]=useState<{date:string;mealType:MealType}|null>(()=>initialDate&&selectedMealType?{date:initialDate,mealType:selectedMealType}:null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
@@ -534,8 +538,10 @@ export default function FamilyMealsScreen({
   useEffect(() => {
     setBrowsingDate(initialDate ?? referenceDate ?? localDateValue());
     setEditing(null);
-    setMealSelection(null);
   }, [familyId, initialDate]);
+  useEffect(() => {
+    setMealSelection(initialDate && selectedMealType ? {date:initialDate,mealType:selectedMealType} : null);
+  }, [familyId, initialDate, selectedMealType]);
 
   const request = useMemo(() => {
     if (mode === "recommend" || mode === "prepare") return null;
@@ -681,7 +687,11 @@ export default function FamilyMealsScreen({
       {mode !== "recommend" && !busy && plan ? (
         mode === "week" ? (
           <WeeklyProposalPreview
-            initialSelection={mealSelection} onSelectionChange={setMealSelection} onMealCommitted={onDataChanged}
+            initialSelection={mealSelection} onSelectionChange={(selection)=>{
+              if(onMealSelectionChange?.(selection)===false)return false;
+              setMealSelection(selection);
+              return true;
+            }} onMealCommitted={onDataChanged}
             familyId={familyId}
             onEdit={(date, mealType, entry) => {setMealSelection({date,mealType});setEditing({ date, mealType, entry });}}
             onPlanChanged={refreshPlan}
