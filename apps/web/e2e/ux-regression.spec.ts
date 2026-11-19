@@ -165,10 +165,11 @@ test("weekly planner and drawer have no horizontal overflow across four responsi
   for(const width of [1440,1024,768,390]){
     await page.setViewportSize({width,height:900});
     for(const theme of ["light","dark"]){
-      await page.addInitScript(value=>window.localStorage.setItem("nutriflow-theme",value),theme);
+      await page.addInitScript(value=>window.localStorage.setItem("nutriflow-appearance",value),theme);
       await openFamily(page,fixture.family.id,`/#/meals?date=${DATE}&meal=dinner&mode=week`);
       const dialog=page.getByRole("dialog");
       await expect(dialog).toBeVisible();
+      await expect(page.locator("html")).toHaveAttribute("data-theme",theme);
       const geometry=await page.evaluate(()=>{
         const drawer=document.querySelector('[role="dialog"]');
         if(!drawer)throw new Error("Missing meal drawer");
