@@ -248,3 +248,10 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Em `ContextDrawer.tsx`, a lista de candidatos a foco ignora agora elementos efetivamente desativados (incluindo os que se encontram em `fieldset disabled`), ocultos por `visibility`, sob `aria-hidden=true` ou sob `inert`. Mantém Tab/Shift+Tab, Escape e restauro do foco.
 - Playwright acrescenta um cenário sintético: injeta no DOM temporário um botão `visibility:hidden` e outro sob `fieldset disabled`, verifica que Shift+Tab passa para um elemento visível dentro do diálogo e que Escape continua a fechar.
 - Versão de interface **v2.0.19** (Z). É uma correção de acessibilidade sem alteração de schema/API/dados. Verificar os três CI no SHA final e manter PR #76 em draft. Ainda falta auditoria real de zoom 200% antes da v2.1.0; não solicitar teste manual nesta patch.
+
+## Patch v2.0.20 — conter foco programático no drawer (19 novembro 2026)
+
+- Confirmado o sucesso de Web CI, API CI e UX E2E no SHA final da v2.0.19 `fed885d830d19b4796a28cadd2fe55cc71d145c5`.
+- Em `ContextDrawer.tsx`, adicionada uma proteção `focusin` para devolver o foco ao botão de fecho se código externo ou atualizações dinâmicas tentarem colocar o foco fora do diálogo enquanto está aberto. O listener é removido antes de restaurar o foco original ao fechar, evitando reter foco após o unmount.
+- Novo Playwright E2E, contra API/PostgreSQL sintéticos, cria um botão temporário fora de `#root` (logo, não protegido apenas por `inert`), tenta focá-lo diretamente e verifica que o foco regressa ao diálogo. Depois confirma fecho, retorno de foco e scroll libertado.
+- Frontend **v2.0.20** (patch Z). Correção de acessibilidade sem alteração de schema/API/dados reais. Verificar os três CI no SHA final, manter PR #76 em draft e não pedir teste manual antes da v2.1.0.
