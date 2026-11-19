@@ -60,6 +60,19 @@ export type ShoppingRefreshSummary = {
   planningIssues: number;
 };
 
+export function weeklyMealAttendanceContext(
+  date:string,
+  meal:MealType,
+  options?:{
+    guestNotices?:{planning_date:string;meal_type:MealType;guest_count:number}[];
+    attendanceDecisions?:{planning_date:string;meal_type:MealType;people:{person_id:string;decision:"present"|"absent"|"unconfirmed"}[]}[];
+  },
+):{guestCount:number;pendingCount:number} {
+  const guestCount=options?.guestNotices?.find(item=>item.planning_date===date&&item.meal_type===meal)?.guest_count??0;
+  const pendingCount=options?.attendanceDecisions?.find(item=>item.planning_date===date&&item.meal_type===meal)?.people.filter(item=>item.decision==="unconfirmed").length??0;
+  return {guestCount,pendingCount};
+}
+
 export function shoppingRefreshSummary(list: ShoppingList): ShoppingRefreshSummary {
   return {
     automaticNeeded: list.items.filter(
@@ -1370,10 +1383,8 @@ export default function WeeklyProposalPreview({
             >
             <section className="weekly-meal-detail" id="nf-selected-meal" tabIndex={-1}>
               {(() => {
-                const guestCount=planningOptions?.guestNotices?.find(item=>item.planning_date===selectedDate&&item.meal_type===selectedMealType)?.guest_count??0;
-                const decisions=planningOptions?.attendanceDecisions?.find(item=>item.planning_date===selectedDate&&item.meal_type===selectedMealType)?.people??[];
-                if(guestCount===0&&decisions.length===0)return null;
-                const pending=decisions.filter(item=>item.decision==="unconfirmed").length;
+                const {guestCount,pendingCount:pending}=weeklyMealAttendanceContext(selectedDate,selectedMealType,planningOptions);
+                if(guestCount===0&&pending===0)return null;
                 return <aside className="nf-meal-attendance-notice" aria-label={locale==="pt-PT"?"Exceções de presença da semana":"Weekly attendance exceptions"}>
                   <strong>{locale==="pt-PT"?"Presenças previstas · planeamento semanal":"Expected attendance · weekly planning"}</strong>
                   {guestCount>0&&<p>{locale==="pt-PT"
