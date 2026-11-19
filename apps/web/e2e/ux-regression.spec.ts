@@ -345,6 +345,42 @@ test("accessible drawer reclaims programmatic focus outside the modal and restor
   expect(await page.evaluate(()=>document.body.style.overflow)).not.toBe("hidden");
 });
 
+test("shopping: edit manual item in one drawer without losing the list or cancelled data",async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.setViewportSize({width:390,height:844});
+  await openFamily(page,fixture.family.id,"/#/shopping");
+  await expect(page.getByRole("heading",{name:"Lista de compras"})).toBeVisible();
+  const manual=page.locator("details.nf-manual-shopping");
+  await manual.locator("summary").click();
+  await manual.getByRole("textbox",{name:"Item"}).fill("Produto fictício QA");
+  await manual.getByRole("button",{name:"Adicionar",exact:true}).click();
+  const edit=page.getByRole("button",{name:"Editar: Produto fictício QA"});
+  await expect(edit).toBeVisible();
+  await edit.click();
+  const drawer=page.getByRole("dialog");
+  await expect(drawer).toHaveCount(1);
+  await expect(page.locator(".shopping-item")).toHaveCount(1);
+  const form=drawer.locator("form.shopping-edit-card");
+  await form.getByRole("textbox",{name:"Item"}).fill("Produto alterado QA");
+  await expect(form.getByText("Alterações por guardar")).toBeVisible();
+  page.once("dialog",prompt=>prompt.dismiss());
+  await form.getByRole("button",{name:"Cancelar"}).click();
+  await expect(drawer).toHaveCount(1);
+  await expect(form.getByRole("textbox",{name:"Item"})).toHaveValue("Produto alterado QA");
+  page.once("dialog",prompt=>prompt.accept());
+  await form.getByRole("button",{name:"Cancelar"}).click();
+  await expect(drawer).toHaveCount(0);
+  await expect(edit).toBeVisible();
+  await expect(page.getByText("Produto fictício QA", {exact:true})).toBeVisible();
+
+  await edit.click();
+  await expect(drawer).toHaveCount(1);
+  await form.getByRole("textbox",{name:"Item"}).fill("Produto confirmado QA");
+  await form.getByRole("button",{name:"Guardar"}).click();
+  await expect(drawer).toHaveCount(0);
+  await expect(page.getByText("Produto confirmado QA",{exact:true})).toBeVisible();
+});
+
 test("pantry: create stock in a drawer without replacing list and protect unsaved changes",async ({page,request})=>{
   const fixture=await seed(request);
   await page.setViewportSize({width:390,height:844});
