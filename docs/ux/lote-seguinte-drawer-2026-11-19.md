@@ -87,3 +87,15 @@ A branch foi criada a partir de main; apenas os ficheiros indicados no commit da
 - `ux-workflow.css` uniformiza cartões, títulos, margens e campos destes dois formulários, incluindo mobile e os tokens claro/escuro; sem mudar contratos de dados.
 - **Ainda pendente:** testar no navegador o descarte/guarda de ingredientes, edição de receitas longas, zoom 200%, acessibilidade de teclado e E2E API/PostgreSQL com base sintética. Não considerar a tarefa 07 encerrada sem evidência.
 
+
+## Política de versões NutriFlow AI (19 novembro 2026)
+
+Por decisão do utilizador, a aplicação apresenta sempre uma versão `X.Y.Z` junto à marca NutriFlow AI / Casa à Mesa. Primeira versão explicitamente identificada nesta política: **2.0.1**; o valor exposto pelo frontend vem exclusivamente de `apps/web/package.json`, não de uma string duplicada na interface. A versão do serviço API é independente.
+
+- **X — major:** alteração estrutural, incompatibilidade ou mudança substantiva de produto. Pedir ao utilizador teste manual antes de promover a release.
+- **Y — minor:** marco funcional consolidado pronto para validação do utilizador. Pedir teste manual apenas quando passar de um Y para o seguinte.
+- **Z — patch/incremental:** commits de trabalho diário, correções encontradas nos bugs do utilizador, ajustes UX, regressão e incrementos ainda dentro do Y atual. **Não interromper o utilizador para testes em cada Z**; validar automaticamente cada SHA no CI. Agrupar resultados até ao próximo Y ou X.
+
+Esta é uma política de **cadência de testes**, não dispensa testes de segurança nem permite publicar código com CI vermelho. Se houver um bloqueio grave de dados ou risco de perda irreversível, parar a publicação e reportar o bloqueio; não exigir testes funcionais do utilizador como substituto de testes automatizados.
+
+Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mudanças; o badge atualiza automaticamente. Fazer merge ou publicar releases apenas mediante autorização, manter `main` intacta enquanto PR #76 estiver em rascunho. Manter a automação de estado focada na prontidão do próximo **Y/X**, evitando notificações por patches normais.
