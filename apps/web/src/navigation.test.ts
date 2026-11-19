@@ -20,6 +20,14 @@ describe("bookmarkable navigation",()=>{
   expect(parseRoute("#/meals?date=2026-11-19&mode=today&meal=dinner")).not.toHaveProperty("meal");
   expect(parseRoute("#/shopping?date=2026-11-19&mode=week&meal=dinner")).not.toHaveProperty("meal");
  });
+ it("prevents local tab transitions while any registered form has unsaved changes",()=>{
+  const clean=registerNavigationBlocker(()=>true);
+  const dirty=registerNavigationBlocker(()=>false);
+  expect(requestNavigation()).toBe(false);
+  dirty();
+  expect(requestNavigation()).toBe(true);
+  clean();
+ });
  it("honours and releases edit blockers",()=>{
   const release=registerNavigationBlocker(()=>false);expect(requestNavigation()).toBe(false);release();expect(requestNavigation()).toBe(true);
  });
