@@ -745,7 +745,7 @@ export default function WeeklyProposalPreview({
   plan?: FamilyMealPlan;
   onEdit?: (planningDate: string, mealType: MealType, entry: MealPlanEntry | null) => void;
   onPlanChanged?: () => void;
-  planningOptions?: {mealSources?: Partial<Record<MealType,"home"|"delivery"|"restaurant">>; mealTypes: MealType[]; excludedFoodItemIds: string[]; attendance?: {planning_date: string; meal_type: MealType; person_ids: string[]}[]};
+  planningOptions?: {mealSources?: Partial<Record<MealType,"home"|"delivery"|"restaurant">>; mealTypes: MealType[]; excludedFoodItemIds: string[]; attendance?: {planning_date: string; meal_type: MealType; person_ids: string[]}[]; guestNotices?: {planning_date:string;meal_type:MealType;guest_count:number}[]; attendanceDecisions?: {planning_date:string;meal_type:MealType;people:{person_id:string;decision:"present"|"absent"|"unconfirmed"}[]}[]};
   autoGenerate?: boolean;
   onApplied?: (shoppingUpdated: boolean) => void;
   recipeAdaptations?: Record<string,string[]>;
@@ -1369,6 +1369,21 @@ export default function WeeklyProposalPreview({
               }}
             >
             <section className="weekly-meal-detail" id="nf-selected-meal" tabIndex={-1}>
+              {(() => {
+                const guestCount=planningOptions?.guestNotices?.find(item=>item.planning_date===selectedDate&&item.meal_type===selectedMealType)?.guest_count??0;
+                const decisions=planningOptions?.attendanceDecisions?.find(item=>item.planning_date===selectedDate&&item.meal_type===selectedMealType)?.people??[];
+                if(guestCount===0&&decisions.length===0)return null;
+                const pending=decisions.filter(item=>item.decision==="unconfirmed").length;
+                return <aside className="nf-meal-attendance-notice" aria-label={locale==="pt-PT"?"Exceções de presença da semana":"Weekly attendance exceptions"}>
+                  <strong>{locale==="pt-PT"?"Presenças previstas · planeamento semanal":"Expected attendance · weekly planning"}</strong>
+                  {guestCount>0&&<p>{locale==="pt-PT"
+                    ?`${guestCount} convidado(s) sem perfil. Apenas previsão: não incluídos nas porções, avaliações nutricionais nem compras automáticas. Requer revisão manual.`
+                    :`${guestCount} unprofiled guest(s). Headcount only: excluded from portions, nutrition assessments and automatic shopping. Requires manual review.`}</p>}
+                  {pending>0&&<p>{locale==="pt-PT"
+                    ?`${pending} presença(s) por confirmar nesta refeição. As escolhas semanais não alteram automaticamente os participantes guardados.`
+                    :`${pending} attendance decision(s) pending. Weekly decisions never automatically overwrite saved meal participants.`}</p>}
+                </aside>;
+              })()}
               <button className="button ghost small nf-detail-close" type="button" onClick={()=>{if(onSelectionChange ? onSelectionChange(null)!==false : requestNavigation())setSelectedMealType(null);}}><Icon name="arrow"/>{locale === "pt-PT" ? "Voltar ao mapa" : "Back to planner"}</button>
               <div className="weekly-section-heading weekly-meal-detail__heading">
                 <div>
