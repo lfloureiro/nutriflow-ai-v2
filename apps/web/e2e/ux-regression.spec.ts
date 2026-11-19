@@ -120,6 +120,38 @@ test("narrow viewport: weekly drawer reflows at 320 CSS px without horizontal sc
   await expect(drawer).toHaveCount(0);
 });
 
+test("accessible drawer: labelled dialog locks scroll, restores page and survives repeated keyboard cycles",async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.emulateMedia({reducedMotion:"reduce"});
+  await page.setViewportSize({width:390,height:844});
+  await openFamily(page,fixture.family.id,`/#/meals?date=${DATE}&mode=week`);
+  const slot=page.getByRole("button",{name:/Prato sintético QA/}).first();
+  await expect(slot).toBeVisible();
+  for(let cycle=0;cycle<3;cycle++){
+    await slot.focus();
+    await slot.click();
+    const drawer=page.getByRole("dialog");
+    await expect(drawer).toBeVisible();
+    const accessible=await drawer.evaluate(element=>{
+      const labelledBy=element.getAttribute("aria-labelledby");
+      const heading=labelledBy?document.getElementById(labelledBy):null;
+      return {modal:element.getAttribute("aria-modal"),labelled:!!heading?.textContent?.trim(),
+        overflow:document.body.style.overflow,backgroundInert:document.getElementById("root")?.inert};
+    });
+    expect(accessible).toEqual({modal:"true",labelled:true,overflow:"hidden",backgroundInert:true});
+    await expect(drawer.getByRole("button",{name:"Fechar detalhe"})).toBeFocused();
+    for(let i=0;i<8;i++){
+      await page.keyboard.press(i%2===0?"Tab":"Shift+Tab");
+      expect(await page.evaluate(()=>Boolean(document.activeElement?.closest('[role="dialog"]')))).toBe(true);
+    }
+    await page.keyboard.press("Escape");
+    await expect(drawer).toHaveCount(0);
+    await expect(page.locator("#root")).not.toHaveAttribute("inert","");
+    expect(await page.evaluate(()=>document.body.style.overflow)).not.toBe("hidden");
+    await expect(slot).toBeFocused();
+  }
+});
+
 test("ingredient: draft warning and optional nutrition persist in isolated database", async ({page,request})=>{
   const fixture=await seed(request);
   await openFamily(page,fixture.family.id,"/#/house?tab=ingredients");
