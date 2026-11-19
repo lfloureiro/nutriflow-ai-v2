@@ -285,3 +285,11 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - **Pessoas:** vista de pessoa e criação passam a `ContextDrawer`, com a lista familiar estável no fundo e navegação direta de volta.
 - Novo Playwright E2E verifica quantidade de diálogos igual a um, presença da página base e fecho direto nos percursos de semana, receitas, ingredientes e pessoa, com base de dados fictícia.
 - Versão de interface **v2.0.24**. Ainda exige Web CI, API CI e UX E2E verdes **neste SHA final** e revisão do comportamento visual; não declarar prontidão da v2.1.0 ou efetuar merge.
+
+## Patch v2.0.25 — corrigir recarregamento visual ao mudar de dia e fechar receitas (19 novembro 2026)
+
+- O utilizador relatou que, ao selecionar outro dia da semana, surgia primeiro conteúdo vazio/carregamento e só depois o drawer correto; no catálogo de receitas a abertura/fecho provocava refresh e transições visualmente estranhas.
+- **Causa identificada no código:** `FamilyMeals` reconstruía `request` quando `browsingDate` mudava, mesmo que o `startDate` da semana fosse idêntico, reativando `busy` e desmontando `WeeklyProposalPreview`. Agora a chave de pedido depende de `mode` e de uma `scopeDate` (segunda-feira comum a todos os dias da mesma semana). Mudar data no URL continua a selecionar o dia, mas **não refaz o pedido da mesma semana**. Mudar efetivamente de semana continua a carregar dados novos. `editing` já não é limpo ao mudar apenas a data.
+- **Receitas e ingredientes:** removida a dependência dos pedidos de catálogo em `selected`. Abrir e fechar drawer não dispara consultas; guardar aumenta `revision` e recarrega informação. Durante atualização, os cartões antigos permanecem montados até à resposta, em vez de trocar a lista por um spinner.
+- Adicionados cenários Playwright de seleção consecutiva de dias com uma única grelha montada e sem novo GET de plano semanal, mais abertura/fecho de receita duas vezes sem novo GET de lista de receitas.
+- Versão de interface **v2.0.25**. Manter PR #76 em draft e `main` intacta. A correção não está automaticamente validada: exigir Web CI, API CI e UX E2E verdes **neste SHA**, e confirmar que os testes de transição não introduzem comportamento secundário.
