@@ -573,17 +573,20 @@ test("attendance reuse: copy only people from an earlier dinner and keep source 
   const before=await getJson<{days:{date:string,slots:{meal_type:string,meals:{id:string,participants:{person_id:string}[]}[]}[]}[]}>(
     request,`/families/${familyId}/meal-plan?start_date=2026-11-16&days=7`);
   expect(before.days.find(d=>d.date==="2026-11-20")?.slots.find(s=>s.meal_type==="dinner")?.meals).toEqual([]);
+  await expect(editor.getByText(/2 por confirmar/)).toBeVisible();
+  await expect(editor.getByRole("button",{name:"Guardar no plano"})).toBeDisabled();
   await editor.getByLabel("Reutilizar presenças de outra refeição (opcional)").selectOption({index:1});
   await editor.getByRole("button",{name:"Usar apenas presenças"}).click();
   await expect(editor.getByText("1/2 presentes")).toBeVisible();
   const draftState=await editor.locator(".meal-plan-person").evaluateAll(nodes=>
     nodes.map(row=>({
-      checked:(row.querySelector('input[type="checkbox"]') as HTMLInputElement).checked,
+      status:(row.querySelector('.nf-attendance-decision select') as HTMLSelectElement).value,
       label:row.textContent,
     })),
   );
-  expect(draftState.find(row=>row.label?.includes("Pessoa QA"))?.checked).toBe(true);
-  expect(draftState.find(row=>row.label?.includes("Outra pessoa QA"))?.checked).toBe(false);
+  expect(draftState.find(row=>row.label?.includes("Pessoa QA"))?.status).toBe("present");
+  expect(draftState.find(row=>row.label?.includes("Outra pessoa QA"))?.status).toBe("absent");
+  await expect(editor.getByRole("button",{name:"Guardar no plano"})).toBeEnabled();
   // No implicit mutation of the target until its explicit save.
   const unsaved=await getJson<typeof before>(request,
     `/families/${familyId}/meal-plan?start_date=2026-11-16&days=7`);
