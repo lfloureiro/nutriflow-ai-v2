@@ -354,3 +354,52 @@ test("adaptation: a family-declared replacement stays uncertified and does not c
   const original=await getJson<typeof originalRecipe>(request,`${base}/recipes/${fixture.recipe.id}`);
   expect(original.ingredients[0]?.food_item_id).toBe(fixture.ingredient.id);
 });
+
+test("adaptation isolation: another meal retains its original recipe and shopping follows removal",async ({request})=>{
+  const fixture=await seed(request);
+  const base=`/families/${fixture.family.id}`;
+  const original=await getJson<{ingredients:{id:string,quantity:string,unit:string}[]}>(request,
+    `${base}/recipes/${fixture.recipe.id}`);
+  const second=await postJson<{id:string,recipe_id:string}>(request,`${base}/meal-plan`,{
+    date:"2026-11-20",meal_type:"lunch",local_time:"13:00",
+    recipe_id:fixture.recipe.id,participants:[{
+      person_id:fixture.person.id,quantity:"1",unit:"serving",
+    }],location:null,notes:null,
+  });
+  const replacement=await postJson<{id:string}>(request,`${base}/ingredients`,{
+    name:"Ingrediente alternativo isolado QA",brand:null,description:null,composition:null,
+  });
+  const changed=await postJson<{recipe_id:string}>(request,`${base}/recipe-variants/recipe-edit`,{
+    base_recipe_id:fixture.recipe.id,name:"Prato alternativo isolado QA",
+    serving_count:null,
+    operations:[{
+      recipe_ingredient_id:original.ingredients[0]!.id,
+      replacement_food_item_id:replacement.id,
+      replacement_name:"Ingrediente alternativo isolado QA",
+      quantity:original.ingredients[0]!.quantity,
+      unit:original.ingredients[0]!.unit,preparation:"",
+    }],
+  });
+  const updated=await request.patch(`${API}${base}/meal-plan/${fixture.meal.id}`,{
+    data:{recipe_id:changed.recipe_id,participants:[{
+      person_id:fixture.person.id,quantity:"1",unit:"serving",
+    }]},
+  });
+  expect(updated.ok(),`Cannot adapt selected meal: ${updated.status()} ${await updated.text()}`).toBe(true);
+  const map=await getJson<{days:{date:string,slots:{meal_type:string,meals:{id:string,recipe_id:string}[]}[]}[]}>(request,
+    `${base}/meal-plan?start_date=2026-11-16&days=7`);
+  expect(map.days.find(day=>day.date===DATE)?.slots.find(slot=>slot.meal_type==="dinner")?.meals[0]?.recipe_id).toBe(changed.recipe_id);
+  expect(map.days.find(day=>day.date==="2026-11-20")?.slots.find(slot=>slot.meal_type==="lunch")?.meals[0]?.id).toBe(second.id);
+  expect(map.days.find(day=>day.date==="2026-11-20")?.slots.find(slot=>slot.meal_type==="lunch")?.meals[0]?.recipe_id).toBe(fixture.recipe.id);
+  const refreshed=await postJson<{requirements:{food_item_id:string}[]}>(request,
+    `${base}/shopping-list/refresh`,{start_date:"2026-11-16",days:7});
+  expect(refreshed.requirements.some(x=>x.food_item_id===fixture.ingredient.id)).toBe(true);
+  expect(refreshed.requirements.some(x=>x.food_item_id===replacement.id)).toBe(true);
+  const removed=await request.delete(`${API}${base}/meal-plan/${fixture.meal.id}`);
+  expect(removed.status()).toBe(204);
+  const afterRemoval=await postJson<typeof refreshed>(request,`${base}/shopping-list/refresh`,{
+    start_date:"2026-11-16",days:7,
+  });
+  expect(afterRemoval.requirements.some(x=>x.food_item_id===fixture.ingredient.id)).toBe(true);
+  expect(afterRemoval.requirements.some(x=>x.food_item_id===replacement.id)).toBe(false);
+});
