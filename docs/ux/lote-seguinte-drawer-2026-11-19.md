@@ -310,3 +310,11 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Novo controlo de rascunho compara os valores atuais com a fotografia inicial; fechar ou navegar com alterações exige confirmação e preserva o editor se for recusada. Bloqueio de unload de dados não guardados.
 - Playwright com dados fictícios/PostgreSQL temporário abre o stock em mobile 390px, verifica que há **um único drawer** e que a lista continua montada, faz uma edição e exercita recusa e aceitação de descarte sem persistência de lote.
 - Interface passa a **v2.0.27**, patch Z; exigir Web CI, API CI e UX E2E verdes no SHA final. Nenhuma alteração de API/schema, `main` intacta, PR #76 em draft. Ainda não pedir testes manuais antes da minor v2.1.0.
+
+## Patch v2.0.28 — editor de artigos de compras em drawer (19 novembro 2026)
+
+- Na consulta ao SHA v2.0.27 `9342f7232dc9b85d25894c8a987dd1581c38e8bc`, Web CI e API CI passaram. UX E2E foi **cancelado após novos commits**, não considerado aprovado. A validação passa a ser exigida no SHA final de v2.0.28.
+- **Compras:** editar um artigo deixa de apresentar um formulário inline que desloca a lista; passa a um único `ContextDrawer`, mantendo artigos, filtros e contexto de compras montados no fundo.
+- Um rascunho com nome, quantidade ou unidade alterados exige confirmação ao fechar/navegar. Recusar mantém o formulário; aceitar fecha sem persistir. Guardar usa o contrato API existente e atualiza o artigo, distinguindo alteração de artigo de receção de stock.
+- Playwright com PostgreSQL sintético cria um artigo manual fictício, abre edição em 390px, verifica que só existe um diálogo e a lista permanece; recusa/aceita descarte e, na segunda abertura, confirma a alteração persistida.
+- Interface **v2.0.28**, patch Z; sem API/schema novos nem alterações na `main`. Confirmar sucesso Web CI, API CI e UX E2E **no mesmo SHA final**, manter PR #76 draft e não pedir teste manual antes da v2.1.0.
