@@ -4,7 +4,7 @@ from datetime import datetime
 from datetime import time as Time
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.meal_type import MealType
 
@@ -34,6 +34,7 @@ class MealPlanEntryCreate(BaseModel):
 
 
 class MealPlanEntryUpdate(BaseModel):
+    expected_updated_at: AwareDatetime | None = None
     model_config = ConfigDict(str_strip_whitespace=True)
 
     date: Date | None = None
@@ -67,6 +68,7 @@ class MealPlanTransformationRead(BaseModel):
 
 
 class MealPlanEntryRead(BaseModel):
+    updated_at: datetime
     variant_changes: list[str] = Field(default_factory=list)
     id: uuid.UUID
     meal_type: MealType

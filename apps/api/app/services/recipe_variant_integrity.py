@@ -92,6 +92,18 @@ def assert_variant_usable(db, recipe):
 
     if issues := retail_recipe_issues(db, recipe):
         raise ValueError("Recipe retail evidence needs review: " + "; ".join(issues))
+    if recipe.source == "family_adaptation":
+        row = variant_for_recipe(db, recipe.id)
+        base = load_recipe(db, row.base_recipe_id) if row else None
+        if row is None or row.status != "active" or not recipe.is_active:
+            raise ValueError("Recipe adaptation is not active")
+        if base is None or not base.is_active or recipe_fingerprint(base) != row.base_fingerprint:
+            raise ValueError("Base recipe changed; review adaptation")
+        if recipe_fingerprint(recipe) != row.variant_fingerprint:
+            raise ValueError("Recipe adaptation changed; review edits")
+        if any(not ingredient.food_item.is_active or ingredient.food_item.family_id not in (None, row.family_id) for ingredient in recipe.ingredients):
+            raise ValueError("Adaptation ingredient unavailable")
+        return
     if recipe.source != "family_variant":
         return
     row = variant_for_recipe(db, recipe.id)

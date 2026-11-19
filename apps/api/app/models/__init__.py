@@ -69,6 +69,7 @@ __all__ = [
     "FoodTransformationProfile",
     "HealthConnection",
     "HealthMeasurement",
+    "MealAdaptationDraft",
     "MealCandidateAvailability",
     "MealCandidatePlanningProfile",
     "MealCommercialOffer",
@@ -106,5 +107,6 @@ __all__ = [
     "ShoppingList",
     "ShoppingListItem",
 ]
+from app.models.meal_adaptation_draft import MealAdaptationDraft
 from app.models.recipe_variant import FamilyRecipeVariant
 from app.models.retail_confirmation import RetailIngredientConfirmation

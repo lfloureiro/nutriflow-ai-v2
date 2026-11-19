@@ -100,6 +100,11 @@ def update_person(
     data: PersonUpdate,
 ) -> Person:
     fields = data.model_fields_set
+    if "avatar_appearance" in fields:
+        person.avatar_appearance = (
+            data.avatar_appearance.model_dump(exclude_none=True)
+            if data.avatar_appearance is not None else None
+        )
     if "first_name" in fields and data.first_name is not None:
         person.first_name = data.first_name
     if "last_name" in fields:

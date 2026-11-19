@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.schemas.recipe_variant import (
+    RecipeEditCreate,
     VariantCreate,
     VariantRead,
     VariantRetireRequest,
@@ -53,3 +54,10 @@ def retire_endpoint(
     family_id: uuid.UUID, variant_id: uuid.UUID, data: VariantRetireRequest, db: DB
 ):
     return retire_variant(db, family_id, variant_id, data)
+
+
+@router.post("/recipe-edit", response_model=VariantRead, status_code=201)
+def create_recipe_edit_endpoint(family_id: uuid.UUID, data: RecipeEditCreate, db: DB):
+    from app.services.recipe_edit import create_recipe_edit
+
+    return create_recipe_edit(db, family_id, data)

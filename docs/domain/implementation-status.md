@@ -1,3 +1,5 @@
+> **Estado atual — 19 novembro 2026:** consultar [passagem e próximos passos](../handoff-2026-11-19.md) e o [quadro UX](../vision/ux-revamp-task-board.md). Os estados de branches, contagens e “próxima tarefa” abaixo são históricos. Esta entrega consolida o revamp, o fluxo de trocas e o lote de 20; NLP/ML treinado e restantes fases continuam na sequência canónica.
+
 ## Receções parciais e validade por refeição — ADR-072 (18/10/2026)
 
 Compras recebem vários lotes com local/validade próprios e entregas parciais versionadas.

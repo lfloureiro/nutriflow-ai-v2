@@ -1,3 +1,4 @@
+import type {AvatarPreference} from "./avatarTypes";
 import type { Person } from "./types";
 
 export type MealDiscoverySource =
@@ -80,14 +81,15 @@ export type PersonMealDiscoveryUpdate = PersonMealDiscoveryCreate & {
 export type PersonCreate = {
   first_name: string;
   last_name: string | null;
-  birth_date: string;
+  birth_date: string | null;
   preferred_locale: string;
   timezone: string;
-  energy_profile: PersonEnergyProfileCreate;
+  energy_profile?: PersonEnergyProfileCreate;
   meal_discovery?: PersonMealDiscoveryCreate | null;
 };
 
 export type PersonUpdate = {
+  avatar_appearance?: AvatarPreference | null;
   first_name?: string;
   last_name?: string | null;
   birth_date?: string | null;

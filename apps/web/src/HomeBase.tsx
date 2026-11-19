@@ -1,4 +1,5 @@
-import { useState } from "react";
+import {requestNavigation,type HouseView} from "./navigation";
+import { useEffect,useState } from "react";
 
 import DeliveryMenuScreen from "./DeliveryMenuScreen";
 import IngredientCatalogue from "./IngredientCatalogue";
@@ -11,20 +12,11 @@ import RestaurantDiscoveryScreen from "./RestaurantDiscoveryScreen";
 import ShoppingListScreen from "./ShoppingListScreen";
 import { useI18n } from "./i18n";
 
-type HomeBaseView =
-  | "recipes"
-  | "substitutions"
-  | "ingredients"
-  | "pantry"
-  | "shopping"
-  | "preferences"
-  | "sources"
-  | "restaurants"
-  | "delivery";
-
-export default function HomeBase({ familyId }: { familyId: string }) {
+export default function HomeBase({ familyId,initialView="recipes",onViewChange }: { familyId: string;initialView?:HouseView;onViewChange?:(view:HouseView)=>boolean }) {
   const { locale } = useI18n();
-  const [view, setView] = useState<HomeBaseView>("recipes");
+  const [view, setLocalView] = useState<HouseView>(initialView);
+  useEffect(()=>setLocalView(initialView),[initialView]);
+  function setView(next:HouseView){if(onViewChange? !onViewChange(next):!requestNavigation())return;setLocalView(next);}
   const copy =
     locale === "pt-PT"
       ? {
@@ -52,81 +44,17 @@ export default function HomeBase({ familyId }: { familyId: string }) {
 
   return (
     <div className="home-base">
-      <nav className="secondary-tabs home-base-tabs" aria-label={copy.label}>
-        <button type="button" aria-current={view === "substitutions" ? "page" : undefined}
-          className={view === "substitutions" ? "active" : ""} onClick={() => setView("substitutions")}>
-          {locale === "pt-PT" ? "Substituições" : "Substitutions"}
-        </button>
-        <button
-          aria-current={view === "recipes" ? "page" : undefined}
-          className={view === "recipes" ? "active" : ""}
-          onClick={() => setView("recipes")}
-          type="button"
-        >
-          {copy.recipes}
-        </button>
-        <button
-          aria-current={view === "ingredients" ? "page" : undefined}
-          className={view === "ingredients" ? "active" : ""}
-          onClick={() => setView("ingredients")}
-          type="button"
-        >
-          {copy.ingredients}
-        </button>
-        <button
-          aria-current={view === "pantry" ? "page" : undefined}
-          className={view === "pantry" ? "active" : ""}
-          onClick={() => setView("pantry")}
-          type="button"
-        >
-          {copy.pantry}
-        </button>
-        <button
-          aria-current={view === "shopping" ? "page" : undefined}
-          className={view === "shopping" ? "active" : ""}
-          onClick={() => setView("shopping")}
-          type="button"
-        >
-          {copy.shopping}
-        </button>
-        <button
-          aria-current={view === "preferences" ? "page" : undefined}
-          className={view === "preferences" ? "active" : ""}
-          onClick={() => setView("preferences")}
-          type="button"
-        >
-          {copy.preferences}
-        </button>
-        <button
-          aria-current={view === "sources" ? "page" : undefined}
-          className={view === "sources" ? "active" : ""}
-          onClick={() => setView("sources")}
-          type="button"
-        >
-          {copy.sources}
-        </button>
-        <button
-          aria-current={view === "restaurants" ? "page" : undefined}
-          className={view === "restaurants" ? "active" : ""}
-          onClick={() => setView("restaurants")}
-          type="button"
-        >
-          {copy.restaurants}
-        </button>
-        <button
-          aria-current={view === "delivery" ? "page" : undefined}
-          className={view === "delivery" ? "active" : ""}
-          onClick={() => setView("delivery")}
-          type="button"
-        >
-          {copy.delivery}
-        </button>
+      <nav className="secondary-tabs home-base-tabs nf-house-nav" aria-label={copy.label}>
+        {(["recipes", "ingredients", "pantry"] as const).map(item => <button key={item} type="button" aria-current={view === item ? "page" : undefined} className={view === item ? "active" : ""} onClick={() => setView(item)}>{copy[item]}</button>)}
+        <details className="nf-house-tools"><summary>{locale === "pt-PT" ? "Mais ferramentas" : "More tools"}</summary><div>
+          {(["substitutions", "shopping", "preferences", "sources", "restaurants", "delivery"] as const).map(item => <button key={item} type="button" aria-current={view === item ? "page" : undefined} className={view === item ? "active" : ""} onClick={event => { setView(item); event.currentTarget.closest("details")?.removeAttribute("open"); }}>{item === "substitutions" ? (locale === "pt-PT" ? "Substituições" : "Substitutions") : copy[item]}</button>)}
+        </div></details>
       </nav>
       {view === "recipes" ? <RecipeCatalogue familyId={familyId} /> : null}
       {view === "substitutions" ? <RecipeDietaryReview key={familyId} familyId={familyId} /> : null}
       {view === "ingredients" ? <IngredientCatalogue familyId={familyId} /> : null}
       {view === "pantry" ? <PantryScreen familyId={familyId} /> : null}
-      {view === "shopping" ? <ShoppingListScreen familyId={familyId} /> : null}
+      {view === "shopping" ? <ShoppingListScreen familyId={familyId} onOpenPantry={()=>setView("pantry")} /> : null}
       {view === "preferences" ? <RecipePreferences familyId={familyId} /> : null}
       {view === "sources" ? <MealDiscoverySettings familyId={familyId} /> : null}
       {view === "restaurants" ? <RestaurantDiscoveryScreen familyId={familyId} /> : null}

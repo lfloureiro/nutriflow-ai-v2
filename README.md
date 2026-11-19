@@ -1,3 +1,5 @@
+> **Estado atual — 19 novembro 2026:** consultar [passagem e próximos passos](docs/handoff-2026-11-19.md) e o [quadro UX](docs/vision/ux-revamp-task-board.md). Os estados de branches, contagens e “próxima tarefa” abaixo são históricos. Esta entrega consolida o revamp, o fluxo de trocas e o lote de 20; NLP/ML treinado e restantes fases continuam na sequência canónica.
+
 # NutriFlow AI v2
 
 NutriFlow AI v2 is a standalone, person-centric adaptive nutrition platform for individuals and families.

@@ -117,7 +117,7 @@ def _entry_read(event: MealEvent, family_timezone: ZoneInfo) -> MealPlanEntryRea
     recipe = _event_recipe(event)
     recipe_id = recipe.id if recipe is not None else None
     changes = []
-    if recipe is not None and recipe.source == "family_variant":
+    if recipe is not None and recipe.source in ("family_variant", "family_adaptation"):
         from sqlalchemy.orm import object_session
 
         from app.services.recipe_variant_integrity import variant_for_recipe
@@ -130,6 +130,7 @@ def _entry_read(event: MealEvent, family_timezone: ZoneInfo) -> MealPlanEntryRea
             ]
     return MealPlanEntryRead(
         variant_changes=changes,
+        updated_at=event.updated_at,
         id=event.id,
         meal_type=event.meal_type,
         title=event.title,
@@ -289,14 +290,16 @@ def _replace_participants(
             status="planned",
             quantity_planned=quantity,
             quantity_unit=unit,
-            nutrition_source="catalog" if composition is not None else "missing",
+            nutrition_source="catalog" if composition is not None and composition.energy_kcal is not None else "missing",
             source_reference="family-meal-plan",
         )
         if composition is not None:
             try:
                 calculate_serving_nutrition(serving, composition)
             except ServingNutritionCalculationError as exc:
-                raise MealPlanError(str(exc)) from exc
+                if recipe.source != "family_adaptation":
+                    raise MealPlanError(str(exc)) from exc
+                serving.nutrition_source = "missing"
         participant.servings.append(serving)
 
 
@@ -483,12 +486,12 @@ def create_meal_plan_entry(
     return _entry_read(event, ZoneInfo(family.timezone))
 
 
-def _get_event(db: Session, family_id: uuid.UUID, meal_event_id: uuid.UUID) -> MealEvent:
-    event = db.scalar(
-        select(MealEvent)
-        .options(*_event_options())
-        .where(MealEvent.id == meal_event_id, MealEvent.family_id == family_id)
-    )
+def _get_event(db: Session, family_id: uuid.UUID, meal_event_id: uuid.UUID, *, lock: bool = False) -> MealEvent:
+    query = (select(MealEvent).options(*_event_options())
+             .where(MealEvent.id == meal_event_id, MealEvent.family_id == family_id))
+    if lock:
+        query = query.with_for_update(of=MealEvent).execution_options(populate_existing=True)
+    event = db.scalar(query)
     if event is None:
         raise MealPlanEntryNotFoundError("Meal plan entry not found")
     return event
@@ -500,7 +503,9 @@ def update_meal_plan_entry(
     meal_event_id: uuid.UUID,
     data: MealPlanEntryUpdate,
 ) -> MealPlanEntryRead:
-    event = _get_event(db, family.id, meal_event_id)
+    event = _get_event(db, family.id, meal_event_id, lock=True)
+    if data.expected_updated_at is not None and data.expected_updated_at != event.updated_at:
+        raise MealPlanEntryLockedError("Meal changed since review; reload before confirming.")
     if event.status != "planned":
         raise MealPlanEntryLockedError("Only planned MealEvents can be edited.")
     if event.transformation_applications:
@@ -570,7 +575,7 @@ def update_meal_plan_entry(
     if (
         recipe is not None
         and (
-            recipe.source == "family_variant"
+            recipe.source in ("family_variant", "family_adaptation")
             or fields.intersection({"date", "local_time", "meal_type"})
         )
         and not (recipe_changed or participants_changed)
@@ -584,6 +589,7 @@ def update_meal_plan_entry(
             for p in event.participants
         ]
         _validate_recipe_context(db, family.id, recipe, event, values)
+    event.updated_at = datetime.now(UTC)
     db.commit()
     event = _get_event(db, family.id, meal_event_id)
     return _entry_read(event, ZoneInfo(family.timezone))

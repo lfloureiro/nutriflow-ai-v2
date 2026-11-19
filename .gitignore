@@ -66,3 +66,7 @@ backups/
 docs/audits/
 recipe_nutrition_export.json
 *.dump
+
+# Generated installation metadata and private rendered documents
+output/
+*.egg-info/

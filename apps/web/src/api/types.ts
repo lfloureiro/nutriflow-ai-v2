@@ -1,6 +1,8 @@
+import type {AvatarPreference} from "./avatarTypes";
 import type { NutritionPlanAuthority } from "./planFitTypes";
 
 export type Person = {
+  avatar_appearance?: AvatarPreference | null;
   id: string;
   family_id: string;
   first_name: string;
@@ -39,10 +41,13 @@ export type FamilyDashboardNutrition = {
 };
 
 export type FamilyDashboardMember = {
+  avatar_appearance?: AvatarPreference | null;
   person_id: string;
   first_name: string;
   last_name: string | null;
   timezone: string;
+  age_years?: number | null;
+  sex_for_energy_calculation?: "male" | "female" | null;
   health: FamilyDashboardHealth | null;
   nutrition: FamilyDashboardNutrition | null;
 };

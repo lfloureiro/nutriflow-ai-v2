@@ -1,13 +1,12 @@
 import { useState, type FormEvent } from "react";
 
 import { ApiError } from "./api/client";
-import { createFamilyPerson, getPersonEnergyProfile } from "./api/setupClient";
+import { createFamilyPerson } from "./api/setupClient";
 import type {
   ActivityLevel,
   EnergyCalculationSex,
   MealDiscoverySource,
   NutritionGoalType,
-  PersonEnergyProfile,
 } from "./api/setupTypes";
 import { useI18n } from "./i18n";
 
@@ -22,7 +21,7 @@ const SOURCE_OPTIONS: MealDiscoverySource[] = [
 const COPY = {
   "pt-PT": {
     title: "Adicionar pessoa",
-    help: "Estes dados permitem estimar as necessidades energéticas e criar o intervalo calórico diário.",
+    help: "Começa pelo nome. Podes adicionar crianças e completar os dados nutricionais mais tarde.",
     firstName: "Nome",
     lastName: "Apelido",
     birthDate: "Data de nascimento",
@@ -68,7 +67,7 @@ const COPY = {
   },
   en: {
     title: "Add person",
-    help: "These details are used to estimate energy needs and create the daily calorie range.",
+    help: "Start with a name. You can add children and complete nutrition details later.",
     firstName: "First name",
     lastName: "Last name",
     birthDate: "Date of birth",
@@ -119,10 +118,6 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function kcal(value: string, locale: string): string {
-  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(Number(value))} kcal`;
-}
-
 function usesDelivery(sources: MealDiscoverySource[]): boolean {
   return sources.some(
     (source) => source === "uber_eats" || source === "glovo" || source === "bolt_food",
@@ -158,7 +153,7 @@ export default function PersonSetupForm({
   const [restaurantArea, setRestaurantArea] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [profile, setProfile] = useState<PersonEnergyProfile | null>(null);
+  const [includeEnergy, setIncludeEnergy] = useState(false);
 
   const wantsDelivery = usesDelivery(sources);
   const wantsRestaurants = sources.includes("restaurants");
@@ -174,7 +169,6 @@ export default function PersonSetupForm({
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    setProfile(null);
     if (!inheritSources && sources.length === 0) {
       setError(copy.sourceRequired);
       return;
@@ -189,13 +183,13 @@ export default function PersonSetupForm({
     }
     setBusy(true);
     try {
-      const created = await createFamilyPerson(familyId, {
+      await createFamilyPerson(familyId, {
         first_name: firstName.trim(),
         last_name: lastName.trim() || null,
-        birth_date: birthDate,
+        birth_date: birthDate || null,
         preferred_locale: locale,
         timezone: familyTimezone,
-        energy_profile: {
+        energy_profile: includeEnergy ? {
           sex_for_energy_calculation: sex,
           height_cm: height,
           weight_kg: weight,
@@ -203,7 +197,7 @@ export default function PersonSetupForm({
           goal_type: goal,
           target_rate_kg_per_week: goal === "maintain" ? null : rate,
           standard_breakfast_kcal: breakfast,
-        },
+        } : undefined,
         meal_discovery: inheritSources
           ? null
           : {
@@ -212,8 +206,6 @@ export default function PersonSetupForm({
               restaurant_area: restaurantArea.trim() || null,
             },
       });
-      const energy = await getPersonEnergyProfile(created.id);
-      setProfile(energy);
       onCreated();
     } catch (caught: unknown) {
       setError(errorText(caught));
@@ -232,17 +224,14 @@ export default function PersonSetupForm({
         </div>
       </header>
       {error ? <div className="error-banner" role="alert"><strong>{copy.error}</strong><span>{error}</span></div> : null}
-      {profile ? (
-        <div className="person-energy-result" role="status">
-          <div><span>{copy.result}</span><strong>{kcal(profile.energy_min_kcal, locale)} – {kcal(profile.energy_max_kcal, locale)}</strong></div>
-          <div><span>{copy.tdee}</span><strong>{kcal(profile.estimated_tdee_kcal, locale)}</strong></div>
-        </div>
-      ) : null}
       <form className="person-setup-form" onSubmit={submit}>
         <div className="form-grid two">
           <label className="field"><span>{copy.firstName}</span><input required value={firstName} onChange={(event) => setFirstName(event.target.value)} /></label>
           <label className="field"><span>{copy.lastName}</span><input value={lastName} onChange={(event) => setLastName(event.target.value)} /></label>
-          <label className="field"><span>{copy.birthDate}</span><input required type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} /></label>
+          <label className="field"><span>{copy.birthDate}</span><input required={includeEnergy} type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} /></label>
+        </div>
+        <label className="nf-energy-toggle"><input type="checkbox" checked={includeEnergy} onChange={event => setIncludeEnergy(event.target.checked)} /><span><strong>{locale === "pt-PT" ? "Estimar necessidades energéticas (adultos)" : "Estimate energy needs (adults)"}</strong><small>{locale === "pt-PT" ? "Opcional · altura, peso e atividade" : "Optional · height, weight and activity"}</small></span></label>
+        {includeEnergy ? <fieldset className="nf-energy-fields"><legend>{locale === "pt-PT" ? "Perfil energético" : "Energy profile"}</legend><p className="muted">{copy.adultHelp}</p><div className="form-grid two">
           <label className="field"><span>{copy.sex}</span><select value={sex} onChange={(event) => setSex(event.target.value as EnergyCalculationSex)}><option value="male">{copy.male}</option><option value="female">{copy.female}</option></select></label>
           <label className="field"><span>{copy.height}</span><input min="1" max="250" required type="number" step="0.1" value={height} onChange={(event) => setHeight(event.target.value)} /></label>
           <label className="field"><span>{copy.weight}</span><input min="1" max="500" required type="number" step="0.1" value={weight} onChange={(event) => setWeight(event.target.value)} /></label>
@@ -250,7 +239,7 @@ export default function PersonSetupForm({
           <label className="field"><span>{copy.goal}</span><select value={goal} onChange={(event) => setGoal(event.target.value as NutritionGoalType)}><option value="maintain">{copy.maintain}</option><option value="lose">{copy.lose}</option><option value="gain">{copy.gain}</option></select></label>
           {goal !== "maintain" ? <label className="field"><span>{copy.rate}</span><input min="0.1" max="1" required type="number" step="0.1" value={rate} onChange={(event) => setRate(event.target.value)} /></label> : null}
           <label className="field"><span>{copy.breakfast}</span><input min="0" max="1000" required type="number" step="10" value={breakfast} onChange={(event) => setBreakfast(event.target.value)} /><small>{copy.breakfastHelp}</small></label>
-        </div>
+        </div></fieldset> : null}
         <section className="person-discovery-setup">
           <div>
             <strong>{copy.mealSources}</strong>
@@ -276,7 +265,6 @@ export default function PersonSetupForm({
             </>
           ) : null}
         </section>
-        <p className="muted compact">{copy.adultHelp}</p>
         <div className="button-row">
           <button className="button primary" disabled={busy} type="submit">{busy ? copy.saving : copy.save}</button>
           <button className="button ghost" disabled={busy} onClick={onCancel} type="button">{copy.cancel}</button>

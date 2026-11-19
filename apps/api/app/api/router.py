@@ -4,6 +4,7 @@ from app.api.routes.dietary_review import router as dietary_review_router
 from app.api.routes.families import router as families_router
 from app.api.routes.health import router as health_router
 from app.api.routes.ingredients import router as ingredients_router
+from app.api.routes.meal_adaptation_drafts import router as adaptation_drafts_router
 from app.api.routes.meal_discovery import router as meal_discovery_router
 from app.api.routes.meal_plan import router as meal_plan_router
 from app.api.routes.meal_plan_fit import router as meal_plan_fit_router
@@ -57,3 +58,5 @@ api_router.include_router(meal_discovery_router)
 api_router.include_router(restaurant_discovery_router)
 api_router.include_router(weekly_frequency_progress_router)
 api_router.include_router(weekly_planning_router)
+
+api_router.include_router(adaptation_drafts_router)

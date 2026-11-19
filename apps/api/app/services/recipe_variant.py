@@ -50,6 +50,7 @@ def read_variant(db, row):
         serving_count=recipe.serving_count,
         operations=row.operations,
         issues=variant_issues(db, row),
+        confirmation_mode="recipe_edit" if recipe.source == "family_adaptation" else "validated_variant",
         energy_per_serving=energy / recipe.serving_count
         if energy is not None and recipe.serving_count
         else None,

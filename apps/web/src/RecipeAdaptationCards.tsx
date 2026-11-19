@@ -16,7 +16,8 @@ export function adaptationSummaries(recipes: ReviewRecipe[], excluded: string[])
   ]));
 }
 
-export default function RecipeAdaptationCards({recipes, excluded, products, restrictions, people, compact=false, includeProposals=false}: {
+export default function RecipeAdaptationCards({recipes, excluded, products, restrictions, people, compact=false, includeProposals=false,onChooseSubstitution}: {
+  onChooseSubstitution?:(ingredientId:string)=>void;
   includeProposals?: boolean; compact?: boolean; recipes: ReviewRecipe[]; excluded: string[]; products: RetailAlternative[];
   restrictions: PlanningRestrictions; people: {id:string; first_name:string}[];
 }) {
@@ -37,8 +38,12 @@ export default function RecipeAdaptationCards({recipes, excluded, products, rest
         const activeOptions=(recipe.active_variants??[]).flatMap(v=>v.operations.filter(o=>o.recipe_ingredient_id===i.id).map(o=>({...o,variantName:v.name,variantId:v.id})));
         const reasons=restrictions.sources.filter(s=>s.food_item_ids.includes(i.food_item_id));
         return <div key={i.id} className="adaptation-change">
-          <p><strong>{i.name} → {activeOptions[0]?.replacement_name ?? options[0]?.replacement_name ?? (pt ? "alternativa por definir" : "alternative needed")}</strong></p>
+          <div className="nf-swap-comparison" role="group" aria-label={`${i.name} → ${activeOptions[0]?.replacement_name ?? options[0]?.replacement_name ?? (pt ? "alternativa por definir" : "alternative needed")}`}><div><small>{pt ? "Receita base" : "Base recipe"}</small><strong>{i.name}</strong><span>{i.quantity && i.unit ? `${i.quantity} ${i.unit}` : (pt ? "Quantidade por confirmar" : "Quantity to confirm")}</span></div><span className="nf-swap-arrow" aria-hidden="true">→</span><div><small>{pt ? "Alternativa" : "Alternative"}</small><strong>{activeOptions[0]?.replacement_name ?? options[0]?.replacement_name ?? (pt ? "Por definir" : "To define")}</strong><span>{activeOptions[0] ? `${activeOptions[0].quantity} ${activeOptions[0].unit}` : options[0]?.replacement_quantity ? `${options[0].replacement_quantity} ${options[0].replacement_unit ?? ""}` : (pt ? "Quantidade por confirmar" : "Quantity to confirm")}</span></div></div>
+          <p className="nf-swap-stage">{activeOptions[0] ? `${pt ? "Variante disponível, ainda não aplicada: " : "Available variant, not applied: "}${activeOptions[0].variantName}` : options[0]?.status === "reviewed" ? (pt ? "Proposta revista · por aplicar" : "Reviewed proposal · not applied") : options.length ? (pt ? "Proposta por rever" : "Proposal to review") : (pt ? "Ainda sem alternativa proposta" : "No proposed alternative yet")}</p>
+          <p className="nf-swap-dose-note">{pt ? "Quantidades para a receita inteira. A porção de cada pessoa é reavaliada no planeamento." : "Whole-recipe quantities. Each person's portion is reassessed in planning."}</p>
           <small>{reasons.map(s=>`${people.find(p=>p.id===s.person_id)?.first_name??""} · ${s.label}`).join("; ") || (excluded.includes(i.food_item_id) ? (pt ? "Exclusão adicional da semana" : "Additional weekly exclusion") : (pt ? "Proposta registada; necessidade e dose por confirmar" : "Saved proposal; need and portion remain unconfirmed"))}</small>
+          {onChooseSubstitution&&<button className="button secondary small" type="button" onClick={()=>onChooseSubstitution(i.id)}>{options.length||activeOptions.length ? (pt?"Preparar esta troca":"Prepare this change") : (pt?"Definir alternativa":"Define alternative")}</button>}
+          <details className="nf-change-evidence"><summary>{pt ? "Ver opções, preparação e fontes" : "View options, preparation and sources"}</summary>
           {activeOptions.map(o=><p key={o.variantId}><strong>{o.variantName}</strong> · {o.quantity} {o.unit} · {o.preparation}<br/>{pt?"Variante ativa no catálogo; o planeador reavalia as pessoas e porções.":"Active catalogue variant; the planner rechecks people and portions."}</p>)}
           {!options.length && !activeOptions.length && <p role="status">{pt ? "Ainda não existe uma alternativa revista para este ingrediente." : "No reviewed alternative exists for this ingredient yet."}</p>}
           {options.map((option,index)=><div key={option.id}>
@@ -46,7 +51,7 @@ export default function RecipeAdaptationCards({recipes, excluded, products, rest
             <p className="muted">{option.status==="reviewed" ? (pt ? "Revista" : "Reviewed") : (pt ? "Proposta por rever" : "Proposal to review")} · {option.replacement_quantity ? `${option.replacement_quantity} ${option.replacement_unit}` : (pt ? "Quantidade por definir; não aplicar grama por grama" : "Quantity needed; do not replace gram for gram")}</p>
             <p>{option.notes}</p>
           </div>)}
-          <details><summary>{pt ? "Alternativas de supermercado" : "Supermarket alternatives"}</summary><RetailAlternativeCards products={relatedRetailAlternatives(products,i.food_item_id)}/></details>
+          <details><summary>{pt ? "Alternativas de supermercado" : "Supermarket alternatives"}</summary><RetailAlternativeCards products={relatedRetailAlternatives(products,i.food_item_id)}/></details></details>
         </div>;
       })}
     </article>)}</div>

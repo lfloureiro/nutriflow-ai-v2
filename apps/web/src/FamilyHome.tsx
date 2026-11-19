@@ -1,230 +1,91 @@
+import {useEffect, useState} from "react";
 import ScheduledWeeks from "./ScheduledWeeks";
-import type { FamilyDashboard, FamilyDashboardMember } from "./api/types";
-import { useI18n, type Locale } from "./i18n";
+import type {FamilyDashboard, FamilyDashboardMeal, FamilyDashboardMember} from "./api/types";
+import {useI18n, type Locale} from "./i18n";
+import Icon from "./ui/Icon";
+import PersonAvatar from "./ui/PersonAvatar";
+import {EmptyState, Panel} from "./ui/primitives";
 import "./planning-journey.css";
 
 export function memberDisplayName(member: FamilyDashboardMember): string {
   return [member.first_name, member.last_name].filter(Boolean).join(" ");
 }
-
-export function formatMealTime(
-  scheduledAt: string,
-  timezone: string,
-  locale: Locale,
-): string {
-  return new Intl.DateTimeFormat(locale, {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: timezone,
-  }).format(new Date(scheduledAt));
+export function formatMealTime(scheduledAt: string, timezone: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale, {hour: "2-digit", minute: "2-digit", timeZone: timezone}).format(new Date(scheduledAt));
 }
-
-function formatNumber(value: string | number, locale: Locale, digits = 0): string {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return String(value);
-  }
-  return new Intl.NumberFormat(locale, { maximumFractionDigits: digits }).format(numeric);
+function localClock(now: number, timezone: string) {
+  const parts = new Intl.DateTimeFormat("en-GB", {timeZone:timezone,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",hourCycle:"h23"}).formatToParts(new Date(now));
+  const part = (type:string) => parts.find(item=>item.type===type)?.value ?? "";
+  return {date:`${part("year")}-${part("month")}-${part("day")}`,hour:Number(part("hour"))};
 }
-
-function trendMarker(value: string | null): string {
-  if (value === null) {
-    return "";
-  }
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric === 0) {
-    return "→";
-  }
-  return numeric < 0 ? "↓" : "↑";
+export function currentMealKind(now: number, timezone: string): string {
+  const {hour} = localClock(now,timezone);
+  return hour < 11 ? "breakfast" : hour < 15 ? "lunch" : hour < 18 ? "snack" : "dinner";
 }
-
-function sleepText(minutes: number | null, locale: Locale): string {
-  if (minutes === null) {
-    return "—";
-  }
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return locale === "pt-PT"
-    ? `${hours} h ${remainingMinutes} min`
-    : `${hours}h ${remainingMinutes}m`;
+export function nextFamilyMeal(meals: FamilyDashboardMeal[], now = Date.now(), timezone = "Europe/Lisbon"): FamilyDashboardMeal | undefined {
+  const pending = meals.filter(meal => !["cancelled", "completed"].includes(meal.status) && Number.isFinite(Date.parse(meal.scheduled_at)))
+    .sort((a,b) => Date.parse(a.scheduled_at) - Date.parse(b.scheduled_at));
+  const today = localClock(now,timezone).date;
+  const kind = currentMealKind(now,timezone);
+  // An unfinished dinner is still relevant after its scheduled time; an old snack is not.
+  const current = pending.filter(meal => meal.meal_type === kind && Date.parse(meal.scheduled_at) <= now && localClock(Date.parse(meal.scheduled_at),timezone).date === today).at(-1);
+  return current ?? pending.find(meal => Date.parse(meal.scheduled_at) >= now);
 }
-
-function memberNamesForMeal(
-  dashboard: FamilyDashboard,
-  participantIds: string[],
-): string {
-  const names = participantIds
-    .map((id) => dashboard.members.find((member) => member.person_id === id))
-    .filter((member): member is FamilyDashboardMember => member !== undefined)
-    .map(memberDisplayName);
-  return names.join(" · ");
-}
-
-export default function FamilyHome({
-  dashboard,
-  onPlanMeal,
-  onOpenPerson,
-  onOpenWeek,
-  weekDate,
-}: {
-  dashboard: FamilyDashboard;
-  onPlanMeal: () => void;
-  onOpenWeek?: (date:string) => void;
-  weekDate?: string;
-  onOpenPerson: (personId: string) => void;
+export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenWeek, weekDate, onOpenRecipes, onOpenShopping}: {
+  dashboard: FamilyDashboard; onPlanMeal: () => void; onOpenPerson: (personId: string) => void;
+  onOpenWeek?: (date: string) => void; weekDate?: string; onOpenRecipes?:()=>void;onOpenShopping?:()=>void;
 }) {
-  const { locale, t } = useI18n();
-
-  return (
-    <div className="family-home">
-      <header className="screen-header">
-        <div>
-          <span className="eyebrow">{t("home.eyebrow")}</span>
-          <h1>{t("home.title")}</h1>
-          <p>
-            {dashboard.family_name} · {dashboard.dashboard_date}
-          </p>
+  const {locale, t} = useI18n();
+  const pt = locale === "pt-PT";
+  const [now,setNow] = useState(()=>Date.now());
+  useEffect(()=>{const timer=window.setInterval(()=>setNow(Date.now()),30_000);return ()=>window.clearInterval(timer);},[]);
+  const next = nextFamilyMeal(dashboard.meals,now,dashboard.timezone);
+  const focusKind = next?.meal_type ?? currentMealKind(now,dashboard.timezone);
+  const kinds = ["breakfast", "lunch", "snack", "dinner"];
+  const labels: Record<string,string> = pt ? {breakfast:"Pequeno-almoço",lunch:"Almoço",snack:"Lanche",dinner:"Jantar"} : {breakfast:"Breakfast",lunch:"Lunch",snack:"Snack",dinner:"Dinner"};
+  const statusLabels: Record<string,string> = pt ? {planned:"Planeada",prepared:"Preparada",served:"Servida",completed:"Concluída"} : {planned:"Planned",prepared:"Prepared",served:"Served",completed:"Completed"};
+  const openToday = () => onOpenWeek ? onOpenWeek(dashboard.dashboard_date) : onPlanMeal();
+  const day = new Intl.DateTimeFormat(locale, {weekday:"long",day:"numeric",month:"long",timeZone:"UTC"}).format(new Date(dashboard.dashboard_date+"T12:00:00Z"));
+  return <div className="family-home nf-home">
+    <header className="screen-header nf-home-heading">
+      <div><span className="eyebrow">{pt ? "O NOSSO DIA À MESA" : "OUR DAY AT THE TABLE"}</span><h1>{pt ? "Mais tempo juntos." : "More time together."}</h1><p>{pt ? "Uma refeição em comum. O cuidado certo para cada pessoa." : "One shared meal. The right care for each person."}</p></div>
+      <button className="button primary" onClick={onPlanMeal} type="button"><Icon name="calendar"/>{pt ? "Planear a semana" : "Plan our week"}</button>
+    </header>
+    <div className="nf-home-grid">
+      <section className="nf-meal-hero" aria-label={pt ? "Próxima refeição" : "Next meal"}>
+        <div className="nf-meal-hero-copy"><span className="eyebrow">{day}</span>
+          <h2>{next?.title ?? (next ? labels[next.meal_type] ?? next.meal_type : pt ? `O próximo ${(labels[focusKind] ?? "jantar").toLocaleLowerCase(locale)} começa aqui.` : `Your next ${(labels[focusKind] ?? "dinner").toLowerCase()} starts here.`)}</h2>
+          <p>{pt ? "Escolhas partilhadas, com espaço para as necessidades de todos." : "Shared choices, with room for everyone’s needs."}</p>
+          <button className="button primary" onClick={openToday} type="button">{next ? (pt ? "Ver refeições e porções" : "View meals & portions") : (pt ? "Escolher uma refeição" : "Choose a meal")}<Icon name="arrow"/></button>
+          <div className="nf-hero-meta">{next && <span><Icon name="clock"/>{formatMealTime(next.scheduled_at,dashboard.timezone,locale)}</span>}<span><Icon name="people"/>{next?.participant_person_ids.length ?? dashboard.members.length} {pt ? "pessoas" : "people"}</span></div>
         </div>
-        <button className="button primary" onClick={onPlanMeal} type="button">
-          {t("home.planMeal")}
-        </button>
-      </header>
-
-      {onOpenWeek && <ScheduledWeeks initialWeek={weekDate} familyId={dashboard.family_id} referenceDate={dashboard.dashboard_date} onOpenWeek={onOpenWeek}/>}
-
-      <section className="planning-start-card">
-        <span className="eyebrow">{locale === "pt-PT" ? "Começa aqui" : "Start here"}</span>
-        <h2>{locale === "pt-PT" ? "O que vamos comer na próxima semana?" : "What are we eating next week?"}</h2>
-        <p>{locale === "pt-PT" ? "Escolhe quem participa, revê os ingredientes a evitar, gera as refeições e passa diretamente à lista de compras." : "Choose who joins, review ingredients to avoid, generate meals and go straight to the shopping list."}</p>
-        <button type="button" className="button primary" onClick={onPlanMeal}>{locale === "pt-PT" ? "Planear a próxima semana →" : "Plan next week →"}</button>
+        <img className="nf-meal-hero-art" src="/images/shared-meal.svg" alt="" aria-hidden="true"/>
       </section>
-
-      <section className="home-section" aria-labelledby="family-members-heading">
-        <div className="home-section__heading">
-          <div>
-            <h2 id="family-members-heading">{t("home.family")}</h2>
-            <p>{t("home.familyHelp")}</p>
-          </div>
-        </div>
-
-        <div className="member-grid">
-          {dashboard.members.map((member) => (
-            <button
-              className="member-card"
-              key={member.person_id}
-              onClick={() => onOpenPerson(member.person_id)}
-              type="button"
-            >
-              <div className="member-card__identity">
-                <span className="member-avatar" aria-hidden="true">
-                  {member.first_name.slice(0, 1).toUpperCase()}
-                </span>
-                <div>
-                  <strong>{memberDisplayName(member)}</strong>
-                  <span>{t("home.openPerson")}</span>
-                </div>
-              </div>
-
-              <dl className="member-metrics">
-                <div>
-                  <dt>{t("home.nutrition")}</dt>
-                  <dd>
-                    {member.nutrition ? (
-                      <>
-                        {formatNumber(member.nutrition.energy_consumed_kcal, locale)} {t("results.kcal")}
-                        <span className="metric-subtle">
-                          {t("home.consumed")}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="metric-missing">{t("home.noData")}</span>
-                    )}
-                  </dd>
-                </div>
-                <div>
-                  <dt>{t("home.activity")}</dt>
-                  <dd>
-                    {member.health?.steps !== null && member.health?.steps !== undefined ? (
-                      <>
-                        {formatNumber(member.health.steps, locale)}
-                        <span className="metric-subtle">{t("home.steps")}</span>
-                      </>
-                    ) : (
-                      <span className="metric-missing">{t("home.noData")}</span>
-                    )}
-                  </dd>
-                </div>
-                <div>
-                  <dt>{t("home.weight")}</dt>
-                  <dd>
-                    {member.health?.latest_weight_kg ? (
-                      <>
-                        {formatNumber(member.health.latest_weight_kg, locale, 1)} kg {trendMarker(member.health.weight_trend_7d_kg)}
-                      </>
-                    ) : (
-                      <span className="metric-missing">{t("home.noData")}</span>
-                    )}
-                  </dd>
-                </div>
-                <div>
-                  <dt>{t("home.sleep")}</dt>
-                  <dd>
-                    {member.health ? (
-                      sleepText(member.health.sleep_duration_minutes, locale)
-                    ) : (
-                      <span className="metric-missing">{t("home.noData")}</span>
-                    )}
-                  </dd>
-                </div>
-              </dl>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="home-section" aria-labelledby="today-heading">
-        <div className="home-section__heading">
-          <div>
-            <h2 id="today-heading">{t("home.today")}</h2>
-            <p>{t("home.todayHelp")}</p>
-          </div>
-          <button className="text-button" onClick={onPlanMeal} type="button">
-            {t("home.seeMeals")}
-          </button>
-        </div>
-
-        {dashboard.meals.length > 0 ? (
-          <div className="meal-agenda">
-            {dashboard.meals.map((meal) => {
-              const participantNames = memberNamesForMeal(
-                dashboard,
-                meal.participant_person_ids,
-              );
-              return (
-                <article className="agenda-row" key={meal.id}>
-                  <time>{formatMealTime(meal.scheduled_at, dashboard.timezone, locale)}</time>
-                  <div className="agenda-row__body">
-                    <strong>{meal.title ?? meal.meal_type}</strong>
-                    <span>
-                      {participantNames || t("home.familyMeal")}
-                      {meal.location ? ` · ${meal.location}` : ""}
-                    </span>
-                  </div>
-                  <span className="agenda-status">{meal.status}</span>
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="home-empty">
-            <strong>{t("home.noMeals")}</strong>
-            <span>{t("home.noMealsHelp")}</span>
-            <button className="button secondary" onClick={onPlanMeal} type="button">
-              {t("home.planMeal")}
-            </button>
-          </div>
-        )}
-      </section>
+      <Panel className="nf-family-panel" label={pt ? "Pessoas da família" : "Family members"}>
+        <div className="nf-panel-heading"><h2>{pt ? "Quem se senta à mesa" : "Who is at the table"}</h2><span className="nf-count">{dashboard.members.length}</span></div>
+        {dashboard.members.map(member=><button className="nf-person-line" type="button" key={member.person_id} onClick={()=>onOpenPerson(member.person_id)}>
+          <PersonAvatar identity={member.person_id} name={memberDisplayName(member)} familyIdentity={dashboard.family_id} age={member.age_years} sex={member.sex_for_energy_calculation} appearance={member.avatar_appearance} decorative/>
+          <span className="nf-person-copy"><strong>{memberDisplayName(member)}</strong><small>{pt ? "Perfil, necessidades e rotina" : "Profile, needs and routine"}</small></span><Icon name="arrow"/>
+        </button>)}
+        {!dashboard.members.length && <EmptyState title={pt ? "Quem vem à mesa?" : "Who is joining?"} description={pt ? "Adiciona as pessoas em Família para começar." : "Add people in Family to get started."}/>}
+        <p className="nf-panel-footnote">{pt ? "As necessidades de cada pessoa acompanham o planeamento." : "Each person’s needs accompany the plan."}</p>
+      </Panel>
     </div>
-  );
+    <section className="nf-today-section" aria-labelledby="today-heading">
+      <div className="nf-panel-heading"><div><span className="eyebrow">{pt ? "QUATRO MOMENTOS, UM PLANO" : "FOUR MOMENTS, ONE PLAN"}</span><h2 id="today-heading">{pt ? "O dia, sem complicar" : "Your day, made simple"}</h2></div><button className="button ghost small" onClick={openToday} type="button">{pt ? "Abrir plano" : "Open plan"}<Icon name="arrow"/></button></div>
+      <div className="nf-day-slots">{kinds.map(kind=>{
+        const meals=dashboard.meals.filter(meal=>meal.meal_type===kind&&meal.status!=="cancelled");
+        const meal=meals[0];
+        return <button className={`nf-day-slot ${meal ? "" : "nf-day-slot-empty"}`} key={kind} type="button" onClick={openToday}>
+          <span className="eyebrow">{labels[kind]}</span><span className="nf-slot-icon"><Icon name={kind === "breakfast" || kind === "snack" ? "leaf" : "book"}/></span>
+          <strong>{meal?.title ?? (meal ? labels[kind] : pt ? "Por planear" : "To plan")}</strong>
+          <span className="nf-slot-status">{meal ? statusLabels[meal.status]??meal.status : pt ? "Escolher refeição" : "Choose a meal"}</span>
+          {meal && <small>{formatMealTime(meal.scheduled_at,dashboard.timezone,locale)} · {meal.participant_person_ids.length} {pt ? "pessoas" : "people"}{meals.length>1?` · +${meals.length-1} ${pt?"refeições":"meals"}`:""}</small>}
+        </button>;
+      })}</div>
+    </section>
+    <div className="nf-home-shortcuts">{onOpenShopping && <button type="button" onClick={onOpenShopping}><Icon name="bag"/><span><strong>{pt ? "Da semana para as compras" : "From week to shopping"}</strong><small>{pt ? "Rever a despensa. Comprar apenas o que falta." : "Check the pantry. Buy only what is missing."}</small></span><Icon name="arrow"/></button>}{onOpenRecipes && <button type="button" onClick={onOpenRecipes}><Icon name="book"/><span><strong>{pt ? "As receitas que nos juntam" : "Recipes that bring us together"}</strong><small>{pt ? "Ingredientes, gostos e alternativas para a família." : "Ingredients, tastes and alternatives for the family."}</small></span><Icon name="arrow"/></button>}</div>
+    {onOpenWeek && <details className="nf-saved-weeks"><summary><span><Icon name="calendar"/>{pt ? "Consultar as nossas semanas guardadas" : "Browse our saved weeks"}</span><span>{pt ? "Ver semanas" : "View weeks"}</span></summary><ScheduledWeeks initialWeek={weekDate} familyId={dashboard.family_id} referenceDate={dashboard.dashboard_date} onOpenWeek={onOpenWeek}/></details>}
+    <p className="nf-home-note">{t("home.familyHelp")}</p>
+  </div>;
 }

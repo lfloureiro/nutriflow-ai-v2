@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 
 import App from "./App";
 import { I18nProvider } from "./i18n";
+import "./design-tokens.css";
 import "./styles.css";
 import "./bootstrap.css";
 import "./shell.css";
@@ -19,6 +20,11 @@ import "./recommendation-nutrition-budget.css";
 import "./recipe-preferences.css";
 import "./meal-plan-fit.css";
 import "./visual-polish.css";
+import "./ux-foundation.css";
+import "./ux-planning.css";
+import "./ux-shopping.css";
+import "./ux-adaptation.css";
+import "./print.css";
 import { ThemeProvider } from "./theme";
 
 const root = document.getElementById("root");
@@ -35,3 +41,5 @@ createRoot(root).render(
     </ThemeProvider>
   </StrictMode>,
 );
+
+import "./ux-workflow.css";

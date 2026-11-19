@@ -1,3 +1,5 @@
+import AvatarAppearanceEditor from "./ui/AvatarAppearanceEditor";
+import PersonAvatar from "./ui/PersonAvatar";
 import { useEffect, useMemo, useState } from "react";
 
 import { getPerson, getPersonEnergyProfile, getPersonPlanningContext } from "./api/setupClient";
@@ -293,7 +295,6 @@ export default function PersonOverview({
   const displayName = person
     ? [person.first_name, person.last_name].filter(Boolean).join(" ")
     : memberDisplayName(member);
-  const displayFirstName = person?.first_name ?? member.first_name;
   const consumed = dailyState?.energy_consumed_kcal ?? member.nutrition?.energy_consumed_kcal;
   const planned = dailyState?.energy_planned_kcal ?? member.nutrition?.energy_planned_kcal;
   const assumed = dailyState?.energy_assumed_kcal ?? "0";
@@ -314,9 +315,7 @@ export default function PersonOverview({
           {copy.back}
         </button>
         <div className="person-header__identity">
-          <span className="member-avatar person-header__avatar" aria-hidden="true">
-            {displayFirstName.slice(0, 1).toUpperCase()}
-          </span>
+          <PersonAvatar identity={member.person_id} name={displayName} familyIdentity={dashboard.family_id} age={member.age_years} sex={member.sex_for_energy_calculation} appearance={member.avatar_appearance} size="lg" decorative />
           <div>
             <span className="eyebrow">{dashboard.dashboard_date}</span>
             <h1>{displayName}</h1>
@@ -324,6 +323,8 @@ export default function PersonOverview({
           </div>
         </div>
       </header>
+
+      <AvatarAppearanceEditor key={member.person_id} familyId={dashboard.family_id} personId={member.person_id} name={displayName} age={member.age_years} sex={member.sex_for_energy_calculation} appearance={member.avatar_appearance} onSaved={onDataChanged}/>
 
       <nav className="person-secondary-nav" aria-label={displayName}>
         {SECTION_ORDER.map((item) => (

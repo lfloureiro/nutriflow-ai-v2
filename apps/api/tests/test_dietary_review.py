@@ -294,3 +294,16 @@ def test_substitution_quantity_update_rejects_incomplete_or_invalid_pairs(
     assert result.status_code == 422
     persisted = db_session.get(RecipeSubstitutionReview, uuid.UUID(row["id"]))
     assert persisted.version == 1 and persisted.replacement_quantity is None
+
+
+def test_recipe_review_preserves_source_preparation_and_unknowns(client, db_session, household):
+    family, _, _, _, _ = household
+    _, ingredients = _catalogue(db_session, family)
+    ingredients[0].preparation = "picado"
+    ingredients[1].preparation = None
+    db_session.flush()
+    response = client.get(f"/api/families/{family.id}/recipe-adaptations")
+    assert response.status_code == 200
+    rows = {row["id"]: row for row in response.json()[0]["ingredients"]}
+    assert rows[str(ingredients[0].id)]["preparation"] == "picado"
+    assert rows[str(ingredients[1].id)]["preparation"] is None

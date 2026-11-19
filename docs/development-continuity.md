@@ -1,3 +1,17 @@
+> **Estado atual — 19 novembro 2026:** consultar [passagem e próximos passos](handoff-2026-11-19.md) e o [quadro UX](vision/ux-revamp-task-board.md). Os estados de branches, contagens e “próxima tarefa” abaixo são históricos. Esta entrega consolida o revamp, o fluxo de trocas e o lote de 20; NLP/ML treinado e restantes fases continuam na sequência canónica.
+
+## Preview do novo UX — 18 novembro 2026
+
+Branch local `codex/ux-foundation-preview`, empilhada em `e34d9e0` por autorização do utilizador para iniciar o revamp e testar localmente. PRs anteriores permanecem sem merge. Preservar os ficheiros egg-info já modificados, package-lock não rastreado e os documentos de auditoria.
+
+Primeira fatia: tokens semânticos com aliases para ecrãs existentes; claro marfim/verde, escuro carvão/âmbar; marca NutriFlow AI / Casa à Mesa; ícones SVG; home compacta com dados reais; avatares estáveis e microinterações sem loops, com movimento reduzido; seletor direto de tema/idioma no cabeçalho. Perfis, planeamento, variantes e compras existentes preservados; rotas/URLs, restantes ecrãs e presença no avatar continuam por migrar.
+
+PostgreSQL principal acessível, Alembic head observado `b781e265c904`. Uma DB separada `nutriflow_ux_validation_20261118` foi criada para migrations/Alembic check e 438 testes API, todos passaram. 153 testes frontend e TypeScript/build passaram. Sem migrations novas, seeds ou alterações na família principal. Sem captura de ecrã ou nova afirmação de validação visual completa.
+
+Servidores locais arrancados em 127.0.0.1:8000 (API) e 127.0.0.1:5173 (Vite), processos/logs de preview em `.cache/ux-preview.json` e `.cache/ux-*.log`. Verificar portas/processos antes de iniciar duplicados. Esta preview usa a configuração local da API, não a base de testes. Os logs são ignorados pelo Git.
+
+Estado e próximos passos: `docs/vision/ux-revamp-task-board.md`, `docs/ux/nutriflow-design-direction.md` e `docs/ux/auditoria-ux-2026-11-18.md`. Próximo: feedback da home/temas, normalização dos controlos e detalhe da refeição/agenda; não migrar o motor demonstrativo do HTML. Fazer revisão visual em dados sintéticos e terminar a sessão de captura explicitamente se for usada.
+
 ## Receções parciais e validade por refeição — ADR-072 (18/10/2026)
 
 Compras recebem vários lotes com local/validade próprios e entregas parciais versionadas.
@@ -770,3 +784,120 @@ Validação final T06: 34 API focados e 128 frontend passaram; regressão comple
 passou neste incremento. Build, Ruff e Alembic check passaram. Interface isolada confirmou
 pré-visualização → guardar 3 embalagens → recarregar → escolha preservada. Captura local
 `docs/audits/2026-10-18/confirmed-shopping-packages-interface.png`, sem publicação de dados.
+
+
+### Preview UX — segundo incremento local, 18 novembro 2026
+
+Na mesma branch `codex/ux-foundation-preview`: avatares por idade/sexo conhecido e pele comum por família na home/lista/perfil; dashboard expõe idade calculada à data e sexo opcional já persistido, sem migration. Botão Definições explícito e idempotente; refresh mantém o ecrã. Criação de pessoa com perfil energético opcional, incluindo crianças; sem GET de cálculo após criação que pudesse transformar um sucesso numa mensagem de erro. Receitas em cartões e navegação progressiva com todas as ferramentas preservadas. Sem implementação de novos modelos ML neste lote.
+
+Verificação: 154 testes frontend, TypeScript/build, Ruff e dez testes API (dashboard, criação familiar e cálculo energético) na DB isolada passaram; API reiniciada, web HTTP200 e contrato novo confirmados por HTTP. Revisão visual e E2E de navegador permanecem pendentes. Preview continua em http://127.0.0.1:5173.
+
+
+### Preview UX — terceiro incremento local, 18 novembro 2026
+
+Avatares agora distinguem seis gerações (adulto jovem 18–29, adulto 30–44, meia-idade 45–64, além de criança/adolescente/sénior) e seis variantes. Todos os estilos masculinos de meia-idade mantêm cabelo completo; alterações visuais não são dados demográficos. Personalização visual no perfil é persistida pela API (substitui o armazenamento experimental apenas no navegador). Acrescentado `persons.avatar_appearance` JSON nullable, schema estrito e limites validados, PATCH de Person preserva o campo quando omitido e repõe automático com null. Dashboard e GET de pessoa devolvem as mesmas escolhas. Backup PostgreSQL antes da migration aditiva `c2a91f4e780d`; migration e Alembic check verificados na DB isolada antes de aplicar localmente. As quatro escolhas explicitamente solicitadas foram guardadas na família correspondente via API, sem alterar datas de nascimento ou dados energéticos.
+
+Mais UX: entrada da família com nome primeiro e opções avançadas recolhidas; avaliações por pessoa acessíveis em detalhe de receita própria/partilhada e carregadas só ao expandir; semântica de gosto separada de adequação. Durante gravação de uma avaliação os outros controlos ficam bloqueados para evitar pedidos concorrentes.
+
+Verificação: 155 testes frontend, build/TypeScript, Ruff, 12 testes API direcionados e migration check passaram. Verificação headless Edge sem capturar/controlar o ecrã do utilizador: quatro atribuições de avatar, consistência do perfil, seis estilos, claro/escuro, sem overflow horizontal a 1440/1024/768/390 e sem exceções JS no percurso. Capturas locais em `.cache`. Regressão API completa: 441 testes passaram em 152,30 segundos na DB de validação. Percurso de receitas verificado no navegador até ao painel contextual de avaliações das quatro pessoas, apenas leitura.
+
+
+### Correção do foco horário na home — 18 novembro 2026
+
+O destaque voltava à primeira refeição pendente do dia quando todas as horas já tinham passado, podendo mostrar um lanche às 21h. Eliminado esse fallback: usa a hora no fuso da família e mantém uma refeição pendente do período atual (ex.: jantar às 20h ainda relevante às 20h55), depois procura eventos futuros. Refeições antigas de outro período/dia não voltam ao destaque. Sem evento, a sugestão acompanha o período local: pequeno-almoço antes das 11h, almoço 11–15h, lanche 15–18h, jantar após 18h. Atualização do relógio a cada 30 segundos; não exige refresh manual. Intervalos são defaults visuais, não alteram horários ou planos guardados. Testes cobrem 20h55, jantar concluído, dia anterior, limites horários, outros fusos e horário de verão.
+
+
+### Incremento semanal e cross-check contínuo — 18 novembro 2026
+
+A pedido do utilizador, comparação explícita com o protótipo aprovado antes de fechar cada incremento, conforme `docs/ux/crosscheck-prototipo-2026-11-18.md` e direção visual atualizada. Semana com subgrid e quatro linhas alinhadas, resumo real de tempos ocupados/vazios/propostos, seleção por dia no mobile, estado resumido por célula. Espaço vazio abre o editor manual existente; cancelamento preserva dia/tempo. Detalhe mantém foco, retorno ao mapa, participantes com avatares e comparação base/alternativa com quantidade e estado; desconhecido não vira equivalência grama por grama. Restrições atuais são carregadas antes das ferramentas de adaptação; restaurante/entrega montam só ao expandir. Home com atalhos para compras/receitas.
+
+160 testes web passaram. Verificação headless Edge com quatro larguras, alinhamento das 28 células, editor/cancelamento, trocas e retorno, claro/escuro/claro sem exceções JS nem alterações às refeições reais. API inalterada neste lote. Limitações: detalhe abaixo do mapa em vez do drawer, URLs por contexto, compras/despensa e editor de ingredientes por continuar; não foi treinado novo modelo ML. Frontend reiniciado após detetar conteúdo CSS servido antigo; conteúdo final confirmado por HTTP.
+
+
+### Incremento compras/despensa — 18 novembro 2026
+
+Checklist com pesquisa/filtros (A comprar, Comprados, Recebidos, Todos) e contagens distintas: comprar não regista stock, parcial não é receção concluída. Conferência plano/despensa e detalhes dos avisos em disclosure; presença de avisos continua visível. Embalagens só montam ao abrir; entrada na despensa mantém o componente existente com proteção de versão/idempotência. Quantidade/unidade manual validadas em conjunto; mudança de período mostra aviso sem recalcular automaticamente. Navegação direta Compras → Despensa e destino Receitas coerente ao regressar. Despensa com pesquisa por nome/local, filtros de validade, prioridade de lotes por data sem os fundir, estado sem data distinto e vazio com próximo passo. Quantidades inválidas ou vazias não seguem para gravação. Loads de lista/stock ignoram respostas após desmontagem.
+
+167 testes frontend e build passaram. Edge headless: API real em leitura; mutações de checklist testadas com respostas sintéticas intercetadas, sem escrita em compras/stock reais. Cross-check do protótipo atualizado. Não há alteração de schema/API/ML neste incremento. A conferência de stock continua recolhida em vez da coluna lateral do protótipo; sincronização de reservas/consumo e auditoria global de acessibilidade continuam pendentes.
+
+
+### Incremento maior — aceitar trocas e confirmar refeição, 18 novembro 2026
+
+Novo `MealAdaptationFlow` integrado em `SelectedMealOptions`: três estados visíveis, preparação de várias trocas e doses reais, criação/verificação no servidor, aceitação (ativação) separada da confirmação da refeição. Ingredientes de proposta textual não são resolvidos por suposição; quantidades, unidades e preparação em falta são pedidas. Adaptações guardadas podem ser reavaliadas. A confirmação usa os endpoints reais de criar/atualizar refeição, atualiza o mapa e recalcula compras; falha nas compras não desfaz nem oculta a gravação da refeição. Incluída confirmação individual de uma proposta, materializando um único slot e invalidando as sugestões restantes para recálculo.
+
+API: `MealPlanEntryRead.updated_at` e campo opcional `MealPlanEntryUpdate.expected_updated_at`, com comparação sob bloqueio de linha. Atualizações recebem novo token inclusive quando apenas mudam participantes/metadados; clientes antigos continuam compatíveis, mas o novo fluxo exige token para editar uma refeição guardada. Sem migration. Datas/horas são preservadas na substituição; doses confirmadas em serving, sem conversão implícita de gramas. Restrição nova ou variante inválida é reavaliada e bloqueia gravação.
+
+Corrigido refresh que esvaziava `loadedReviews` após guardar/verificar e desmontava o fluxo, perdendo o passo atual. Contexto do novo callback de refeição confirmada é verificado antes/depois do reload da semana. Ecrã de proposta agora diz «Confirmar a semana no plano» e disponibiliza «Confirmar só esta refeição».
+
+Verificação: 172 testes web, 444 API, Ruff e build passaram. E2E completo real (sem mocks) com PostgreSQL/API/frontend dedicados: duas trocas, verificar, aceitar sem mexer no mapa, confirmar mantendo evento/horário, nutrição esperada e ingredientes efetivos nas compras; confirmação de proposta cria só uma refeição. Quatro larguras e temas testados. Testes não escreveram refeições/compras na família principal. Preview principal reiniciada para servir o contrato novo; ficheiros de teste e capturas em `.cache`, DB de E2E separada preservada para inspeção. Instruções e cross-check em `docs/ux/aceitar-trocas-e-refeicao.md` e relatório do protótipo.
+
+
+### Correção de formatação do formulário e impressão — 18 novembro 2026
+
+O PDF enviado pelo utilizador revelou uma regressão real do formulário: `.nf-flow-edit input{width:100%}` sobrepunha a largura do checkbox e comprimia o nome do ingrediente. A regra de controlos de texto passa a excluir checkbox; checkbox com largura/flex-basis fixos e texto flexível. Grelha de campos explícita: duas colunas em desktop, uma no mobile.
+
+Acrescentado print.css com cabeçalho de documento, remoção da navegação, margem lateral da shell anulada, sete dias sempre presentes na semana impressa, detalhe em nova página e grupos de ingrediente sem corte. PDF corrigido gerado a partir da aplicação real em leitura, sem preencher dados em falta ou alterar refeições: `output/pdf/NutriFlow-AI-corrigido.pdf`. Cinco páginas renderizadas e revistas, em comparação com oito do original. Não publicar como fixture: contém nomes da família. Verificação Edge headless: checkbox ~19px e texto >120px em 1440/1024/768/390, sem overflow; impressão mostra todos os sete dias e oculta navegação. Build/TypeScript passaram. A API não foi alterada neste lote.
+
+
+### Fluxo corrigido conforme as figuras 3 → 2 → 1 — 18 novembro 2026
+
+`SubstitutionChoices` agora é a primeira vista de «Preparar as trocas»: comparação antes/depois, aceitar/ignorar por ingrediente e manual opcional inline; pode acrescentar troca para outro ingrediente existente. Decisões são locais à receita até guardar a variante. «Aceitar escolhas e editar receita» só exige decidir todas as propostas, não dados técnicos que ainda podem ser completados na segunda etapa. Aí só aparecem operações escolhidas; a terceira confirma a refeição. Todas ignoradas também podem avançar e confirmar a receita original com as unidades preservadas; restrições obrigatórias são reavaliadas e não são ultrapassadas por ignorar.
+
+Removida a lista duplicada de propostas fora do fluxo; o painel fica montado/oculto durante edição, preservando seleção entre várias alternativas ao voltar. Edição dos campos passa a decisão a manual, e escolher adaptação existente sincroniza escolhas/porções sem converter gramas em doses. Instruções canónicas atualizadas em docs/ux/aceitar-trocas-e-refeicao.md.
+
+176 testes web e build passaram. E2E real em base dedicada `nutriflow_ux_choices_e2e_20261118`: aceitar/ignorar, abrir/cancelar manual, acrescentar manual, voltar, verificar receita, confirmar no servidor e impedir original incompatível após ignorar tudo; quatro larguras e temas. Na família principal só navegação/seleção local, sem persistir alterações alimentares. A API não foi alterada neste lote; regressão de 444 testes continua a ser a do lote anterior. Preview principal reiniciada e verificada.
+
+
+### Resumo da receita preenchida e avanço único — 18 novembro 2026
+
+Segunda etapa passa de edição obrigatória a revisão: preview mostra alternativas aceites, quantidades, preparação e doses conhecidas. `acceptedNames` conserva a descrição da proposta mesmo sem ID de catálogo; o seletor em falta mostra o nome a associar em vez de o perder. Edição completa opcional com valores preenchidos; apenas dados em falta são mostrados automaticamente. Doses deixam de reinicializar ao regressar às escolhas sem mudar entre receita original e variante. `SubstitutionChoices` comunica a descrição explícita da alternativa escolhida.
+
+«Seguir para confirmação final» agrega criação de rascunho, validação e ativação existentes; não altera a refeição antes da confirmação final. Removidos «Guardar e verificar receita» / «Aceitar receita e continuar» como duas ações intermédias. Sem trocas usa o mesmo avanço, preservando a revalidação de restrições. API inalterada.
+
+176 testes frontend/build passaram. E2E real em DB dedicada `nutriflow_ux_review_e2e_20261118` verifica preenchimento, campos em falta, valores ao editar, avanço único, confirmação de refeição, modo totalmente preenchido sem editor obrigatório, temas/quatro larguras e bloqueio de original incompatível. Família principal não teve receitas/refeições alteradas. Instruções canónicas atualizadas.
+
+
+### Pendências herdadas não bloqueiam a revisão final — 18 novembro 2026
+
+O ficheiro do utilizador mostrava base sem serving_count e duas propostas sem ingredientes de catálogo/quantidades/unidades. Separado avançar na revisão de aplicar uma variante: Next permanece disponível, lista pendências concretas e oferece guardar rascunho. Missing yield é explicitamente identificado como não registado na fonte. Não se inventam doses, equivalências ou composição. Caminho completo continua a usar os serviços rigorosos de variantes; snapshot parcial nunca é ativo ou planeável.
+
+Nova tabela `meal_adaptation_drafts` (migration d9a704c281e6), snapshots parciais, CRUD criar/listar/atualizar com família/receita/ingredientes/pessoas/refeição validados, versão esperada em atualizações e fingerprint da base. Sem endpoint de ativação. Frontend guarda e retoma escolhas e texto com null/vazios; refeição e compras mantêm-se intactas. Migration/check/testes direcionados passaram na DB isolada antes de migrar localmente. Backup prévio `backups/ux-before-pending-drafts-20261118.dump`. Nenhuma escolha de alimentação foi alterada na base principal.
+
+177 testes web/build e E2E real em DB dedicada passaram: campos herdados ausentes, Next disponível, save/reload/resume, nenhum RecipeVariant criado e evento original inalterado; quatro larguras. Preview principal com rota nova reiniciada e verificada em leitura. Regressão API completa: 447 testes passaram na DB de validação. Ruff passou. Instruções canónicas e cross-check atualizados.
+
+
+### Campos estáveis e trocas opcionais na revisão — 18 novembro 2026
+
+Corrigido desaparecimento durante escrita: modo de edição explícito mantém campos montados até fechar, incluindo quando todos ficam válidos. Quantidade/unidade da base usadas como ponto de partida editável; proposta explícita tem prioridade e mudança de unidade sem quantidade não converte automaticamente. Preparação conhecida exposta na API de revisão e copiada. Segunda etapa oferece acrescentar qualquer ingrediente ainda sem troca, por preferência, sem exigir restrição. Não altera o catálogo ou receita original.
+
+Cross-check: três etapas, resumo progressivo e tokens aprovados preservados; editor completo abre quando há pendências e fecha explicitamente. 178 testes web, build/TypeScript, Ruff e 35 testes API direcionados passaram na DB isolada. Navegador real headless, API real principal em leitura: quantidade inicial 1 un, escrita de 125 e preparação sem perder campos, troca adicional na segunda etapa, quatro larguras sem overflow/erros JS; sem gravar refeições/receitas da família. Servidores locais reiniciados.
+
+
+### Confirmação sem pendências artificiais — 18 novembro 2026
+
+Preparação deixa de ser obrigatória no contrato de variantes e no frontend. Aceitar proposta sem ingrediente concreto resolve apenas correspondência exata única no catálogo; caso contrário abre imediatamente a escolha concreta, conservando quantidade/unidade. Avanço incompleto mantém revisão editável com faltas precisas, sem a antiga etapa final genérica. Rendimento existente é herdado; não se inventa rendimento ausente. Estado confirmado deriva do recipe_id de uma refeição persistida e variante ativa, nunca de aceitação local. Ocultadas propostas/formulário da base depois de aplicar; edição explícita recupera variante atual. Restrições/composição continuam verificadas pelo servidor.
+
+180 testes frontend, build, Ruff e 36 testes API direcionados passaram em DB isolada. E2E real dedicado: proposta textual pede associação, nome exato resolve ID, preparação vazia permite criar/validar/ativar/aplicar, reload mantém estado confirmado sem propostas base e editar recupera operações; quatro larguras sem overflow ou erros JS. Base principal sem alterações a refeições/receitas.
+
+
+### Regressão de aceitação direta corrigida — 19 novembro 2026
+
+Repõe o fluxo aprovado: Aceitar proposta regista accepted imediatamente e não abre edição manual, mesmo sem ID concreto. Mantém associação automática apenas por nome exato único, valores de base e preparação opcional. Se a edição manual do mesmo ingrediente estiver aberta, aceitar/ignorar fecha-a. Identificação ainda desconhecida conserva a descrição na revisão da receita, sem inventar alimento nem modificar validação de aplicação.
+
+181 testes frontend e build/TypeScript passaram. E2E real headless na app principal, em leitura: edição manual aberta explicitamente, aceitar fecha-a; duas propostas aceites sem formulário; passo 2 disponível; nomes/quantidades preservados; escrita de vários algarismos e navegação de volta conservadas. Nenhuma refeição/receita gravada. Servidor web reiniciado.
+
+
+### Edições herdam requisitos da receita original — 19 novembro 2026
+
+Separada edição aprovada pela família de variante nutricional validada. Novo POST recipe-variants/recipe-edit permite rendimento ausente, unidades existentes (emb), preparação ausente e descrições aceites sem ID prévio; descrições geram ingrediente privado da família sem composição fabricada. Quantidades/porções/unidades herdadas; referência de porção existente preservada sem copiar nutrientes da base. source family_adaptation e confirmation_mode recipe_edit distinguem estas edições; workflow ativo não certifica nutrição. Não há migration: usa receitas/ingredientes/FamilyRecipeVariant e evidência JSON existentes.
+
+Aplicação verifica propriedade da família, ingredientes disponíveis, base/evidência intactas, meal type e restrições ativas conhecidas, como a base. Desconhecido nutricional fica nulo, não um valor herdado. Ativação/validação de variantes rigorosas mantém contratos existentes. Reviews incluem edições aplicadas válidas para mostrar confirmação sem repetir pendências da base. Base principal sem alterações a refeições/receitas durante testes.
+
+Cross-check com protótipo: aceitar direto → resumo editável opcional → confirmação; nenhum campo novo obrigatório para dados ausentes na base, mais trocas opcionais mantidas. E2E real dedicado (DB nutriflow_ux_inherit_e2e_20261119): yield nulo, emb, descrições sem ID, aplicação e compras, nutrientes nulos, porções originais, reload confirmado e edição recuperada; quatro larguras sem overflow ou JS errors. 182 testes frontend/build, Ruff e 17 testes API direcionados passaram. Regressão API completa: 452 testes passaram na DB isolada. Teste direcionado adicional confirma que a edição aparece nas reviews mesmo com nutrição desconhecida. Percurso Frango de quinta-feira na app principal verificado em leitura: aceitar direto, emb/quantidades herdadas, sem editor obrigatório ou bloqueio por rendimento/ID ausente.
+
+
+### Lote de 20 tarefas de navegação e autoria — 19 novembro 2026
+
+Checklist/evidência canónicos: `docs/ux/lote-20-2026-11-19.md`, 20/20 locais. Navegação por hash com contexto de pessoa, separador, data e modo, back/forward; filtros de receitas por família/tempo/origem, ordenação, contagem e limpeza, em detalhe progressivo; cópia editável da receita com original intacto, dados opcionais preservados, pesquisa e IDs estáveis nas linhas. Guardas de alterações por guardar nas receitas/refeições, incluindo navegação e unload; identidade/quantidades preservadas em cancelar. Editor de refeição com avatares, presença em lote, pesquisa e resumo antes de guardar, mais versão esperada no update.
+
+188 testes frontend, TypeScript/build passaram. E2E real dedicado guardou cópia e refeição sintéticas; URL/reload/back/forward, filtros, guardas, reordenação, quatro resoluções/temas/foco e ausência de JS exceptions passaram. Regressão real do percurso de adaptação também passou. Sem alterações API/migrations neste lote; a suíte API de 452 do incremento anterior não foi repetida sem alterações de backend. Dados principais não foram alterados. Protótipo HTML consultado; paletas e cinco destinos mantidos, filtros móveis recolhidos. Servidor web reiniciado para preview final.

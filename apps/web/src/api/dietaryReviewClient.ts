@@ -22,7 +22,7 @@ export type Substitution = {
   status: "proposed" | "reviewed" | "rejected"; notes: string; version: number;
 };
 export type ReviewIngredient = {
-  id: string; food_item_id: string; name: string; quantity: string; unit: string;
+  id: string; food_item_id: string; name: string; quantity: string; unit: string; preparation?: string | null;
   references: FodmapReference[]; substitutions: Substitution[];
 };
 export type ReviewRecipe = {

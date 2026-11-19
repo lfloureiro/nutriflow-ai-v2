@@ -8,6 +8,7 @@ import type {
 } from "./api/weeklyPlanningTypes";
 import {
   weeklyPlanRequest,
+  singleMealPlanRequest,
   proposalHasOnlySkippedSlots,
   addCalendarDays,
   isWeekendDate,
@@ -515,4 +516,11 @@ describe("weekly shopping refresh summary", () => {
       planningIssues: 0,
     });
   });
+});
+
+it("materializes only the selected meal when accepting an individual proposal",()=>{
+ const choice={slot_key:"chosen",candidate_key:"candidate"} as SharedWeeklyPlanChoice;
+ const request={person_ids:["p"],slots:[{slot_key:"other"},{slot_key:"chosen"}]} as SharedWeeklyPlanProposalRequest;
+ const single=singleMealPlanRequest(request,choice);expect(single.slots.map(slot=>slot.slot_key)).toEqual(["chosen"]);expect(single.expected_choices).toEqual([{slot_key:"chosen",candidate_key:"candidate"}]);expect(request.slots).toHaveLength(2);
+ expect(()=>singleMealPlanRequest({...request,slots:[]},choice)).toThrow();
 });

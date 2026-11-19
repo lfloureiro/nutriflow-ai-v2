@@ -104,7 +104,17 @@ def recipe_reviews(db: Session, family_id: uuid.UUID) -> list[ReviewRecipeRead]:
         .where(FamilyRecipeVariant.family_id == family_id, FamilyRecipeVariant.status == "active")
         .order_by(FamilyRecipeVariant.created_at.desc())
     ):
-        if not variant_issues(db, v):
+        recipe = db.get(Recipe, v.recipe_id)
+        usable = not variant_issues(db, v)
+        if recipe is not None and recipe.source == "family_adaptation":
+            from app.services.recipe_variant_integrity import assert_variant_usable
+
+            try:
+                assert_variant_usable(db, recipe)
+                usable = True
+            except ValueError:
+                usable = False
+        if usable:
             active_variants.setdefault(v.base_recipe_id, []).append(
                 {
                     "id": str(v.id),
@@ -118,7 +128,7 @@ def recipe_reviews(db: Session, family_id: uuid.UUID) -> list[ReviewRecipeRead]:
         .where(
             or_(Recipe.family_id == family_id, Recipe.family_id.is_(None)),
             Recipe.is_active.is_(True),
-            Recipe.source != "family_variant",
+            Recipe.source.notin_(["family_variant", "family_adaptation"]),
         )
         .options(selectinload(Recipe.ingredients).selectinload(RecipeIngredient.food_item))
         .order_by(Recipe.name, Recipe.id)
@@ -160,6 +170,7 @@ def recipe_reviews(db: Session, family_id: uuid.UUID) -> list[ReviewRecipeRead]:
                     name=i.food_item.name,
                     quantity=i.quantity,
                     unit=i.unit,
+                    preparation=i.preparation,
                     references=references.get(i.food_item_id, []),
                     substitutions=substitutions.get(i.id, []),
                 )

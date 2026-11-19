@@ -1,0 +1,71 @@
+/* Approved prototype palette. Legacy aliases allow existing screens to migrate incrementally. */
+:root {
+  color-scheme: light;
+  --color-bg: #f6f5f0;
+  --color-surface: #fffefa;
+  --color-surface-soft: #eeeee6;
+  --color-surface-strong: #e5e7dc;
+  --color-text: #25372d;
+  --color-muted: #697569;
+  --color-border: #dedfd5;
+  --color-border-strong: #bac6b7;
+  --color-action: #285a40;
+  --color-action-strong: #214d36;
+  --color-action-soft: #e5eddf;
+  --color-on-action: #fffefa;
+  --color-success: #285a40;
+  --color-success-soft: #e5eddf;
+  --color-warning: #855018;
+  --color-warning-soft: #faecd9;
+  --color-danger: #994a39;
+  --color-danger-soft: #f9e6df;
+  --color-focus: #9b632e;
+  --shadow: 0 16px 45px #2736230b;
+  --shadow-soft: 0 6px 20px #27362306;
+  --motion-fast: 140ms;
+  --motion-panel: 200ms;
+  --motion-ease: cubic-bezier(.2,.8,.2,1);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #19191b;
+  --color-surface: #222225;
+  --color-surface-soft: #2d2c2f;
+  --color-surface-strong: #353337;
+  --color-text: #f1eeea;
+  --color-muted: #b0aaa4;
+  --color-border: #414044;
+  --color-border-strong: #656064;
+  --color-action: #d8b28c;
+  --color-action-strong: #ebc9a7;
+  --color-action-soft: #39312c;
+  --color-on-action: #241e19;
+  --color-success: #d8b28c;
+  --color-success-soft: #39312c;
+  --color-warning: #e4bc83;
+  --color-warning-soft: #3b3023;
+  --color-danger: #e6a494;
+  --color-danger-soft: #402b29;
+  --color-focus: #e4bc83;
+  --shadow: 0 16px 45px #0002;
+  --shadow-soft: 0 6px 20px #0001;
+}
+
+:root {
+  --bg: var(--color-bg);
+  --surface: var(--color-surface);
+  --surface-soft: var(--color-surface-soft);
+  --surface-strong: var(--color-surface-strong);
+  --text: var(--color-text);
+  --muted: var(--color-muted);
+  --border: var(--color-border);
+  --border-strong: var(--color-border-strong);
+  --accent: var(--color-action);
+  --accent-strong: var(--color-action-strong);
+  --accent-soft: var(--color-action-soft);
+  --success: var(--color-success);
+  --success-soft: var(--color-success-soft);
+  --danger: var(--color-danger);
+  --danger-soft: var(--color-danger-soft);
+}

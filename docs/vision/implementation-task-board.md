@@ -1,3 +1,5 @@
+> **Estado atual — 19 novembro 2026:** consultar [passagem e próximos passos](../handoff-2026-11-19.md) e o [quadro UX](../vision/ux-revamp-task-board.md). Os estados de branches, contagens e “próxima tarefa” abaixo são históricos. Esta entrega consolida o revamp, o fluxo de trocas e o lote de 20; NLP/ML treinado e restantes fases continuam na sequência canónica.
+
 # Tarefas de implementação — planeamento familiar
 
 Atualizado em 18 de outubro de 2026. Trabalho exclusivo no v2, branch local

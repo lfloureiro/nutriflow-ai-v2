@@ -134,6 +134,7 @@ class ReviewIngredientRead(BaseModel):
     name: str
     quantity: Decimal
     unit: str
+    preparation: str | None = None
     references: list[FodmapReferenceRead]
     substitutions: list[SubstitutionRead]
 

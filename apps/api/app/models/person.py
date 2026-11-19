@@ -2,7 +2,7 @@ import uuid
 from datetime import date
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, ForeignKey, String, Uuid
+from sqlalchemy import JSON, Date, ForeignKey, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -40,6 +40,7 @@ class Person(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     birth_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    avatar_appearance: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     preferred_locale: Mapped[str] = mapped_column(
         String(16),

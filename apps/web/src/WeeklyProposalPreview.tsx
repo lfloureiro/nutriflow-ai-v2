@@ -1,8 +1,10 @@
+import WeekOverview from "./ui/WeekOverview";
+import Icon from "./ui/Icon";
 import SavedMealChanges from "./SavedMealChanges";
 import {listRecipeReviews,type ReviewRecipe} from "./api/dietaryReviewClient";
 import {listRetailAlternatives,type RetailAlternative} from "./api/planningWorkspaceClient";
 import {recipeProposedChanges} from "./mealAlternatives";
-import SelectedMealOptions from "./SelectedMealOptions";
+import SelectedMealOptions,{type SelectedMealContext} from "./SelectedMealOptions";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { ApiError, cancelMealPlanEntry, getFamilyMealPlan } from "./api/client";
@@ -131,7 +133,7 @@ const COPY = {
     fitUnknown: "Não avaliável",
     fitConflict: "Conflito",
     noExplanation: "Sem explicação adicional para esta pessoa.",
-    applyWeek: "Aplicar semana",
+    applyWeek: "Confirmar a semana no plano",
     applyingWeek: "A validar e aplicar semana…",
     reject: "Recusar e procurar alternativa",
     rejecting: "A procurar alternativa…",
@@ -217,7 +219,7 @@ const COPY = {
     fitUnknown: "Not evaluable",
     fitConflict: "Conflict",
     noExplanation: "No additional explanation for this Person.",
-    applyWeek: "Apply week",
+    applyWeek: "Confirm week in planner",
     applyingWeek: "Validating and applying week…",
     reject: "Reject and find alternative",
     rejecting: "Finding alternative…",
@@ -700,6 +702,12 @@ function choiceFor(
   return choices.get(planningDate)?.find((choice) => choice.meal_type === mealType) ?? null;
 }
 
+export function singleMealPlanRequest(request:SharedWeeklyPlanProposalRequest,choice:SharedWeeklyPlanChoice):SharedWeeklyPlanRequest {
+ const slots=request.slots.filter(slot=>slot.slot_key===choice.slot_key);
+ if(slots.length!==1)throw new Error("Selected meal is missing or duplicated in the proposal.");
+ return weeklyPlanRequest({...request,slots},[choice]);
+}
+
 function sourceKindsFor(sources: RecommendationSource[]): string[] {
   const kinds = [...recommendationSourceKinds(sources)];
   if (sources.includes("cooked") && !kinds.includes("pantry")) kinds.push("pantry");
@@ -720,9 +728,15 @@ export default function WeeklyProposalPreview({
   recipeAdaptationsForParticipants,
   renderSelectedMeal,
   recipeReviews,
+  initialSelection,
+  onSelectionChange,
+  onMealCommitted,
 }: {
+  onMealCommitted?:()=>void;
+  initialSelection?: {date:string;mealType:MealType} | null;
+  onSelectionChange?: (selection:{date:string;mealType:MealType})=>void;
   recipeReviews?: ReviewRecipe[];
-  renderSelectedMeal?: (context: {recipeId: string | null; planningDate: string; mealType: MealType; personIds: string[]; appliedChanges: string[]; onEvaluateDelivery?: (provider: MealDeliveryProviderKey) => void}) => ReactNode;
+  renderSelectedMeal?: (context: SelectedMealContext) => ReactNode;
   familyId: string;
   weekStart?: string;
   people: Person[];
@@ -739,7 +753,8 @@ export default function WeeklyProposalPreview({
   const copy = COPY[locale];
   const [loadedReviews,setLoadedReviews]=useState<ReviewRecipe[]>([]);const [loadedRetail,setLoadedRetail]=useState<RetailAlternative[]>([]);const [reviewError,setReviewError]=useState("");const [reviewRevision,setReviewRevision]=useState(0);
   const currentReviews=recipeReviews??loadedReviews;
-  useEffect(()=>{if(recipeReviews!==undefined)return;let cancelled=false;setLoadedReviews([]);setLoadedRetail([]);setReviewError("");
+  const reviewFamily=useRef(familyId);
+  useEffect(()=>{if(recipeReviews!==undefined)return;let cancelled=false;if(reviewFamily.current!==familyId){setLoadedReviews([]);setLoadedRetail([]);reviewFamily.current=familyId;}setReviewError("");
     void listRecipeReviews(familyId).then(r=>{if(!cancelled)setLoadedReviews(r);}).catch(e=>{if(!cancelled)setReviewError(String(e));});
     void listRetailAlternatives(familyId).then(r=>{if(!cancelled)setLoadedRetail(r);}).catch(()=>{});
     return()=>{cancelled=true;};
@@ -761,14 +776,17 @@ export default function WeeklyProposalPreview({
   const [shoppingSummary, setShoppingSummary] = useState<ShoppingRefreshSummary | null>(null);
   const [planRefreshWarning, setPlanRefreshWarning] = useState<string | null>(null);
   const [shoppingWarning, setShoppingWarning] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [selectedMealType, setSelectedMealType] = useState<MealType | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(initialSelection?.date ?? null);
+  const [selectedMealType, setSelectedMealType] = useState<MealType | null>(initialSelection?.mealType ?? null);
   const [adaptationBusy, setAdaptationBusy] = useState(false);
   const [adaptationResult, setAdaptationResult] =
     useState<SharedMealTransformationResult | null>(null);
   const [adaptationError, setAdaptationError] = useState<string | null>(null);
   const plan = refreshedPlan ?? suppliedPlan ?? loadedPlan;
   const effectiveWeekStart = refreshedPlan?.start_date ?? suppliedPlan?.start_date ?? weekStart;
+  const scopeKey=`${familyId}:${weekStart??suppliedPlan?.start_date??""}`;
+  const currentScope=useRef<string|null>(scopeKey);
+  useEffect(()=>{currentScope.current=scopeKey;return()=>{currentScope.current=null;};},[scopeKey]);
 
   useEffect(() => {
     setRefreshedPlan(null);
@@ -819,6 +837,10 @@ export default function WeeklyProposalPreview({
         : [],
     [effectiveWeekStart],
   );
+  useEffect(()=>{
+    const today=plan ? new Intl.DateTimeFormat("en-CA",{timeZone:plan.timezone,year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()) : "";
+    setSelectedDate(current=>current && weekDates.includes(current) ? current : weekDates.includes(today) ? today : weekDates[0] ?? null);
+  },[weekDates,plan?.timezone]);
   const selectedEntry =
     plan && selectedDate && selectedMealType
       ? mealEntryFor(plan, selectedDate, selectedMealType)
@@ -985,6 +1007,20 @@ export default function WeeklyProposalPreview({
     }
   }
 
+  async function acceptSelectedMeal() {
+    if(!proposalRequest||!selectedChoice||!effectiveWeekStart)return;
+    const slots=proposalRequest.slots.filter(slot=>slot.slot_key===selectedChoice.slot_key);
+    if(slots.length!==1)return;
+    setDecisionBusy("apply");setError(null);setNotice(null);setShoppingWarning(null);
+    try{await materializeSharedWeeklyPlan(familyId,singleMealPlanRequest(proposalRequest,selectedChoice));}
+    catch(e){setError(errorText(e));setDecisionBusy(null);return;}
+    setProposal(null);setProposalRequest(null);setSkippedSlots({});
+    setNotice(locale==="pt-PT"?"Refeição confirmada no plano. Recalcula as restantes sugestões para considerar esta decisão.":"Meal confirmed in the planner. Recalculate remaining suggestions to account for this decision.");
+    try{setRefreshedPlan(await getFamilyMealPlan(familyId,effectiveWeekStart,7));}catch(e){setPlanRefreshWarning(errorText(e));}
+    try{setShoppingSummary(shoppingRefreshSummary(await refreshShoppingList(familyId,effectiveWeekStart,7)));}catch(e){setShoppingWarning(errorText(e));}
+    setDecisionBusy(null);onMealCommitted?.();
+  }
+
   async function applyWeek() {
     if (!proposalRequest || !proposal?.selected_plan || !effectiveWeekStart) return;
     setDecisionBusy("apply");
@@ -1089,6 +1125,8 @@ export default function WeeklyProposalPreview({
   function selectMeal(planningDate: string, mealType: MealType) {
     setSelectedDate(planningDate);
     setSelectedMealType(mealType);
+    onSelectionChange?.({date:planningDate,mealType});
+    window.requestAnimationFrame(()=>{const detail=document.getElementById("nf-selected-meal");detail?.focus({preventScroll:true});detail?.scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",block:"start"});});
   }
 
   useEffect(() => {
@@ -1196,13 +1234,15 @@ export default function WeeklyProposalPreview({
         <div className="shell-loading" role="status">{copy.loading}</div>
       ) : (
         <>
+          <WeekOverview plan={plan} proposed={weekDates.reduce((sum,date)=>sum+ALL_MEAL_TYPES.filter(kind=>!mealEntryFor(plan,date,kind)&&choiceFor(grouped,date,kind)).length,0)}/>
+          <nav className="nf-week-day-picker" aria-label={locale === "pt-PT" ? "Escolher dia da semana" : "Choose a weekday"}>{weekDates.map(date=>{const day=formatGridDay(date,locale);return <button type="button" key={date} aria-pressed={selectedDate===date} className={selectedDate===date?"selected":""} onClick={()=>selectDay(date)}><span>{day.weekday}</span><b>{day.date}</b></button>;})}</nav>
           <div className="weekly-calendar-scroll">
-            <div className="weekly-day-grid" role="grid" aria-label={copy.title}>
+            <div className="weekly-day-grid" role="group" aria-label={copy.title}>
               {weekDates.map((planningDate) => {
                 const gridDay = formatGridDay(planningDate, locale);
                 return (
                   <article
-                    className={`weekly-grid-day ${selectedDate === planningDate ? "selected" : ""}`}
+                    className={`weekly-grid-day ${selectedDate === planningDate ? "selected is-mobile-day" : ""}`}
                     key={planningDate}
                   >
                     <button
@@ -1224,7 +1264,7 @@ export default function WeeklyProposalPreview({
                         const state = entry ? "planned" : choice ? "proposed" : "empty";
                         const label = entry
                           ? entryName(entry)
-                          : choice?.candidate_name ?? (pendingReason ? copy.pending : copy.empty);
+                          : choice?.candidate_name ?? (pendingReason ? copy.pending : locale === "pt-PT" ? "+ Adicionar" : "+ Add");
                         return (
                           <button
                             aria-pressed={
@@ -1236,7 +1276,7 @@ export default function WeeklyProposalPreview({
                                 : ""
                             }`}
                             key={mealType}
-                            onClick={() => selectMeal(planningDate, mealType)}
+                            onClick={() => {if(!entry && !choice && !pendingReason && onEdit){onSelectionChange?.({date:planningDate,mealType});onEdit(planningDate,mealType,null);}else selectMeal(planningDate,mealType);}}
                             type="button"
                           >
                             <span className="weekly-grid-meal__label">
@@ -1252,24 +1292,7 @@ export default function WeeklyProposalPreview({
                               </em>
                             </span>
                             <strong>{label}</strong>
-                            {choice?.variant_changes?.map(change=><small className="weekly-grid-transformation" key={change}>{change}</small>)}
-                            {entry?.variant_changes?.map(change=><small className="weekly-grid-transformation" key={change}>{change}</small>)}
-                            {!(entry?.transformations.length || choice?.transformation) && ((entry?.variant_changes?.length || choice?.variant_changes?.length) ? [] : (ingredientProposals.length ? ingredientProposals : slotAdaptations?.[entry?.recipe_id ?? choice?.recipe_id ?? ""]??[])).map(change=><small className="weekly-grid-transformation" key={change}>{locale==="pt-PT" ? "Por aplicar: " : "Not applied: "}{change}</small>)}
-                            {entry?.transformations[0] ? (
-                              <small className="weekly-grid-transformation">
-                                {entry.transformations[0].transformation_kind === "plan_adapted"
-                                  ? copy.planAdapted
-                                  : copy.preferenceVariant}
-                                {": "}{entry.transformations[0].source_food_name} → {entry.transformations[0].replacement_food_name}
-                              </small>
-                            ) : choice?.transformation ? (
-                              <small className="weekly-grid-transformation">
-                                {choice.transformation.kind === "plan_adapted"
-                                  ? copy.planAdapted
-                                  : copy.preferenceVariant}
-                                {": "}{choice.transformation.operation.source_food_name} → {choice.transformation.operation.replacement_food_name}
-                              </small>
-                            ) : null}
+                            {(entry?.variant_changes?.length || entry?.transformations.length || choice?.variant_changes?.length || choice?.transformation || ingredientProposals.length || slotAdaptations?.[entry?.recipe_id ?? choice?.recipe_id ?? ""]?.length) ? <small className={`nf-week-change-hint ${entry?.variant_changes?.length || entry?.transformations.length ? "is-applied" : "is-review"}`}>{entry?.variant_changes?.length || entry?.transformations.length ? (locale === "pt-PT" ? "Adaptação aplicada" : "Adaptation applied") : choice?.variant_changes?.length || choice?.transformation ? (locale === "pt-PT" ? "Adaptação em proposta" : "Proposed adaptation") : (locale === "pt-PT" ? "Trocas por rever" : "Substitutions to review")}</small> : null}
                           </button>
                         );
                       })}
@@ -1281,7 +1304,7 @@ export default function WeeklyProposalPreview({
           </div>
 
           {selectedDate ? (
-            <section className="weekly-day-detail">
+            <details className="nf-day-overview"><summary>{locale === "pt-PT" ? "Resumo do dia selecionado" : "Selected day overview"}</summary><section className="weekly-day-detail">
               <div className="weekly-section-heading">
                 <div>
                   <span className="eyebrow">{copy.dayDetail}</span>
@@ -1299,7 +1322,7 @@ export default function WeeklyProposalPreview({
                       aria-pressed={selectedMealType === mealType}
                       className={`weekly-day-meal ${selectedMealType === mealType ? "selected" : ""}`}
                       key={mealType}
-                      onClick={() => setSelectedMealType(mealType)}
+                      onClick={() => selectMeal(selectedDate,mealType)}
                       type="button"
                     >
                       <span>
@@ -1324,11 +1347,12 @@ export default function WeeklyProposalPreview({
                   );
                 })}
               </div>
-            </section>
+            </section></details>
           ) : null}
 
           {selectedDate && selectedMealType ? (
-            <section className="weekly-meal-detail">
+            <section className="weekly-meal-detail" id="nf-selected-meal" tabIndex={-1}>
+              <button className="button ghost small nf-detail-close" type="button" onClick={()=>{setSelectedMealType(null);document.querySelector<HTMLButtonElement>(".weekly-grid-meal.selected")?.focus();}}><Icon name="arrow"/>{locale === "pt-PT" ? "Voltar ao mapa" : "Back to planner"}</button>
               <div className="weekly-section-heading weekly-meal-detail__heading">
                 <div>
                   <span className="eyebrow">{copy.mealDetail}</span>
@@ -1366,6 +1390,7 @@ export default function WeeklyProposalPreview({
                   </div>
                 ) : selectedChoice?.recipe_id ? (
                   <div className="weekly-meal-detail__actions">
+                    <button type="button" className="button primary" disabled={busy||decisionBusy!==null||adaptationBusy} onClick={()=>void acceptSelectedMeal()}>{decisionBusy==="apply" ? (locale==="pt-PT"?"A confirmar…":"Confirming…") : (locale==="pt-PT"?"Confirmar só esta refeição":"Confirm only this meal")}</button>
                     <button
                       className="button"
                       disabled={busy || decisionBusy !== null || adaptationBusy}
@@ -1379,12 +1404,12 @@ export default function WeeklyProposalPreview({
                           : copy.suggestAdaptation}
                     </button>
                   </div>
-                ) : null}
+                ) : !selectedEntry && !selectedChoice && onEdit ? <button type="button" className="button primary" onClick={()=>onEdit(selectedDate,selectedMealType,null)}>{locale === "pt-PT" ? "Escolher receita" : "Choose recipe"}</button> : null}
               </div>
 
               {reviewError && <p role="alert">{locale==="pt-PT"?"Alternativas indisponíveis: ":"Alternatives unavailable: "}{reviewError}</p>}
               {(selectedEntry?.variant_changes?.length || selectedChoice?.variant_changes?.length) ? <div className="weekly-transformation-summary"><strong>{locale==="pt-PT" ? "Ingredientes desta variante" : "Ingredients in this variant"}</strong><ul>{(selectedEntry?.variant_changes ?? selectedChoice?.variant_changes ?? []).map(change=><li key={change}>{change}</li>)}</ul></div> : null}
-              {(renderSelectedMeal ?? (context=><SelectedMealOptions key={`${context.planningDate}:${context.mealType}:${context.recipeId}`} familyId={familyId} context={context} recipes={currentReviews} products={loadedRetail} restrictions={{sources:[],excluded_food_item_ids:[],warnings:[]}} people={people} manualExclusions={[]} onVariantsChanged={()=>setReviewRevision(v=>v+1)}/>))({recipeId:selectedEntry?.recipe_id ?? selectedChoice?.recipe_id ?? null,planningDate:selectedDate,mealType:selectedMealType,personIds:(selectedEntry?.participants ?? selectedChoice?.participants)?.map(p=>p.person_id) ?? planningOptions?.attendance?.find(a=>a.planning_date===selectedDate && a.meal_type===selectedMealType)?.person_ids ?? people.map(p=>p.id),appliedChanges:selectedEntry?.variant_changes ?? selectedChoice?.variant_changes ?? [],onEvaluateDelivery:selectedEntry ? undefined : provider=>{
+              {(renderSelectedMeal ?? (context=><SelectedMealOptions key={`${context.planningDate}:${context.mealType}:${context.recipeId}`} familyId={familyId} context={context} recipes={currentReviews} products={loadedRetail} restrictions={{sources:[],excluded_food_item_ids:[],warnings:[]}} people={people} manualExclusions={[]} onVariantsChanged={()=>setReviewRevision(v=>v+1)}/>))({savedMeal:selectedEntry,scheduledAt:selectedEntry?.scheduled_at??selectedChoice?.scheduled_at,timezone:plan.timezone,portions:selectedChoice?.participants.map(p=>({person_id:p.person_id,quantity:p.quantity,unit:p.quantity_unit})),onMealSaved:async result=>{if(currentScope.current!==scopeKey)return;const updated=await getFamilyMealPlan(familyId,effectiveWeekStart!,7);if(currentScope.current!==scopeKey)return;setRefreshedPlan(updated);setProposal(null);setProposalRequest(null);setSkippedSlots({});setNotice(result.shoppingUpdated?(locale==="pt-PT"?"Refeição confirmada. O mapa e as compras foram atualizados.":"Meal confirmed. Planner and shopping updated."):(locale==="pt-PT"?"Refeição guardada. Atualiza as compras para concluir.":"Meal saved. Refresh shopping to finish."));onMealCommitted?.();},recipeId:selectedEntry?.recipe_id ?? selectedChoice?.recipe_id ?? null,planningDate:selectedDate,mealType:selectedMealType,personIds:(selectedEntry?.participants ?? selectedChoice?.participants)?.map(p=>p.person_id) ?? planningOptions?.attendance?.find(a=>a.planning_date===selectedDate && a.meal_type===selectedMealType)?.person_ids ?? people.map(p=>p.id),appliedChanges:selectedEntry?.variant_changes ?? selectedChoice?.variant_changes ?? [],onEvaluateDelivery:selectedEntry ? undefined : provider=>{
                 const next={...sourceOverrides,[slotKey(selectedDate,selectedMealType)]:[provider]};
                 setSourceOverrides(next);void generateProposal(rejectedBySlot,false,next);
               }})}

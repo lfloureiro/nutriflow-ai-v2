@@ -1,3 +1,8 @@
+import {useUnsavedChanges} from "./useUnsavedChanges";
+import {requestNavigation} from "./navigation";
+import {browseRecipes,defaultRecipeBrowse,readRecipeBrowse,storeRecipeBrowse,searchText,isAdaptedRecipe,type RecipeBrowse} from "./recipeBrowsing";
+import RecipeTastePanel from "./ui/RecipeTastePanel";
+import Icon from "./ui/Icon";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import {
@@ -177,6 +182,7 @@ const COPY = {
 } as const;
 
 type EditableIngredient = {
+  rowId:string;
   foodItemId: string;
   quantity: string;
   unit: string;
@@ -219,11 +225,12 @@ function initialValues(recipe: Recipe | null): EditorValues {
     name: recipe?.name ?? "",
     description: recipe?.description ?? "",
     mealTypes: recipe?.suitable_meal_types ?? ["lunch", "dinner"],
-    servingCount: recipe?.serving_count ?? "4",
+    servingCount: recipe?.serving_count ?? "",
     yieldQuantity: recipe?.yield_quantity ?? "",
-    yieldUnit: recipe?.yield_unit ?? "g",
+    yieldUnit: recipe?.yield_unit ?? "",
     ingredients:
       recipe?.ingredients.map((ingredient) => ({
+        rowId:crypto.randomUUID(),
         foodItemId: ingredient.food_item_id,
         quantity: ingredient.quantity,
         unit: ingredient.unit,
@@ -417,20 +424,25 @@ function SharedRecipeViewer({ recipe, onDone }: { recipe: Recipe; onDone: () => 
 function RecipeEditor({
   familyId,
   recipe,
+  seedRecipe,
   ingredients,
   onDone,
 }: {
   familyId: string;
   recipe: Recipe | null;
+  seedRecipe?:Recipe;
   ingredients: Ingredient[];
   onDone: () => void;
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
-  const [values, setValues] = useState<EditorValues>(() => initialValues(recipe));
+  const [values, setValues] = useState<EditorValues>(() => {const values=initialValues(recipe??seedRecipe??null);return seedRecipe?{...values,name:`${values.name} · ${locale==="pt-PT"?"cópia":"copy"}`.slice(0,100)}:values;});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [ingredientQuery,setIngredientQuery]=useState("");
+  const guard=useUnsavedChanges(values,locale==="pt-PT"?"Tens alterações na receita por guardar. Sair e descartá-las?":"You have unsaved recipe changes. Leave and discard them?");
+  const closeEditor=()=>{if(!busy&&guard.confirmDiscard())onDone();};
   function updateIngredient(index: number, patch: Partial<EditableIngredient>) {
     setValues((current) => ({
       ...current,
@@ -513,7 +525,7 @@ function RecipeEditor({
       } else {
         await updateFamilyRecipe(familyId, recipe.id, payload);
       }
-      onDone();
+      guard.markSaved();onDone();
     } catch (caught: unknown) {
       setError(errorText(caught));
     } finally {
@@ -525,6 +537,7 @@ function RecipeEditor({
     if (recipe === null) {
       return;
     }
+    if(!guard.confirmDiscard())return;
     if (recipe.is_active && !window.confirm(copy.confirmDeactivate)) {
       return;
     }
@@ -536,7 +549,7 @@ function RecipeEditor({
       } else {
         await updateFamilyRecipe(familyId, recipe.id, { is_active: true });
       }
-      onDone();
+      guard.markSaved();onDone();
     } catch (caught: unknown) {
       setError(errorText(caught));
     } finally {
@@ -546,7 +559,9 @@ function RecipeEditor({
 
   return (
     <div className="recipe-editor">
-      <button className="button ghost" onClick={onDone} type="button">
+      {seedRecipe&&<p className="decision-result">{locale==="pt-PT"?"Cópia editável de ":"Editable copy of "}<strong>{seedRecipe.name}</strong> · {locale==="pt-PT"?"a original mantém-se intacta":"the original stays unchanged"}</p>}
+      {guard.dirty&&<p className="nf-draft-state" role="status">{locale==="pt-PT"?"Alterações por guardar":"Unsaved changes"}</p>}
+      <button className="button ghost" onClick={closeEditor} type="button">
         ← {copy.back}
       </button>
       <header className="screen-header compact-screen-header">
@@ -561,7 +576,7 @@ function RecipeEditor({
           <span>{error}</span>
         </div>
       ) : null}
-      <form className="recipe-form" onSubmit={submit}>
+      <form className="recipe-form" onSubmit={submit}><fieldset className="nf-form-lock" disabled={busy}>
         <section className="recipe-form-card">
           <h2>{copy.identity}</h2>
           <div className="recipe-form-grid">
@@ -619,6 +634,7 @@ function RecipeEditor({
                 value={values.yieldUnit}
                 onChange={(event) => setValues({ ...values, yieldUnit: event.target.value })}
               >
+                <option value="">{locale==="pt-PT"?"Sem rendimento indicado":"No yield specified"}</option>
                 <option value="g">g</option>
                 <option value="kg">kg</option>
                 <option value="ml">ml</option>
@@ -641,7 +657,7 @@ function RecipeEditor({
                   ...current,
                   ingredients: [
                     ...current.ingredients,
-                    { foodItemId: "", quantity: "100", unit: "g", preparation: "" },
+                    { rowId:crypto.randomUUID(),foodItemId: "", quantity: "100", unit: "g", preparation: "" },
                   ],
                 }))
               }
@@ -650,9 +666,10 @@ function RecipeEditor({
               + {copy.addIngredient}
             </button>
           </div>
+          <label className="field"><span>{locale==="pt-PT"?"Pesquisar ingredientes disponíveis":"Search available ingredients"}</span><input type="search" value={ingredientQuery} onChange={event=>setIngredientQuery(event.target.value)} placeholder={locale==="pt-PT"?"Ex.: arroz, batata…":"E.g. rice, potato…"}/></label>
           <div className="recipe-ingredient-list">
             {values.ingredients.map((item, index) => (
-              <div className="recipe-ingredient-row" key={`${index}-${item.foodItemId}`}>
+              <div className="recipe-ingredient-row" key={item.rowId}>
                 <label className="field recipe-ingredient-name">
                   <span>{copy.ingredients}</span>
                   <select
@@ -660,7 +677,7 @@ function RecipeEditor({
                     onChange={(event) => updateIngredient(index, { foodItemId: event.target.value })}
                   >
                     <option value="">{copy.chooseIngredient}</option>
-                    {ingredients.map((ingredient) => (
+                    {ingredients.filter(ingredient=>ingredient.id===item.foodItemId||searchText(ingredient.name).includes(searchText(ingredientQuery))).map((ingredient) => (
                       <option key={ingredient.id} value={ingredient.id}>
                         {ingredient.name}
                         {ingredient.latest_composition === null
@@ -686,6 +703,7 @@ function RecipeEditor({
                     value={item.unit}
                     onChange={(event) => updateIngredient(index, { unit: event.target.value })}
                   >
+                    {item.unit&&!["g","kg","ml","l"].includes(item.unit)&&<option value={item.unit}>{item.unit}</option>}
                     <option value="g">g</option>
                     <option value="kg">kg</option>
                     <option value="ml">ml</option>
@@ -739,7 +757,7 @@ function RecipeEditor({
             </button>
           ) : null}
         </div>
-      </form>
+      </fieldset></form>
     </div>
   );
 }
@@ -757,9 +775,17 @@ function matchesNutritionFilter(recipe: Recipe, filter: NutritionFilter): boolea
 export default function RecipeCatalogue({ familyId }: { familyId: string }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
-  const [query, setQuery] = useState("");
-  const [includeInactive, setIncludeInactive] = useState(false);
-  const [nutritionFilter, setNutritionFilter] = useState<NutritionFilter>("all");
+  const savedBrowse=useMemo(()=>readRecipeBrowse(familyId),[familyId]);
+  const [query, setQuery] = useState(savedBrowse.query);
+  const [includeInactive, setIncludeInactive] = useState(savedBrowse.includeInactive);
+  const [nutritionFilter, setNutritionFilter] = useState<NutritionFilter>(savedBrowse.nutrition);
+  const [mealFilter,setMealFilter]=useState<RecipeBrowse["meal"]>(savedBrowse.meal);
+  const [originFilter,setOriginFilter]=useState<RecipeBrowse["origin"]>(savedBrowse.origin);
+  const [sortOrder,setSortOrder]=useState<RecipeBrowse["sort"]>(savedBrowse.sort);
+  const [seedRecipe,setSeedRecipe]=useState<Recipe|undefined>();
+  useEffect(()=>{storeRecipeBrowse(familyId,{query,includeInactive,nutrition:nutritionFilter,meal:mealFilter,origin:originFilter,sort:sortOrder});},[familyId,query,includeInactive,nutritionFilter,mealFilter,originFilter,sortOrder]);
+  function clearFilters(){setQuery("");setIncludeInactive(false);setNutritionFilter("all");setMealFilter("all");setOriginFilter("all");setSortOrder(defaultRecipeBrowse.sort);}
+  function copyRecipe(recipe:Recipe){if(!requestNavigation())return;setSeedRecipe(recipe);setSelected(null);}
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [selected, setSelected] = useState<Recipe | null | undefined>(undefined);
@@ -802,26 +828,31 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
     };
   }, [familyId, includeInactive, query, revision, selected]);
 
-  const hasSearch = useMemo(() => query.trim().length > 0 || nutritionFilter !== "all", [query, nutritionFilter]);
+  const hasSearch = useMemo(() => query.trim().length > 0 || nutritionFilter !== "all"||mealFilter!=="all"||originFilter!=="all"||includeInactive, [query, nutritionFilter,mealFilter,originFilter,includeInactive]);
   const filteredRecipes = useMemo(
-    () => recipes.filter((recipe) => matchesNutritionFilter(recipe, nutritionFilter)),
-    [recipes, nutritionFilter],
+    () => browseRecipes(recipes.filter(recipe=>matchesNutritionFilter(recipe,nutritionFilter)),{query,includeInactive,nutrition:nutritionFilter,meal:mealFilter,origin:originFilter,sort:sortOrder},locale),
+    [recipes,nutritionFilter,mealFilter,originFilter,sortOrder,locale],
   );
 
   if (selected !== undefined) {
     if (selected !== null && !selected.editable) {
-      return <SharedRecipeViewer recipe={selected} onDone={() => setSelected(undefined)} />;
+      return <><button type="button" className="button secondary" onClick={()=>copyRecipe(selected)}>{locale==="pt-PT"?"Criar cópia para a família":"Create family copy"}</button><SharedRecipeViewer recipe={selected} onDone={() => setSelected(undefined)} /><RecipeTastePanel key={selected.id} familyId={familyId} recipe={selected}/></>;
     }
     return (
-      <RecipeEditor
+      <>
+      {selected&&<button type="button" className="button secondary" onClick={()=>copyRecipe(selected)}>{locale==="pt-PT"?"Criar cópia para a família":"Create family copy"}</button>}
+      <RecipeEditor key={selected?.id??seedRecipe?.id??"new"}
+        seedRecipe={selected===null?seedRecipe:undefined}
         familyId={familyId}
         ingredients={ingredients}
         recipe={selected}
         onDone={() => {
-          setSelected(undefined);
+          setSeedRecipe(undefined);setSelected(undefined);
           setRevision((current) => current + 1);
         }}
       />
+      {selected ? <RecipeTastePanel key={selected.id} familyId={familyId} recipe={selected}/> : null}
+      </>
     );
   }
 
@@ -833,11 +864,11 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
           <h1>{copy.title}</h1>
           <p>{copy.help}</p>
         </div>
-        <button className="button primary" onClick={() => setSelected(null)} type="button">
+        <button className="button primary" disabled={busy} onClick={() => {setSeedRecipe(undefined);setSelected(null);}} type="button">
           + {copy.newRecipe}
         </button>
       </header>
-      <div className="recipe-toolbar">
+      <div className="recipe-toolbar nf-recipe-browse-toolbar">
         <label className="field recipe-search">
           <span>{copy.search}</span>
           <input
@@ -847,6 +878,8 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
+      </div>
+      <details className="nf-recipe-filter-tools"><summary>{locale==="pt-PT"?"Filtros e ordenação":"Filters and sorting"}{(nutritionFilter!=="all"||mealFilter!=="all"||originFilter!=="all"||includeInactive)&&<span> · {locale==="pt-PT"?"ativos":"active"}</span>}</summary><div className="nf-filter-options">
         <label className="field recipe-quality-filter">
           <span>{copy.nutritionFilter}</span>
           <select
@@ -867,7 +900,9 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
           />
           <span>{copy.showInactive}</span>
         </label>
-      </div>
+      <div className="nf-catalogue-context"><label className="field"><span>{locale==="pt-PT"?"Tempo de refeição":"Meal type"}</span><select value={mealFilter} onChange={e=>setMealFilter(e.target.value as RecipeBrowse["meal"])}><option value="all">{copy.filterAll}</option>{MEAL_TYPES.map(type=><option key={type} value={type}>{copy[type]}</option>)}</select></label><label className="field"><span>{locale==="pt-PT"?"Origem da receita":"Recipe origin"}</span><select value={originFilter} onChange={e=>setOriginFilter(e.target.value as RecipeBrowse["origin"])}><option value="all">{copy.filterAll}</option><option value="shared">{copy.shared}</option><option value="family">{locale==="pt-PT"?"Próprias da família":"Family originals"}</option><option value="adapted">{locale==="pt-PT"?"Adaptações":"Adaptations"}</option></select></label><label className="field"><span>{locale==="pt-PT"?"Ordenar por":"Sort by"}</span><select value={sortOrder} onChange={e=>setSortOrder(e.target.value as RecipeBrowse["sort"])}><option value="name">{locale==="pt-PT"?"Nome A–Z":"Name A–Z"}</option><option value="updated">{locale==="pt-PT"?"Atualizadas recentemente":"Recently updated"}</option><option value="ingredients">{locale==="pt-PT"?"Menos ingredientes":"Fewer ingredients"}</option></select></label></div>
+      </div></details>
+      <div className="nf-catalogue-results"><p role="status">{busy?copy.loading:`${filteredRecipes.length} ${locale==="pt-PT"?"receitas encontradas":"recipes found"}`}</p>{hasSearch&&<button className="button ghost small" type="button" onClick={clearFilters}>{locale==="pt-PT"?"Limpar filtros":"Clear filters"}</button>}</div>
       {error ? (
         <div className="error-banner" role="alert">
           <strong>{copy.error}</strong>
@@ -879,16 +914,17 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
       ) : filteredRecipes.length === 0 ? (
         <div className="ingredient-empty">{hasSearch ? copy.emptySearch : copy.empty}</div>
       ) : (
-        <div className="ingredient-list">
+        <div className="nf-recipe-grid">
           {filteredRecipes.map((recipe) => {
             const state = recipeNutritionState(recipe);
             return (
               <button
-                className="ingredient-row"
+                className="nf-recipe-card"
                 key={recipe.id}
                 onClick={() => setSelected(recipe)}
                 type="button"
               >
+                <span className="nf-recipe-art" aria-hidden="true"><Icon name="book" /></span>
                 <span className="ingredient-row__main">
                   <strong>{recipe.name}</strong>
                   <small>
@@ -899,6 +935,7 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
                   <span className={`recipe-nutrition-state ${state}`}>
                     {state === "missing" ? copy.nutritionIncomplete : recipeNutritionEvidenceLabel(recipe, locale)}
                   </span>
+                  {isAdaptedRecipe(recipe)&&<span className="ingredient-inactive">{locale==="pt-PT"?"Adaptação":"Adaptation"}</span>}
                   {recipe.scope === "shared" ? (
                     <span className="ingredient-inactive">{copy.shared}</span>
                   ) : null}
