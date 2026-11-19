@@ -730,6 +730,7 @@ test("UI weekly attendance: confirmation survives a reload without changing save
     {person_id:second.id,decision:"unconfirmed"},
   ]);
   await page.goto("/#/meals?date=2026-11-12&mode=prepare");
+  await page.reload(); // Recreate the planning journey rather than retaining its previous step.
   await expect(page.getByRole("heading",{name:"Vamos planear a próxima semana"})).toBeVisible();
   await page.getByLabel("Semana a começar na segunda-feira").fill("2026-11-16");
   await page.getByText("Quem está em cada refeição?",{exact:true}).click();
