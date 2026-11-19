@@ -9,7 +9,7 @@ from app.schemas.meal_type import MealType
 from app.services.meal_recommendation import CandidateEvaluation, MealCandidate
 from app.services.meal_recommendation_plan_fit import (
     MealRecommendationPlanFitError,
-    evaluate_candidate_plan_fits,
+    evaluate_loaded_candidate_plan_fits,
     recommend_meals_with_plan_fit,
 )
 from app.services.recommendation_practical_plan_fit import (
@@ -184,10 +184,10 @@ def recommend_shared_family_meals_with_plan_fit(
                 "Shared-family Plan-Fit requires persisted Persons and DailyNutritionStates."
             )
         try:
-            plan_fits_by_person[person_id] = evaluate_candidate_plan_fits(
+            plan_fits_by_person[person_id] = evaluate_loaded_candidate_plan_fits(
                 db,
-                person_id=person_id,
-                daily_nutrition_state_id=state_id,
+                person=participant.person,
+                daily_state=participant.daily_state,
                 planning_date=planning_date,
                 meal_type=meal_type,
                 candidates=candidates_by_person[person_id],

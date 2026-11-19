@@ -78,6 +78,7 @@ def _request_json(
     data: bytes | None = None,
     content_type: str | None = None,
     extra_headers: dict[str, str] | None = None,
+    timeout_seconds: float | None = None,
 ) -> Any:
     headers = {
         "Accept": "application/json",
@@ -91,7 +92,9 @@ def _request_json(
     try:
         with urlopen(
             request,
-            timeout=settings.restaurant_discovery_timeout_seconds,
+            timeout=timeout_seconds
+            if timeout_seconds is not None
+            else settings.restaurant_discovery_timeout_seconds,
         ) as response:
             return json.loads(response.read().decode("utf-8"))
     except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
@@ -157,9 +160,7 @@ def _geocode_area(area: str) -> tuple[Decimal, Decimal, Decimal, Decimal]:
     bounding_box = payload[0].get("boundingbox")
     if not isinstance(bounding_box, list) or len(bounding_box) != 4:
         raise RestaurantDiscoveryError("Geocoding result does not contain a usable bounding box.")
-    south, north, west, east = (
-        _decimal(value, field="bounding box") for value in bounding_box
-    )
+    south, north, west, east = (_decimal(value, field="bounding box") for value in bounding_box)
     return south, west, north, east
 
 
@@ -223,9 +224,7 @@ def _quality_score(
 def _restaurant_name_key(name: str) -> str:
     normalized = unicodedata.normalize("NFKD", name.casefold())
     ascii_text = "".join(
-        character
-        for character in normalized
-        if not unicodedata.combining(character)
+        character for character in normalized if not unicodedata.combining(character)
     )
     return re.sub(r"[^a-z0-9]+", " ", ascii_text).strip()
 
@@ -294,27 +293,15 @@ def _restaurant(element: object) -> RestaurantDiscoveryPlaceRead | None:
     element_id = element.get("id")
     tags = element.get("tags")
     coordinates = _coordinates(element)
-    if (
-        not element_type
-        or element_id is None
-        or not isinstance(tags, dict)
-        or coordinates is None
-    ):
+    if not element_type or element_id is None or not isinstance(tags, dict) or coordinates is None:
         return None
     name = str(tags.get("name") or "").strip()
     if not name:
         return None
     amenity = str(tags.get("amenity") or "restaurant").strip()
-    cuisine = [
-        item.strip()
-        for item in str(tags.get("cuisine") or "").split(";")
-        if item.strip()
-    ]
+    cuisine = [item.strip() for item in str(tags.get("cuisine") or "").split(";") if item.strip()]
     latitude, longitude = coordinates
-    website = (
-        str(tags.get("contact:website") or tags.get("website") or "").strip()
-        or None
-    )
+    website = str(tags.get("contact:website") or tags.get("website") or "").strip() or None
     phone = str(tags.get("contact:phone") or tags.get("phone") or "").strip() or None
     opening_hours = str(tags.get("opening_hours") or "").strip() or None
     primary_type = "fast_food_restaurant" if amenity == "fast_food" else "restaurant"
@@ -353,11 +340,7 @@ def _google_place(place: object) -> RestaurantDiscoveryPlaceRead | None:
     place_id = str(place.get("id") or "").strip()
     display_name = place.get("displayName")
     location = place.get("location")
-    if (
-        not place_id
-        or not isinstance(display_name, dict)
-        or not isinstance(location, dict)
-    ):
+    if not place_id or not isinstance(display_name, dict) or not isinstance(location, dict):
         return None
     name = str(display_name.get("text") or "").strip()
     latitude = _optional_decimal(location.get("latitude"))
@@ -369,9 +352,7 @@ def _google_place(place: object) -> RestaurantDiscoveryPlaceRead | None:
     rating = _optional_decimal(place.get("rating"))
     rating_count = _optional_int(place.get("userRatingCount"))
     opening = place.get("regularOpeningHours")
-    weekday_descriptions = (
-        opening.get("weekdayDescriptions") if isinstance(opening, dict) else None
-    )
+    weekday_descriptions = opening.get("weekdayDescriptions") if isinstance(opening, dict) else None
     opening_hours = (
         " · ".join(str(item) for item in weekday_descriptions)
         if isinstance(weekday_descriptions, list)
@@ -389,9 +370,7 @@ def _google_place(place: object) -> RestaurantDiscoveryPlaceRead | None:
         website=str(place.get("websiteUri") or "").strip() or None,
         phone=str(place.get("nationalPhoneNumber") or "").strip() or None,
         opening_hours=opening_hours,
-        source_reference=(
-            "https://www.google.com/maps/search/?api=1&query_place_id=" + place_id
-        ),
+        source_reference=("https://www.google.com/maps/search/?api=1&query_place_id=" + place_id),
         primary_type=primary_type,
         rating=rating,
         rating_count=rating_count,
@@ -438,21 +417,13 @@ def _fetch_google_restaurants(
             },
         )
         if not isinstance(response, dict):
-            raise RestaurantDiscoveryError(
-                "Google Places returned invalid restaurant data."
-            )
+            raise RestaurantDiscoveryError("Google Places returned invalid restaurant data.")
         raw_places = response.get("places")
         if raw_places is None:
             raw_places = []
         if not isinstance(raw_places, list):
-            raise RestaurantDiscoveryError(
-                "Google Places returned invalid restaurant data."
-            )
-        places.extend(
-            parsed
-            for raw in raw_places
-            if (parsed := _google_place(raw)) is not None
-        )
+            raise RestaurantDiscoveryError("Google Places returned invalid restaurant data.")
+        places.extend(parsed for raw in raw_places if (parsed := _google_place(raw)) is not None)
         next_token = response.get("nextPageToken")
         page_token = str(next_token).strip() if next_token else None
         if page_token is None or not raw_places:
@@ -469,6 +440,87 @@ def _fetch_google_restaurants(
     )
 
 
+def _overpass_payload(query: bytes) -> Any:
+    endpoints = list(
+        dict.fromkeys(
+            filter(
+                None,
+                [
+                    settings.restaurant_discovery_overpass_url,
+                    settings.restaurant_discovery_overpass_fallback_url,
+                ],
+            )
+        )
+    )
+    for index, endpoint in enumerate(endpoints):
+        try:
+            return _request_json(
+                endpoint,
+                data=query,
+                content_type="application/x-www-form-urlencoded",
+                timeout_seconds=max(25.0, settings.restaurant_discovery_overpass_timeout_seconds),
+            )
+        except RestaurantDiscoveryError as exc:
+            cause = exc.__cause__
+            # Respect rate limiting and access denials rather than retrying elsewhere.
+            if isinstance(cause, HTTPError) and cause.code < 500:
+                raise
+            if index == len(endpoints) - 1:
+                raise
+    raise RestaurantDiscoveryError("No restaurant discovery endpoint is configured.")
+
+
+def _nominatim_restaurants(bbox, *, limit: int):
+    # A bounded interactive POI search returns a selection, never a complete catalogue.
+    south, west, north, east = bbox
+    query = urlencode(
+        {
+            "q": "[restaurant]",
+            "format": "jsonv2",
+            "bounded": "1",
+            "viewbox": f"{west},{north},{east},{south}",
+            "limit": str(min(limit, 40)),
+            "extratags": "1",
+            "namedetails": "1",
+        }
+    )
+    rows = _nominatim_request(
+        f"{settings.restaurant_discovery_nominatim_url.rstrip('/')}/search?{query}"
+    )
+    if not isinstance(rows, list):
+        raise RestaurantDiscoveryError("Restaurant discovery provider returned invalid data.")
+    places = []
+    for row in rows:
+        if not isinstance(row, dict) or row.get("type") not in {
+            "restaurant",
+            "fast_food",
+            "food_court",
+        }:
+            continue
+        if row.get("osm_type") not in {"node", "way", "relation"}:
+            continue
+        tags = dict(row["extratags"]) if isinstance(row.get("extratags"), dict) else {}
+        names = row["namedetails"] if isinstance(row.get("namedetails"), dict) else {}
+        tags["name"] = (
+            names.get("name") or row.get("name") or str(row.get("display_name", "")).split(",")[0]
+        )
+        tags["amenity"] = row["type"]
+        place = _restaurant(
+            {
+                "type": row.get("osm_type"),
+                "id": row.get("osm_id"),
+                "lat": row.get("lat"),
+                "lon": row.get("lon"),
+                "tags": tags,
+            }
+        )
+        if place is not None:
+            places.append(
+                place.model_copy(update={"address": row.get("display_name") or place.address})
+            )
+    return places
+
+
 def _fetch_restaurants(
     area: str,
     *,
@@ -476,21 +528,22 @@ def _fetch_restaurants(
 ) -> RestaurantDiscoveryRead:
     bbox = _geocode_area(area)
     query = urlencode({"data": _overpass_query(bbox)}).encode("utf-8")
-    payload = _request_json(
-        settings.restaurant_discovery_overpass_url,
-        data=query,
-        content_type="application/x-www-form-urlencoded",
-    )
-    if not isinstance(payload, dict) or not isinstance(payload.get("elements"), list):
-        raise RestaurantDiscoveryError("Restaurant discovery provider returned invalid data.")
-    places = [
-        place
-        for element in payload["elements"]
-        if (place := _restaurant(element)) is not None
-    ]
+    provider = "openstreetmap"
+    try:
+        payload = _overpass_payload(query)
+        if not isinstance(payload, dict) or not isinstance(payload.get("elements"), list):
+            raise RestaurantDiscoveryError("Restaurant discovery provider returned invalid data.")
+        places = [
+            place for element in payload["elements"] if (place := _restaurant(element)) is not None
+        ]
+    except RestaurantDiscoveryError as exc:
+        if isinstance(exc.__cause__, HTTPError) and exc.__cause__.code < 500:
+            raise
+        places = _nominatim_restaurants(bbox, limit=limit)
+        provider = "openstreetmap_nominatim"
     ranked = _rank_and_dedupe(places)
     return RestaurantDiscoveryRead(
-        provider="openstreetmap",
+        provider=provider,
         area=area,
         observed_at=datetime.now(UTC),
         cached=False,
@@ -506,7 +559,7 @@ def _live_provider_key() -> str:
 
 
 def _cache_ttl(result: RestaurantDiscoveryRead) -> int:
-    if result.provider == "openstreetmap_fallback":
+    if result.provider in {"openstreetmap_fallback", "openstreetmap_nominatim"}:
         return min(settings.restaurant_discovery_cache_seconds, 300)
     return settings.restaurant_discovery_cache_seconds
 

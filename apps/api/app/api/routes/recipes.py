@@ -97,4 +97,6 @@ def deactivate_family_recipe_endpoint(
         deactivate_family_recipe(db, family_id, recipe_id)
     except RecipeNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RecipeCatalogueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)

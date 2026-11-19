@@ -1,9 +1,17 @@
 import type { MealTransformationOperation } from "./mealTransformationTypes";
+import type { MealPlanFitNutrient, MealPlanFitRule } from "./planFitTypes";
 import type { RecommendationCandidateInput } from "./types";
 
 export type WeeklyPlanningMealType = "breakfast" | "lunch" | "snack" | "dinner";
+export type NutritionPlanAuthorityState =
+  | "active_plan"
+  | "partial_plan_coverage"
+  | "no_active_plan"
+  | "plan_conflict";
+export type MealPlanFitStatus = "pass" | "partial" | "fail" | "unknown" | "conflict";
 
 export type SharedWeeklyPlanningSlotRequest = {
+  person_ids?: string[];
   slot_key: string;
   planning_date: string;
   scheduled_at: string;
@@ -20,6 +28,7 @@ export type SharedWeeklyPlanningSlotRequest = {
 
 export type SharedWeeklyPlanProposalRequest = {
   person_ids: string[];
+  excluded_food_item_ids?: string[];
   slots: SharedWeeklyPlanningSlotRequest[];
   max_combinations?: number;
 };
@@ -60,14 +69,31 @@ export type SharedWeeklyPlan = {
 
 export type SharedWeeklyPlanParticipant = {
   person_id: string;
+  daily_nutrition_state_id: string | null;
   score: string | null;
   quantity: string;
   quantity_unit: string;
   energy_kcal: string | null;
+  nutrition: {
+    energy_kcal: string | null;
+    nutrients: Record<string, MealPlanFitNutrient>;
+  };
+  plan_rule_results: MealPlanFitRule[];
+  plan_guidance: string[];
+  portion_factor: string | null;
+  meal_energy_target_min_kcal: string | null;
+  meal_energy_target_max_kcal: string | null;
+  plan_fit_status: MealPlanFitStatus;
+  plan_fit_score: string | null;
+  nutrition_plan_authority: NutritionPlanAuthorityState;
+  active_plan_ids: string[];
+  active_plan_titles: string[];
+  plan_unknown_evidence: string[];
   explanation: string[];
 };
 
 export type SharedWeeklyPlanChoice = {
+  variant_changes?: string[];
   slot_key: string;
   planning_date: string;
   scheduled_at: string;
@@ -75,6 +101,7 @@ export type SharedWeeklyPlanChoice = {
   candidate_key: string;
   candidate_name: string;
   candidate_kind: string;
+  recipe_id: string | null;
   minimum_score: string | null;
   average_score: string | null;
   participants: SharedWeeklyPlanParticipant[];
@@ -92,6 +119,14 @@ export type SharedWeeklyPlanSelection = {
   choices: SharedWeeklyPlanChoice[];
 };
 
+export type SharedWeeklyPlanSkippedSlot = {
+  slot_key: string;
+  planning_date: string;
+  meal_type: WeeklyPlanningMealType;
+  reason: "no_eligible_candidates";
+  exclusion_reasons: string[];
+};
+
 export type SharedWeeklyPlanProposal = {
   family_id: string;
   participant_ids: string[];
@@ -100,6 +135,7 @@ export type SharedWeeklyPlanProposal = {
   engine_version: string;
   slot_engine_versions: Record<string, string>;
   selected_plan: SharedWeeklyPlanSelection | null;
+  skipped_slots: SharedWeeklyPlanSkippedSlot[];
   evaluated_combinations: number;
   feasible_combinations: number;
   rejected_by_person_weekly_maximum: number;

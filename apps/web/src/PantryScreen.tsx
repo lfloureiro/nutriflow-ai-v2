@@ -1,3 +1,6 @@
+import {EmptyState} from "./ui/primitives";
+import {pantryState,visiblePantryLots} from "./pantryDisplay";
+import Icon from "./ui/Icon";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { ApiError, listFamilyIngredients } from "./api/client";
@@ -88,16 +91,24 @@ export default function PantryScreen({ familyId }: { familyId: string }) {
   const [includeInactive, setIncludeInactive] = useState(false);
   const [editing, setEditing] = useState<PantryLot | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [query,setQuery]=useState("");
+  const [filter,setFilter]=useState<"all"|"soon"|"undated">("all");
+  const [now,setNow]=useState(()=>Date.now());
+  useEffect(()=>{const timer=window.setInterval(()=>setNow(Date.now()),60_000);return()=>window.clearInterval(timer);},[]);
+  const shown=visiblePantryLots(lots,query,filter,now);
+  const attention=lots.filter(lot=>["soon","expired"].includes(pantryState(lot,now))).length;
+  const undated=lots.filter(lot=>pantryState(lot,now)==="undated").length;
   const [values, setValues] = useState<FormValues>(EMPTY_FORM);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const activeIngredients = useMemo(
-    () => ingredients.filter((ingredient) => ingredient.is_active),
-    [ingredients],
+    () => ingredients.filter((ingredient) => ingredient.is_active || ingredient.id===editing?.food_item_id),
+    [ingredients,editing?.food_item_id],
   );
 
   function load() {
+    let cancelled=false;
     setBusy(true);
     setError(null);
     void Promise.all([
@@ -105,18 +116,20 @@ export default function PantryScreen({ familyId }: { familyId: string }) {
       listFamilyIngredients(familyId),
     ])
       .then(([nextLots, nextIngredients]) => {
+        if(cancelled)return;
         setLots(nextLots);
         setIngredients(nextIngredients);
       })
-      .catch((caught: unknown) => setError(errorText(caught)))
-      .finally(() => setBusy(false));
+      .catch((caught: unknown) => {if(!cancelled)setError(errorText(caught));})
+      .finally(() => {if(!cancelled)setBusy(false);});
+    return()=>{cancelled=true;};
   }
 
   useEffect(load, [familyId, includeInactive]);
 
   function startCreate() {
     setEditing(null);
-    setValues({ ...EMPTY_FORM, ingredientId: activeIngredients[0]?.id ?? "" });
+    setValues({ ...EMPTY_FORM, ingredientId: activeIngredients.find(ingredient=>ingredient.is_active)?.id ?? "" });
     setShowForm(true);
   }
 
@@ -134,7 +147,8 @@ export default function PantryScreen({ familyId }: { familyId: string }) {
 
   async function save(event: FormEvent) {
     event.preventDefault();
-    if (!values.ingredientId || Number(decimalText(values.quantity)) <= 0) {
+    if (!values.ingredientId || !values.quantity.trim() || !Number.isFinite(Number(decimalText(values.quantity))) || Number(decimalText(values.quantity)) <= 0 || !values.unit.trim()) {
+      setError(locale === "pt-PT" ? "Escolhe um ingrediente e indica uma quantidade positiva e a unidade." : "Choose an ingredient, a positive quantity and a unit.");
       return;
     }
     setBusy(true);
@@ -143,7 +157,7 @@ export default function PantryScreen({ familyId }: { familyId: string }) {
       if (editing) {
         await updatePantryLot(familyId, editing.id, {
           quantity_available: decimalText(values.quantity),
-          unit: values.unit,
+          unit: values.unit.trim(),
           location: values.location || null,
           expires_at: values.expiresAt ? `${values.expiresAt}T23:59:59Z` : null,
         });
@@ -151,7 +165,7 @@ export default function PantryScreen({ familyId }: { familyId: string }) {
         await createPantryLot(familyId, {
           food_item_id: values.ingredientId,
           quantity_available: decimalText(values.quantity),
-          unit: values.unit,
+          unit: values.unit.trim(),
           location: values.location || null,
           expires_at: values.expiresAt ? `${values.expiresAt}T23:59:59Z` : null,
         });
@@ -182,18 +196,20 @@ export default function PantryScreen({ familyId }: { familyId: string }) {
   }
 
   return (
-    <div className="pantry-screen">
+    <div className="pantry-screen" aria-busy={busy}>
       <header className="screen-header compact-screen-header">
         <div>
           <span className="eyebrow">{copy.eyebrow}</span>
           <h1>{copy.title}</h1>
           <p>{copy.help}</p>
         </div>
-        <button className="button primary" onClick={startCreate} type="button">
+        <button className="button primary" disabled={busy} onClick={startCreate} type="button">
           {copy.add}
         </button>
       </header>
 
+      <section className="nf-pantry-overview"><Icon name="pantry"/><div><strong>{locale === "pt-PT" ? "O que temos em casa" : "What we have at home"}</strong><p>{busy && lots.length===0 ? (locale === "pt-PT" ? "A carregar o stock registado…" : "Loading recorded stock…") : <>{lots.filter(lot=>lot.is_available).length} {locale === "pt-PT" ? "lotes ativos" : "active lots"} · {attention} {locale === "pt-PT" ? "com data próxima ou ultrapassada" : "near or past expiry"} · {undated} {locale === "pt-PT" ? "sem validade registada" : "without recorded expiry"}</>}</p></div></section>
+      <div className="nf-list-controls"><label className="field"><span>{locale === "pt-PT" ? "Procurar na despensa" : "Search pantry"}</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder={locale === "pt-PT" ? "Ingrediente ou local…" : "Ingredient or location…"}/></label><nav className="nf-filter-tabs" aria-label={locale === "pt-PT" ? "Filtrar despensa" : "Filter pantry"}>{(["all","soon","undated"] as const).map(value=><button key={value} type="button" aria-pressed={filter===value} onClick={()=>setFilter(value)}>{(locale === "pt-PT" ? {all:"Todos",soon:"Rever validade",undated:"Sem data"} : {all:"All",soon:"Review expiry",undated:"Undated"})[value]}</button>)}</nav></div>
       <label className="pantry-toggle">
         <input
           checked={includeInactive}
@@ -203,7 +219,7 @@ export default function PantryScreen({ familyId }: { familyId: string }) {
         <span>{copy.showInactive}</span>
       </label>
 
-      {error ? <div className="error-banner">{error}</div> : null}
+      {error ? <div className="error-banner" role="alert">{error}</div> : null}
       {busy && lots.length === 0 ? <div className="shell-loading">{copy.loading}</div> : null}
 
       {showForm ? (
@@ -269,24 +285,25 @@ export default function PantryScreen({ familyId }: { familyId: string }) {
       ) : null}
 
       <div className="pantry-list">
-        {!busy && lots.length === 0 ? <div className="empty-card">{copy.empty}</div> : null}
-        {lots.map((lot) => (
-          <article className={`pantry-row ${lot.is_available ? "" : "inactive"}`} key={lot.id}>
+        {!busy && shown.length === 0 ? lots.length ? <p className="empty-card" role="status">{locale === "pt-PT" ? "Sem lotes para esta pesquisa ou filtro." : "No lots match this search or filter."}</p> : <EmptyState title={copy.empty} description={locale === "pt-PT" ? "Começa pelos ingredientes que já tens em casa, com quantidade, local e validade quando conhecida. O plano desconta o stock utilizável nas compras." : "Start with ingredients at home, their quantity, location and expiry when known. Shopping deducts usable stock."}><button type="button" className="button primary" onClick={startCreate}>{copy.add}</button></EmptyState> : null}
+        {shown.map((lot) => (
+          <article className={`pantry-row ${lot.is_available ? "" : "inactive"}`} data-stock-state={pantryState(lot,now)} key={lot.id}>
             <div>
-              <strong>{lot.food_item_name}</strong>
+              <strong>{lot.food_item_name}</strong><small className="nf-expiry-badge">{(locale === "pt-PT" ? {available:"Data registada",soon:"Data nos próximos 3 dias",expired:"Data ultrapassada · rever",undated:"Sem validade registada",inactive:"Inativo",empty:"Sem quantidade disponível"} : {available:"Date recorded",soon:"Date in the next 3 days",expired:"Past recorded date · review",undated:"No recorded expiry",inactive:"Inactive",empty:"No available quantity"})[pantryState(lot,now)]}</small>
               <span>
-                {lot.quantity_available} {lot.unit}
+                {new Intl.NumberFormat(locale,{maximumFractionDigits:6}).format(Number(lot.quantity_available))} {lot.unit}
                 {lot.location ? ` · ${lot.location}` : ""}
               </span>
               {lot.expires_at ? <small>{copy.expires}: {lot.expires_at.slice(0, 10)}</small> : null}
             </div>
             <div className="row-actions">
               {!lot.is_available ? <span className="status-chip">{copy.inactive}</span> : null}
-              <button className="button ghost small" onClick={() => startEdit(lot)} type="button">
+              <button className="button ghost small" disabled={busy} onClick={() => startEdit(lot)} type="button">
                 {copy.edit}
               </button>
               <button
                 className="button ghost small"
+                disabled={busy}
                 onClick={() => void changeAvailability(lot)}
                 type="button"
               >

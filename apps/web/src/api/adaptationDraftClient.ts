@@ -1,0 +1,8 @@
+import {ApiError,buildApiUrl} from "./client";
+import type {MealType} from "./mealPlanTypes";
+export type AdaptationDraftSnapshot={base_recipe_id:string;meal_event_id:string|null;planning_date:string;meal_type:MealType;name:string;serving_count:string;operations:{recipe_ingredient_id:string;replacement_food_item_id:string|null;replacement_name:string;quantity:string;unit:string;preparation:string}[];participants:{person_id:string;quantity:string;unit:string}[];decisions:Record<string,"accepted"|"ignored"|"manual">};
+export type AdaptationDraft={id:string;version:number;status:"draft";base_changed:boolean;snapshot:AdaptationDraftSnapshot;updated_at:string};
+const path=(familyId:string)=>`/api/families/${encodeURIComponent(familyId)}/meal-adaptation-drafts`;
+async function request<T>(url:string,init?:RequestInit):Promise<T>{const response=await fetch(buildApiUrl(url),{...init,headers:{"Content-Type":"application/json",Accept:"application/json"}});if(!response.ok){const body=await response.json().catch(()=>({}));throw new ApiError(typeof body.detail==="string"?body.detail:`HTTP ${response.status}`,response.status);}return response.json() as Promise<T>;}
+export const listAdaptationDrafts=(familyId:string,recipeId:string)=>request<AdaptationDraft[]>(`${path(familyId)}?base_recipe_id=${encodeURIComponent(recipeId)}`);
+export const saveAdaptationDraft=(familyId:string,snapshot:AdaptationDraftSnapshot,previous:AdaptationDraft|null)=>request<AdaptationDraft>(previous?`${path(familyId)}/${encodeURIComponent(previous.id)}`:path(familyId),{method:previous?"PUT":"POST",body:JSON.stringify(previous?{...snapshot,expected_version:previous.version}:snapshot)});

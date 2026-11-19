@@ -11,6 +11,7 @@ from app.models.pantry_stock import PantryStockLot
 from app.services.meal_recommendation import MealCandidate
 from app.services.recommendation_practical_context import CandidatePracticalProfile
 from app.services.serving_nutrition import UnsupportedUnitConversionError, convert_quantity
+from app.services.weekly_debug import weekly_debug, weekly_debug_span
 
 ZERO = Decimal(0)
 
@@ -20,6 +21,10 @@ class PantryPlanningError(ValueError):
 
 
 class PantryUnitConversionError(PantryPlanningError):
+    pass
+
+
+class PantryCandidateScalingError(PantryPlanningError):
     pass
 
 
@@ -76,9 +81,7 @@ def _validate_food_scope(food_item: FoodItem, family_id: uuid.UUID) -> uuid.UUID
             f"FoodItem {food_item.catalog_key!r} must be persisted before pantry evaluation."
         )
     if food_item.family_id not in {None, family_id}:
-        raise PantryPlanningError(
-            f"FoodItem {food_item.catalog_key!r} belongs to another Family."
-        )
+        raise PantryPlanningError(f"FoodItem {food_item.catalog_key!r} belongs to another Family.")
     return food_item.id
 
 
@@ -178,6 +181,68 @@ def assess_food_pantry_stock(
     )
 
 
+def assess_timed_food_pantry_stock(
+    session: Session,
+    *,
+    family_id: uuid.UUID,
+    food_item: FoodItem,
+    demands: list[tuple[datetime, Decimal]],
+    required_unit: str,
+    as_of: datetime,
+) -> FoodPantryAssessment:
+    """Allocate a read-only FEFO budget at each meal time; never consume inventory."""
+    _validate_as_of(as_of)
+    food_id = _validate_food_scope(food_item, family_id)
+    if not demands or any(quantity <= ZERO for _, quantity in demands):
+        raise PantryPlanningError("Timed food demands must be positive.")
+    for instant, _quantity in demands:
+        _validate_as_of(instant)
+    lots = _active_stock_lots(session, family_id=family_id, food_item_id=food_id, as_of=as_of)
+    # PostgreSQL places null expiries last: use short-lived lots before long-lived ones.
+    balances = [
+        (
+            lot,
+            _convert_stock_quantity(
+                lot.quantity_available, lot.unit, required_unit, catalog_key=food_item.catalog_key
+            ),
+        )
+        for lot in lots
+    ]
+    allocated = ZERO
+    for meal_at, required in sorted(demands, key=lambda row: row[0]):
+        cutoff = max(as_of, meal_at)
+        remaining = required
+        for index, (lot, balance) in enumerate(balances):
+            if balance <= ZERO or (lot.expires_at is not None and lot.expires_at <= cutoff):
+                continue
+            taken = min(balance, remaining)
+            balances[index] = (lot, balance - taken)
+            remaining -= taken
+            allocated += taken
+            if remaining == ZERO:
+                break
+    last_meal = max(as_of, max(instant for instant, _ in demands))
+    usable_excess = sum(
+        (
+            balance
+            for lot, balance in balances
+            if lot.expires_at is None or lot.expires_at > last_meal
+        ),
+        start=ZERO,
+    )
+    required = sum((quantity for _, quantity in demands), start=ZERO)
+    return FoodPantryAssessment(
+        food_item_id=food_id,
+        catalog_key=food_item.catalog_key,
+        name=food_item.name,
+        required_quantity=required,
+        available_quantity=allocated + usable_excess,
+        missing_quantity=required - allocated if required > allocated else ZERO,
+        unit=required_unit,
+        stock_lot_ids=tuple(lot.id for lot in lots),
+    )
+
+
 def _aggregate_recipe_requirements(
     recipe: Recipe,
     *,
@@ -263,22 +328,31 @@ def _recipe_candidate_batch_multiplier(candidate: MealCandidate) -> Decimal:
     recipe = candidate.recipe
     if recipe is None:
         raise PantryPlanningError(f"Candidate {candidate.key!r} is not a Recipe candidate.")
-    if recipe.yield_quantity is None or recipe.yield_unit is None:
-        raise PantryPlanningError(
-            f"Recipe {recipe.recipe_key!r} needs yield quantity/unit for pantry candidate scaling."
-        )
-    try:
-        requested_yield = convert_quantity(
-            candidate.quantity,
-            candidate.quantity_unit,
-            recipe.yield_unit,
-        )
-    except UnsupportedUnitConversionError as exc:
-        raise PantryUnitConversionError(
-            f"Cannot scale Recipe {recipe.recipe_key!r} from candidate unit "
-            f"{candidate.quantity_unit!r} to yield unit {recipe.yield_unit!r}."
-        ) from exc
-    return requested_yield / recipe.yield_quantity
+
+    if recipe.yield_quantity is not None and recipe.yield_unit is not None:
+        try:
+            requested_yield = convert_quantity(
+                candidate.quantity,
+                candidate.quantity_unit,
+                recipe.yield_unit,
+            )
+        except UnsupportedUnitConversionError as exc:
+            raise PantryUnitConversionError(
+                f"Cannot scale Recipe {recipe.recipe_key!r} from candidate unit "
+                f"{candidate.quantity_unit!r} to yield unit {recipe.yield_unit!r}."
+            ) from exc
+        return requested_yield / recipe.yield_quantity
+
+    if recipe.serving_count is not None and candidate.quantity_unit == "serving":
+        return candidate.quantity / recipe.serving_count
+
+    if candidate.quantity_unit == "recipe":
+        return candidate.quantity
+
+    raise PantryCandidateScalingError(
+        f"Recipe {recipe.recipe_key!r} needs yield quantity/unit or compatible "
+        "serving-count evidence for pantry candidate scaling."
+    )
 
 
 def build_pantry_stock_practical_profiles(
@@ -290,7 +364,22 @@ def build_pantry_stock_practical_profiles(
 ) -> tuple[CandidatePracticalProfile, ...]:
     _validate_as_of(as_of)
     profiles: list[CandidatePracticalProfile] = []
+    weekly_debug(
+        "PANTRY",
+        "profiles-start",
+        candidates=len(candidates),
+        family=family_id,
+        as_of=as_of,
+    )
     for candidate in candidates:
+        weekly_debug(
+            "PANTRY",
+            "candidate",
+            candidate=candidate.key,
+            kind=("food_item" if candidate.food_item is not None else "recipe"),
+            quantity=candidate.quantity,
+            unit=candidate.quantity_unit,
+        )
         if candidate.food_item is not None:
             assessment = assess_food_pantry_stock(
                 session,
@@ -302,13 +391,35 @@ def build_pantry_stock_practical_profiles(
             )
             is_available = assessment.is_sufficient
         elif candidate.recipe is not None:
-            assessment = evaluate_recipe_pantry_sufficiency(
-                session,
-                family_id=family_id,
-                recipe=candidate.recipe,
-                as_of=as_of,
-                batch_multiplier=_recipe_candidate_batch_multiplier(candidate),
-            )
+            try:
+                batch_multiplier = _recipe_candidate_batch_multiplier(candidate)
+            except PantryCandidateScalingError as exc:
+                weekly_debug(
+                    "PANTRY",
+                    "unscalable-candidate",
+                    candidate=candidate.key,
+                    error=str(exc),
+                )
+                profiles.append(
+                    CandidatePracticalProfile(
+                        candidate_key=candidate.key,
+                        is_available=False,
+                    )
+                )
+                continue
+            with weekly_debug_span(
+                "PANTRY",
+                "recipe-sufficiency",
+                candidate=candidate.key,
+                multiplier=batch_multiplier,
+            ):
+                assessment = evaluate_recipe_pantry_sufficiency(
+                    session,
+                    family_id=family_id,
+                    recipe=candidate.recipe,
+                    as_of=as_of,
+                    batch_multiplier=batch_multiplier,
+                )
             is_available = assessment.is_sufficient
         else:
             raise PantryPlanningError(
@@ -321,4 +432,13 @@ def build_pantry_stock_practical_profiles(
                 is_available=is_available,
             )
         )
+    weekly_debug(
+        "PANTRY",
+        "profiles-ready",
+        candidates=len(candidates),
+        profiles=len(profiles),
+        available=sum(1 for profile in profiles if profile.is_available is True),
+        unavailable=sum(1 for profile in profiles if profile.is_available is False),
+        unknown=sum(1 for profile in profiles if profile.is_available is None),
+    )
     return tuple(profiles)

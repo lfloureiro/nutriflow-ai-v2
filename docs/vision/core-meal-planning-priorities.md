@@ -1,5 +1,12 @@
 # NutriFlow AI v2 — Core meal-planning priorities
 
+## Current next-work priority — 2026-10-18
+
+See `integrated-family-meal-planning-roadmap.md` and ADR-060. Next: participants per meal
+(weekly patterns/date exceptions), explicit rules, complete Family recipe variants, unified
+home/delivery/restaurant discovery and map. The earlier sequence below records foundation work;
+it does not require isolated provider screens or identical attendance for the entire week.
+
 ## Product correction
 
 The primary value of NutriFlow is practical family meal planning. Health dashboards and individual analytics support that goal; they must not displace the workflows required to decide what the family will eat, maintain recipes, know what ingredients are available and prepare shopping requirements.

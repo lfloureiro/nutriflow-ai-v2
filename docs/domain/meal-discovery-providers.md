@@ -24,6 +24,11 @@ Family-owned recipes remain private/editable and are visible only to that Family
 
 ## Live restaurant discovery
 
+Current code update (2026-10-18): Google Places Text Search New is implemented when enabled
+and a key is available, including explicit field masks, pagination and OSM fallback. The
+OSM-only description below records the initial implementation. The current local configuration
+has no Google key. Capability status is not a successful network health check.
+
 `GET /api/families/{family_id}/restaurant-discovery` performs an explicit user-triggered restaurant-area lookup.
 
 The initial provider is OpenStreetMap:
@@ -82,3 +87,28 @@ Uber Consumer Delivery is the intended Uber contract for consumer restaurant/men
 The currently public Glovo and Bolt Food partner APIs are treated as merchant/POS/logistics integrations, not as proof of a general consumer marketplace discovery contract. Their consumer adapters remain disabled until an appropriate authorized contract is available.
 
 Synthetic commercial fixtures may be used by automated tests, but the default development browser seed must not present them as live provider results.
+
+## Next integration sequence — requested 2026-10-18
+
+`docs/vision/integrated-family-meal-planning-roadmap.md` and ADR-060 define the next work.
+Move normal source discovery into the selected meal's participant/date/location context,
+with unified recipes/delivery/restaurant results and a synchronized map/list. Keep provider
+configuration as a secondary administration task. Preserve the distinction between discovered
+venue, real menu item with missing evidence and a dish evaluated for the actual participants.
+
+Read-only configuration inspection found Uber/Glovo/Bolt Food selected locally but without
+credentials, consumer enablement or registered executable adapters. Family area/address
+defaults are present; no addresses, secrets or diagnoses belong in provider diagnostic output.
+No external request was performed in that inspection. Resolve authorized contracts and real
+adapters before marking marketplace discovery live; do not block home recipe improvements
+on those external dependencies.
+
+## Incremento ADR-065 — seleção da refeição (18/10/2026)
+
+Procura de restaurantes e links de plataformas agora no detalhe de cada refeição do percurso
+semanal. Mapa incorporado com marcador associado à seleção da lista. HTTP Overpass passa
+a esperar o prazo da query e tenta instância alternativa em falhas temporárias; não contorna
+HTTP 4xx/429. Fallback Nominatim limitado à zona retorna uma seleção, identificada como
+`openstreetmap_nominatim`, com cache curta. Teste real via UI: 12 resultados em Lisboa.
+Conta normal de cliente confirmada; marketplaces continuam sem API consumer/autorização/
+adaptador live. Links às plataformas não são importação automática nem recomendação validada.

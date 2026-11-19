@@ -63,6 +63,7 @@ def create_meal_plan_entry_endpoint(
     except MealPlanSlotConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except MealPlanError as exc:
+        db.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
@@ -81,6 +82,7 @@ def update_meal_plan_entry_endpoint(
     except (MealPlanEntryLockedError, MealPlanSlotConflictError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except MealPlanError as exc:
+        db.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 

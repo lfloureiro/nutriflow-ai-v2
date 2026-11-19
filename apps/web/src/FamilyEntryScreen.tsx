@@ -1,3 +1,4 @@
+import Brand from "./ui/Brand";
 import { useMemo, useState, type FormEvent } from "react";
 
 import { ApiError } from "./api/client";
@@ -21,7 +22,7 @@ const COPY = {
     open: "Abrir existente",
     createTitle: "Criar o espaço da família",
     createHelp:
-      "Começa pela família. Depois adicionas as pessoas e o NutriFlow calcula os objetivos energéticos individuais.",
+      "Dá um nome à família. Depois adicionas as pessoas, os seus gostos e restrições.",
     familyName: "Nome da família",
     timezone: "Fuso horário",
     sources: "Onde queres procurar refeições?",
@@ -54,7 +55,7 @@ const COPY = {
     open: "Open existing",
     createTitle: "Create the family space",
     createHelp:
-      "Start with the family. Then add people and NutriFlow will calculate each person's energy targets.",
+      "Give your family a name. Then add people, their tastes and restrictions.",
     familyName: "Family name",
     timezone: "Timezone",
     sources: "Where should meals be discovered?",
@@ -167,10 +168,7 @@ export default function FamilyEntryScreen({
   return (
     <main className="entry-screen">
       <div className="entry-card family-entry-card">
-        <div className="entry-brand">
-          <span className="brand-mark" aria-hidden="true">N</span>
-          <strong>NutriFlow AI</strong>
-        </div>
+        <Brand/>
         <div className="segmented-control family-entry-mode">
           <button className={mode === "create" ? "active" : ""} onClick={() => setMode("create")} type="button">
             {copy.create}
@@ -185,7 +183,7 @@ export default function FamilyEntryScreen({
           </div>
         ) : null}
         {mode === "create" ? (
-          <form className="stack" onSubmit={submitCreate}>
+          <form className="stack" onSubmit={submitCreate} onInvalidCapture={event => {const details = event.target instanceof HTMLElement ? event.target.closest("details") : null;if(details)details.open=true;}}>
             <div>
               <span className="eyebrow">{copy.create}</span>
               <h1>{copy.createTitle}</h1>
@@ -195,6 +193,8 @@ export default function FamilyEntryScreen({
               <span>{copy.familyName}</span>
               <input required maxLength={120} value={name} onChange={(event) => setName(event.target.value)} />
             </label>
+            <p className="muted compact">{locale === "pt-PT" ? "Começas pelas receitas da família · Europe/Lisbon. Podes ajustar estas opções agora ou nas definições." : "Start with family recipes · Europe/Lisbon. Adjust these options now or in settings."}</p>
+            <details className="nf-onboarding-options"><summary>{locale === "pt-PT" ? "Personalizar localização e fontes" : "Customize location and sources"}</summary>
             <label className="field">
               <span>{copy.timezone}</span>
               <select required value={timezone} onChange={(event) => setTimezone(event.target.value)}>
@@ -228,6 +228,7 @@ export default function FamilyEntryScreen({
               ) : null}
               {wantsDelivery ? <small className="muted">{copy.providerNote}</small> : null}
             </section>
+            </details>
             <button className="button primary large" disabled={busy} type="submit">{busy ? copy.creating : copy.createButton}</button>
           </form>
         ) : (

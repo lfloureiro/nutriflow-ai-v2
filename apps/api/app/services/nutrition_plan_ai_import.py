@@ -1,5 +1,4 @@
 import json
-import os
 import uuid
 from decimal import Decimal
 from urllib.error import HTTPError, URLError
@@ -8,6 +7,7 @@ from urllib.request import Request, urlopen
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.nutrition_plan import NutritionPlan
 from app.models.nutrition_plan_import import (
     NutritionPlanImportProposal,
@@ -21,7 +21,9 @@ from app.schemas.nutrition_plan_import import (
 from app.services.nutrition_plan_import import get_nutrition_plan_import
 
 AI_PARSER_NAME = "openai-responses"
-AI_PARSER_VERSION = "nutrition-plan-structured-v1"
+AI_PARSER_VERSION = "nutrition-plan-structured-v2"
+CHATGPT_ASSISTED_PARSER_NAME = "chatgpt-assisted"
+CHATGPT_ASSISTED_PARSER_VERSION = "nutrition-plan-structured-v2:manual-chatgpt"
 DEFAULT_MODEL = "gpt-5.6-luna"
 
 
@@ -96,18 +98,67 @@ Rules:
 - Preserve source_statement as a short verbatim excerpt from the supplied text.
 - Never invent quantities, units, meals, frequencies, restrictions, diagnoses, or clinical meaning.
 - If wording is ambiguous, use proposal_type='unclassified' and explain the uncertainty in parser_note.
-- Use numeric_rule only when an explicit numeric target or limit exists.
-- Use qualitative_guideline for explicit non-numeric advice.
+- Use numeric_rule for an explicit numeric target/limit OR an explicit exclusion/prohibition
+  that can be represented structurally.
+- For an explicit exclusion/prohibition, use proposal_type='numeric_rule', operator='exclude',
+  target_type/target_key for the excluded subject, and set value_min/value_max/value_target/unit
+  to null. Do not invent catalogue identifiers; use a concise canonical category key when the
+  source names a category (for example gluten, soy, peanut, alcohol, refined_flour).
+- Split a source statement that explicitly excludes multiple distinct subjects into one proposal
+  per excluded subject, preserving a short supporting source_statement for each.
+- Use qualitative_guideline for explicit non-numeric advice that is not safely representable as
+  a structured exclusion.
 - Use frequency_guideline only for explicit weekly frequencies.
 - meal_type must be breakfast, lunch, snack, dinner, or null.
 - Normalize common nutrient keys to English snake_case, e.g. protein, fiber, sodium, energy_kcal,
   saturated_fat. Food categories may also use concise snake_case keys.
-- operator should be min, max, range, or target for numeric rules.
+- operator should be min, max, range, target, or exclude for structured rules.
 - mandatory=true only when the source clearly states a requirement, prohibition, limit, or obligation;
   otherwise false.
 - Keep every proposal confirmation-neutral. The application will require human confirmation later.
 - Do not provide medical advice or infer recommendations from diagnoses or laboratory values.
 """
+
+
+def build_chatgpt_nutrition_plan_prompt(source_text: str) -> str:
+    schema = json.dumps(_response_schema(), ensure_ascii=False, indent=2)
+    return (
+        "You are helping NutriFlow interpret a nutritionist plan.\n\n"
+        f"{_INSTRUCTIONS}\n"
+        "Return ONLY one JSON object. Do not use Markdown fences and do not add commentary.\n"
+        "The JSON must match this schema exactly:\n\n"
+        f"{schema}\n\n"
+        "SOURCE TEXT START\n"
+        f"{source_text.strip()}\n"
+        "SOURCE TEXT END\n"
+    )
+
+
+def _parse_chatgpt_response(response_text: str) -> tuple[list[dict[str, object]], str]:
+    text = response_text.strip()
+    fence = "`" * 3
+    if text.startswith(fence):
+        lines = text.splitlines()
+        if len(lines) >= 3 and lines[-1].strip() == fence:
+            lines = lines[1:-1]
+            if lines and lines[0].strip().casefold() == "json":
+                lines = lines[1:]
+            text = "\n".join(lines).strip()
+    try:
+        structured = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise NutritionPlanAIImportError(
+            "The ChatGPT response is not valid JSON. Paste only the JSON response."
+        ) from exc
+    if not isinstance(structured, dict):
+        raise NutritionPlanAIImportError("The ChatGPT response must be one JSON object.")
+    proposals = structured.get("proposals")
+    summary = structured.get("summary")
+    if not isinstance(proposals, list) or not isinstance(summary, str):
+        raise NutritionPlanAIImportError(
+            "The ChatGPT response must contain proposals and summary."
+        )
+    return proposals, summary
 
 
 def _output_text(payload: dict[str, object]) -> str:
@@ -131,13 +182,14 @@ def _output_text(payload: dict[str, object]) -> str:
 
 
 def _call_openai(source_text: str) -> tuple[list[dict[str, object]], str, str]:
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    api_key = (settings.openai_api_key or "").strip()
     if not api_key:
         raise NutritionPlanAIImportError(
-            "AI interpretation is not configured. Set OPENAI_API_KEY or use deterministic review."
+            "AI interpretation is not configured. Add OPENAI_API_KEY to the NutriFlow .env "
+            "file and restart the API."
         )
-    model = os.getenv("NUTRIFLOW_NUTRITION_PLAN_AI_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
-    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+    model = settings.nutriflow_nutrition_plan_ai_model.strip() or DEFAULT_MODEL
+    base_url = settings.openai_base_url.rstrip("/")
     request_payload = {
         "model": model,
         "store": False,
@@ -205,6 +257,62 @@ def _validated_proposals(
     return validated
 
 
+
+
+def create_chatgpt_assisted_nutrition_plan_import(
+    db: Session,
+    *,
+    person: Person,
+    data: NutritionPlanImportCreate,
+    response_text: str,
+) -> NutritionPlanImportSession:
+    raw_proposals, summary = _parse_chatgpt_response(response_text)
+    proposals = _validated_proposals(raw_proposals)
+
+    plan = NutritionPlan(
+        person_id=person.id,
+        lineage_id=uuid.uuid4(),
+        version=1,
+        title=data.title,
+        source_type=data.source_type,
+        source_name=data.source_name,
+        source_reference=data.source_reference,
+        original_text=data.source_text,
+        status="draft",
+        valid_from=data.valid_from,
+        valid_until=data.valid_until,
+    )
+    db.add(plan)
+    db.flush()
+
+    import_session = NutritionPlanImportSession(
+        person_id=person.id,
+        nutrition_plan_id=plan.id,
+        parser_name=CHATGPT_ASSISTED_PARSER_NAME,
+        parser_version=CHATGPT_ASSISTED_PARSER_VERSION,
+        status="review",
+        source_text=data.source_text,
+        parse_summary=summary,
+    )
+    db.add(import_session)
+    db.flush()
+
+    for ordinal, proposal_data in enumerate(proposals, start=1):
+        values = proposal_data.model_dump()
+        values["confidence"] = Decimal(str(values["confidence"]))
+        db.add(
+            NutritionPlanImportProposal(
+                import_session_id=import_session.id,
+                ordinal=ordinal,
+                **values,
+            )
+        )
+
+    db.commit()
+    return (
+        get_nutrition_plan_import(db, person_id=person.id, import_id=import_session.id)
+        or import_session
+    )
 def create_ai_nutrition_plan_import(
     db: Session,
     *,

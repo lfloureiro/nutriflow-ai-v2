@@ -1,8 +1,11 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel
+
+from app.schemas.avatar import AvatarAppearance
 
 
 class FamilyDashboardHealthRead(BaseModel):
@@ -32,10 +35,13 @@ class FamilyDashboardNutritionRead(BaseModel):
 
 
 class FamilyDashboardMemberRead(BaseModel):
+    avatar_appearance: AvatarAppearance | None = None
     person_id: uuid.UUID
     first_name: str
     last_name: str | None
     timezone: str
+    age_years: int | None = None
+    sex_for_energy_calculation: Literal["male", "female"] | None = None
     health: FamilyDashboardHealthRead | None
     nutrition: FamilyDashboardNutritionRead | None
 

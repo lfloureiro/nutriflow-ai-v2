@@ -64,12 +64,12 @@ function averageText(summary: RecipePreferenceSummary | null, locale: string): s
   );
 }
 
-export default function RecipePreferences({ familyId }: { familyId: string }) {
+export default function RecipePreferences({ familyId, fixedRecipe }: { familyId: string; fixedRecipe?: Recipe }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
-  const [recipeId, setRecipeId] = useState("");
+  const [recipeId, setRecipeId] = useState(fixedRecipe?.id ?? "");
   const [summary, setSummary] = useState<RecipePreferenceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingPersonId, setSavingPersonId] = useState<string | null>(null);
@@ -79,7 +79,7 @@ export default function RecipePreferences({ familyId }: { familyId: string }) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    void Promise.all([listFamilyRecipes(familyId), listFamilyPersons(familyId)])
+    void Promise.all([fixedRecipe ? Promise.resolve([fixedRecipe]) : listFamilyRecipes(familyId), listFamilyPersons(familyId)])
       .then(([recipeResult, peopleResult]) => {
         if (cancelled) return;
         setRecipes(recipeResult);
@@ -99,7 +99,7 @@ export default function RecipePreferences({ familyId }: { familyId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [familyId]);
+  }, [familyId, fixedRecipe]);
 
   useEffect(() => {
     if (!recipeId) {
@@ -184,7 +184,7 @@ export default function RecipePreferences({ familyId }: { familyId: string }) {
           <div className="recipe-preference-toolbar">
             <label className="field">
               <span>{copy.recipe}</span>
-              <select value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
+              <select disabled={!!fixedRecipe || savingPersonId !== null} value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
                 <option value="">{copy.chooseRecipe}</option>
                 {recipes.map((recipe) => (
                   <option key={recipe.id} value={recipe.id}>{recipe.name}</option>
@@ -208,14 +208,13 @@ export default function RecipePreferences({ familyId }: { familyId: string }) {
             <div className="recipe-preference-people">
               {people.map((person) => {
                 const current = ratingByPerson.get(person.id) ?? null;
-                const saving = savingPersonId === person.id;
                 return (
                   <div className="recipe-preference-person" key={person.id}>
                     <strong className="recipe-preference-name">{displayName(person)}</strong>
                     <div className="recipe-preference-controls">
                       <button
                         className={`button ghost recipe-dislike ${current === 0 ? "active" : ""}`}
-                        disabled={saving}
+                        disabled={savingPersonId !== null}
                         onClick={() => void rate(person.id, 0)}
                         type="button"
                       >
@@ -226,7 +225,7 @@ export default function RecipePreferences({ familyId }: { familyId: string }) {
                           <button
                             aria-label={`${rating} ${rating === 1 ? copy.star : copy.stars}`}
                             className={current !== null && rating <= current ? "selected" : ""}
-                            disabled={saving}
+                            disabled={savingPersonId !== null}
                             key={rating}
                             onClick={() => void rate(person.id, rating)}
                             type="button"
@@ -240,7 +239,7 @@ export default function RecipePreferences({ familyId }: { familyId: string }) {
                       </span>
                       <button
                         className="button ghost recipe-clear-rating"
-                        disabled={saving || current === null}
+                        disabled={savingPersonId !== null || current === null}
                         onClick={() => void clear(person.id)}
                         type="button"
                       >

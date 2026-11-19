@@ -58,6 +58,7 @@ def _fit(
     key: str,
     *,
     planning_date: date,
+    meal_type: str = "lunch",
     maximum_guideline_id: uuid.UUID | None = None,
     maximum: int | None = None,
     matches: bool | None = None,
@@ -82,7 +83,7 @@ def _fit(
     return MealPlanFitRead.model_construct(
         person_id=person_id,
         planning_date=planning_date,
-        meal_type="lunch",
+        meal_type=meal_type,
         candidate=MealPlanFitCandidateRead.model_construct(key=key),
         eligible=True,
         rule_results=[],
@@ -95,6 +96,9 @@ def _candidate(
     *,
     planning_date: date,
     score: str,
+    meal_type: str = "lunch",
+    planning_category: str | None = None,
+    primary_protein: str | None = None,
     maximum_guideline_id: uuid.UUID | None = None,
     maximum: int | None = None,
     matches: bool | None = None,
@@ -131,6 +135,8 @@ def _candidate(
         average_score=score_value,
         participant_evaluations=participants,
         exclusion_reasons=(),
+        planning_category=planning_category,
+        primary_protein=primary_protein,
     )
     return SharedWeeklyPlanningCandidate(
         evaluation=evaluation,
@@ -139,6 +145,7 @@ def _candidate(
                 person_id,
                 key,
                 planning_date=planning_date,
+                meal_type=meal_type,
                 maximum_guideline_id=maximum_guideline_id if person_id == ANA_ID else None,
                 maximum=maximum,
                 matches=matches if person_id == ANA_ID else None,
@@ -199,6 +206,172 @@ def test_large_search_space_uses_bounded_deterministic_search() -> None:
     assert result.evaluated_combinations <= 35
     assert result.selected_plan is not None
     assert len(result.selected_plan.choices) == 7
+
+
+def test_bounded_search_avoids_repeating_near_equivalent_favorite() -> None:
+    slots = []
+    for offset in range(6):
+        planning_date = MONDAY + timedelta(days=offset)
+        favorite = _candidate(
+            "favorite",
+            planning_date=planning_date,
+            score="1.0",
+        )
+        alternative = _candidate(
+            f"alternative:{offset}",
+            planning_date=planning_date,
+            score="0.9",
+        )
+        slots.append(
+            SharedWeeklyPlanningSlot(
+                slot_key=f"dinner:{offset}",
+                planning_date=planning_date,
+                meal_type="lunch",
+                candidates=(favorite, alternative),
+            )
+        )
+
+    result = optimize_shared_weekly_slots_scalable(
+        tuple(slots),
+        max_combinations=len(slots),
+    )
+
+    assert result.search_strategy == "bounded"
+    assert result.search_truncated is True
+    assert result.selected_plan is not None
+    selected = [
+        choice.candidate.evaluation.candidate_key
+        for choice in result.selected_plan.choices
+    ]
+    assert selected.count("favorite") == 1
+    assert result.selected_plan.repeated_candidate_count == 0
+
+
+def test_bounded_search_accumulates_repeat_penalty_with_large_catalogue() -> None:
+    slots = []
+    for offset in range(7):
+        planning_date = MONDAY + timedelta(days=offset)
+        favorite = _candidate(
+            "favorite",
+            planning_date=planning_date,
+            score="1.0",
+        )
+        alternatives = tuple(
+            _candidate(
+                f"alternative:{offset}:{index}",
+                planning_date=planning_date,
+                score="0.6",
+            )
+            for index in range(11)
+        )
+        slots.append(
+            SharedWeeklyPlanningSlot(
+                slot_key=f"dinner:{offset}",
+                planning_date=planning_date,
+                meal_type="lunch",
+                candidates=(favorite, *alternatives),
+            )
+        )
+
+    result = optimize_shared_weekly_slots_scalable(
+        tuple(slots),
+        max_combinations=14,
+    )
+
+    assert result.search_strategy == "bounded"
+    assert result.selected_plan is not None
+    selected = [
+        choice.candidate.evaluation.candidate_key
+        for choice in result.selected_plan.choices
+    ]
+    assert selected.count("favorite") <= 2
+    assert len(set(selected)) >= 6
+
+
+def test_weekly_ranking_prefers_no_exact_repeat_when_alternatives_exist() -> None:
+    slots = []
+    for offset in range(4):
+        planning_date = MONDAY + timedelta(days=offset)
+        favorite = _candidate(
+            "favorite",
+            planning_date=planning_date,
+            score="1.0",
+            planning_category="meat",
+            primary_protein="beef",
+        )
+        alternative = _candidate(
+            f"alternative:{offset}",
+            planning_date=planning_date,
+            score="0.7",
+            planning_category="fish" if offset % 2 else "meat",
+            primary_protein="hake" if offset % 2 else "chicken",
+        )
+        slots.append(
+            SharedWeeklyPlanningSlot(
+                slot_key=f"dinner:{offset}",
+                planning_date=planning_date,
+                meal_type="lunch",
+                candidates=(favorite, alternative),
+            )
+        )
+
+    result = optimize_shared_weekly_slots_scalable(
+        tuple(slots),
+        max_combinations=32,
+    )
+
+    assert result.selected_plan is not None
+    selected = [
+        choice.candidate.evaluation.candidate_key
+        for choice in result.selected_plan.choices
+    ]
+    assert len(set(selected)) == 4
+    assert result.selected_plan.repeated_candidate_count == 0
+
+
+def test_bounded_search_interleaves_structured_meal_categories() -> None:
+    slots = []
+    for offset in range(7):
+        planning_date = MONDAY + timedelta(days=offset)
+        meat = _candidate(
+            f"meat:{offset}",
+            planning_date=planning_date,
+            score="1.0",
+            meal_type="dinner",
+            planning_category="meat",
+            primary_protein="beef",
+        )
+        fish = _candidate(
+            f"fish:{offset}",
+            planning_date=planning_date,
+            score="0.9",
+            meal_type="dinner",
+            planning_category="fish",
+            primary_protein="hake" if offset % 2 else "cod",
+        )
+        slots.append(
+            SharedWeeklyPlanningSlot(
+                slot_key=f"dinner:{offset}",
+                planning_date=planning_date,
+                meal_type="dinner",
+                candidates=(meat, fish),
+            )
+        )
+
+    result = optimize_shared_weekly_slots_scalable(
+        tuple(slots),
+        max_combinations=14,
+    )
+
+    assert result.search_strategy == "bounded"
+    assert result.selected_plan is not None
+    categories = [
+        choice.candidate.evaluation.planning_category
+        for choice in result.selected_plan.choices
+    ]
+    assert categories.count("fish") >= 3
+    assert result.selected_plan.adjacent_category_repeat_count <= 1
+    assert result.selected_plan.distinct_main_categories == 2
 
 
 def test_bounded_search_keeps_person_weekly_maximum_as_hard_gate() -> None:

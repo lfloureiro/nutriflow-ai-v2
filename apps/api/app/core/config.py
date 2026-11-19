@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     default_locale: str = "pt-PT"
     default_timezone: str = "Europe/Lisbon"
 
+    openai_api_key: str | None = None
+    openai_base_url: str = "https://api.openai.com/v1"
+    nutriflow_nutrition_plan_ai_model: str = "gpt-5.6-luna"
+
     restaurant_discovery_enabled: bool = True
     restaurant_google_places_enabled: bool = True
     restaurant_google_places_url: str = "https://places.googleapis.com/v1/places:searchText"
@@ -22,6 +26,10 @@ class Settings(BaseSettings):
     restaurant_discovery_overpass_url: str = "https://overpass-api.de/api/interpreter"
     restaurant_discovery_user_agent: str = "NutriFlowAI/0.1 restaurant-discovery"
     restaurant_discovery_timeout_seconds: float = 8.0
+    restaurant_discovery_overpass_timeout_seconds: float = 25.0
+    restaurant_discovery_overpass_fallback_url: str | None = (
+        "https://overpass.private.coffee/api/interpreter"
+    )
     restaurant_discovery_cache_seconds: int = 21600
     restaurant_discovery_max_results: int = 40
 

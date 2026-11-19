@@ -70,6 +70,15 @@ export interface NutritionPlanImportCreate {
   valid_until: string | null;
 }
 
+export interface NutritionPlanChatGPTPrompt {
+  prompt: string;
+}
+
+export interface NutritionPlanChatGPTImportCreate {
+  plan: NutritionPlanImportCreate;
+  response_text: string;
+}
+
 export interface NutritionPlanDocumentExtraction {
   filename: string;
   content_type: string | null;

@@ -1,3 +1,10 @@
+import {shoppingOverview,visibleShoppingItems,shoppingPeriodChanged,type ShoppingView} from "./shoppingDisplay";
+import Icon from "./ui/Icon";
+import ShoppingProductPanel from "./ui/ShoppingProductPanel";
+import {getFamilyMealPlan} from "./api/client";
+import {listRecipeReviews,type ReviewRecipe} from "./api/dietaryReviewClient";
+import {foodAlternativeNames,calendarDateOffset} from "./mealAlternatives";
+import IngredientAlternativeLine from "./IngredientAlternativeLine";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { ApiError } from "./api/client";
@@ -10,6 +17,11 @@ import {
 } from "./api/pantryShoppingClient";
 import type { ShoppingList, ShoppingListItem } from "./api/pantryShoppingTypes";
 import { useI18n } from "./i18n";
+import { listRetailAlternatives, type RetailAlternative } from "./api/planningWorkspaceClient";
+import RetailAlternativeCards from "./RetailAlternativeCards";
+import {relatedRetailAlternatives} from "./retailComparison";
+import ShoppingReceiptEntry from "./ShoppingReceiptEntry";
+import "./planning-journey.css";
 
 function errorText(error: unknown): string {
   if (error instanceof ApiError) {
@@ -26,22 +38,36 @@ function decimalText(value: string): string {
   return value.trim().replace(",", ".");
 }
 
+export function shoppingIssueLabel(issue: string, pt: boolean): string {
+  const name = issue.match(/Recipe '([^']+)'/)?.[1];
+  if (name && issue.includes("estimated serving count")) return pt ? `${name}: quantidades aproximadas. Confirma o número de porções que a receita rende antes de comprar.` : `${name}: approximate quantities. Confirm the recipe yield before buying.`;
+  if (name && issue.includes("needs yield evidence")) return pt ? `${name}: falta indicar quantas porções rende a receita para calcular as compras.` : `${name}: recipe yield is needed to calculate shopping.`;
+  const food = issue.match(/Ingredient '([^']+)'/)?.[1];
+  if (food && issue.includes("incompatible planned units")) return pt ? `${food}: as unidades das receitas não são compatíveis. Confirma o peso ou volume de cada embalagem.` : `${food}: recipe units differ. Confirm each package weight or volume.`;
+  return issue;
+}
+
 type EditValues = { name: string; quantity: string; unit: string };
 
-export default function ShoppingListScreen({ familyId }: { familyId: string }) {
+export function formatShoppingQuantity(value:string,locale:string):string {
+  const number=Number(value);
+  return value.trim() && Number.isFinite(number) ? new Intl.NumberFormat(locale,{maximumFractionDigits:6}).format(number) : value;
+}
+
+export default function ShoppingListScreen({ familyId, initialStartDate, onOpenPantry }: { familyId: string; initialStartDate?: string; onOpenPantry?:()=>void }) {
   const { locale } = useI18n();
   const copy =
     locale === "pt-PT"
       ? {
           eyebrow: "Casa",
-          title: "Compras",
+          title: "Só falta o que faz falta.",
           help: "Faltas do plano, depois de descontar o stock da despensa.",
           start: "Desde",
           days: "Dias",
           refresh: "Atualizar a partir do plano",
           needs: "Necessidades do plano",
           required: "necessário",
-          stock: "em stock",
+          stock: "utilizáveis no plano",
           missing: "falta",
           list: "Lista de compras",
           addManual: "Adicionar item manual",
@@ -63,14 +89,14 @@ export default function ShoppingListScreen({ familyId }: { familyId: string }) {
         }
       : {
           eyebrow: "Home",
-          title: "Shopping",
+          title: "Only what we still need.",
           help: "Plan requirements after subtracting pantry stock.",
           start: "From",
           days: "Days",
           refresh: "Refresh from plan",
           needs: "Plan requirements",
           required: "required",
-          stock: "in stock",
+          stock: "usable for this plan",
           missing: "missing",
           list: "Shopping list",
           addManual: "Add manual item",
@@ -91,8 +117,12 @@ export default function ShoppingListScreen({ familyId }: { familyId: string }) {
           loading: "Loading shopping list…",
         };
 
+  const [planRecipes,setPlanRecipes]=useState<ReviewRecipe[]>([]);
+  const [alternativesError,setAlternativesError]=useState(false);
   const [data, setData] = useState<ShoppingList | null>(null);
-  const [startDate, setStartDate] = useState(today());
+  const [startDate, setStartDate] = useState(initialStartDate ?? today());
+  const [retail, setRetail] = useState<RetailAlternative[]>([]);
+  const [retailError, setRetailError] = useState("");
   const [days, setDays] = useState(7);
   const [manualName, setManualName] = useState("");
   const [manualQuantity, setManualQuantity] = useState("");
@@ -102,26 +132,56 @@ export default function ShoppingListScreen({ familyId }: { familyId: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [query,setQuery]=useState("");
+  const [view,setView]=useState<ShoppingView>("needed");
+  const summary=shoppingOverview(data?.items ?? []);
+  const visibleItems=visibleShoppingItems(data?.items ?? [],view,query);
+
   function load() {
+    let cancelled=false;
     setBusy(true);
     setError(null);
     void getShoppingList(familyId)
       .then((result) => {
+        if(cancelled)return;
         setData(result);
-        if (result.planning_start) {
+        if (result.planning_start && !initialStartDate) {
           setStartDate(result.planning_start);
         }
-        if (result.planning_start && result.planning_end) {
+        if (result.planning_start && result.planning_end && !initialStartDate) {
           const start = new Date(`${result.planning_start}T00:00:00Z`);
           const end = new Date(`${result.planning_end}T00:00:00Z`);
           setDays(Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1);
         }
       })
-      .catch((caught: unknown) => setError(errorText(caught)))
-      .finally(() => setBusy(false));
+      .catch((caught: unknown) => {if(!cancelled)setError(errorText(caught));})
+      .finally(() => {if(!cancelled)setBusy(false);});
+    return()=>{cancelled=true;};
   }
 
   useEffect(load, [familyId]);
+  useEffect(() => {
+    let cancelled = false;
+    setRetail([]);
+    setRetailError("");
+    void listRetailAlternatives(familyId).then(rows => {if (!cancelled) setRetail(rows);})
+      .catch(e => {if (!cancelled) setRetailError(String(e));});
+    return () => {cancelled = true;};
+  }, [familyId]);
+
+  useEffect(()=>{
+    let cancelled=false;setPlanRecipes([]);setAlternativesError(false);
+    if(!data?.planning_start || !data.planning_end) return;
+    const count=Math.round((Date.parse(data.planning_end)-Date.parse(data.planning_start))/86400000)+1;
+    if(count<1||count>366)return;
+    const requests=Array.from({length:Math.ceil(count/14)},(_,index)=>getFamilyMealPlan(familyId,calendarDateOffset(data.planning_start!,index*14),Math.min(14,count-index*14)));
+    void Promise.all([listRecipeReviews(familyId),Promise.all(requests)]).then(([reviews,plans])=>{
+      if(cancelled)return;
+      const ids=new Set(plans.flatMap(p=>p.days.flatMap(d=>d.slots.flatMap(slot=>slot.meals.filter(m=>m.status!=="cancelled").map(m=>m.recipe_id)))));
+      setPlanRecipes(reviews.filter(r=>ids.has(r.id)));
+    }).catch(()=>{if(!cancelled)setAlternativesError(true);});
+    return()=>{cancelled=true;};
+  },[familyId,data?.planning_start,data?.planning_end,data?.generated_at]);
 
   async function refresh() {
     setBusy(true);
@@ -142,6 +202,7 @@ export default function ShoppingListScreen({ familyId }: { familyId: string }) {
     }
     const hasQuantity = manualQuantity.trim().length > 0;
     if (hasQuantity !== (manualUnit.trim().length > 0)) {
+      setError(locale === "pt-PT" ? "Preenche a quantidade e a unidade em conjunto." : "Enter quantity and unit together.");
       return;
     }
     setBusy(true);
@@ -166,6 +227,7 @@ export default function ShoppingListScreen({ familyId }: { familyId: string }) {
 
   async function toggle(item: ShoppingListItem) {
     setBusy(true);
+    setError(null);
     try {
       setData(
         await updateShoppingItem(familyId, item.id, {
@@ -180,6 +242,7 @@ export default function ShoppingListScreen({ familyId }: { familyId: string }) {
   }
 
   function startEdit(item: ShoppingListItem) {
+    setError(null);
     setEditing(item);
     setEditValues({
       name: item.name,
@@ -195,9 +258,11 @@ export default function ShoppingListScreen({ familyId }: { familyId: string }) {
     }
     const hasQuantity = editValues.quantity.trim().length > 0;
     if (hasQuantity !== (editValues.unit.trim().length > 0)) {
+      setError(locale === "pt-PT" ? "Preenche a quantidade e a unidade em conjunto." : "Enter quantity and unit together.");
       return;
     }
     setBusy(true);
+    setError(null);
     try {
       setData(
         await updateShoppingItem(familyId, editing.id, {
@@ -226,13 +291,14 @@ export default function ShoppingListScreen({ familyId }: { familyId: string }) {
   }
 
   return (
-    <div className="shopping-screen">
+    <div className="shopping-screen" aria-busy={busy}>
       <header className="screen-header compact-screen-header">
         <div>
           <span className="eyebrow">{copy.eyebrow}</span>
           <h1>{copy.title}</h1>
           <p>{copy.help}</p>
         </div>
+        {onOpenPantry&&<button type="button" className="button ghost" onClick={onOpenPantry}><Icon name="pantry"/>{locale === "pt-PT" ? "Ver despensa" : "View pantry"}</button>}
       </header>
 
       <section className="shopping-refresh-card">
@@ -248,58 +314,70 @@ export default function ShoppingListScreen({ familyId }: { familyId: string }) {
             <option value={14}>14</option>
           </select>
         </label>
-        <button className="button primary" disabled={busy} onClick={() => void refresh()} type="button">
+        <button className="button primary" disabled={busy || !startDate} onClick={() => void refresh()} type="button">
           {copy.refresh}
         </button>
       </section>
 
-      {error ? <div className="error-banner">{error}</div> : null}
+      {error ? <div className="error-banner" role="alert">{error}</div> : null}
+      {retailError ? <p role="alert">{locale === "pt-PT" ? "Não foi possível carregar alternativas de supermercado: " : "Could not load supermarket alternatives: "}{retailError}</p> : null}
+      {data && shoppingPeriodChanged(data,startDate,days) ? <p role="alert" className="error-banner">{locale === "pt-PT" ? "Esta lista ainda pertence a outro período. Usa «Atualizar» para calcular as compras das datas escolhidas." : "This list belongs to another period. Refresh to calculate shopping for the chosen week."}</p> : null}
       {busy && !data ? <div className="shell-loading">{copy.loading}</div> : null}
 
       {data ? (
         <>
+          <section className="nf-shopping-overview" aria-label={locale === "pt-PT" ? "Resumo das compras" : "Shopping overview"}><div><Icon name="bag"/><span><b>{summary.needed}</b>{locale === "pt-PT" ? "a comprar" : "to buy"}</span></div><div><Icon name="bag"/><span><b>{summary.purchased}</b>{locale === "pt-PT" ? "marcados como comprados" : "marked purchased"}</span></div><div><Icon name="pantry"/><span><b>{summary.received}</b>{locale === "pt-PT" ? "com receção concluída" : "fully received"}</span></div><p>{locale === "pt-PT" ? "Marcar como comprado não acrescenta stock. Regista a entrada quando os produtos chegarem." : "Marking purchased does not add stock. Record receipt when products arrive."}{summary.partial>0 ? ` · ${summary.partial} ${locale === "pt-PT" ? "receções parciais" : "partial receipts"}` : ""}</p></section>
           {data.planning_issues.length > 0 ? (
-            <section className="shopping-issues">
-              <strong>{copy.issues}</strong>
-              <ul>{data.planning_issues.map((issue) => <li key={issue}>{issue}</li>)}</ul>
-            </section>
+            <details className="shopping-issues nf-shopping-issues">
+              <summary><strong>{copy.issues} · {data.planning_issues.length}</strong></summary>
+              <ul>{data.planning_issues.map((issue) => <li key={issue}>{shoppingIssueLabel(issue, locale === "pt-PT")}</li>)}</ul>
+            </details>
           ) : null}
 
-          <section className="shopping-requirements">
-            <h2>{copy.needs}</h2>
+          <details className="shopping-requirements nf-stock-comparison">
+            <summary>{locale === "pt-PT" ? "Conferir plano versus despensa" : "Compare plan and pantry"} · {data.requirements.length}</summary>
+            <p className="muted">{locale === "pt-PT" ? "Necessário para o plano, stock utilizável e quantidade em falta. Entregas previstas são apresentadas à parte." : "Plan needs, usable stock and missing quantity. Expected deliveries are shown separately."}</p>
             {data.requirements.length === 0 ? <div className="empty-card">{copy.noRequirements}</div> : null}
             {data.requirements.map((requirement) => (
               <div className="requirement-row" key={requirement.food_item_id}>
-                <strong>{requirement.food_item_name}</strong>
-                <span>{requirement.required_quantity} {requirement.unit} {copy.required}</span>
-                <span>{requirement.available_quantity} {requirement.unit} {copy.stock}</span>
-                <span>{requirement.missing_quantity} {requirement.unit} {copy.missing}</span>
+                <IngredientAlternativeLine name={requirement.food_item_name} alternatives={foodAlternativeNames(planRecipes,requirement.food_item_id)}/>
+                <span>{formatShoppingQuantity(requirement.required_quantity,locale)} {requirement.unit} {copy.required}</span>
+                <span>{formatShoppingQuantity(requirement.available_quantity,locale)} {requirement.unit} {copy.stock}</span>
+                <span>{formatShoppingQuantity(requirement.missing_quantity,locale)} {requirement.unit} {copy.missing}</span>
+                {Number(requirement.incoming_quantity??0)>0&&<div className="requirement-delivery-note"><span>{formatShoppingQuantity(requirement.incoming_quantity!,locale)} {requirement.unit} {locale==="pt-PT"?"previstos por receber (não é stock)":"expected to arrive (not stock)"}</span><span>{formatShoppingQuantity(requirement.to_buy_quantity??requirement.missing_quantity,locale)} {requirement.unit} {locale==="pt-PT"?"ainda por comprar":"still to buy"}</span></div>}
               </div>
             ))}
-          </section>
+          </details>
 
           <section className="shopping-list-section">
             <h2>{copy.list}</h2>
+            <div className="nf-list-controls"><label className="field"><span>{locale === "pt-PT" ? "Procurar na lista" : "Search this list"}</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder={locale === "pt-PT" ? "Ingrediente ou artigo…" : "Ingredient or item…"}/></label><nav className="nf-filter-tabs" aria-label={locale === "pt-PT" ? "Estado das compras" : "Shopping status"}>{(["needed","purchased","received","all"] as const).map(value=><button key={value} type="button" aria-pressed={view===value} onClick={()=>setView(value)}>{(locale === "pt-PT" ? {needed:"A comprar",purchased:"Comprados",received:"Recebidos",all:"Todos"} : {needed:"To buy",purchased:"Purchased",received:"Received",all:"All"})[value]} <span>{summary[value]}</span></button>)}</nav></div>
+            {data.items.length>0 && visibleItems.length===0 && <p className="empty-card" role="status">{locale === "pt-PT" ? "Sem artigos neste filtro. Consulta os outros estados ou limpa a pesquisa." : "No items in this filter. Try another status or clear your search."}</p>}
+            {alternativesError && <p role="status">{locale==="pt-PT"?"Não foi possível carregar as alternativas deste plano.":"Alternatives for this plan could not be loaded."}</p>}
+            {data.items.some(i=>i.status==="needed"&&foodAlternativeNames(planRecipes,i.food_item_id).length>0)&&<p className="journey-context">{locale==="pt-PT"?"As trocas marcadas «por aplicar» são propostas. As quantidades abaixo ainda pertencem à receita original; aplica uma variante validada no plano para atualizar as compras.":"Changes marked not applied are proposals. Quantities still belong to the original recipe; apply a validated variant in the plan to update shopping."}</p>}
             {data.items.length === 0 ? <div className="empty-card">{copy.empty}</div> : null}
-            {data.items.map((item) => (
+            {visibleItems.map((item) => (
               <article className={`shopping-item ${item.status === "purchased" ? "purchased" : ""}`} key={item.id}>
                 <label className="shopping-check">
                   <input
                     checked={item.status === "purchased"}
-                    disabled={busy}
+                    disabled={busy || !!item.pantry_receipt}
                     onChange={() => void toggle(item)}
                     type="checkbox"
                   />
                   <span>
-                    <strong>{item.name}</strong>
-                    {item.quantity ? <small>{item.quantity} {item.unit}</small> : null}
+                    <IngredientAlternativeLine name={item.name} alternatives={item.status==="needed"?foodAlternativeNames(planRecipes,item.food_item_id):[]}/>
+                    {item.quantity ? <small>{formatShoppingQuantity(item.quantity,locale)} {item.unit}</small> : null}
                   </span>
                 </label>
                 <span className="status-chip">{item.item_source === "automatic" ? copy.automatic : copy.manual}</span>
                 <div className="row-actions">
-                  <button className="button ghost small" onClick={() => startEdit(item)} type="button">{copy.edit}</button>
-                  <button className="button ghost small" onClick={() => void remove(item)} type="button">{copy.remove}</button>
+                  <button disabled={busy || !!item.pantry_receipt} className="button ghost small" aria-label={`${copy.edit}: ${item.name}`} onClick={() => startEdit(item)} type="button">{copy.edit}</button>
+                  <button disabled={busy || !!item.pantry_receipt} className="button ghost small" aria-label={`${copy.remove}: ${item.name}`} onClick={() => void remove(item)} type="button">{copy.remove}</button>
                 </div>
+                <ShoppingReceiptEntry key={`${familyId}:${item.id}`} familyId={familyId} item={item} onChanged={setData} disabled={busy}/>
+                <ShoppingProductPanel familyId={familyId} item={item} products={retail} onChanged={setData} disabled={busy}/>
+                {item.food_item_id && item.status === "needed" && relatedRetailAlternatives(retail,item.food_item_id,item.product_selection?.product_url).length>0 ? <details className="shopping-retail"><summary>{locale === "pt-PT" ? "Comparar lojas e rever rótulos" : "Compare stores and review labels"}</summary><RetailAlternativeCards familyId={familyId} onConfirmed={()=>{void listRetailAlternatives(familyId).then(setRetail).catch(e=>setRetailError(String(e)));}} products={relatedRetailAlternatives(retail,item.food_item_id,item.product_selection?.product_url)}/></details> : null}
               </article>
             ))}
           </section>
@@ -321,19 +399,19 @@ export default function ShoppingListScreen({ familyId }: { familyId: string }) {
                 </label>
               </div>
               <div className="editor-actions">
-                <button className="button primary" type="submit">{copy.save}</button>
+                <button className="button primary" disabled={busy} type="submit">{copy.save}</button>
                 <button className="button ghost" onClick={() => setEditing(null)} type="button">{copy.cancel}</button>
               </div>
             </form>
           ) : null}
 
-          <form className="shopping-manual-form" onSubmit={addManual}>
+          <details className="nf-manual-shopping"><summary>{copy.addManual}</summary><form className="shopping-manual-form" onSubmit={addManual}>
             <strong>{copy.addManual}</strong>
-            <input placeholder={copy.name} value={manualName} onChange={(event) => setManualName(event.target.value)} />
-            <input placeholder={copy.quantity} value={manualQuantity} onChange={(event) => setManualQuantity(event.target.value)} />
-            <input placeholder={copy.unit} value={manualUnit} onChange={(event) => setManualUnit(event.target.value)} />
+            <input required aria-label={copy.name} placeholder={copy.name} value={manualName} onChange={(event) => setManualName(event.target.value)} />
+            <input aria-label={copy.quantity} placeholder={copy.quantity} value={manualQuantity} onChange={(event) => setManualQuantity(event.target.value)} />
+            <input aria-label={copy.unit} placeholder={copy.unit} value={manualUnit} onChange={(event) => setManualUnit(event.target.value)} />
             <button className="button primary" disabled={busy} type="submit">{copy.add}</button>
-          </form>
+          </form></details>
         </>
       ) : null}
     </div>

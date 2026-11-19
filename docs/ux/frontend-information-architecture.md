@@ -8,20 +8,26 @@ Family Home remains compact. A dedicated weekly planner may be denser because pl
 
 ## Current primary shell
 
-The shell remains:
+The current local shell (2026-10-18, ADR-061) is:
 
 1. **Início** — Family orientation for today;
-2. **Refeições** — operational Family meal plan;
-3. **Pessoas** — Person list and overview;
-4. **Casa** — recipes, ingredients, pantry and shopping;
-5. **Mais** — settings/integrations/family administration.
+2. **Plano** — guided next-week planning, with access to the existing agenda;
+3. **Compras** — shopping list and relevant supermarket alternatives;
+4. **Pessoas** — Person list and overview;
+5. **Casa** — recipes, ingredients, pantry and substitution review.
+
+Settings/integrations/family administration are in the header gear. Home has a prominent
+next-week starting point. The guided flow chooses week/people, explicit restrictions,
+proposal review/application, then opens shopping for that week. It currently uses one
+shared group for generated slots; per-slot attendance remains planned.
 
 The compact five-destination shell avoids an overloaded mobile bottom bar while still exposing the operational hierarchy through focused secondary tabs.
 
 ## Operational hierarchy
 
 ```text
-Refeições
+Plano
+  -> Preparar semana -> Restrições -> Rever/aplicar -> Compras
   -> Hoje
   -> Semana
   -> Recomendar

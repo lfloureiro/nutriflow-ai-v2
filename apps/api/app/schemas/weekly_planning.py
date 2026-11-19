@@ -5,9 +5,14 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.schemas.meal_recommendation import MealRecommendationCandidateInput
+from app.schemas.meal_plan_fit import MealPlanFitRuleRead, MealPlanFitStatus
+from app.schemas.meal_recommendation import (
+    MealRecommendationCandidateInput,
+    RecommendationNutritionRead,
+)
 from app.schemas.meal_transformation import MealTransformationOperationRead
 from app.schemas.meal_type import MealType
+from app.schemas.nutrition_plan import NutritionPlanAuthorityState
 from app.schemas.practical_recommendation import (
     PracticalSourceKind,
     RecommendationHistoryHint,
@@ -15,6 +20,7 @@ from app.schemas.practical_recommendation import (
 
 
 class SharedWeeklyPlanningSlotCreate(BaseModel):
+    person_ids: list[uuid.UUID] | None = Field(default=None, min_length=2, max_length=20)
     slot_key: str = Field(min_length=1, max_length=120)
     planning_date: date
     scheduled_at: datetime
@@ -38,16 +44,30 @@ class SharedWeeklyPlanningSlotCreate(BaseModel):
 
 class SharedWeeklyPlanProposalCreate(BaseModel):
     person_ids: list[uuid.UUID] = Field(min_length=2, max_length=20)
+    excluded_food_item_ids: list[uuid.UUID] = Field(default_factory=list, max_length=100)
     slots: list[SharedWeeklyPlanningSlotCreate] = Field(min_length=1, max_length=28)
     max_combinations: int = Field(default=10_000, ge=1, le=10_000)
 
 
 class SharedWeeklyPlanParticipantRead(BaseModel):
     person_id: uuid.UUID
+    daily_nutrition_state_id: uuid.UUID | None
     score: Decimal | None
     quantity: Decimal
     quantity_unit: str
     energy_kcal: Decimal | None
+    nutrition: RecommendationNutritionRead
+    plan_rule_results: list[MealPlanFitRuleRead] = Field(default_factory=list)
+    plan_guidance: list[str] = Field(default_factory=list)
+    portion_factor: Decimal | None
+    meal_energy_target_min_kcal: Decimal | None
+    meal_energy_target_max_kcal: Decimal | None
+    plan_fit_status: MealPlanFitStatus
+    plan_fit_score: Decimal | None
+    nutrition_plan_authority: NutritionPlanAuthorityState
+    active_plan_ids: list[uuid.UUID] = Field(default_factory=list)
+    active_plan_titles: list[str] = Field(default_factory=list)
+    plan_unknown_evidence: list[str] = Field(default_factory=list)
     explanation: list[str]
 
 
@@ -68,6 +88,8 @@ class SharedWeeklyPlanChoiceRead(BaseModel):
     candidate_key: str
     candidate_name: str
     candidate_kind: str
+    recipe_id: uuid.UUID | None = None
+    variant_changes: list[str] = Field(default_factory=list)
     minimum_score: Decimal | None
     average_score: Decimal | None
     participants: list[SharedWeeklyPlanParticipantRead]
@@ -85,6 +107,14 @@ class SharedWeeklyPlanSelectionRead(BaseModel):
     choices: list[SharedWeeklyPlanChoiceRead]
 
 
+class SharedWeeklyPlanSkippedSlotRead(BaseModel):
+    slot_key: str
+    planning_date: date
+    meal_type: MealType
+    reason: Literal["no_eligible_candidates"]
+    exclusion_reasons: list[str] = Field(default_factory=list)
+
+
 class SharedWeeklyPlanProposalRead(BaseModel):
     family_id: uuid.UUID
     participant_ids: list[uuid.UUID]
@@ -93,6 +123,7 @@ class SharedWeeklyPlanProposalRead(BaseModel):
     engine_version: str
     slot_engine_versions: dict[str, str]
     selected_plan: SharedWeeklyPlanSelectionRead | None
+    skipped_slots: list[SharedWeeklyPlanSkippedSlotRead] = Field(default_factory=list)
     evaluated_combinations: int
     feasible_combinations: int
     rejected_by_person_weekly_maximum: int

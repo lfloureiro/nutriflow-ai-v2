@@ -1,5 +1,6 @@
 import { ApiError, buildApiUrl } from "./client";
 import type {
+  NutritionPlanChatGPTPrompt,
   NutritionPlanDocumentExtraction,
   NutritionPlanImportConfirmationStatus,
   NutritionPlanImportCreate,
@@ -48,6 +49,30 @@ export async function extractNutritionPlanDocument(
   );
   if (!response.ok) throw new ApiError(await errorMessage(response), response.status);
   return (await response.json()) as NutritionPlanDocumentExtraction;
+}
+
+export function getChatGPTNutritionPlanPrompt(
+  personId: string,
+  payload: NutritionPlanImportCreate,
+): Promise<NutritionPlanChatGPTPrompt> {
+  return jsonRequest<NutritionPlanChatGPTPrompt>(
+    `/api/persons/${encodeURIComponent(personId)}/nutrition-plan-imports/chatgpt/prompt`,
+    { method: "POST", body: JSON.stringify(payload) },
+  );
+}
+
+export function createChatGPTNutritionPlanImport(
+  personId: string,
+  payload: NutritionPlanImportCreate,
+  responseText: string,
+): Promise<NutritionPlanImportSession> {
+  return jsonRequest<NutritionPlanImportSession>(
+    `/api/persons/${encodeURIComponent(personId)}/nutrition-plan-imports/chatgpt`,
+    {
+      method: "POST",
+      body: JSON.stringify({ plan: payload, response_text: responseText }),
+    },
+  );
 }
 
 export function createNutritionPlanImport(

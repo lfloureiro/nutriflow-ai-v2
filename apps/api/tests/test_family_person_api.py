@@ -109,3 +109,28 @@ def test_invalid_timezone_is_rejected(db_session: Session) -> None:
             assert invalid_person.status_code == 422
     finally:
         app.dependency_overrides.clear()
+
+
+def test_avatar_preferences_persist_without_changing_demographics(db_session: Session) -> None:
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    try:
+        with TestClient(app) as client:
+            family = client.post("/api/families", json={"name": "Avatar family"}).json()
+            person = client.post(f"/api/families/{family['id']}/persons", json={"first_name": "Test"}).json()
+            url = f"/api/persons/{person['id']}"
+            appearance = {"stage": "mature", "style": "male", "variant": 2}
+            response = client.patch(url, json={"avatar_appearance": appearance})
+            assert response.status_code == 200
+            assert response.json()["avatar_appearance"] == appearance
+            assert response.json()["birth_date"] is None
+            assert client.get(url + "/energy-profile").status_code == 404
+            assert client.get(url).json()["avatar_appearance"] == appearance
+            dashboard = client.get(f"/api/families/{family['id']}/dashboard").json()
+            assert dashboard["members"][0]["avatar_appearance"] == appearance
+            # Unrelated edits preserve presentation choices.
+            assert client.patch(url, json={"last_name": "Test"}).json()["avatar_appearance"] == appearance
+            for invalid in ({"stage": "bad"}, {"variant": 6}, {"variant": True}, {"unknown": "field"}):
+                assert client.patch(url, json={"avatar_appearance": invalid}).status_code == 422
+            assert client.patch(url, json={"avatar_appearance": None}).json()["avatar_appearance"] is None
+    finally:
+        app.dependency_overrides.clear()

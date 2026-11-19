@@ -6,9 +6,10 @@ export default defineConfig({
   server: {
     host: "127.0.0.1",
     port: 5173,
+    watch: process.platform === "win32" ? {usePolling:true, interval:500} : undefined,
     proxy: {
       "/api": {
-        target: "http://127.0.0.1:8000",
+        target: process.env.NUTRIFLOW_DEV_API_TARGET ?? "http://127.0.0.1:8000",
         changeOrigin: true,
       },
     },

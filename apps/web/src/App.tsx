@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import {useAppRoute,type AppView,type HouseView} from "./navigation";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 
 import { ApiError, getFamilyDashboard } from "./api/client";
 import type { Family } from "./api/setupTypes";
@@ -7,29 +8,33 @@ import FamilyEntryScreen from "./FamilyEntryScreen";
 import FamilyHome, { memberDisplayName } from "./FamilyHome";
 import FamilyMealsScreen, { type FamilyMealsMode } from "./FamilyMeals";
 import FamilySettings from "./FamilySettings";
-import HomeBase from "./HomeBase";
+import Brand from "./ui/Brand";
+import Icon, {type IconName} from "./ui/Icon";
+import PersonAvatar from "./ui/PersonAvatar";
+const HomeBase = lazy(() => import("./HomeBase"));
 import { useI18n, type Locale } from "./i18n";
 import PersonOverview from "./PersonOverview";
 import PersonSetupForm from "./PersonSetupForm";
+const ShoppingListScreen = lazy(() => import("./ShoppingListScreen"));
 import { useTheme, type Appearance } from "./theme";
 
 const DEMO_FAMILY_ID = "11111111-1111-4111-8111-111111111111";
 const FAMILY_STORAGE_KEY = "nutriflow-family-id";
 
-type View = "home" | "meals" | "people" | "house" | "more";
+type View = AppView;
 
 type NavItem = {
   view: View;
-  icon: string;
-  labelKey: "nav.home" | "nav.meals" | "nav.people" | "nav.house" | "nav.more";
+  icon: IconName;
+  labelKey: "nav.home" | "nav.meals" | "nav.people" | "nav.house" | "nav.shopping";
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { view: "home", icon: "⌂", labelKey: "nav.home" },
-  { view: "meals", icon: "◫", labelKey: "nav.meals" },
-  { view: "people", icon: "◎", labelKey: "nav.people" },
-  { view: "house", icon: "▣", labelKey: "nav.house" },
-  { view: "more", icon: "•••", labelKey: "nav.more" },
+  { view: "home", icon: "home", labelKey: "nav.home" },
+  { view: "meals", icon: "calendar", labelKey: "nav.meals" },
+  { view: "shopping", icon: "bag", labelKey: "nav.shopping" },
+  { view: "people", icon: "people", labelKey: "nav.people" },
+  { view: "house", icon: "book", labelKey: "nav.house" },
 ];
 
 function initialFamilyId(): string {
@@ -60,10 +65,14 @@ export default function App() {
   const [dashboardBusy, setDashboardBusy] = useState(initialId.length > 0);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [dashboardRevision, setDashboardRevision] = useState(0);
-  const [view, setView] = useState<View>("home");
-  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+  const {route,navigate}=useAppRoute();
+  const view=route.view;const setView=(view:View)=>navigate({view});
+  const houseInitialView=route.house;const setHouseInitialView=(house:HouseView)=>navigate({house});
+  useEffect(()=>{window.scrollTo(0,0);},[view]);
+  const selectedPersonId=route.person??null;const setSelectedPersonId=(person:string|null)=>navigate({person:person??undefined});
   const [showPersonSetup, setShowPersonSetup] = useState(false);
-  const [mealsMode, setMealsMode] = useState<FamilyMealsMode>("today");
+  const mealsDate=route.date;const setMealsDate=(date:string|undefined)=>navigate({date});
+  const mealsMode=route.mode;const setMealsMode=(mode:FamilyMealsMode)=>navigate({mode});
 
   useEffect(() => {
     if (!activeFamilyId) {
@@ -109,53 +118,29 @@ export default function App() {
       setDashboardError(t("validation.familyRequired"));
       return;
     }
-    setDashboard(null);
-    setDashboardError(null);
-    setSelectedPersonId(null);
-    setShowPersonSetup(false);
-    setMealsMode("today");
-    setView("home");
-    setActiveFamilyId(normalized);
-    refreshDashboard();
+    if(!navigate({view:"home",mode:"today",date:undefined,person:undefined,house:"recipes"}))return false;
+    setDashboard(null);setDashboardError(null);setShowPersonSetup(false);setActiveFamilyId(normalized);refreshDashboard();return true;
   }
-
   function handleFamilyCreated(family: Family) {
-    openFamily(family.id);
-    setView("people");
-    setShowPersonSetup(true);
+    if(!openFamily(family.id))return;
+    navigate({view:"people"});setShowPersonSetup(true);
   }
 
   function openPerson(personId: string) {
     setShowPersonSetup(false);
-    setSelectedPersonId(personId);
-    setView("people");
+    navigate({person:personId,view:"people"});
   }
 
   function openPrimaryView(nextView: View) {
-    if (nextView === "people") {
-      setSelectedPersonId(null);
-      setShowPersonSetup(false);
-    }
-    if (nextView === "meals") {
-      setMealsMode("today");
-    }
-    setView(nextView);
+    if(!navigate({view:nextView,...(nextView==="people"?{person:undefined}:{}),...(nextView==="meals"?{mode:"week" as const}:{}),...(nextView==="house"?{house:"recipes" as const}:{})}))return;
+    if(nextView==="people")setShowPersonSetup(false);
   }
-
-  function openMealPlan() {
-    setMealsMode("today");
-    setView("meals");
-  }
+  function openWeek(date:string){navigate({date,mode:"week",view:"meals"});}
+  function openMealPlan(){navigate({date:undefined,mode:"prepare",view:"meals"});}
 
   function changeFamily() {
-    window.localStorage.removeItem(FAMILY_STORAGE_KEY);
-    setDashboard(null);
-    setDashboardError(null);
-    setActiveFamilyId("");
-    setSelectedPersonId(null);
-    setShowPersonSetup(false);
-    setMealsMode("today");
-    setView("home");
+    if(!navigate({view:"home",mode:"today",date:undefined,person:undefined,house:"recipes"}))return;
+    window.localStorage.removeItem(FAMILY_STORAGE_KEY);setDashboard(null);setDashboardError(null);setActiveFamilyId("");setShowPersonSetup(false);
   }
 
   if (!activeFamilyId || (view === "home" && !dashboard && !dashboardBusy)) {
@@ -178,10 +163,7 @@ export default function App() {
     <div className="app-shell">
       <aside className="side-nav">
         <button className="side-brand" onClick={() => openPrimaryView("home")} type="button">
-          <span className="brand-mark" aria-hidden="true">
-            N
-          </span>
-          <span>{t("app.brand")}</span>
+          <Brand />
         </button>
         <nav className="primary-nav" aria-label={t("nav.primary")}>
           {NAV_ITEMS.map((item) => (
@@ -193,9 +175,9 @@ export default function App() {
               type="button"
             >
               <span className="nav-icon" aria-hidden="true">
-                {item.icon}
+                <Icon name={item.icon}/>
               </span>
-              <span>{t(item.labelKey)}</span>
+              <span>{item.view === "house" ? (locale === "pt-PT" ? "Receitas" : "Recipes") : item.view === "people" ? (locale === "pt-PT" ? "Família" : "Family") : t(item.labelKey)}</span>
             </button>
           ))}
         </nav>
@@ -211,21 +193,28 @@ export default function App() {
             <span className="shell-topbar__label">{t("shell.family")}</span>
             <strong>{familyName}</strong>
           </div>
+          <div className="nf-topbar-actions">
+            <select className="nf-appearance" aria-label={t("nav.appearance")} value={appearance} onChange={event=>setAppearance(event.target.value as Appearance)}>
+              <option value="light">{t("theme.light")}</option><option value="dark">{t("theme.dark")}</option><option value="system">{t("theme.system")}</option>
+            </select>
+            <select className="nf-locale" aria-label={t("nav.language")} value={locale} onChange={event=>setLocale(event.target.value as Locale)}><option value="pt-PT">PT</option><option value="en">EN</option></select>
+            <button className="shell-icon-button nf-settings-button" type="button" aria-label={locale === "pt-PT" ? "Definições e integrações" : "Settings and integrations"} title={locale === "pt-PT" ? "Definições da família e integrações" : "Family settings and integrations"} aria-current={view === "more" ? "page" : undefined} onClick={() => setView("more")}><Icon name="settings"/><span className="nf-settings-label">{locale === "pt-PT" ? "Definições" : "Settings"}</span></button>
           <button
             aria-label={t("home.refresh")}
             className="shell-icon-button"
             disabled={dashboardBusy}
             onClick={() => {
-              setView("home");
               refreshDashboard();
             }}
             type="button"
           >
-            ↻
+            <Icon name="refresh"/>
           </button>
+          </div>
         </header>
 
         <main className="shell-main">
+          <header className="nf-print-header"><Brand/><span>{dashboard?.family_name}</span></header>
           {dashboardError ? (
             <div className="error-banner" role="alert">
               <strong>{t("error.title")}</strong>
@@ -240,9 +229,12 @@ export default function App() {
               </div>
             ) : (
               <FamilyHome
+              onOpenRecipes={()=>openPrimaryView("house")} onOpenShopping={()=>openPrimaryView("shopping")}
                 dashboard={dashboard}
                 onOpenPerson={openPerson}
                 onPlanMeal={openMealPlan}
+                onOpenWeek={openWeek}
+                weekDate={mealsDate}
               />
             )
           ) : null}
@@ -253,6 +245,8 @@ export default function App() {
               mode={mealsMode}
               onDataChanged={refreshDashboard}
               onModeChange={setMealsMode}
+              initialDate={mealsDate}
+              onDateChange={setMealsDate}
               referenceDate={dashboard?.dashboard_date}
             />
           ) : null}
@@ -292,7 +286,7 @@ export default function App() {
                     familyId={activeFamilyId}
                     familyTimezone={dashboard.timezone}
                     onCancel={() => setShowPersonSetup(false)}
-                    onCreated={refreshDashboard}
+                    onCreated={() => { setShowPersonSetup(false); refreshDashboard(); }}
                   />
                 ) : null}
                 <div className="people-list">
@@ -303,9 +297,7 @@ export default function App() {
                       onClick={() => openPerson(member.person_id)}
                       type="button"
                     >
-                      <span className="member-avatar" aria-hidden="true">
-                        {member.first_name.slice(0, 1).toUpperCase()}
-                      </span>
+                      <PersonAvatar identity={member.person_id} name={memberDisplayName(member)} familyIdentity={activeFamilyId} age={member.age_years} sex={member.sex_for_energy_calculation} appearance={member.avatar_appearance} decorative />
                       <span>
                         <strong>{memberDisplayName(member)}</strong>
                         <small>{member.timezone}</small>
@@ -318,7 +310,8 @@ export default function App() {
             )
           ) : null}
 
-          {view === "house" ? <HomeBase familyId={activeFamilyId} /> : null}
+          {view === "house" ? <Suspense fallback={<p role="status">{t("home.loading")}</p>}><HomeBase key={activeFamilyId} familyId={activeFamilyId} initialView={houseInitialView} onViewChange={setHouseInitialView} /></Suspense> : null}
+          {view === "shopping" ? <Suspense fallback={<p role="status">{t("home.loading")}</p>}><ShoppingListScreen key={activeFamilyId} familyId={activeFamilyId} onOpenPantry={()=>navigate({view:"house",house:"pantry"})} /></Suspense> : null}
 
           {view === "more" ? (
             <div className="settings-screen">
@@ -376,8 +369,8 @@ export default function App() {
             onClick={() => openPrimaryView(item.view)}
             type="button"
           >
-            <span aria-hidden="true">{item.icon}</span>
-            <small>{t(item.labelKey)}</small>
+            <span aria-hidden="true"><Icon name={item.icon}/></span>
+            <small>{item.view === "house" ? (locale === "pt-PT" ? "Receitas" : "Recipes") : item.view === "people" ? (locale === "pt-PT" ? "Família" : "Family") : t(item.labelKey)}</small>
           </button>
         ))}
       </nav>

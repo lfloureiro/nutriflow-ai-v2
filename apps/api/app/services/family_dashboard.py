@@ -21,6 +21,14 @@ from app.schemas.family_dashboard import (
 ACTIVE_DASHBOARD_MEAL_STATUSES = frozenset({"planned", "prepared", "served", "completed"})
 
 
+def _age_on(birth_date: date | None, on_date: date) -> int | None:
+    if birth_date is None or birth_date > on_date:
+        return None
+    return on_date.year - birth_date.year - (
+        (on_date.month, on_date.day) < (birth_date.month, birth_date.day)
+    )
+
+
 def _dashboard_date(family: Family, on_date: date | None) -> date:
     if on_date is not None:
         return on_date
@@ -121,6 +129,7 @@ def build_family_dashboard(
     dashboard_date = _dashboard_date(family, on_date)
     people = db.scalars(
         select(Person)
+        .options(selectinload(Person.profile))
         .where(Person.family_id == family.id)
         .order_by(Person.first_name, Person.last_name, Person.id)
     ).all()
@@ -150,9 +159,17 @@ def build_family_dashboard(
         members=[
             FamilyDashboardMemberRead(
                 person_id=person.id,
+                avatar_appearance=person.avatar_appearance,
                 first_name=person.first_name,
                 last_name=person.last_name,
                 timezone=person.timezone,
+                age_years=_age_on(person.birth_date, dashboard_date),
+                sex_for_energy_calculation=(
+                    person.profile.sex_for_energy_calculation
+                    if person.profile
+                    and person.profile.sex_for_energy_calculation in {"male", "female"}
+                    else None
+                ),
                 health=_health_read(health_by_person.get(person.id)),
                 nutrition=_nutrition_read(nutrition_by_person.get(person.id)),
             )

@@ -60,6 +60,32 @@ def _candidate():
     )
 
 
+def test_weekly_shared_proposal_uses_fixed_daily_meal_weights() -> None:
+    ana = _person(ANA_ID, "Ana")
+    rui = _person(RUI_ID, "Rui")
+
+    proposals = _candidate_proposals(
+        [_candidate()],
+        [
+            (ana, _state(ANA_ID, "1800.00", "2000.00")),
+            (rui, _state(RUI_ID, "2200.00", "2400.00")),
+        ],
+        meal_type="dinner",
+        auto_size_portions=True,
+        redistribute_remaining_energy=False,
+    )
+
+    portions = {portion.person_id: portion for portion in proposals[0].portions}
+    assert portions[ANA_ID].quantity == Decimal("1.2500")
+    assert portions[RUI_ID].quantity == Decimal("1.5000")
+    assert portions[ANA_ID].meal_energy_target_min_kcal == Decimal("540.00")
+    assert portions[ANA_ID].meal_energy_target_max_kcal == Decimal("600.00")
+    assert (
+        portions[ANA_ID].energy_allocation_policy
+        == "meal-energy-allocation-v3-fixed-daily-weight"
+    )
+
+
 def test_shared_proposal_sizes_same_meal_per_person() -> None:
     ana = _person(ANA_ID, "Ana")
     rui = _person(RUI_ID, "Rui")

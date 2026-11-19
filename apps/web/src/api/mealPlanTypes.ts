@@ -25,6 +25,8 @@ export type MealPlanTransformation = {
 };
 
 export type MealPlanEntry = {
+  updated_at?:string;
+  variant_changes?: string[];
   id: string;
   meal_type: MealType;
   title: string | null;
@@ -74,7 +76,7 @@ export type MealPlanEntryCreate = {
   notes?: string | null;
 };
 
-export type MealPlanEntryUpdate = Partial<MealPlanEntryCreate>;
+export type MealPlanEntryUpdate = Partial<MealPlanEntryCreate> & {expected_updated_at?:string};
 
 export type MealConsumptionUpdate = {
   status: MealConsumptionStatus;

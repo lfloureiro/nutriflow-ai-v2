@@ -1,4 +1,11 @@
+> **Estado atual — 19 novembro 2026:** consultar [passagem e próximos passos](../handoff-2026-11-19.md) e o [quadro UX](../vision/ux-revamp-task-board.md). Os estados de branches, contagens e “próxima tarefa” abaixo são históricos. Esta entrega consolida o revamp, o fluxo de trocas e o lote de 20; NLP/ML treinado e restantes fases continuam na sequência canónica.
+
 # NutriFlow AI v2 — Nutrition Plan & Guidance Roadmap
+
+Next-work update (2026-10-18): `integrated-family-meal-planning-roadmap.md` and ADR-060 define
+the current cross-cutting sequence: per-meal participants, explicit dietary rules, complete
+Family variants and unified source discovery. Phase history remains below; the historical
+immediate-next-branch section is not the current starting point.
 
 ## Purpose
 

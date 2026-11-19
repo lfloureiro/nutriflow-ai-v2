@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.schemas.avatar import AvatarAppearance
 from app.schemas.family import MealDiscoverySource
 from app.schemas.timezone import validate_timezone_name
 
@@ -75,6 +76,7 @@ class PersonCreate(BaseModel):
 
 
 class PersonUpdate(BaseModel):
+    avatar_appearance: AvatarAppearance | None = None
     first_name: str | None = Field(default=None, min_length=1, max_length=100)
     last_name: str | None = Field(default=None, max_length=100)
     birth_date: date | None = None
@@ -90,6 +92,8 @@ class PersonUpdate(BaseModel):
 
 class PersonRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
+    avatar_appearance: AvatarAppearance | None = None
 
     id: uuid.UUID
     family_id: uuid.UUID

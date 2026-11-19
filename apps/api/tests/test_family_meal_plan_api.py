@@ -64,9 +64,7 @@ def _recipe(db_session: Session, family: Family) -> str:
             "serving_count": "4",
             "yield_quantity": "1000",
             "yield_unit": "g",
-            "ingredients": [
-                {"food_item_id": str(ingredient.id), "quantity": "1000", "unit": "g"}
-            ],
+            "ingredients": [{"food_item_id": str(ingredient.id), "quantity": "1000", "unit": "g"}],
         },
     )
     assert response.status_code == 201
@@ -278,7 +276,6 @@ def test_family_meal_plan_accepts_shared_breakfast_and_enforces_slot(
     assert "not suitable for meal type 'lunch'" in wrong_update.json()["detail"]
 
 
-
 def test_transformed_meal_is_visible_but_read_only_in_standard_planner(
     db_session: Session,
 ) -> None:
@@ -391,3 +388,127 @@ def test_transformed_meal_is_visible_but_read_only_in_standard_planner(
         f"/api/families/{family.id}/meal-plan/{event.id}",
     )
     assert removed.status_code == 204
+
+
+def _sibo_manual_context(db_session):
+    from datetime import date
+
+    from app.fodmap_guidance_seed import import_public_guidance
+    from app.models.dietary_review import PersonHealthCondition
+
+    family = Family(name="Manual restrictions", timezone="Europe/Lisbon")
+    ana = Person(family=family, first_name="Ana")
+    rui = Person(family=family, first_name="Rui")
+    db_session.add(family)
+    db_session.flush()
+    recipe_id = _recipe(db_session, family)
+    food = db_session.get(Recipe, uuid.UUID(recipe_id)).ingredients[0].food_item
+    food.catalog_key = "legacy-v1:ingredient:29"
+    food.name = "Cebola"
+    db_session.add(
+        PersonHealthCondition(
+            person_id=ana.id,
+            code="sibo",
+            name="SIBO",
+            status="reported",
+            source="user",
+            started_on=date(2026, 8, 24),
+        )
+    )
+    db_session.flush()
+    import_public_guidance(db_session, family.id)
+    return family, ana, rui, recipe_id
+
+
+def test_manual_plan_revalidates_changed_date_and_attendees_without_partial_writes(db_session):
+    family, ana, rui, recipe_id = _sibo_manual_context(db_session)
+    path = f"/api/families/{family.id}/meal-plan"
+    before = _request(
+        db_session,
+        "POST",
+        path,
+        json={
+            "date": "2026-08-23",
+            "meal_type": "dinner",
+            "local_time": "20:00",
+            "recipe_id": recipe_id,
+            "participants": [{"person_id": str(ana.id)}],
+        },
+    )
+    assert before.status_code == 201, before.text
+    changed = _request(
+        db_session, "PATCH", path + "/" + before.json()["id"], json={"date": "2026-08-25"}
+    )
+    assert changed.status_code == 422, changed.text
+    assert "Cebola" in changed.json()["detail"]
+    original = db_session.get(MealEvent, uuid.UUID(before.json()["id"]))
+    assert original.scheduled_at.date().isoformat() == "2026-08-23"
+    # A restriction belonging to an absent person must not block the original dish.
+    allowed = _request(
+        db_session,
+        "POST",
+        path,
+        json={
+            "date": "2026-08-25",
+            "meal_type": "dinner",
+            "local_time": "20:00",
+            "recipe_id": recipe_id,
+            "participants": [{"person_id": str(rui.id)}],
+        },
+    )
+    assert allowed.status_code == 201, allowed.text
+    changed = _request(
+        db_session,
+        "PATCH",
+        path + "/" + allowed.json()["id"],
+        json={
+            "participants": [{"person_id": str(rui.id)}, {"person_id": str(ana.id)}],
+            "notes": "must not persist",
+        },
+    )
+    assert changed.status_code == 422, changed.text
+    event = db_session.get(MealEvent, uuid.UUID(allowed.json()["id"]))
+    assert {p.person_id for p in event.participants} == {rui.id}
+    assert event.notes is None
+
+
+def test_manual_plan_rejects_base_with_active_restriction_before_saving(db_session):
+    family, ana, _, recipe_id = _sibo_manual_context(db_session)
+    response = _request(
+        db_session,
+        "POST",
+        f"/api/families/{family.id}/meal-plan",
+        json={
+            "date": "2026-08-25",
+            "meal_type": "dinner",
+            "local_time": "20:00",
+            "recipe_id": recipe_id,
+            "participants": [{"person_id": str(ana.id)}],
+        },
+    )
+    assert response.status_code == 422, response.text
+    assert "Cebola" in response.json()["detail"]
+    assert list(db_session.scalars(select(MealEvent))) == []
+    assert list(db_session.scalars(select(Serving))) == []
+
+
+def test_manual_plan_checks_restrictions_beyond_first_twenty_attendees(db_session):
+    family, ana, _, recipe_id = _sibo_manual_context(db_session)
+    guests = [Person(family_id=family.id, first_name=f"Guest {number}") for number in range(20)]
+    db_session.add_all(guests)
+    db_session.commit()
+    response = _request(
+        db_session,
+        "POST",
+        f"/api/families/{family.id}/meal-plan",
+        json={
+            "date": "2026-08-25",
+            "meal_type": "dinner",
+            "local_time": "20:00",
+            "recipe_id": recipe_id,
+            "participants": [{"person_id": str(p.id)} for p in [*guests, ana]],
+        },
+    )
+    assert response.status_code == 422, response.text
+    assert "Cebola" in response.json()["detail"]
+    assert list(db_session.scalars(select(MealEvent))) == []

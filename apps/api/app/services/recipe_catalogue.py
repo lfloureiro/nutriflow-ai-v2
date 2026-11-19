@@ -149,7 +149,7 @@ def _recipe_read(recipe: Recipe) -> RecipeRead:
         id=recipe.id,
         family_id=recipe.family_id,
         scope="shared" if is_shared else "family",
-        editable=not is_shared,
+        editable=not is_shared and recipe.source != "family_variant",
         recipe_key=recipe.recipe_key,
         name=recipe.name,
         description=recipe.description,
@@ -329,6 +329,8 @@ def update_family_recipe(
     data: RecipeUpdate,
 ) -> RecipeRead:
     recipe = get_family_recipe_model(db, family_id, recipe_id)
+    if recipe.source == "family_variant":
+        raise RecipeCatalogueError("Variants are immutable; create a new variant revision")
     fields = data.model_fields_set
 
     next_yield_quantity = (
@@ -371,5 +373,7 @@ def deactivate_family_recipe(
     recipe_id: uuid.UUID,
 ) -> None:
     recipe = get_family_recipe_model(db, family_id, recipe_id)
+    if recipe.source == "family_variant":
+        raise RecipeCatalogueError("Retire the variant through its versioned workflow")
     recipe.is_active = False
     db.commit()

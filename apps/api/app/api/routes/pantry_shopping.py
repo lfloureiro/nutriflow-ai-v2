@@ -14,6 +14,9 @@ from app.schemas.pantry_shopping import (
     ShoppingListItemUpdate,
     ShoppingListRead,
     ShoppingListRefreshRequest,
+    ShoppingProductSelect,
+    ShoppingReceiptBatchCreate,
+    ShoppingReceiptCreate,
 )
 from app.services.family import get_family
 from app.services.pantry_shopping import (
@@ -30,6 +33,9 @@ from app.services.pantry_shopping import (
     update_pantry_lot,
     update_shopping_item,
 )
+from app.services.retail_purchase import select_product
+from app.services.shopping_delivery import receive_shopping_batch
+from app.services.shopping_receipt import receive_shopping_item
 
 router = APIRouter(prefix="/families/{family_id}", tags=["pantry-shopping"])
 
@@ -168,3 +174,81 @@ def delete_shopping_item_endpoint(
     except ShoppingListItemNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put("/shopping-list/items/{item_id}/product", response_model=ShoppingListRead)
+def select_shopping_product(
+    family_id: uuid.UUID,
+    item_id: uuid.UUID,
+    data: ShoppingProductSelect,
+    db: Annotated[Session, Depends(get_db)],
+):
+    family = _require_family(db, family_id)
+    try:
+        return select_product(db, family, item_id, data)
+    except ShoppingListItemNotFoundError as exc:
+        db.rollback()
+        raise HTTPException(404, str(exc)) from exc
+    except HTTPException:
+        db.rollback()
+        raise
+
+
+@router.post("/shopping-list/items/{item_id}/product-preview")
+def preview_shopping_product(
+    family_id: uuid.UUID,
+    item_id: uuid.UUID,
+    data: ShoppingProductSelect,
+    db: Annotated[Session, Depends(get_db)],
+):
+    family = _require_family(db, family_id)
+    if data.retail_product_id is None:
+        raise HTTPException(422, "Choose a product to preview")
+    try:
+        return select_product(db, family, item_id, data, preview=True)
+    except ShoppingListItemNotFoundError as exc:
+        db.rollback()
+        raise HTTPException(404, str(exc)) from exc
+    except HTTPException:
+        db.rollback()
+        raise
+
+
+@router.post("/shopping-list/items/{item_id}/receipt", response_model=ShoppingListRead)
+def receive_shopping_item_endpoint(
+    family_id: uuid.UUID,
+    item_id: uuid.UUID,
+    data: ShoppingReceiptCreate,
+    db: Annotated[Session, Depends(get_db)],
+):
+    family = _require_family(db, family_id)
+    try:
+        return receive_shopping_item(db, family, item_id, data)
+    except ShoppingListItemNotFoundError as exc:
+        db.rollback()
+        raise HTTPException(404, str(exc)) from exc
+    except PantryShoppingError as exc:
+        db.rollback()
+        raise _unprocessable(exc) from exc
+    except HTTPException:
+        db.rollback()
+        raise
+
+
+@router.post("/shopping-list/items/{item_id}/receipts", response_model=ShoppingListRead)
+def receive_shopping_batch_endpoint(
+    family_id: uuid.UUID, item_id: uuid.UUID, data: ShoppingReceiptBatchCreate,
+    db: Annotated[Session, Depends(get_db)],
+):
+    family = _require_family(db, family_id)
+    try:
+        return receive_shopping_batch(db, family, item_id, data)
+    except ShoppingListItemNotFoundError as exc:
+        db.rollback()
+        raise HTTPException(404, str(exc)) from exc
+    except PantryShoppingError as exc:
+        db.rollback()
+        raise _unprocessable(exc) from exc
+    except HTTPException:
+        db.rollback()
+        raise

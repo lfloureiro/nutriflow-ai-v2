@@ -115,3 +115,18 @@ export function deleteShoppingItem(familyId: string, itemId: string): Promise<vo
     { method: "DELETE" },
   );
 }
+
+export function selectShoppingProduct(familyId:string,itemId:string,payload:{expected_version:number;retail_product_id:string|null;expected_fingerprint?:string}) {
+  return request<ShoppingList>(`${familyShoppingListPath(familyId)}/items/${encodeURIComponent(itemId)}/product`,{method:"PUT",body:JSON.stringify(payload)});
+}
+export function previewShoppingProduct(familyId:string,itemId:string,payload:{expected_version:number;retail_product_id:string;expected_fingerprint:string}) {
+  return request<import("./pantryShoppingTypes").ShoppingProductSelection>(`${familyShoppingListPath(familyId)}/items/${encodeURIComponent(itemId)}/product-preview`,{method:"POST",body:JSON.stringify(payload)});
+}
+
+export function receiveShoppingItem(familyId:string,itemId:string,payload:{expected_version:number;quantity:string;unit:string;location?:string|null;expires_at?:string|null;label_reviewed:true}) {
+  return request<ShoppingList>(`${familyShoppingListPath(familyId)}/items/${encodeURIComponent(itemId)}/receipt`,{method:"POST",body:JSON.stringify(payload)});
+}
+
+export function receiveShoppingBatch(familyId:string,itemId:string,payload:import("./pantryShoppingTypes").ShoppingReceiptBatchCreate) {
+  return request<ShoppingList>(`${familyShoppingListPath(familyId)}/items/${encodeURIComponent(itemId)}/receipts`,{method:"POST",body:JSON.stringify(payload)});
+}

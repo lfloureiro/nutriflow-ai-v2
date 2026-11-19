@@ -166,3 +166,31 @@ def test_family_dashboard_returns_404_for_unknown_family(db_session: Session) ->
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Family not found"
+
+
+def test_dashboard_avatar_age_and_sex_are_optional_and_use_reference_date(db_session: Session) -> None:
+    from app.models.person_profile import PersonProfile
+
+    family = Family(name="Avatar family", timezone="Europe/Lisbon")
+    child = Person(family=family, first_name="Child", birth_date=date(2016, 8, 23))
+    adult = Person(family=family, first_name="Adult", birth_date=date(1990, 8, 22))
+    unknown = Person(family=family, first_name="Unknown")
+    adult.profile = PersonProfile(sex_for_energy_calculation="female")
+    db_session.add(family)
+    db_session.flush()
+    response = _get(db_session, family.id)
+    assert response.status_code == 200
+    members = {item["person_id"]: item for item in response.json()["members"]}
+    assert members[str(child.id)]["age_years"] == 9
+    assert members[str(child.id)]["sex_for_energy_calculation"] is None
+    assert members[str(adult.id)]["age_years"] == 36
+    assert members[str(adult.id)]["sex_for_energy_calculation"] == "female"
+    assert members[str(unknown.id)]["age_years"] is None
+
+
+def test_avatar_age_handles_future_birth_and_leap_day() -> None:
+    from app.services.family_dashboard import _age_on
+
+    assert _age_on(date(2030, 1, 1), DASHBOARD_DATE) is None
+    assert _age_on(date(2012, 2, 29), date(2026, 2, 28)) == 13
+    assert _age_on(date(2012, 2, 29), date(2026, 3, 1)) == 14

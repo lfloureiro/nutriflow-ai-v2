@@ -25,6 +25,8 @@ The weekly planning proposal API accepts only ordinary planning inputs:
 
 For every slot the server runs the existing shared practical recommendation pipeline. The exact Person-specific `MealPlanFitRead` used for that candidate is carried transiently with each shared participant evaluation. Diversity and feedback adjustments preserve that transient evidence.
 
+Weekly auto-sizing uses each meal's fixed share of the Person's reconstructed daily energy target (breakfast 25%, lunch 35%, snack 10%, dinner 30%). It must not redistribute the entire still-unplanned daily remainder into later weekly slots, because weekly slots are evaluated independently before any proposed meals are materialized. Same-day recommendation flows retain remaining-energy redistribution.
+
 The weekly orchestration layer then converts those server-generated slot evaluations into `SharedWeeklyPlanningSlot` inputs and calls the existing shared-Family optimizer. It does not:
 
 - compile or reinterpret NutritionPlan rules;
@@ -33,7 +35,7 @@ The weekly orchestration layer then converts those server-generated slot evaluat
 - classify food from names or descriptions;
 - duplicate weekly maximum or same-day daily nutrient coupling logic.
 
-The proposal response exposes the selected weekly combination, Person-specific portions/scores/explanations, optimization counters and per-slot recommendation engine versions. Internal Plan-Fit objects remain server-side.
+The proposal response exposes the selected weekly combination, Person-specific portions/scores/explanations, optimization counters and per-slot recommendation engine versions. For review UI it may also expose a compact, server-derived nutrition comparison snapshot: the exact candidate nutrition used for that Person plus applicable plan-backed candidate/meal rules. The browser renders those values but does not recalculate Plan-Fit or infer plan targets. If a requested slot has no server-authoritative eligible candidate after practical availability and Plan-Fit evaluation, that slot is returned explicitly as skipped/pending and is not allowed to collapse the search space for otherwise feasible slots. Full internal Plan-Fit orchestration remains server-side.
 
 ## Persistence boundary
 
@@ -47,6 +49,7 @@ No schema migration is required for this decision.
 
 - The browser cannot forge or reuse stale safety evidence.
 - Weekly optimization consumes the exact Person-specific evidence produced by the recommendation path for each slot.
+- Operationally impossible slots remain explicit pending gaps; they are not silently filled, and they do not invalidate otherwise feasible weekly choices.
 - Existing single-slot recommendation behavior remains compatible because the new Plan-Fit field is transient and optional outside Plan-Fit paths.
 - Shared weekly planning remains a composition layer over established evaluators instead of becoming another nutrition engine.
 - Proposal generation and proposal acceptance can evolve independently.

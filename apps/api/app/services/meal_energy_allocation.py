@@ -9,7 +9,9 @@ from app.services.meal_recommendation import (
 )
 
 POLICY_VERSION = "meal-energy-allocation-v2"
+WEEKLY_POLICY_VERSION = "meal-energy-allocation-v3-fixed-daily-weight"
 PORTION_VERSION = "portion-sizing-v1"
+WEEKLY_PORTION_VERSION = "portion-sizing-v2-weekly-fixed-weight"
 ZERO = Decimal(0)
 ONE = Decimal(1)
 ENERGY_QUANTUM = Decimal("0.01")
@@ -108,6 +110,7 @@ def allocate_meal_energy(
     state: DailyNutritionState,
     *,
     meal_type: str,
+    redistribute_remaining: bool = True,
 ) -> MealEnergyAllocation:
     try:
         weight = MEAL_ENERGY_WEIGHTS[meal_type]
@@ -119,16 +122,22 @@ def allocate_meal_energy(
     remaining_weight = _remaining_weight(meal_type)
     daily_min = _daily_target(state, state.energy_remaining_min_kcal)
     daily_max = _daily_target(state, state.energy_remaining_max_kcal)
-    meal_min = _meal_target_from_remaining(
-        state.energy_remaining_min_kcal,
-        weight=weight,
-        remaining_weight=remaining_weight,
-    )
-    meal_max = _meal_target_from_remaining(
-        state.energy_remaining_max_kcal,
-        weight=weight,
-        remaining_weight=remaining_weight,
-    )
+    if redistribute_remaining:
+        meal_min = _meal_target_from_remaining(
+            state.energy_remaining_min_kcal,
+            weight=weight,
+            remaining_weight=remaining_weight,
+        )
+        meal_max = _meal_target_from_remaining(
+            state.energy_remaining_max_kcal,
+            weight=weight,
+            remaining_weight=remaining_weight,
+        )
+        policy_version = POLICY_VERSION
+    else:
+        meal_min = None if daily_min is None else _q_energy(daily_min * weight)
+        meal_max = None if daily_max is None else _q_energy(daily_max * weight)
+        policy_version = WEEKLY_POLICY_VERSION
     if meal_min is not None and meal_max is not None and meal_min > meal_max:
         meal_min = meal_max
 
@@ -140,6 +149,7 @@ def allocate_meal_energy(
         daily_target_max_kcal=daily_max,
         meal_target_min_kcal=meal_min,
         meal_target_max_kcal=meal_max,
+        policy_version=policy_version,
     )
 
 
@@ -196,8 +206,13 @@ def size_candidate_for_meal(
     state: DailyNutritionState,
     *,
     meal_type: str,
+    redistribute_remaining: bool = True,
 ) -> PortionSizingResult:
-    allocation = allocate_meal_energy(state, meal_type=meal_type)
+    allocation = allocate_meal_energy(
+        state,
+        meal_type=meal_type,
+        redistribute_remaining=redistribute_remaining,
+    )
     target = _target_midpoint(allocation)
     energy = candidate.nutrition.energy_kcal
 
@@ -234,12 +249,22 @@ def size_candidates_for_meal(
     state: DailyNutritionState,
     *,
     meal_type: str,
+    redistribute_remaining: bool = True,
 ) -> tuple[list[MealCandidate], MealEnergyAllocation, dict[str, Decimal]]:
-    allocation = allocate_meal_energy(state, meal_type=meal_type)
+    allocation = allocate_meal_energy(
+        state,
+        meal_type=meal_type,
+        redistribute_remaining=redistribute_remaining,
+    )
     resized: list[MealCandidate] = []
     factors: dict[str, Decimal] = {}
     for candidate in candidates:
-        result = size_candidate_for_meal(candidate, state, meal_type=meal_type)
+        result = size_candidate_for_meal(
+            candidate,
+            state,
+            meal_type=meal_type,
+            redistribute_remaining=redistribute_remaining,
+        )
         resized.append(result.candidate)
         factors[candidate.key] = result.portion_factor
     return resized, allocation, factors
