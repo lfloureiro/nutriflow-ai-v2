@@ -80,6 +80,19 @@ def save_setup(db: Session, family_id: uuid.UUID, week: date, data: WeekSetupWri
             data.person_ids
         ):
             raise HTTPException(422, "Attendance must use selected meals and people")
+    decision_keys = set()
+    for entry in data.attendance_decisions:
+        key = (entry.planning_date, entry.meal_type)
+        if key in decision_keys:
+            raise HTTPException(422, "Duplicate meal attendance decisions")
+        decision_keys.add(key)
+        if not week <= entry.planning_date < week + timedelta(days=7):
+            raise HTTPException(422, "Attendance decisions must belong to the selected week")
+        if entry.meal_type not in data.meal_types:
+            raise HTTPException(422, "Attendance decisions must use selected meal types")
+        if not {person.person_id for person in entry.people} <= set(data.person_ids):
+            raise HTTPException(422, "Attendance decisions must use selected people")
+
     settings = data.model_dump(mode="json", exclude={"expected_version"})
     try:
         if data.expected_version == 0:
