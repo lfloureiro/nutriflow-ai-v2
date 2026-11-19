@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attendeeRestrictionSummary, selectedMealRestrictions } from "./SelectedMealOptions";
+import { attendeeRestrictionSummary, personMealPortion, selectedMealRestrictions } from "./SelectedMealOptions";
 import type { PlanningRestrictions } from "./api/planningWorkspaceClient";
 import type { SelectedMealContext } from "./SelectedMealOptions";
 
@@ -73,5 +73,22 @@ describe("per-person restrictions displayed in a meal drawer", () => {
     expect(selected.sources).toEqual([]);
     expect(attendeeRestrictionSummary(selected, ["one"])[0]?.sources).toEqual([]);
     expect(selected.excluded_food_item_ids).toEqual([]);
+  });
+});
+
+describe("per-person meal portion provenance",()=>{
+  it("preserves exact planned quantities and units without converting or fabricating energy",()=>{
+    const proposal={...context,portions:[
+      {person_id:"one",quantity:"3.0000",unit:"emb"},
+      {person_id:"two",quantity:"1",unit:"serving"},
+    ]};
+    expect(personMealPortion(proposal,"one")).toEqual({quantity:"3.0000",unit:"emb",recorded:false});
+    expect(personMealPortion(proposal,"two")).toEqual({quantity:"1",unit:"serving",recorded:false});
+    expect(personMealPortion(proposal,"three")).toBeNull();
+  });
+  it("leaves missing quantities unknown and does not assume people are present",()=>{
+    const proposal={...context,portions:[{person_id:"one",quantity:"",unit:"g"}]};
+    expect(personMealPortion(proposal,"one")).toBeNull();
+    expect(personMealPortion({...context,portions:undefined},"one")).toBeNull();
   });
 });
