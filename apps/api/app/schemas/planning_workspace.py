@@ -43,6 +43,15 @@ class MealAttendanceDecisions(BaseModel):
         return value
 
 
+class GuestMealNotice(BaseModel):
+    """Headcount only: guests have no person profile and no inferred nutrition approval."""
+
+    model_config = ConfigDict(extra="forbid")
+    planning_date: date
+    meal_type: Literal["breakfast", "lunch", "snack", "dinner"]
+    guest_count: int = Field(ge=1, le=12)
+
+
 class WeekSetupWrite(BaseModel):
     model_config = ConfigDict(extra="forbid")
     person_ids: list[uuid.UUID] = Field(min_length=2, max_length=20)
@@ -56,6 +65,7 @@ class WeekSetupWrite(BaseModel):
     ] = Field(default_factory=dict, max_length=4)
     attendance: list[MealAttendance] = Field(default_factory=list, max_length=28)
     attendance_decisions: list[MealAttendanceDecisions] = Field(default_factory=list, max_length=28)
+    guest_notices: list[GuestMealNotice] = Field(default_factory=list, max_length=28)
     expected_version: int = Field(default=0, ge=0)
 
     @field_validator("person_ids", "meal_types", "excluded_food_item_ids")
@@ -77,6 +87,7 @@ class WeekSetupRead(BaseModel):
     ] = Field(default_factory=dict, max_length=4)
     attendance: list[MealAttendance] = Field(default_factory=list)
     attendance_decisions: list[MealAttendanceDecisions] = Field(default_factory=list)
+    guest_notices: list[GuestMealNotice] = Field(default_factory=list)
 
 
 class RetailUnitPriceRead(BaseModel):
