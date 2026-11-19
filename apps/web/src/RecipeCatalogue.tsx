@@ -795,9 +795,6 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (selected !== undefined) {
-      return;
-    }
     let cancelled = false;
     const timer = window.setTimeout(() => {
       setBusy(true);
@@ -827,7 +824,7 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [familyId, includeInactive, query, revision, selected]);
+  }, [familyId, includeInactive, query, revision]);
 
   const hasSearch = useMemo(() => query.trim().length > 0 || nutritionFilter !== "all"||mealFilter!=="all"||originFilter!=="all"||includeInactive, [query, nutritionFilter,mealFilter,originFilter,includeInactive]);
   const filteredRecipes = useMemo(
@@ -925,9 +922,9 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
           <span>{error}</span>
         </div>
       ) : null}
-      {busy ? (
+      {busy && recipes.length === 0 ? (
         <div className="shell-loading" role="status">{copy.loading}</div>
-      ) : filteredRecipes.length === 0 ? (
+      ) : filteredRecipes.length === 0 && !busy ? (
         <div className="ingredient-empty">{hasSearch ? copy.emptySearch : copy.empty}</div>
       ) : (
         <div className="nf-recipe-grid">
