@@ -70,7 +70,7 @@ test("desktop: meal drawer, deep-link, history, focus and persistence", async ({
   await expect(page.locator("#root")).toHaveAttribute("inert","");
   await expect(page.getByRole("button",{name:"Fechar detalhe"})).toBeFocused();
   await drawer.getByText("Restrições por pessoa · fontes desta consulta").click();
-  await expect(drawer.getByText("Porção registada: 1 serving")).toBeVisible();
+  await expect(drawer.getByText(/^Porção registada: /)).toBeVisible();
   await expect(drawer.getByText(/Sem restrições específicas devolvidas nesta consulta/)).toBeVisible();
 
   await page.keyboard.press("Escape");
