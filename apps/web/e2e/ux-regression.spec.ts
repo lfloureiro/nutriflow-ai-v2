@@ -285,6 +285,41 @@ test("person: switching local tabs does not discard an unsaved condition",async 
   await expect(page.getByRole("heading",{name:"Nutrição",exact:true})).toBeVisible();
 });
 
+test("health condition form: mobile reflow and cancelled draft never persists",async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.emulateMedia({reducedMotion:"reduce"});
+  for(const {width,theme} of [{width:320,theme:"light"},{width:390,theme:"dark"}]){
+    await page.setViewportSize({width,height:800});
+    await openFamily(page,fixture.family.id,`/#/people?person=${fixture.person.id}`);
+    await page.evaluate(value=>window.localStorage.setItem("nutriflow-appearance",value),theme);
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("data-theme",theme);
+    await page.getByRole("button",{name:"Saúde",exact:true}).click();
+    await page.getByRole("button",{name:"Adicionar condição"}).click();
+    const form=page.locator("form.nf-condition-form");
+    await expect(form).toBeVisible();
+    await form.getByLabel("Nome da condição").fill("Condição fictícia de teste");
+    await form.getByLabel(/Código estável/).fill("qa-test-draft");
+    await expect(form.getByText("Alterações por guardar")).toBeVisible();
+    const geometry=await form.evaluate(element=>{
+      const rect=element.getBoundingClientRect();
+      return {viewport:innerWidth,scrollWidth:document.documentElement.scrollWidth,
+        left:rect.left,right:rect.right,client:element.clientWidth,scroll:element.scrollWidth};
+    });
+    expect(geometry.scrollWidth,`Page overflow at ${width}px / ${theme}`).toBeLessThanOrEqual(geometry.viewport+1);
+    expect(geometry.left).toBeGreaterThanOrEqual(-1);
+    expect(geometry.right).toBeLessThanOrEqual(geometry.viewport+1);
+    expect(geometry.scroll,`Form overflow at ${width}px / ${theme}`).toBeLessThanOrEqual(geometry.client+2);
+    page.once("dialog",dialog=>dialog.dismiss());
+    await form.getByRole("button",{name:"Cancelar"}).click();
+    await expect(form.getByLabel("Nome da condição")).toHaveValue("Condição fictícia de teste");
+    page.once("dialog",dialog=>dialog.accept());
+    await form.getByRole("button",{name:"Cancelar"}).click();
+    await expect(form).toHaveCount(0);
+    await expect(page.getByText("Sem condições registadas.")).toBeVisible();
+  }
+});
+
 test("person profile editor: narrow responsive layout and unsaved draft guard",async ({page,request})=>{
   const fixture=await seed(request);
   await page.emulateMedia({reducedMotion:"reduce"});
