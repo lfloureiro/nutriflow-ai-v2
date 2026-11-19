@@ -778,6 +778,50 @@ test("UI weekly attendance: confirmation survives a reload without changing save
   expect(original?.participants.map(person=>person.person_id)).toEqual([fixture.person.id]);
 });
 
+test("UI guest context is shown only for the selected dinner during weekly review",async ({page,request})=>{
+  const fixture=await seed(request);
+  const familyId=fixture.family.id;
+  const second=await postJson<{id:string}>(request,`/families/${familyId}/persons`,{
+    first_name:"Segundo membro contextual QA",last_name:null,birth_date:null,
+    preferred_locale:"pt-PT",timezone:"Europe/Lisbon",meal_discovery:null,
+  });
+  const setup={
+    person_ids:[fixture.person.id,second.id],
+    meal_types:["dinner"],
+    excluded_food_item_ids:[],
+    meal_sources:{dinner:"home"},
+    attendance:[],
+    attendance_decisions:[{planning_date:DATE,meal_type:"dinner",people:[
+      {person_id:fixture.person.id,decision:"present"},
+      {person_id:second.id,decision:"unconfirmed"},
+    ]}],
+    guest_notices:[{planning_date:DATE,meal_type:"dinner",guest_count:2}],
+    expected_version:0,
+  };
+  const saved=await request.put(`${API}/families/${familyId}/planning-setup/2026-11-16`,{data:setup});
+  expect(saved.ok(),await saved.text()).toBe(true);
+  await openFamily(page,familyId,"/#/meals?date=2026-11-12&mode=prepare");
+  await expect(page.getByRole("heading",{name:"Vamos planear a próxima semana"})).toBeVisible();
+  await page.getByLabel("Semana a começar na segunda-feira").fill("2026-11-16");
+  await page.getByRole("button",{name:/Continuar para restrições/}).click();
+  await page.getByRole("checkbox",{name:/Revi as pessoas, refeições e exclusões/}).check();
+  await page.getByRole("button",{name:/Guardar escolhas e gerar refeições/}).click();
+  const slot=page.getByRole("button",{name:/Prato sintético QA/}).first();
+  await expect(slot).toBeVisible();
+  await slot.click();
+  const drawer=page.getByRole("dialog");
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByText("2 convidado(s) sem perfil.",{exact:false})).toBeVisible();
+  await expect(drawer.getByText("1 presença(s) por confirmar nesta refeição.",{exact:false})).toBeVisible();
+  await drawer.getByRole("button",{name:"Fechar detalhe"}).click();
+  await expect(drawer).toHaveCount(0);
+  const original=await getJson<{days:{date:string,slots:{meal_type:string,meals:{id:string,participants:{person_id:string}[]}[]}[]}[]}>(request,
+    `/families/${familyId}/meal-plan?start_date=2026-11-16&days=7`);
+  const planned=original.days.find(d=>d.date===DATE)?.slots.find(s=>s.meal_type==="dinner")?.meals[0];
+  expect(planned?.id).toBe(fixture.meal.id);
+  expect(planned?.participants.map(p=>p.person_id)).toEqual([fixture.person.id]);
+});
+
 test("guest notices are bounded, versioned and do not modify participants or shopping",async ({request})=>{
   const fixture=await seed(request);
   const familyId=fixture.family.id;
