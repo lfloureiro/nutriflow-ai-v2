@@ -1,9 +1,10 @@
 import {useUnsavedChanges} from "./useUnsavedChanges";
 import PersonAvatar from "./ui/PersonAvatar";
+import ContextDrawer from "./ui/ContextDrawer";
 import {searchText} from "./recipeBrowsing";
 import {listRecipeReviews,type ReviewRecipe} from "./api/dietaryReviewClient";
 import SavedMealChanges from "./SavedMealChanges";
-import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import {
   ApiError,
@@ -233,12 +234,14 @@ function MealEditForm({
   recipes,
   people,
   onDone,
+  registerClose,
 }: {
   target: EditTarget;
   familyId: string;
   recipes: Recipe[];
   people: Person[];
   onDone: () => void;
+  registerClose?: (close: () => void) => void;
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
@@ -273,6 +276,7 @@ function MealEditForm({
   const [recipeQuery,setRecipeQuery]=useState("");
   const guard=useUnsavedChanges({recipeId,localTime,location,participants},locale==="pt-PT"?"Tens alterações nesta refeição por guardar. Sair e descartá-las?":"You have unsaved meal changes. Leave and discard them?");
   const closeEditor=()=>{if(!busy&&guard.confirmDiscard())onDone();};
+  useEffect(() => { registerClose?.(closeEditor); });
   const present=participants.filter(participant=>participant.selected);
   const selectedRecipe=eligibleRecipes.find(recipe=>recipe.id===recipeId);
   const matchingRecipes=eligibleRecipes.filter(recipe=>recipe.id===recipeId||searchText(recipe.name).includes(searchText(recipeQuery)));
@@ -518,6 +522,7 @@ export default function FamilyMealsScreen({
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   const [editing, setEditing] = useState<EditTarget | null>(null);
+  const requestEditorClose = useRef<() => void>(() => {});
   const [mealSelection,setMealSelection]=useState<{date:string;mealType:MealType}|null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -674,15 +679,7 @@ export default function FamilyMealsScreen({
       ) : null}
 
       {mode !== "recommend" && !busy && plan ? (
-        editing ? (
-          <MealEditForm
-            familyId={familyId}
-            onDone={closeEditor}
-            people={people}
-            recipes={recipes}
-            target={editing}
-          />
-        ) : mode === "week" ? (
+        mode === "week" ? (
           <WeeklyProposalPreview
             initialSelection={mealSelection} onSelectionChange={setMealSelection} onMealCommitted={onDataChanged}
             familyId={familyId}
@@ -800,6 +797,24 @@ export default function FamilyMealsScreen({
             ))}
           </div>
         )
+      ) : null}
+      {editing ? (
+        <ContextDrawer
+          title={`${mealLabel(editing.mealType, locale)} · ${formatDate(editing.date, locale)}`}
+          closeLabel={copy.cancel}
+          onRequestClose={() => requestEditorClose.current()}
+          wide
+        >
+          <MealEditForm
+            key={`${familyId}:${editing.entry?.id ?? "new"}:${editing.date}:${editing.mealType}`}
+            familyId={familyId}
+            onDone={closeEditor}
+            registerClose={(close) => { requestEditorClose.current = close; }}
+            people={people}
+            recipes={recipes}
+            target={editing}
+          />
+        </ContextDrawer>
       ) : null}
     </div>
   );
