@@ -293,3 +293,12 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - **Receitas e ingredientes:** removida a dependência dos pedidos de catálogo em `selected`. Abrir e fechar drawer não dispara consultas; guardar aumenta `revision` e recarrega informação. Durante atualização, os cartões antigos permanecem montados até à resposta, em vez de trocar a lista por um spinner.
 - Adicionados cenários Playwright de seleção consecutiva de dias com uma única grelha montada e sem novo GET de plano semanal, mais abertura/fecho de receita duas vezes sem novo GET de lista de receitas.
 - Versão de interface **v2.0.25**. Manter PR #76 em draft e `main` intacta. A correção não está automaticamente validada: exigir Web CI, API CI e UX E2E verdes **neste SHA**, e confirmar que os testes de transição não introduzem comportamento secundário.
+
+## Patch v2.0.26 — cancelar editor não recarrega plano (19 novembro 2026)
+
+- Confirmado sucesso **Web CI, API CI e UX E2E** no SHA final de v2.0.25 `630d56b0337820f1d7c182485224d3d1c535b826`. O utilizador confirmou que o comportamento de abrir/fechar drawers ficou bom.
+- Ao fechar sem gravar ou apenas consultar a edição de refeição, `MealEditForm` chama `onDone(false)`; a callback do pai desmonta somente o drawer, **sem refazer GET nem substituir a grelha semanal por loading**.
+- Após guardar/criar/remover com êxito, a callback chama `onDone(true)` e continua a executar `refreshPlan`, preservando a consistência dos dados. A proteção de alterações não guardadas permanece ativa.
+- Novo Playwright E2E com PostgreSQL sintético verifica fecho por Escape de um editor existente, uma única modal, preservação da grelha e zero pedidos GET de plano após cancelamento.
+- Prioridades seguintes e release gates documentadas em `docs/ux/roadmap-v2.1.0-rc.md`.
+- Frontend **v2.0.26**, patch Z; exigir Web/API/UX E2E verdes no SHA final antes de marcar como validado. PR #76 continua draft; `main` e dados reais intactos.
