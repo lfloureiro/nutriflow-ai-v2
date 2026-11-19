@@ -152,10 +152,7 @@ test("meal edit cancel leaves weekly calendar and data untouched without a refet
   await dialog.getByRole("button",{name:"Alterar",exact:true}).click();
   await expect(dialog).toHaveCount(1);
   await expect(dialog.locator("form.meal-plan-form")).toBeVisible();
-  await dialog.getByRole("button",{name:"Fechar detalhe"}).count().then(async count=>{
-    if(count)await dialog.getByRole("button",{name:"Fechar detalhe"}).click();
-    else await page.keyboard.press("Escape");
-  });
+  await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(page.locator(".weekly-day-grid")).toBeVisible();
   expect(refetches).toBe(0);
