@@ -385,11 +385,15 @@ def _evaluate_rule(
         status = "support"
         explanation = "Candidate moves the daily total toward the minimum but does not reach it yet."
         score = None
-    elif status == "fail" and rule.operator == "range" and rule.value_min is not None:
-        if projected < rule.value_min:
-            status = "support"
-            explanation = "Candidate moves the daily total toward the target range."
-            score = None
+    elif (
+        status == "fail"
+        and rule.operator == "range"
+        and rule.value_min is not None
+        and projected < rule.value_min
+    ):
+        status = "support"
+        explanation = "Candidate moves the daily total toward the target range."
+        score = None
 
     return _rule_result(
         rule,

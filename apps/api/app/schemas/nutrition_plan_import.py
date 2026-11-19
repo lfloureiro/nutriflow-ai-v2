@@ -117,9 +117,8 @@ class NutritionPlanImportProposalCreate(_ValidityModel):
                 )
             if not self.description:
                 raise ValueError("frequency_guideline requires description")
-        elif self.proposal_type == "qualitative_guideline":
-            if not self.description:
-                raise ValueError("qualitative_guideline requires description")
+        elif self.proposal_type == "qualitative_guideline" and not self.description:
+            raise ValueError("qualitative_guideline requires description")
         return self
 
 
