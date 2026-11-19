@@ -711,6 +711,7 @@ test("UI weekly attendance: confirmation survives a reload without changing save
   });
   await openFamily(page,familyId,"/#/meals?date=2026-11-12&mode=prepare");
   await expect(page.getByRole("heading",{name:"Vamos planear a próxima semana"})).toBeVisible();
+  await page.getByLabel("Semana a começar na segunda-feira").fill("2026-11-16");
   await page.getByText("Quem está em cada refeição?",{exact:true}).click();
   const personDecision=page.getByRole("combobox",{name:"Pessoa QA · 2026-11-19 · Jantar · Confirmação"});
   const secondDecision=page.getByRole("combobox",{name:"Segundo membro QA · 2026-11-19 · Jantar · Confirmação"});
@@ -730,6 +731,7 @@ test("UI weekly attendance: confirmation survives a reload without changing save
   ]);
   await page.goto("/#/meals?date=2026-11-12&mode=prepare");
   await expect(page.getByRole("heading",{name:"Vamos planear a próxima semana"})).toBeVisible();
+  await page.getByLabel("Semana a começar na segunda-feira").fill("2026-11-16");
   await page.getByText("Quem está em cada refeição?",{exact:true}).click();
   await expect(page.getByRole("combobox",{name:"Pessoa QA · 2026-11-19 · Jantar · Confirmação"})).toHaveValue("present");
   await expect(page.getByRole("combobox",{name:"Segundo membro QA · 2026-11-19 · Jantar · Confirmação"})).toHaveValue("unconfirmed");
