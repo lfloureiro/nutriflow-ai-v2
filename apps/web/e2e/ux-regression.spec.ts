@@ -85,6 +85,60 @@ test("desktop: meal drawer, deep-link, history, focus and persistence", async ({
   expect(stored.days.find(d=>d.date===DATE)?.slots.find(s=>s.meal_type==="dinner")?.meals.some(m=>m.id===fixture.meal.id)).toBe(true);
 });
 
+test("weekly map: editing a saved or empty meal never stacks two side drawers",async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.setViewportSize({width:1440,height:900});
+  await openFamily(page,fixture.family.id,`/#/meals?date=${DATE}&mode=week`);
+  const saved=page.getByRole("button",{name:/Prato sintético QA/}).first();
+  await saved.click();
+  const dialog=page.getByRole("dialog");
+  await expect(dialog).toHaveCount(1);
+  await dialog.getByRole("button",{name:"Alterar",exact:true}).click();
+  await expect(dialog).toHaveCount(1);
+  await expect(page.locator("form.meal-plan-editor, form.meal-plan-editor__form")).toHaveCount(1);
+  await expect(page).not.toHaveURL(/meal=dinner/);
+  await dialog.getByRole("button",{name:"Cancelar",exact:true}).first().click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator(".weekly-day-grid")).toBeVisible();
+
+  const empty=page.locator("button.weekly-grid-meal.is-empty").first();
+  await expect(empty).toBeVisible();
+  await empty.click();
+  await expect(dialog).toHaveCount(1);
+  await expect(page.locator("form.meal-plan-editor, form.meal-plan-editor__form")).toHaveCount(1);
+  await dialog.getByRole("button",{name:"Cancelar",exact:true}).first().click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator(".weekly-day-grid")).toBeVisible();
+});
+
+test("catalogue and person details open once over their parent list",async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.setViewportSize({width:1280,height:860});
+  await openFamily(page,fixture.family.id,"/#/house?tab=ingredients");
+  await page.getByRole("button",{name:/Novo ingrediente/}).click();
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await expect(page.locator(".ingredient-catalogue .ingredient-toolbar")).toHaveCount(1);
+  await page.getByRole("dialog").getByRole("button",{name:"Fechar detalhe"}).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".ingredient-toolbar")).toBeVisible();
+
+  await page.goto("/#/house?tab=recipes");
+  await page.getByRole("button",{name:/Prato sintético QA/}).first().click();
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await expect(page.locator(".recipe-catalogue .nf-recipe-grid")).toHaveCount(1);
+  await page.getByRole("dialog").getByRole("button",{name:"Fechar detalhe"}).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".nf-recipe-grid")).toBeVisible();
+
+  await page.goto("/#/people");
+  await page.getByRole("button",{name:/Pessoa QA/}).first().click();
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await expect(page.locator(".people-list")).toHaveCount(1);
+  await page.getByRole("dialog").getByRole("button",{name:"Fechar detalhe"}).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".people-list")).toBeVisible();
+});
+
 test("mobile: drawer remains within viewport in both themes",async ({page,request})=>{
   const fixture=await seed(request);
   await page.setViewportSize({width:390,height:844});
