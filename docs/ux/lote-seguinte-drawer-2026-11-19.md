@@ -241,3 +241,10 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Em cada ciclo, confirmar que o conteúdo principal fica `inert`, scroll corporal é bloqueado, Tab/Shift+Tab não escapam do modal e Escape fecha o drawer; depois confirmar que scroll e interatividade do fundo são restaurados, tal como o foco no botão da refeição original.
 - Esta cobertura complementa os testes existentes de teclado e reflow. **Não equivale a auditoria WCAG completa nem substitui zoom real de browser a 200%**, ainda exigidos antes de v2.1.0.
 - Frontend **v2.0.18** (patch Z). Apenas testes/documentação, sem migrações, sem alterações de API e sem acesso à família real. Aguardar Web CI, API CI e UX E2E verdes no SHA final antes de marcar como validado; PR #76 permanece draft.
+
+## Patch v2.0.19 — ignorar elementos ocultos e desativados na navegação por teclado (19 novembro 2026)
+
+- Os três gates **Web CI, API CI e UX E2E** foram confirmados com sucesso no SHA final de v2.0.18 `b9b1a1c0508af6c75bd840ad426c6ba7a3b2740d`.
+- Em `ContextDrawer.tsx`, a lista de candidatos a foco ignora agora elementos efetivamente desativados (incluindo os que se encontram em `fieldset disabled`), ocultos por `visibility`, sob `aria-hidden=true` ou sob `inert`. Mantém Tab/Shift+Tab, Escape e restauro do foco.
+- Playwright acrescenta um cenário sintético: injeta no DOM temporário um botão `visibility:hidden` e outro sob `fieldset disabled`, verifica que Shift+Tab passa para um elemento visível dentro do diálogo e que Escape continua a fechar.
+- Versão de interface **v2.0.19** (Z). É uma correção de acessibilidade sem alteração de schema/API/dados. Verificar os três CI no SHA final e manter PR #76 em draft. Ainda falta auditoria real de zoom 200% antes da v2.1.0; não solicitar teste manual nesta patch.
