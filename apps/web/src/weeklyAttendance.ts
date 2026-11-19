@@ -6,6 +6,7 @@ import {calendarDateOffset} from "./mealAlternatives";
 export function copyWeeklyOrganisation(source: WeekSetup, target: WeekSetup, availableIds: string[]): WeekSetup {
   if (source.person_ids.some(id => !availableIds.includes(id))) throw new Error("unavailable_attendee");
   return {...target, person_ids:[...source.person_ids], meal_types:[...source.meal_types],
+    guest_notices:[], // Guests are one-off exceptions; do not carry them to another week.
     meal_sources:{...source.meal_sources},
     attendance_decisions:(source.attendance_decisions ?? []).map(entry => {
       const offset=Math.round((Date.parse(entry.planning_date)-Date.parse(source.week_start))/86400000);
@@ -45,5 +46,20 @@ export function setWeeklyAttendanceDecision(
   return {...setup,attendance_decisions:[
     ...previous.filter(row=>row.planning_date!==date||row.meal_type!==meal),
     {planning_date:date,meal_type:meal,people},
+  ]};
+}
+
+/** Guest headcounts are advisory; never add a guest to saved meal participants. */
+export function setWeeklyGuestCount(
+  setup:WeekSetup,date:string,meal:MealType,count:number,
+):WeekSetup {
+  if(!setup.meal_types.includes(meal)||date<setup.week_start
+    ||date>calendarDateOffset(setup.week_start,6)
+    ||!Number.isInteger(count)||count<0||count>12) {
+    throw new Error("invalid_guest_headcount");
+  }
+  return {...setup,guest_notices:[
+    ...(setup.guest_notices ?? []).filter(row=>row.planning_date!==date||row.meal_type!==meal),
+    ...(count>0?[{planning_date:date,meal_type:meal,guest_count:count}]:[]),
   ]};
 }
