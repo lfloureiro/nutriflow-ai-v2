@@ -297,3 +297,60 @@ test("adaptation: accepted recipe edit updates only selected meal and shopping a
   const stillOriginal=await getJson<typeof baseRecipe>(request,`${basePath}/recipes/${fixture.recipe.id}`);
   expect(stillOriginal.ingredients[0]?.food_item_id).toBe(fixture.ingredient.id);
 });
+
+test("adaptation: a family-declared replacement stays uncertified and does not change shopping until confirmation",async ({request})=>{
+  const fixture=await seed(request);
+  const base=`/families/${fixture.family.id}`;
+  const originalRecipe=await getJson<{
+    id:string;serving_count:string|null;yield_quantity:string|null;yield_unit:string|null;
+    ingredients:{id:string,food_item_id:string,quantity:string,unit:string,preparation:string|null}[]
+  }>(request,`${base}/recipes/${fixture.recipe.id}`);
+  const line=originalRecipe.ingredients[0]!;
+  const draft=await postJson<{id:string,recipe_id:string,confirmation_mode:string}>(request,`${base}/recipe-variants/recipe-edit`,{
+    base_recipe_id:fixture.recipe.id,
+    name:"Prato com ingrediente declarado pela família QA",
+    serving_count:null,
+    operations:[{
+      recipe_ingredient_id:line.id,replacement_food_item_id:null,
+      replacement_name:"Alternativa descritiva sem rótulo QA",
+      quantity:line.quantity,unit:line.unit,preparation:"",
+    }],
+  });
+  expect(draft.confirmation_mode).toBe("recipe_edit");
+  const revised=await getJson<{
+    source:string;serving_count:string|null;yield_quantity:string|null;yield_unit:string|null;
+    ingredients:{food_item_name:string,food_item_id:string,quantity:string,unit:string,preparation:string|null,has_nutrition:boolean,has_energy:boolean}[];
+    latest_composition:{energy_kcal:string|null,energy_per_serving_kcal:string|null}|null;
+  }>(request,`${base}/recipes/${draft.recipe_id}`);
+  expect(revised.source).toBe("family_adaptation");
+  expect(revised.serving_count).toBe(originalRecipe.serving_count);
+  expect(revised.yield_quantity).toBe(originalRecipe.yield_quantity);
+  expect(revised.yield_unit).toBe(originalRecipe.yield_unit);
+  expect(revised.ingredients).toEqual([expect.objectContaining({
+    food_item_name:"Alternativa descritiva sem rótulo QA",
+    quantity:line.quantity,unit:line.unit,preparation:null,
+    has_nutrition:false,has_energy:false,
+  })]);
+  expect(revised.latest_composition?.energy_kcal??null).toBeNull();
+  expect(revised.latest_composition?.energy_per_serving_kcal??null).toBeNull();
+
+  const preview=await postJson<{requirements:{food_item_id:string}[]}>(request,`${base}/shopping-list/refresh`,{
+    start_date:"2026-11-16",days:7,
+  });
+  expect(preview.requirements.some(x=>x.food_item_id===fixture.ingredient.id)).toBe(true);
+  expect(preview.requirements.some(x=>x.food_item_id===revised.ingredients[0]?.food_item_id)).toBe(false);
+
+  const result=await request.patch(`${API}${base}/meal-plan/${fixture.meal.id}`,{
+    data:{recipe_id:draft.recipe_id,participants:[{
+      person_id:fixture.person.id,quantity:"1",unit:"serving",
+    }]},
+  });
+  expect(result.ok(),`Cannot confirm described adaptation: ${result.status()} ${await result.text()}`).toBe(true);
+  const after=await postJson<{requirements:{food_item_id:string,food_item_name:string}[]}>(request,`${base}/shopping-list/refresh`,{
+    start_date:"2026-11-16",days:7,
+  });
+  expect(after.requirements.some(x=>x.food_item_id===revised.ingredients[0]?.food_item_id)).toBe(true);
+  expect(after.requirements.some(x=>x.food_item_id===fixture.ingredient.id)).toBe(false);
+  const original=await getJson<typeof originalRecipe>(request,`${base}/recipes/${fixture.recipe.id}`);
+  expect(original.ingredients[0]?.food_item_id).toBe(fixture.ingredient.id);
+});
