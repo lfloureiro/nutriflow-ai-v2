@@ -234,3 +234,10 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - O teste fecha o drawer e consulta a API para garantir que a leitura do contexto **não alterou os participantes** nem a refeição guardada. Testes anteriores cobrem isolamento de dia/slot por função e persistência das decisões.
 - A versão visível sobe para **v2.0.17** (Z). Teste novo ainda precisa de completar os workflows Web CI, API CI e UX E2E no **SHA final**; não tomar um código publicado como aprovação automática.
 - Sem alteração de schema, regras nutricionais, clientes da família ou `main`. Continuar a preparar v2.1.0 com checklist `docs/ux/aceitacao-manual-v2.1.0.md`; só pedir testes manuais na minor consolidada.
+
+## Patch v2.0.18 — acessibilidade e restauro do drawer após ciclos repetidos (19 novembro 2026)
+
+- Novo cenário E2E Chromium com API e PostgreSQL sintéticos, em viewport 390 px e preferência `prefers-reduced-motion`: abrir e fechar três vezes o detalhe de uma refeição, confirmar `role=dialog`, `aria-modal=true` e nome acessível por `aria-labelledby`.
+- Em cada ciclo, confirmar que o conteúdo principal fica `inert`, scroll corporal é bloqueado, Tab/Shift+Tab não escapam do modal e Escape fecha o drawer; depois confirmar que scroll e interatividade do fundo são restaurados, tal como o foco no botão da refeição original.
+- Esta cobertura complementa os testes existentes de teclado e reflow. **Não equivale a auditoria WCAG completa nem substitui zoom real de browser a 200%**, ainda exigidos antes de v2.1.0.
+- Frontend **v2.0.18** (patch Z). Apenas testes/documentação, sem migrações, sem alterações de API e sem acesso à família real. Aguardar Web CI, API CI e UX E2E verdes no SHA final antes de marcar como validado; PR #76 permanece draft.
