@@ -1,7 +1,9 @@
 import {EmptyState} from "./ui/primitives";
 import {pantryState,visiblePantryLots} from "./pantryDisplay";
 import Icon from "./ui/Icon";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import ContextDrawer from "./ui/ContextDrawer";
+import { registerNavigationBlocker } from "./navigation";
 
 import { ApiError, listFamilyIngredients } from "./api/client";
 import type { Ingredient } from "./api/ingredientTypes";
@@ -99,7 +101,34 @@ export default function PantryScreen({ familyId }: { familyId: string }) {
   const attention=lots.filter(lot=>["soon","expired"].includes(pantryState(lot,now))).length;
   const undated=lots.filter(lot=>pantryState(lot,now)==="undated").length;
   const [values, setValues] = useState<FormValues>(EMPTY_FORM);
+  const [initialValues, setInitialValues] = useState<FormValues>(EMPTY_FORM);
+  const draftDirty = showForm && JSON.stringify(values) !== JSON.stringify(initialValues);
+  const draftDirtyRef = useRef(draftDirty);
+  draftDirtyRef.current = draftDirty;
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+  const confirmDiscard = () => !draftDirtyRef.current || window.confirm(
+    locale === "pt-PT"
+      ? "Tens alterações de stock por guardar. Descartá-las?"
+      : "You have unsaved pantry changes. Discard them?",
+  );
+  useEffect(() => {
+    const release = registerNavigationBlocker(confirmDiscard);
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (!draftDirtyRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => { release(); window.removeEventListener("beforeunload", beforeUnload); };
+  }, [locale]);
+  function closeForm(): boolean {
+    if (busyRef.current || !confirmDiscard()) return false;
+    setShowForm(false);
+    setEditing(null);
+    return true;
+  }
   const [error, setError] = useState<string | null>(null);
 
   const activeIngredients = useMemo(
@@ -129,19 +158,23 @@ export default function PantryScreen({ familyId }: { familyId: string }) {
 
   function startCreate() {
     setEditing(null);
-    setValues({ ...EMPTY_FORM, ingredientId: activeIngredients.find(ingredient=>ingredient.is_active)?.id ?? "" });
+    const next = { ...EMPTY_FORM, ingredientId: activeIngredients.find(ingredient=>ingredient.is_active)?.id ?? "" };
+    setValues(next);
+    setInitialValues(next);
     setShowForm(true);
   }
 
   function startEdit(lot: PantryLot) {
     setEditing(lot);
-    setValues({
+    const next = {
       ingredientId: lot.food_item_id,
       quantity: lot.quantity_available,
       unit: lot.unit,
       location: lot.location ?? "",
       expiresAt: lot.expires_at?.slice(0, 10) ?? "",
-    });
+    };
+    setValues(next);
+    setInitialValues(next);
     setShowForm(true);
   }
 
@@ -223,7 +256,14 @@ export default function PantryScreen({ familyId }: { familyId: string }) {
       {busy && lots.length === 0 ? <div className="shell-loading">{copy.loading}</div> : null}
 
       {showForm ? (
+        <ContextDrawer
+          title={editing ? copy.edit + " · " + editing.food_item_name : copy.add}
+          closeLabel={locale === "pt-PT" ? "Fechar detalhe" : "Close detail"}
+          wide
+          onRequestClose={closeForm}
+        >
         <form className="house-editor-card pantry-editor" onSubmit={save}>
+          {draftDirty ? <p className="nf-draft-state" role="status">{locale === "pt-PT" ? "Alterações por guardar" : "Unsaved changes"}</p> : null}
           <label className="field">
             <span>{copy.ingredient}</span>
             <select
@@ -277,11 +317,12 @@ export default function PantryScreen({ familyId }: { familyId: string }) {
             <button className="button primary" disabled={busy} type="submit">
               {copy.save}
             </button>
-            <button className="button ghost" onClick={() => setShowForm(false)} type="button">
+            <button className="button ghost" onClick={closeForm} type="button">
               {copy.cancel}
             </button>
           </div>
         </form>
+        </ContextDrawer>
       ) : null}
 
       <div className="pantry-list">
