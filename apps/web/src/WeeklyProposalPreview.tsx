@@ -1383,7 +1383,7 @@ export default function WeeklyProposalPreview({
                       <button
                         className="button ghost"
                         disabled={selectedEntry.status !== "planned" || decisionBusy !== null}
-                        onClick={() => onEdit(selectedDate, selectedMealType, selectedEntry)}
+                        onClick={() => {if(requestNavigation()){setSelectedMealType(null);onEdit(selectedDate, selectedMealType, selectedEntry);}}}
                         type="button"
                       >
                         {selectedEntry.transformations.length > 0
@@ -1416,7 +1416,7 @@ export default function WeeklyProposalPreview({
                           : copy.suggestAdaptation}
                     </button>
                   </div>
-                ) : !selectedEntry && !selectedChoice && onEdit ? <button type="button" className="button primary" onClick={()=>onEdit(selectedDate,selectedMealType,null)}>{locale === "pt-PT" ? "Escolher receita" : "Choose recipe"}</button> : null}
+                ) : !selectedEntry && !selectedChoice && onEdit ? <button type="button" className="button primary" onClick={()=>{if(requestNavigation()){setSelectedMealType(null);onEdit(selectedDate,selectedMealType,null);}}}>{locale === "pt-PT" ? "Escolher receita" : "Choose recipe"}</button> : null}
               </div>
 
               {reviewError && <p role="alert">{locale==="pt-PT"?"Alternativas indisponíveis: ":"Alternatives unavailable: "}{reviewError}</p>}
