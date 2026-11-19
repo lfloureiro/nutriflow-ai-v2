@@ -555,3 +555,47 @@ test("stale draft: changed source recipe is flagged and shown for review without
   expect(current.days.find(day=>day.date===DATE)?.slots.find(slot=>slot.meal_type==="dinner")?.meals[0]).toEqual(
     expect.objectContaining({id:fixture.meal.id,recipe_id:fixture.recipe.id}));
 });
+
+test("attendance reuse: copy only people from an earlier dinner and keep source meal unchanged",async ({page,request})=>{
+  const fixture=await seed(request);
+  const familyId=fixture.family.id;
+  const second=await postJson<{id:string}>(request,`/families/${familyId}/persons`,{
+    first_name:"Outra pessoa QA",last_name:null,birth_date:null,
+    preferred_locale:"pt-PT",timezone:"Europe/Lisbon",meal_discovery:null,
+  });
+  await openFamily(page,familyId,"/#/meals?date=2026-11-20&meal=dinner&mode=week");
+  const drawer=page.getByRole("dialog");
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole("button",{name:"Escolher receita"}).click();
+  await expect(drawer).toHaveCount(0);
+  const editor=page.getByRole("dialog");
+  await expect(editor).toBeVisible();
+  const before=await getJson<{days:{date:string,slots:{meal_type:string,meals:{id:string,participants:{person_id:string}[]}[]}[]}[]}>(
+    request,`/families/${familyId}/meal-plan?start_date=2026-11-16&days=7`);
+  expect(before.days.find(d=>d.date==="2026-11-20")?.slots.find(s=>s.meal_type==="dinner")?.meals).toEqual([]);
+  await editor.getByLabel("Reutilizar presenças de outra refeição (opcional)").selectOption({index:1});
+  await editor.getByRole("button",{name:"Usar apenas presenças"}).click();
+  await expect(editor.getByText("1/2 presentes")).toBeVisible();
+  const draftState=await editor.locator(".meal-plan-person").evaluateAll(nodes=>
+    nodes.map(row=>({
+      checked:(row.querySelector('input[type="checkbox"]') as HTMLInputElement).checked,
+      label:row.textContent,
+    })),
+  );
+  expect(draftState.find(row=>row.label?.includes("Pessoa QA"))?.checked).toBe(true);
+  expect(draftState.find(row=>row.label?.includes("Outra pessoa QA"))?.checked).toBe(false);
+  // No implicit mutation of the target until its explicit save.
+  const unsaved=await getJson<typeof before>(request,
+    `/families/${familyId}/meal-plan?start_date=2026-11-16&days=7`);
+  expect(unsaved.days.find(d=>d.date==="2026-11-20")?.slots.find(s=>s.meal_type==="dinner")?.meals).toEqual([]);
+  await editor.getByRole("button",{name:"Guardar",exact:true}).click();
+  await expect(editor).toHaveCount(0);
+  const after=await getJson<typeof before>(request,
+    `/families/${familyId}/meal-plan?start_date=2026-11-16&days=7`);
+  const newMeal=after.days.find(d=>d.date==="2026-11-20")?.slots.find(s=>s.meal_type==="dinner")?.meals[0];
+  expect(newMeal?.participants.map(p=>p.person_id)).toEqual([fixture.person.id]);
+  expect(newMeal?.participants.some(p=>p.person_id===second.id)).toBe(false);
+  const original=after.days.find(d=>d.date===DATE)?.slots.find(s=>s.meal_type==="dinner")?.meals[0];
+  expect(original?.id).toBe(fixture.meal.id);
+  expect(original?.participants.map(p=>p.person_id)).toEqual([fixture.person.id]);
+});
