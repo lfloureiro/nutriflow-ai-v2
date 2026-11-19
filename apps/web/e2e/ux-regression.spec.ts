@@ -188,6 +188,36 @@ test("drawer keyboard navigation skips hidden and fieldset-disabled controls",as
   await expect(drawer).toHaveCount(0);
 });
 
+test("accessible drawer reclaims programmatic focus outside the modal and restores it on close",async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.emulateMedia({reducedMotion:"reduce"});
+  await openFamily(page,fixture.family.id,`/#/meals?date=${DATE}&mode=week`);
+  const slot=page.getByRole("button",{name:/Prato sintético QA/}).first();
+  await slot.click();
+  const drawer=page.getByRole("dialog");
+  await expect(drawer).toBeVisible();
+  const close=drawer.getByRole("button",{name:"Fechar detalhe"});
+  await expect(close).toBeFocused();
+  // Simulate an unrelated script attempting to focus an element outside the modal.
+  // The target is outside #root so inert alone cannot make this check pass.
+  const result=await page.evaluate(()=>{
+    const outside=document.createElement("button");
+    outside.id="outside-dialog-focus-qa";
+    outside.textContent="External test focus target";
+    document.body.appendChild(outside);
+    outside.focus();
+    const inModal=Boolean(document.activeElement?.closest('[role="dialog"]'));
+    outside.remove();
+    return inModal;
+  });
+  expect(result).toBe(true);
+  await expect(close).toBeFocused();
+  await close.click();
+  await expect(drawer).toHaveCount(0);
+  await expect(slot).toBeFocused();
+  expect(await page.evaluate(()=>document.body.style.overflow)).not.toBe("hidden");
+});
+
 test("ingredient: draft warning and optional nutrition persist in isolated database", async ({page,request})=>{
   const fixture=await seed(request);
   await openFamily(page,fixture.family.id,"/#/house?tab=ingredients");
