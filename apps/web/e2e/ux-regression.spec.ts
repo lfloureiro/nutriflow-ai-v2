@@ -38,7 +38,7 @@ async function seed(request: APIRequestContext) {
     name:"Prato sintético QA",
     description:null,
     suitable_meal_types:["lunch","dinner"],
-    yield_quantity:null,yield_unit:null,serving_count:null,
+    yield_quantity:null,yield_unit:null,serving_count:"2",
     ingredients:[{food_item_id:ingredient.id,quantity:"150",unit:"g",preparation:null,notes:null}],
   });
   const meal = await postJson<{id:string}>(request, `/families/${family.id}/meal-plan`, {
