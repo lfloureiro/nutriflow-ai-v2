@@ -1,4 +1,6 @@
 import WeekOverview from "./ui/WeekOverview";
+import ContextDrawer from "./ui/ContextDrawer";
+import { requestNavigation } from "./navigation";
 import Icon from "./ui/Icon";
 import SavedMealChanges from "./SavedMealChanges";
 import {listRecipeReviews,type ReviewRecipe} from "./api/dietaryReviewClient";
@@ -1126,7 +1128,7 @@ export default function WeeklyProposalPreview({
     setSelectedDate(planningDate);
     setSelectedMealType(mealType);
     onSelectionChange?.({date:planningDate,mealType});
-    window.requestAnimationFrame(()=>{const detail=document.getElementById("nf-selected-meal");detail?.focus({preventScroll:true});detail?.scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",block:"start"});});
+    // The drawer owns focus and scrolling; leave the weekly map in place.
   }
 
   useEffect(() => {
@@ -1351,8 +1353,18 @@ export default function WeeklyProposalPreview({
           ) : null}
 
           {selectedDate && selectedMealType ? (
+            <ContextDrawer
+              title={selectedEntry ? entryName(selectedEntry) : selectedChoice?.candidate_name ?? mealLabel(selectedMealType, locale)}
+              wide
+              closeLabel={locale === "pt-PT" ? "Fechar detalhe" : "Close meal detail"}
+              onRequestClose={() => {
+                if (!requestNavigation()) return false;
+                setSelectedMealType(null);
+                return true;
+              }}
+            >
             <section className="weekly-meal-detail" id="nf-selected-meal" tabIndex={-1}>
-              <button className="button ghost small nf-detail-close" type="button" onClick={()=>{setSelectedMealType(null);document.querySelector<HTMLButtonElement>(".weekly-grid-meal.selected")?.focus();}}><Icon name="arrow"/>{locale === "pt-PT" ? "Voltar ao mapa" : "Back to planner"}</button>
+              <button className="button ghost small nf-detail-close" type="button" onClick={()=>{if(requestNavigation())setSelectedMealType(null);}}><Icon name="arrow"/>{locale === "pt-PT" ? "Voltar ao mapa" : "Back to planner"}</button>
               <div className="weekly-section-heading weekly-meal-detail__heading">
                 <div>
                   <span className="eyebrow">{copy.mealDetail}</span>
@@ -1718,6 +1730,7 @@ export default function WeeklyProposalPreview({
                 <div className="family-meals-empty-day">{copy.empty}</div>
               )}
             </section>
+            </ContextDrawer>
           ) : null}
         </>
       )}
