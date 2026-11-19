@@ -10,7 +10,7 @@
 - [x] **01 — Componente base de drawer acessível.** Criar um painel reutilizável responsivo, sem regras clínicas ou dados embutidos, com foco inicial e restaurado, Escape, bloqueio de scroll, aria-modal, título acessível, adaptação a mobile e movimento reduzido. **Estado:** código adicionado; testes ainda pendentes.
 - [ ] **02 — Testar o drawer isoladamente.** Cobrir foco inicial/retorno, Tab/Shift+Tab, Escape, fundo inacessível, mobile, 200% zoom, temas e múltiplos ciclos abrir/fechar.
 - [x] **03 — Converter detalhe da refeição em contexto lateral.** Na semana, manter visível o mapa ao abrir uma refeição; preservar a célula/dia/modo e não duplicar edição nem motores nutricionais. **Implementação ligada, regressão visual e E2E pendentes:** editor manual e detalhe de avaliação/adaptação semanal utilizam o drawer; transição detalhe → editor evita dois diálogos em simultâneo.
-- [ ] **04 — Guardas e recuperação de contexto.** Fechar drawer, navegar e voltar apenas após resolver alterações por guardar; URL e browser back/forward recuperam refeição/aba; erro e reload não perdem rascunho guardado.
+- [ ] **04 — Guardas e recuperação de contexto.** Fechar drawer, navegar e voltar apenas após resolver alterações por guardar; URL e browser back/forward recuperam refeição/aba; erro e reload não perdem rascunho guardado. **Parcial:** URL com `date`, `mode=week` e `meal=...` adicionada para os quatro tempos, seleção/fecho sincronizados e testes unitários do parser. Navegação browser/rascunhos ainda aguardam E2E.
 - [ ] **05 — Migrar o fluxo de adaptação corrigido para o drawer.** Aceitar proposta diretamente → rever receita preenchida (edição opcional) → confirmar no plano; conservar rascunhos, herança de unidade/quantidade/rendimento ausente e a identidade de ingredientes declarados.
 - [ ] **06 — Detalhe por pessoa sem aprovação implícita.** Mostrar presença, dose, regra e fonte; separar adequação nutricional, preferência/estrelas e estado desconhecido; evitar criar score sem evidência.
 - [ ] **07 — Uniformizar formulários secundários.** Aplicar os mesmos padrões a receita, ingrediente e pessoa, sem tornar rendimento, preparação ou valores de energia obrigatórios.
@@ -50,3 +50,10 @@ A branch foi criada a partir de main; apenas os ficheiros indicados no commit da
 - O fecho do detalhe passa por `requestNavigation()`, respeitando bloqueios existentes de alterações não guardadas; abrir o editor fecha o drawer de detalhe para não acumular dois diálogos.
 - PR de CI criado em modo **draft**: https://github.com/lfloureiro/nutriflow-ai-v2/pull/76. Não integrar sem gates verdes no último SHA e validação E2E isolada.
 - Resultado anterior de CI web no SHA `86356b2731dce8ea5700fb214c8e3ac7bc909217`: success; **não valida os commits posteriores de integração semanal**.
+
+## Próximo incremento — endereço direto por refeição (19 novembro 2026)
+
+- A URL do plano semanal aceita `#/meals?date=AAAA-MM-DD&meal=dinner&mode=week` para restaurar o drawer. Valores inválidos de `meal` são ignorados e o estado só é interpretado na vista semanal, com data válida.
+- Selecionar/fechar detalhe sincroniza o URL via navegação da aplicação; o fecho e a troca de contexto respeitam `requestNavigation()` e os bloqueios existentes.
+- O parser recebeu testes de roundtrip e de parâmetros indevidos. **Ainda falta executar E2E real em navegador**, sobretudo back/forward e regresso a alterações não guardadas. Não classificar a tarefa 04 como concluída.
+- O utilizador confirmou visualmente o drawer anterior em desktop e referiu bom comportamento em mobile. Isso não substitui testes de teclado nem regressão automatizada.
