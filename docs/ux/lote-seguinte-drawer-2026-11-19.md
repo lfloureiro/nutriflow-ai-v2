@@ -139,3 +139,11 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - `MealAdaptationFlow` deixou de fabricar `eligible=true` para `confirmation_mode=recipe_edit`. A decisão da família não certifica nutrição/segurança clínica; permanece a validação de restrições obrigatórias na gravação pela API.
 - Não interpretar os 11/11 como cobertura total: rascunhos incompletos, revisão profissional, presenças excepcionais, aquisições reais e acessibilidade zoom 200% ainda requerem trabalhos específicos.
 - O último commit após documentação deverá voltar a passar os três gates. O número visível mantém-se **v2.0.5**, sem solicitar teste manual ao utilizador.
+
+## Patch 2.0.6 — continuidade de rascunhos incompletos (19 novembro 2026)
+
+- Adicionada regressão sobre API/PostgreSQL **isolados** para guardar um rascunho com alternativa, quantidade, rendimento e porção em falta; recuperar por receita após nova leitura, atualizar com `expected_version` e rejeitar atualização obsoleta com HTTP 409.
+- A asserção verifica que guardar, retomar ou atualizar o rascunho **não** muda `recipe_id` da refeição nem os requisitos da lista de compras. Rascunho não equivale a refeição confirmada.
+- Acrescentado E2E **pelos botões do drawer**: escolher ingrediente manualmente, deixar quantidade explicitamente em branco, guardar para continuar depois, recarregar, abrir as trocas e retomar rascunho; verificar que mantém os dados incompletos e não aplica a refeição.
+- Versão do frontend passa a **v2.0.6**; é patch Z e não requer validação manual. **Só declarar sucesso após CI Web, API e UX E2E no SHA final**; caso haja falha, usar logs do job e corrigir, sem tocar nos dados reais.
+- Ainda pendem revisão com várias pessoas/presenças, rascunho após alteração da receita base, comparação com orientações profissionais e zoom 200%.
