@@ -476,3 +476,8 @@
   color: var(--muted);
   font-weight: 700;
 }
+
+/* Non-authoritative weekly attendance and guest information in meal detail. */
+.nf-meal-attendance-notice{margin:8px 0 16px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface-soft);line-height:1.55}
+.nf-meal-attendance-notice strong{display:block;font-size:13px}
+.nf-meal-attendance-notice p{font-size:12px;margin:6px 0 0}
