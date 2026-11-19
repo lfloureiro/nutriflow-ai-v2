@@ -75,8 +75,22 @@ export default function ContextDrawer({
       candidates[nextIndex]?.focus();
     }
 
+    // Tab handling is not sufficient when a child component, browser extension,
+    // or another script moves focus directly. Keep the active modal authoritative.
+    function onFocusIn(event: FocusEvent) {
+      const panel = panelRef.current;
+      if (!panel || !(event.target instanceof Node) || panel.contains(event.target)) return;
+      if (closeRef.current && !closeRef.current.disabled) {
+        closeRef.current.focus();
+      } else {
+        panel.focus();
+      }
+    }
+
     document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("focusin", onFocusIn);
     return () => {
+      document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
       if (appRoot) appRoot.inert = wasInert;
