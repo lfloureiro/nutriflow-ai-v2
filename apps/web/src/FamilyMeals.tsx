@@ -730,7 +730,13 @@ export default function FamilyMealsScreen({
               return true;
             }} onMealCommitted={onDataChanged}
             familyId={familyId}
-            onEdit={(date, mealType, entry) => {setMealSelection({date,mealType});setEditing({ date, mealType, entry });}}
+            onEdit={(date, mealType, entry) => {
+              // An editor replaces the detail drawer; it must never be stacked
+              // behind it or leave a stale meal selection in the URL.
+              if (onMealSelectionChange?.(null) === false) return;
+              setMealSelection(null);
+              setEditing({ date, mealType, entry });
+            }}
             onPlanChanged={refreshPlan}
             people={people}
             plan={plan}
