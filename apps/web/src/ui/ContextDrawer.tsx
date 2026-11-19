@@ -60,15 +60,14 @@ export default function ContextDrawer({
         panelRef.current.focus();
         return;
       }
-      const first = candidates[0]!;
-      const last = candidates[candidates.length - 1]!;
-      if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current || !panelRef.current.contains(document.activeElement))) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && (document.activeElement === last || !panelRef.current.contains(document.activeElement))) {
-        event.preventDefault();
-        first.focus();
-      }
+      // Keep Tab movement deterministic even when a browser's native focus order
+      // changes during React updates. Every keyboard step stays within the modal.
+      event.preventDefault();
+      const currentIndex = candidates.indexOf(document.activeElement as HTMLElement);
+      const nextIndex = event.shiftKey
+        ? (currentIndex <= 0 ? candidates.length - 1 : currentIndex - 1)
+        : (currentIndex < 0 || currentIndex >= candidates.length - 1 ? 0 : currentIndex + 1);
+      candidates[nextIndex]?.focus();
     }
 
     document.addEventListener("keydown", onKeyDown);
