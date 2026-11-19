@@ -747,3 +747,50 @@ test("UI weekly attendance: confirmation survives a reload without changing save
   expect(original?.id).toBe(fixture.meal.id);
   expect(original?.participants.map(person=>person.person_id)).toEqual([fixture.person.id]);
 });
+
+test("guest notices are bounded, versioned and do not modify participants or shopping",async ({request})=>{
+  const fixture=await seed(request);
+  const familyId=fixture.family.id;
+  const second=await postJson<{id:string}>(request,`/families/${familyId}/persons`,{
+    first_name:"Segundo membro com perfil QA",last_name:null,birth_date:null,
+    preferred_locale:"pt-PT",timezone:"Europe/Lisbon",meal_discovery:null,
+  });
+  const url=`${API}/families/${familyId}/planning-setup/2026-11-16`;
+  const base={
+    person_ids:[fixture.person.id,second.id],meal_types:["dinner"],
+    excluded_food_item_ids:[],attendance:[],attendance_decisions:[],
+    guest_notices:[{planning_date:DATE,meal_type:"dinner",guest_count:2}],
+    expected_version:0,
+  };
+  const invalid=await request.put(url,{data:{
+    ...base,guest_notices:[{planning_date:DATE,meal_type:"dinner",guest_count:13}],
+  }});
+  expect(invalid.status()).toBe(422);
+  const duplicate=await request.put(url,{data:{
+    ...base,guest_notices:[base.guest_notices[0],base.guest_notices[0]],
+  }});
+  expect(duplicate.status()).toBe(422);
+  const outside=await request.put(url,{data:{
+    ...base,guest_notices:[{planning_date:"2026-11-23",meal_type:"dinner",guest_count:1}],
+  }});
+  expect(outside.status()).toBe(422);
+  const created=await request.put(url,{data:base});
+  expect(created.ok(),`Cannot save guests: ${created.status()} ${await created.text()}`).toBe(true);
+  const stored=await created.json() as {version:number;guest_notices:typeof base.guest_notices};
+  expect(stored.guest_notices).toEqual(base.guest_notices);
+  const fromServer=await getJson<typeof stored>(request,
+    `/families/${familyId}/planning-setup/2026-11-16`);
+  expect(fromServer.guest_notices).toEqual(base.guest_notices);
+  const {guest_notices:_omitted,...legacy}=base;
+  const oldClient=await request.put(url,{data:{...legacy,expected_version:stored.version}});
+  expect(oldClient.ok()).toBe(true);
+  expect((await oldClient.json() as typeof stored).guest_notices).toEqual(base.guest_notices);
+  const changed=await request.put(url,{data:{...base,expected_version:stored.version+1,guest_notices:[]}});
+  expect(changed.ok()).toBe(true);
+  expect((await changed.json() as typeof stored).guest_notices).toEqual([]);
+  const plan=await getJson<{days:{date:string;slots:{meal_type:string;meals:{id:string;participants:{person_id:string}[]}[]}[]}[]}>(
+    request,`/families/${familyId}/meal-plan?start_date=2026-11-16&days=7`);
+  const original=plan.days.find(row=>row.date===DATE)?.slots.find(slot=>slot.meal_type==="dinner")?.meals[0];
+  expect(original?.id).toBe(fixture.meal.id);
+  expect(original?.participants.map(person=>person.person_id)).toEqual([fixture.person.id]);
+});
