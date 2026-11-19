@@ -22,6 +22,13 @@ export function selectedMealRestrictions(rules:PlanningRestrictions,context:Sele
   const sources=rules.sources.filter(s=>context.personIds.includes(s.person_id)&&s.dates.includes(context.planningDate)&&s.meal_types.includes(context.mealType));
   return {...rules,sources,excluded_food_item_ids:[...new Set(sources.flatMap(s=>s.food_item_ids))]};
 }
+/** A returned restriction is evidence of a rule, not a clinical clearance for a recipe. */
+export function attendeeRestrictionSummary(rules:PlanningRestrictions, personIds:string[]){
+  return personIds.map(personId=>({
+    personId,
+    sources:rules.sources.filter(source=>source.person_id===personId),
+  }));
+}
 export default function SelectedMealOptions({familyId,context,recipes,products,restrictions,people,manualExclusions,onVariantsChanged}:{
   familyId:string;context:SelectedMealContext;recipes:ReviewRecipe[];products:RetailAlternative[];restrictions:PlanningRestrictions;
   people:{id:string;first_name:string;avatar_appearance?:AvatarPreference|null}[];manualExclusions:string[];onVariantsChanged:()=>void;
@@ -45,6 +52,37 @@ export default function SelectedMealOptions({familyId,context,recipes,products,r
     <div className="nf-meal-attendees"><span>{pt ? "À mesa nesta refeição" : "At this meal"}</span>{people.filter(person=>context.personIds.includes(person.id)).map(person=><span className="nf-attendee-chip" key={person.id}><PersonAvatar identity={person.id} familyIdentity={familyId} name={person.first_name} appearance={person.avatar_appearance} size="sm" decorative/>{person.first_name}</span>)}</div>
     {!context.personIds.length && <p role="status">{pt ? "Escolhe as pessoas presentes para avaliar esta refeição." : "Choose attendees to assess this meal."}</p>}
     {context.personIds.length>0 && !rulesReady && !rulesError && <p role="status">{pt ? "A confirmar as restrições das pessoas presentes…" : "Checking attendees’ restrictions…"}</p>}
+    {rulesReady && context.personIds.length > 0 && (
+      <details className="nf-person-rule-context">
+        <summary>{pt ? "Restrições por pessoa · fontes desta consulta" : "Restrictions by person · sources from this check"}</summary>
+        <p className="nf-person-rule-context__help">{pt
+          ? "Mostra apenas regras devolvidas para esta data e refeição. Ausência de regras não prova adequação nutricional ou clínica."
+          : "Only rules returned for this date and meal are shown. No returned rules does not imply nutritional or clinical suitability."}</p>
+        <div className="nf-person-rule-context__list">
+          {attendeeRestrictionSummary(rules,context.personIds).map(item=>{
+            const person=people.find(candidate=>candidate.id===item.personId);
+            return <section key={item.personId} className="nf-person-rule-context__person">
+              <strong>{person?.first_name ?? (pt ? "Pessoa" : "Person")}</strong>
+              {item.sources.length ? <ul>{item.sources.map(source=>(
+                <li key={source.source_id}>
+                  <span>{source.label}</span>
+                  <small>{source.source_kind==="condition"
+                    ? (pt ? "Condição registada" : "Recorded condition")
+                    : (pt ? "Regra alimentar registada" : "Recorded dietary rule")}</small>
+                </li>
+              ))}</ul> : <p>{pt
+                ? "Sem restrições específicas devolvidas nesta consulta; não equivale a aprovação."
+                : "No specific restrictions returned for this check; not an approval."}</p>}
+            </section>;
+          })}
+        </div>
+        {rules.warnings.length>0 && <div role="status" className="nf-person-rule-context__warnings">
+          <strong>{pt ? "Informação por confirmar" : "Information requiring review"}</strong>
+          <ul>{rules.warnings.map((warning,index)=><li key={index}>{warning}</li>)}</ul>
+        </div>}
+      </details>
+    )}
+
     {rulesError && <p role="alert">{pt?"Não foi possível atualizar as restrições desta refeição: ":"Could not refresh restrictions for this meal: "}{rulesError}</p>}
     {context.appliedChanges.length>0&&!applied&&<p className="decision-result" role="status">{pt?"Esta refeição já tem uma adaptação aplicada no plano.":"This meal already has an adaptation applied in the planner."}</p>}
     {recipe && rulesReady && <>
