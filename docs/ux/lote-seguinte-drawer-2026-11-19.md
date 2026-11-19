@@ -255,3 +255,10 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Em `ContextDrawer.tsx`, adicionada uma proteção `focusin` para devolver o foco ao botão de fecho se código externo ou atualizações dinâmicas tentarem colocar o foco fora do diálogo enquanto está aberto. O listener é removido antes de restaurar o foco original ao fechar, evitando reter foco após o unmount.
 - Novo Playwright E2E, contra API/PostgreSQL sintéticos, cria um botão temporário fora de `#root` (logo, não protegido apenas por `inert`), tenta focá-lo diretamente e verifica que o foco regressa ao diálogo. Depois confirma fecho, retorno de foco e scroll libertado.
 - Frontend **v2.0.20** (patch Z). Correção de acessibilidade sem alteração de schema/API/dados reais. Verificar os três CI no SHA final, manter PR #76 em draft e não pedir teste manual antes da v2.1.0.
+
+## Patch v2.0.21 — regressão de layout do editor de ingredientes (19 novembro 2026)
+
+- Confirmado o sucesso de Web CI, API CI e UX E2E no SHA final de v2.0.20 `8c1346b36d4a14625a17e54608a944034d7652b8`.
+- Adicionado Playwright E2E com API/PostgreSQL sintéticos para abrir o editor de novo ingrediente em **320 e 390 CSS px**, nos temas claro e escuro, introduzir texto e verificar o estado de rascunho e visibilidade da ação de guardar.
+- O teste verifica a ausência de overflow horizontal da página, confirmando que a interação pode decorrer sem deslocação horizontal; isto é regressão de reflow, **não** substitui zoom real a 200% nem auditoria visual integral.
+- Frontend **v2.0.21**, patch Z; sem modificação de contratos/API ou dados da família real. Aguardar os três gates verdes no SHA final antes de marcar como validado; PR #76 mantém-se draft, sem solicitação de teste manual até v2.1.0.
