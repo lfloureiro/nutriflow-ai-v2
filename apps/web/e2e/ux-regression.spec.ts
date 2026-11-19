@@ -492,3 +492,33 @@ test("drafts: save incomplete substitution, reload, update optimistically and le
     request,`${base}/shopping-list/refresh`,{start_date:"2026-11-16",days:7});
   expect(shoppingAfter.requirements).toEqual(shoppingBefore.requirements);
 });
+
+test("UI adaptation draft: save an incomplete recipe and resume after drawer reload",async ({page,request})=>{
+  const fixture=await seed(request);
+  const familyId=fixture.family.id;
+  const replacement=await postJson<{id:string}>(request,`/families/${familyId}/ingredients`,{
+    name:"Legume para rascunho QA",brand:null,description:null,composition:null,
+  });
+  await openFamily(page,familyId,`/#/meals?date=${DATE}&meal=dinner&mode=week`);
+  const drawer=page.getByRole("dialog");
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole("button",{name:"Preparar as trocas"}).click();
+  await drawer.getByText("Acrescentar substituição de outro ingrediente").click();
+  await drawer.getByLabel("Ingrediente da receita").selectOption({index:1});
+  await drawer.getByRole("button",{name:"Adicionar troca manual"}).click();
+  await drawer.getByLabel("Trocar por (ingrediente do catálogo)").selectOption(replacement.id);
+  await drawer.getByRole("button",{name:"Usar esta escolha manual"}).click();
+  await drawer.getByRole("button",{name:"Rever receita com estas escolhas"}).click();
+  await expect(drawer.getByRole("button",{name:"Guardar para continuar depois"})).toBeVisible();
+  await drawer.getByRole("button",{name:"Guardar para continuar depois"}).click();
+  await expect(drawer.getByText(/Rascunho guardado com pendências/)).toBeVisible();
+  const before=await getJson<{days:{date:string,slots:{meal_type:string,meals:{recipe_id:string}[]}[]}[]}>(
+    request,`/families/${familyId}/meal-plan?start_date=2026-11-16&days=7`);
+  expect(before.days.find(d=>d.date===DATE)?.slots.find(s=>s.meal_type==="dinner")?.meals[0]?.recipe_id).toBe(fixture.recipe.id);
+  await page.reload();
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole("button",{name:"Preparar as trocas"}).click();
+  await drawer.getByRole("button",{name:/Retomar rascunho: /}).click();
+  await expect(drawer.getByText(/Rascunho recuperado com os dados em falta preservados/)).toBeVisible();
+  await expect(drawer.getByRole("button",{name:"Guardar para continuar depois"})).toBeVisible();
+});
