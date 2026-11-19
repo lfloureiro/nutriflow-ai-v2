@@ -139,6 +139,13 @@ type ParticipantDraft = {
   unit: string;
 };
 
+export function copyAttendanceSelection<T extends {personId:string;selected:boolean;quantity:string;unit:string}>(
+  current: T[], previousAttendeeIds: readonly string[],
+): T[] {
+  const previous = new Set(previousAttendeeIds);
+  return current.map(person => ({...person, selected: previous.has(person.personId)}));
+}
+
 type EditTarget = {
   date: string;
   mealType: MealType;
@@ -234,6 +241,7 @@ function MealEditForm({
   recipes,
   people,
   onDone,
+  attendanceSources,
   registerClose,
 }: {
   target: EditTarget;
@@ -241,6 +249,7 @@ function MealEditForm({
   recipes: Recipe[];
   people: Person[];
   onDone: () => void;
+  attendanceSources: {date:string;entry:MealPlanEntry}[];
   registerClose?: (close: () => void) => void;
 }) {
   const { locale } = useI18n();
@@ -272,6 +281,7 @@ function MealEditForm({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attendanceSource,setAttendanceSource] = useState("");
 
   const [recipeQuery,setRecipeQuery]=useState("");
   const guard=useUnsavedChanges({recipeId,localTime,location,participants},locale==="pt-PT"?"Tens alterações nesta refeição por guardar. Sair e descartá-las?":"You have unsaved meal changes. Leave and discard them?");
@@ -427,6 +437,23 @@ function MealEditForm({
           </label>
         </div>
         <div className="meal-plan-participants">
+          {!entry && attendanceSources.length > 0 && <div className="nf-attendance-template">
+            <label className="field">
+              <span>{locale==="pt-PT"?"Reutilizar presenças de outra refeição (opcional)":"Reuse attendance from another meal (optional)"}</span>
+              <select value={attendanceSource} onChange={event=>setAttendanceSource(event.target.value)}>
+                <option value="">{locale==="pt-PT"?"Escolher refeição anterior…":"Choose a previous meal…"}</option>
+                {attendanceSources.map(source=><option key={source.entry.id} value={source.entry.id}>{formatDate(source.date,locale)} · {source.entry.recipe_name??mealLabel(target.mealType,locale)}</option>)}
+              </select>
+            </label>
+            <button className="button secondary small" type="button" disabled={!attendanceSource}
+              onClick={()=>{
+                const source=attendanceSources.find(item=>item.entry.id===attendanceSource);
+                if(!source)return;
+                setParticipants(current=>copyAttendanceSelection(current,source.entry.participants.map(person=>person.person_id)));
+                setAttendanceSource("");
+              }}>{locale==="pt-PT"?"Usar apenas presenças":"Copy attendance only"}</button>
+            <p className="muted">{locale==="pt-PT"?"Só copia quem está presente. As quantidades e unidades atuais mantêm-se; nada é guardado até confirmares.":"Copies attendees only. Current amounts and units are preserved; nothing is saved until confirmation."}</p>
+          </div>}
           <div className="nf-presence-heading"><h3>{copy.participants}</h3><span role="status">{present.length}/{people.length} {locale==="pt-PT"?"presentes":"attending"}</span><div className="button-row"><button type="button" className="button ghost small" onClick={()=>setParticipants(old=>old.map(person=>({...person,selected:true})))}>{locale==="pt-PT"?"Selecionar todos":"Select all"}</button><button type="button" className="button ghost small" onClick={()=>setParticipants(old=>old.map(person=>({...person,selected:false})))}>{locale==="pt-PT"?"Selecionar nenhum":"Select none"}</button></div></div>
           {participants.map((participant) => {
             const person = people.find((candidate) => candidate.id === participant.personId);
@@ -822,6 +849,10 @@ export default function FamilyMealsScreen({
             registerClose={(close) => { requestEditorClose.current = close; }}
             people={people}
             recipes={recipes}
+            attendanceSources={(plan?.days ?? []).flatMap(day=>day.date>=editing.date?[]:day.slots
+              .filter(slot=>slot.meal_type===editing.mealType)
+              .flatMap(slot=>slot.meals.filter(entry=>entry.status==="planned"&&entry.participants.length>0)
+                .map(entry=>({date:day.date,entry}))))}
             target={editing}
           />
         </ContextDrawer>
