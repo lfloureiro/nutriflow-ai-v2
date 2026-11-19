@@ -403,3 +403,42 @@ test("adaptation isolation: another meal retains its original recipe and shoppin
   expect(afterRemoval.requirements.some(x=>x.food_item_id===fixture.ingredient.id)).toBe(true);
   expect(afterRemoval.requirements.some(x=>x.food_item_id===replacement.id)).toBe(false);
 });
+
+test("UI adaptation flow: family recipe edit is explicitly not certified before final confirmation",async ({page,request})=>{
+  const fixture=await seed(request);
+  const base=`/families/${fixture.family.id}`;
+  const replacement=await postJson<{id:string}>(request,`${base}/ingredients`,{
+    name:"Legume alternativo QA",brand:null,description:null,composition:null,
+  });
+  const recipe=await getJson<{ingredients:{id:string,quantity:string,unit:string}[]}>(request,
+    `${base}/recipes/${fixture.recipe.id}`);
+  const edit=await postJson<{recipe_id:string}>(request,`${base}/recipe-variants/recipe-edit`,{
+    base_recipe_id:fixture.recipe.id,name:"Prato editado sem certificação QA",
+    serving_count:null,
+    operations:[{
+      recipe_ingredient_id:recipe.ingredients[0]!.id,
+      replacement_food_item_id:replacement.id,
+      replacement_name:"Legume alternativo QA",
+      quantity:recipe.ingredients[0]!.quantity,unit:recipe.ingredients[0]!.unit,
+      preparation:"",
+    }],
+  });
+  await openFamily(page,fixture.family.id,`/#/meals?date=${DATE}&meal=dinner&mode=week`);
+  const drawer=page.getByRole("dialog");
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole("button",{name:"Preparar as trocas"}).click();
+  await drawer.getByRole("button",{name:"Rever receita com estas escolhas"}).click();
+  await drawer.getByText(/Usar uma adaptação já guardada/).click();
+  await drawer.getByRole("button",{name:"Usar e rever esta adaptação"}).click();
+  await drawer.getByRole("button",{name:"Seguir para confirmação final"}).click();
+  await expect(drawer.getByRole("heading",{name:"Escolha da família · não é validação nutricional"})).toBeVisible();
+  await expect(drawer.getByText(/Não certifica a adequação nutricional nem a segurança clínica/)).toBeVisible();
+  const before=await getJson<{days:{date:string,slots:{meal_type:string,meals:{recipe_id:string}[]}[]}[]}>(request,
+    `${base}/meal-plan?start_date=2026-11-16&days=7`);
+  expect(before.days.find(d=>d.date===DATE)?.slots.find(s=>s.meal_type==="dinner")?.meals[0]?.recipe_id).toBe(fixture.recipe.id);
+  await drawer.getByRole("button",{name:"Confirmar esta refeição no plano"}).click();
+  await expect.poll(async()=>{
+    const after=await getJson<typeof before>(request,`${base}/meal-plan?start_date=2026-11-16&days=7`);
+    return after.days.find(d=>d.date===DATE)?.slots.find(s=>s.meal_type==="dinner")?.meals[0]?.recipe_id;
+  }).toBe(edit.recipe_id);
+});
