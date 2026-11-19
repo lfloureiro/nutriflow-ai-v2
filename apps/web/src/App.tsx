@@ -9,6 +9,7 @@ import FamilyHome, { memberDisplayName } from "./FamilyHome";
 import FamilyMealsScreen, { type FamilyMealsMode } from "./FamilyMeals";
 import FamilySettings from "./FamilySettings";
 import Brand from "./ui/Brand";
+import ContextDrawer from "./ui/ContextDrawer";
 import Icon, {type IconName} from "./ui/Icon";
 import PersonAvatar from "./ui/PersonAvatar";
 const HomeBase = lazy(() => import("./HomeBase"));
@@ -254,62 +255,75 @@ export default function App() {
           ) : null}
 
           {view === "people" ? (
-            selectedMember && dashboard ? (
-              <PersonOverview
-                dashboard={dashboard}
-                member={selectedMember}
-                onBack={() => setSelectedPersonId(null)}
-                onDataChanged={refreshDashboard}
-              />
-            ) : (
-              <div className="people-screen">
-                <header className="screen-header compact-screen-header people-screen-header">
-                  <div>
-                    <span className="eyebrow">{t("nav.people")}</span>
-                    <h1>{t("people.title")}</h1>
-                    <p>{t("people.help")}</p>
-                  </div>
+            <div className="people-screen">
+              <header className="screen-header compact-screen-header people-screen-header">
+                <div>
+                  <span className="eyebrow">{t("nav.people")}</span>
+                  <h1>{t("people.title")}</h1>
+                  <p>{t("people.help")}</p>
+                </div>
+                <button
+                  className="button primary"
+                  onClick={() => {if(requestNavigation())setShowPersonSetup((current) => !current);}}
+                  type="button"
+                >
+                  {showPersonSetup
+                    ? locale === "pt-PT"
+                      ? "Fechar"
+                      : "Close"
+                    : locale === "pt-PT"
+                      ? "+ Adicionar pessoa"
+                      : "+ Add person"}
+                </button>
+              </header>
+              <div className="people-list">
+                {dashboard?.members.map((member) => (
                   <button
-                    className="button primary"
-                    onClick={() => {if(requestNavigation())setShowPersonSetup((current) => !current);}}
+                    className="person-row"
+                    key={member.person_id}
+                    onClick={() => openPerson(member.person_id)}
                     type="button"
                   >
-                    {showPersonSetup
-                      ? locale === "pt-PT"
-                        ? "Fechar"
-                        : "Close"
-                      : locale === "pt-PT"
-                        ? "+ Adicionar pessoa"
-                        : "+ Add person"}
+                    <PersonAvatar identity={member.person_id} name={memberDisplayName(member)} familyIdentity={activeFamilyId} age={member.age_years} sex={member.sex_for_energy_calculation} appearance={member.avatar_appearance} decorative />
+                    <span>
+                      <strong>{memberDisplayName(member)}</strong>
+                      <small>{member.timezone}</small>
+                    </span>
+                    <span aria-hidden="true">›</span>
                   </button>
-                </header>
-                {showPersonSetup && dashboard ? (
+                ))}
+              </div>
+              {showPersonSetup && dashboard ? (
+                <ContextDrawer
+                  title={locale === "pt-PT" ? "Adicionar pessoa" : "Add person"}
+                  wide
+                  closeLabel={locale === "pt-PT" ? "Fechar detalhe" : "Close detail"}
+                  onRequestClose={() => {if(!requestNavigation())return false;setShowPersonSetup(false);return true;}}
+                >
                   <PersonSetupForm
                     familyId={activeFamilyId}
                     familyTimezone={dashboard.timezone}
                     onCancel={() => setShowPersonSetup(false)}
                     onCreated={() => { setShowPersonSetup(false); refreshDashboard(); }}
                   />
-                ) : null}
-                <div className="people-list">
-                  {dashboard?.members.map((member) => (
-                    <button
-                      className="person-row"
-                      key={member.person_id}
-                      onClick={() => openPerson(member.person_id)}
-                      type="button"
-                    >
-                      <PersonAvatar identity={member.person_id} name={memberDisplayName(member)} familyIdentity={activeFamilyId} age={member.age_years} sex={member.sex_for_energy_calculation} appearance={member.avatar_appearance} decorative />
-                      <span>
-                        <strong>{memberDisplayName(member)}</strong>
-                        <small>{member.timezone}</small>
-                      </span>
-                      <span aria-hidden="true">›</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )
+                </ContextDrawer>
+              ) : null}
+              {selectedMember && dashboard ? (
+                <ContextDrawer
+                  title={memberDisplayName(selectedMember)}
+                  wide
+                  closeLabel={locale === "pt-PT" ? "Fechar detalhe" : "Close detail"}
+                  onRequestClose={() => setSelectedPersonId(null)}
+                >
+                  <PersonOverview
+                    dashboard={dashboard}
+                    member={selectedMember}
+                    onBack={() => setSelectedPersonId(null)}
+                    onDataChanged={refreshDashboard}
+                  />
+                </ContextDrawer>
+              ) : null}
+            </div>
           ) : null}
 
           {view === "house" ? <Suspense fallback={<p role="status">{t("home.loading")}</p>}><HomeBase key={activeFamilyId} familyId={activeFamilyId} initialView={houseInitialView} onViewChange={setHouseInitialView} /></Suspense> : null}
