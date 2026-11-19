@@ -1143,6 +1143,16 @@ export default function WeeklyProposalPreview({
   }
 
   function selectMeal(planningDate: string, mealType: MealType) {
+    // An empty slot in the saved weekly map opens its editor directly. Do not
+    // show an empty detail drawer first, or stack it behind the editor.
+    const emptySlot = plan &&
+      !mealEntryFor(plan, planningDate, mealType) &&
+      !choiceFor(grouped, planningDate, mealType) &&
+      !skippedSlots[slotKey(planningDate, mealType)];
+    if (emptySlot && onEdit) {
+      onEdit(planningDate, mealType, null);
+      return;
+    }
     if (onSelectionChange?.({date:planningDate,mealType}) === false) return;
     setSelectedDate(planningDate);
     setSelectedMealType(mealType);
@@ -1296,7 +1306,7 @@ export default function WeeklyProposalPreview({
                                 : ""
                             }`}
                             key={mealType}
-                            onClick={() => {if(!entry && !choice && !pendingReason && onEdit){if(requestNavigation())onEdit(planningDate,mealType,null);}else selectMeal(planningDate,mealType);}}
+                            onClick={() => selectMeal(planningDate,mealType)}
                             type="button"
                           >
                             <span className="weekly-grid-meal__label">
