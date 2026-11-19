@@ -1,22 +1,3 @@
-describe("weekly meal attendance context isolation",()=>{
-  const options={
-    guestNotices:[{planning_date:"2026-11-19",meal_type:"dinner" as const,guest_count:2}],
-    attendanceDecisions:[{planning_date:"2026-11-19",meal_type:"dinner" as const,people:[
-      {person_id:"person-a",decision:"present" as const},
-      {person_id:"person-b",decision:"unconfirmed" as const},
-      {person_id:"person-c",decision:"absent" as const},
-    ]}],
-  };
-  it("counts only guests and pending decisions in the selected slot",()=>{
-    expect(weeklyMealAttendanceContext("2026-11-19","dinner",options)).toEqual({guestCount:2,pendingCount:1});
-  });
-  it("does not copy guest warnings to another slot, day or missing setup",()=>{
-    expect(weeklyMealAttendanceContext("2026-11-19","lunch",options)).toEqual({guestCount:0,pendingCount:0});
-    expect(weeklyMealAttendanceContext("2026-11-20","dinner",options)).toEqual({guestCount:0,pendingCount:0});
-    expect(weeklyMealAttendanceContext("2026-11-19","dinner")).toEqual({guestCount:0,pendingCount:0});
-  });
-});
-
 import { describe, expect, it } from "vitest";
 
 import type { FamilyMealPlan } from "./api/mealPlanTypes";
@@ -544,3 +525,23 @@ it("materializes only the selected meal when accepting an individual proposal",(
  const single=singleMealPlanRequest(request,choice);expect(single.slots.map(slot=>slot.slot_key)).toEqual(["chosen"]);expect(single.expected_choices).toEqual([{slot_key:"chosen",candidate_key:"candidate"}]);expect(request.slots).toHaveLength(2);
  expect(()=>singleMealPlanRequest({...request,slots:[]},choice)).toThrow();
 });
+
+describe("weekly meal attendance context isolation",()=>{
+  const options={
+    guestNotices:[{planning_date:"2026-11-19",meal_type:"dinner" as const,guest_count:2}],
+    attendanceDecisions:[{planning_date:"2026-11-19",meal_type:"dinner" as const,people:[
+      {person_id:"person-a",decision:"present" as const},
+      {person_id:"person-b",decision:"unconfirmed" as const},
+      {person_id:"person-c",decision:"absent" as const},
+    ]}],
+  };
+  it("counts only guests and pending decisions in the selected slot",()=>{
+    expect(weeklyMealAttendanceContext("2026-11-19","dinner",options)).toEqual({guestCount:2,pendingCount:1});
+  });
+  it("does not copy guest warnings to another slot, day or missing setup",()=>{
+    expect(weeklyMealAttendanceContext("2026-11-19","lunch",options)).toEqual({guestCount:0,pendingCount:0});
+    expect(weeklyMealAttendanceContext("2026-11-20","dinner",options)).toEqual({guestCount:0,pendingCount:0});
+    expect(weeklyMealAttendanceContext("2026-11-19","dinner")).toEqual({guestCount:0,pendingCount:0});
+  });
+});
+
