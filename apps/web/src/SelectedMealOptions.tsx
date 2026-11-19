@@ -29,6 +29,14 @@ export function attendeeRestrictionSummary(rules:PlanningRestrictions, personIds
     sources:rules.sources.filter(source=>source.person_id===personId),
   }));
 }
+/** Display recorded portions only; a proposal without a recorded quantity stays unknown. */
+export function personMealPortion(context:SelectedMealContext,personId:string){
+  const saved=context.savedMeal?.participants.find(person=>person.person_id===personId);
+  const planned=context.portions?.find(person=>person.person_id===personId);
+  const quantity=saved?.quantity??planned?.quantity??null;
+  const unit=saved?.unit??planned?.unit??null;
+  return quantity && unit ? {quantity,unit,recorded: Boolean(saved)} : null;
+}
 export default function SelectedMealOptions({familyId,context,recipes,products,restrictions,people,manualExclusions,onVariantsChanged}:{
   familyId:string;context:SelectedMealContext;recipes:ReviewRecipe[];products:RetailAlternative[];restrictions:PlanningRestrictions;
   people:{id:string;first_name:string;avatar_appearance?:AvatarPreference|null}[];manualExclusions:string[];onVariantsChanged:()=>void;
@@ -49,7 +57,7 @@ export default function SelectedMealOptions({familyId,context,recipes,products,r
   const rules=selectedMealRestrictions(liveRules,context);
   const excluded=[...new Set([...manualExclusions,...rules.excluded_food_item_ids])];
   return <section className="nf-selected-options" aria-label={pt?"Opções da refeição selecionada":"Selected meal options"}>
-    <div className="nf-meal-attendees"><span>{pt ? "À mesa nesta refeição" : "At this meal"}</span>{people.filter(person=>context.personIds.includes(person.id)).map(person=><span className="nf-attendee-chip" key={person.id}><PersonAvatar identity={person.id} familyIdentity={familyId} name={person.first_name} appearance={person.avatar_appearance} size="sm" decorative/>{person.first_name}</span>)}</div>
+    <div className="nf-meal-attendees"><span>{context.savedMeal ? (pt ? "Participantes no plano" : "Participants in the plan") : (pt ? "Pessoas consideradas nesta proposta" : "People considered in this proposal")}</span>{people.filter(person=>context.personIds.includes(person.id)).map(person=><span className="nf-attendee-chip" key={person.id}><PersonAvatar identity={person.id} familyIdentity={familyId} name={person.first_name} appearance={person.avatar_appearance} size="sm" decorative/>{person.first_name}</span>)}</div>
     {!context.personIds.length && <p role="status">{pt ? "Escolhe as pessoas presentes para avaliar esta refeição." : "Choose attendees to assess this meal."}</p>}
     {context.personIds.length>0 && !rulesReady && !rulesError && <p role="status">{pt ? "A confirmar as restrições das pessoas presentes…" : "Checking attendees’ restrictions…"}</p>}
     {rulesReady && context.personIds.length > 0 && (
@@ -63,6 +71,12 @@ export default function SelectedMealOptions({familyId,context,recipes,products,r
             const person=people.find(candidate=>candidate.id===item.personId);
             return <section key={item.personId} className="nf-person-rule-context__person">
               <strong>{person?.first_name ?? (pt ? "Pessoa" : "Person")}</strong>
+              {(()=>{
+                const portion=personMealPortion(context,item.personId);
+                return <p className="nf-person-rule-context__portion">{portion
+                  ? (pt ? `Porção ${portion.recorded ? "registada" : "proposta"}: ${portion.quantity} ${portion.unit}` : `${portion.recorded ? "Recorded" : "Proposed"} portion: ${portion.quantity} ${portion.unit}`)
+                  : (pt ? "Porção não registada" : "Portion not recorded")}</p>;
+              })()}
               {item.sources.length ? <ul>{item.sources.map(source=>(
                 <li key={source.source_id}>
                   <span>{source.label}</span>
