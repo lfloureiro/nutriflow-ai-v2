@@ -2,7 +2,12 @@ import { ApiError, buildApiUrl } from "./client";
 import type { MealType } from "./mealPlanTypes";
 
 export type MealAttendance = {planning_date: string; meal_type: MealType; person_ids: string[]};
-export type WeekSetup = {week_start: string; version: number; attendance?: MealAttendance[]; meal_sources?: Partial<Record<MealType,"home"|"delivery"|"restaurant">>; person_ids: string[]; meal_types: MealType[]; excluded_food_item_ids: string[]};
+export type AttendanceDecision = "present" | "absent" | "unconfirmed";
+export type MealAttendanceDecisions = {
+  planning_date:string; meal_type:MealType;
+  people:{person_id:string;decision:AttendanceDecision}[];
+};
+export type WeekSetup = {week_start: string; version: number; attendance?: MealAttendance[]; attendance_decisions?: MealAttendanceDecisions[]; meal_sources?: Partial<Record<MealType,"home"|"delivery"|"restaurant">>; person_ids: string[]; meal_types: MealType[]; excluded_food_item_ids: string[]};
 export type RetailPriceComparison = {
   currency:"EUR"; reference_unit:"kg"|"l"|null; unit_price:string|null;
   issue:"price_unavailable"|"invalid_price"|"invalid_pack"|"unit_not_comparable"|null;
@@ -26,7 +31,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const base = (id: string) => `/api/families/${encodeURIComponent(id)}`;
 export const getWeekSetup = (familyId: string, week: string) => request<WeekSetup | null>(`${base(familyId)}/planning-setup/${encodeURIComponent(week)}`);
 export const saveWeekSetup = (familyId: string, setup: WeekSetup) => request<WeekSetup>(`${base(familyId)}/planning-setup/${encodeURIComponent(setup.week_start)}`, {
-  method: "PUT", body: JSON.stringify({person_ids: setup.person_ids, meal_types: setup.meal_types, excluded_food_item_ids: setup.excluded_food_item_ids, attendance: setup.attendance ?? [], meal_sources: setup.meal_sources ?? {}, expected_version: setup.version}),
+  method: "PUT", body: JSON.stringify({person_ids: setup.person_ids, meal_types: setup.meal_types, excluded_food_item_ids: setup.excluded_food_item_ids, attendance: setup.attendance ?? [], attendance_decisions: setup.attendance_decisions ?? [], meal_sources: setup.meal_sources ?? {}, expected_version: setup.version}),
 });
 export const listRetailAlternatives = (familyId: string) => request<RetailAlternative[]>(`${base(familyId)}/retail-alternatives`);
 
