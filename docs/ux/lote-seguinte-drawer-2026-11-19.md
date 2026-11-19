@@ -302,3 +302,11 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Novo Playwright E2E com PostgreSQL sintético verifica fecho por Escape de um editor existente, uma única modal, preservação da grelha e zero pedidos GET de plano após cancelamento.
 - Prioridades seguintes e release gates documentadas em `docs/ux/roadmap-v2.1.0-rc.md`.
 - Frontend **v2.0.26**, patch Z; exigir Web/API/UX E2E verdes no SHA final antes de marcar como validado. PR #76 continua draft; `main` e dados reais intactos.
+
+## Patch v2.0.27 — gestão do stock da despensa num único drawer (19 novembro 2026)
+
+- Após publicação de v2.0.26 `0c0390e52519579cfa370fd6c4be230d3b1bf64c`, Web CI e API CI passaram; UX E2E ainda estava em execução na última consulta, logo não há aprovação completa confirmada.
+- **Despensa:** criar e editar lotes deixa de apresentar um formulário inline que desloca a lista. A página de stock permanece montada; `ContextDrawer` apresenta o editor, fecha diretamente para a lista e conserva as ações de stock existentes.
+- Novo controlo de rascunho compara os valores atuais com a fotografia inicial; fechar ou navegar com alterações exige confirmação e preserva o editor se for recusada. Bloqueio de unload de dados não guardados.
+- Playwright com dados fictícios/PostgreSQL temporário abre o stock em mobile 390px, verifica que há **um único drawer** e que a lista continua montada, faz uma edição e exercita recusa e aceitação de descarte sem persistência de lote.
+- Interface passa a **v2.0.27**, patch Z; exigir Web CI, API CI e UX E2E verdes no SHA final. Nenhuma alteração de API/schema, `main` intacta, PR #76 em draft. Ainda não pedir testes manuais antes da minor v2.1.0.
