@@ -17,7 +17,7 @@
 - [ ] **08 — Rever ações e layout nos quatro tamanhos.** 1440, 1024, 768 e 390 px, claro/escuro; sem overflow, regressos coerentes ou cortes nas ações. **Parcial validado no E2E:** plano semanal + drawer em todas as oito combinações sem overflow horizontal. Restam formulários e ações de outros ecrãs, verificação visual humana e zoom.
 - [ ] **09 — Completar painel de restrições individuais.** Alergias, intolerâncias, exclusões, preferências, tolerâncias, validade, fonte e incerteza, sem inferir protocolo FODMAP a partir de diagnóstico.
 - [ ] **10 — Integrar plano profissional e autoridade.** Mostrar origem/versão/validade de regras, separar importação revista de ativação e impedir que informação desconhecida seja contada como segura.
-- [ ] **11 — Presenças reutilizáveis e contextos individuais.** Padrões por dia/slot, ausente versus por confirmar, exceções e visitantes; alterar participantes revalida elegibilidade sem sobrescrever escolhas fixadas.
+- [ ] **11 — Presenças reutilizáveis e contextos individuais.** Padrões por dia/slot, ausente versus por confirmar, exceções e visitantes; alterar participantes revalida elegibilidade sem sobrescrever escolhas fixadas. **Parcial:** ao criar refeição, é possível copiar explicitamente apenas os participantes de outra refeição anterior do mesmo slot e mesma semana, sem copiar/alterar quantidades, unidades ou refeições já guardadas. Faltam padrões persistentes por dia/slot, por confirmar, visitantes e revalidação E2E de exceções.
 - [ ] **12 — Regressão integrada e handoff.** API/PostgreSQL reais em DB sintética isolada, teste de gravação/reload e compras, testes web/API, migrations se aplicável, evidências e cross-check visual; não tocar na família principal. **Parcial:** testes reais com PostgreSQL temporário cobrem plano, drawer, ingrediente, concorrência, confirmação de adaptações e refresh das compras; restam percursos UI de adaptação/compras e cross-check visual completo.
 
 ## Invariantes de implementação
@@ -154,3 +154,11 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - O teste confirma que o ato de retomar o rascunho desatualizado não altera o `recipe_id` da refeição. Não marcar uma revisão como conclusão sem nova confirmação do utilizador.
 - Continua a ser permitida a **revisão manual** de um rascunho antigo; não o apagar automaticamente nem converter dados nutricionais ausentes em valores.
 - Versão de interface **v2.0.7** (patch Z). Web/API/UX E2E só ficam aprovados quando verdes no SHA final; teste manual reservado para a próxima versão X/Y consolidada.
+
+## Patch v2.0.8 — reutilização explícita de presenças no editor (19 novembro 2026)
+
+- O formulário de **criação** de uma refeição apresenta, quando existe uma refeição anterior do mesmo tipo na semana atual, um seletor opcional para reutilizar apenas quem estava presente. Fontes limitadas a refeições `planned` anteriores da mesma semana/slot, usando a lista já carregada; o campo fica oculto quando não há fonte aplicável ou ao editar refeição já guardada.
+- A operação de cópia não grava dados, não aplica quantidades/unidades da origem e não altera outros campos; é necessária a confirmação normal de «Guardar». O editor conserva o alerta de rascunho por guardar e a API mantém a validação de restrições ativas das pessoas selecionadas.
+- `copyAttendanceSelection` tem teste unitário explícito com quantidades `emb`/`serving` e valores vazios, verificando a ausência de mutação da entrada. A regressão browser com duas pessoas fictícias verifica a cópia da seleção, a ausência de gravação antecipada, o destino após guardar e a preservação da refeição origem.
+- A apresentação utiliza o tema e as larguras responsivas existentes. **Isto não constitui ainda um sistema de padrões persistentes/visitantes**; a expansão dessa função pertence ao marco funcional futuro, não a este patch.
+- Versão visível **2.0.8**; validar os três CI no SHA final antes de declarar concluído o patch. Respeitar a cadência de patches Z sem novos testes manuais.
