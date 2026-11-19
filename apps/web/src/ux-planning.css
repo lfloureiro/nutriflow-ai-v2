@@ -37,3 +37,8 @@
 .nf-attendance-template>.button{flex:0 0 auto}
 .nf-attendance-template>.muted{width:100%;font-size:12px;line-height:1.5;margin:0}
 @media(max-width:480px){.nf-attendance-template>.button{width:100%}}
+
+/* Explicit attendance decisions: pending is distinct from absence until saved. */
+.meal-plan-person .nf-attendance-decision{min-width:132px;flex:1 1 132px}
+.meal-plan-person .nf-attendance-decision select{max-width:100%;width:100%}
+.nf-attendance-warning{margin:10px 0;padding:10px 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface-soft);color:var(--text);font-size:12px;line-height:1.55}
