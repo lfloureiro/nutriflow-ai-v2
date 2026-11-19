@@ -132,18 +132,21 @@ const COPY = {
   },
 } as const;
 
+export type AttendanceDecision = "present" | "absent" | "unconfirmed";
+
 type ParticipantDraft = {
   personId: string;
-  selected: boolean;
+  attendance: AttendanceDecision;
   quantity: string;
   unit: string;
 };
 
-export function copyAttendanceSelection<T extends {personId:string;selected:boolean;quantity:string;unit:string}>(
+/** Copy decisions only. Inherited quantities or units would be unsafe for another meal. */
+export function copyAttendanceSelection<T extends {personId:string;attendance:AttendanceDecision;quantity:string;unit:string}>(
   current: T[], previousAttendeeIds: readonly string[],
 ): T[] {
   const previous = new Set(previousAttendeeIds);
-  return current.map(person => ({...person, selected: previous.has(person.personId)}));
+  return current.map(person => ({...person, attendance: previous.has(person.personId) ? "present" : "absent"}));
 }
 
 type EditTarget = {
@@ -273,7 +276,7 @@ function MealEditForm({
       );
       return {
         personId: person.id,
-        selected: entry ? Boolean(existing) : true,
+        attendance: entry ? (existing ? "present" : "absent") : "unconfirmed",
         quantity: existing?.quantity ?? "",
         unit: existing?.unit ?? "g",
       };
@@ -287,7 +290,8 @@ function MealEditForm({
   const guard=useUnsavedChanges({recipeId,localTime,location,participants},locale==="pt-PT"?"Tens alterações nesta refeição por guardar. Sair e descartá-las?":"You have unsaved meal changes. Leave and discard them?");
   const closeEditor=()=>{if(!busy&&guard.confirmDiscard())onDone();};
   useEffect(() => { registerClose?.(closeEditor); });
-  const present=participants.filter(participant=>participant.selected);
+  const present=participants.filter(participant=>participant.attendance==="present");
+  const unconfirmed=participants.filter(participant=>participant.attendance==="unconfirmed");
   const selectedRecipe=eligibleRecipes.find(recipe=>recipe.id===recipeId);
   const matchingRecipes=eligibleRecipes.filter(recipe=>recipe.id===recipeId||searchText(recipe.name).includes(searchText(recipeQuery)));
   function patchParticipant(personId: string, patch: Partial<ParticipantDraft>) {
@@ -301,7 +305,11 @@ function MealEditForm({
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    const selected = participants.filter((participant) => participant.selected);
+    const selected = participants.filter((participant) => participant.attendance === "present");
+    if (unconfirmed.length > 0) {
+      setError(locale==="pt-PT"?"Confirma a presença ou ausência de cada pessoa antes de guardar.":"Confirm attendance or absence for each person before saving.");
+      return;
+    }
     if (!recipeId || selected.length === 0) {
       setError(!recipeId ? copy.chooseRecipe : copy.noPeople);
       return;
@@ -454,26 +462,27 @@ function MealEditForm({
               }}>{locale==="pt-PT"?"Usar apenas presenças":"Copy attendance only"}</button>
             <p className="muted">{locale==="pt-PT"?"Só copia quem está presente. As quantidades e unidades atuais mantêm-se; nada é guardado até confirmares.":"Copies attendees only. Current amounts and units are preserved; nothing is saved until confirmation."}</p>
           </div>}
-          <div className="nf-presence-heading"><h3>{copy.participants}</h3><span role="status">{present.length}/{people.length} {locale==="pt-PT"?"presentes":"attending"}</span><div className="button-row"><button type="button" className="button ghost small" onClick={()=>setParticipants(old=>old.map(person=>({...person,selected:true})))}>{locale==="pt-PT"?"Selecionar todos":"Select all"}</button><button type="button" className="button ghost small" onClick={()=>setParticipants(old=>old.map(person=>({...person,selected:false})))}>{locale==="pt-PT"?"Selecionar nenhum":"Select none"}</button></div></div>
+          <div className="nf-presence-heading"><h3>{copy.participants}</h3><span role="status">{present.length}/{people.length} {locale==="pt-PT"?"presentes":"attending"}{unconfirmed.length>0 ? (locale==="pt-PT"?` · ${unconfirmed.length} por confirmar`:` · ${unconfirmed.length} unconfirmed`) : ""}</span><div className="button-row"><button type="button" className="button ghost small" onClick={()=>setParticipants(old=>old.map(person=>({...person,attendance:"present"})))}>{locale==="pt-PT"?"Selecionar todos":"Select all"}</button><button type="button" className="button ghost small" onClick={()=>setParticipants(old=>old.map(person=>({...person,attendance:"absent"})))}>{locale==="pt-PT"?"Selecionar nenhum":"Select none"}</button></div></div>
           {participants.map((participant) => {
             const person = people.find((candidate) => candidate.id === participant.personId);
             if (!person) return null;
             return (
               <div className="meal-plan-person" key={participant.personId}>
-                <label className="meal-plan-person__check">
-                  <input
-                    checked={participant.selected}
-                    onChange={(event) =>
-                      patchParticipant(participant.personId, { selected: event.target.checked })
-                    }
-                    type="checkbox"
-                  />
+                <div className="meal-plan-person__check">
                   <PersonAvatar identity={person.id} familyIdentity={familyId} name={displayName(person)} appearance={person.avatar_appearance} size="sm" decorative/><strong>{displayName(person)}</strong>
+                </div>
+                <label className="field nf-attendance-decision">
+                  <span>{locale==="pt-PT"?"Presença":"Attendance"}</span>
+                  <select value={participant.attendance} onChange={event=>patchParticipant(participant.personId,{attendance:event.target.value as AttendanceDecision})}>
+                    <option value="unconfirmed">{locale==="pt-PT"?"Por confirmar":"Unconfirmed"}</option>
+                    <option value="present">{locale==="pt-PT"?"Presente":"Present"}</option>
+                    <option value="absent">{locale==="pt-PT"?"Ausente":"Absent"}</option>
+                  </select>
                 </label>
                 <label className="field">
                   <span>{copy.quantity} <small>({copy.defaultPortion})</small></span>
                   <input
-                    disabled={!participant.selected}
+                    disabled={participant.attendance!=="present"}
                     inputMode="decimal"
                     placeholder="—"
                     value={participant.quantity}
@@ -485,7 +494,7 @@ function MealEditForm({
                 <label className="field">
                   <span>{copy.unit}</span>
                   <select
-                    disabled={!participant.selected || !participant.quantity.trim()}
+                    disabled={participant.attendance!=="present" || !participant.quantity.trim()}
                     value={participant.unit}
                     onChange={(event) =>
                       patchParticipant(participant.personId, { unit: event.target.value })
@@ -503,11 +512,12 @@ function MealEditForm({
             );
           })}
         </div>
+        {unconfirmed.length>0&&<p role="status" className="nf-attendance-warning">{locale==="pt-PT"?`Faltam ${unconfirmed.length} confirmações de presença. Não serão tratadas como ausências.`:`${unconfirmed.length} attendance decisions remain unconfirmed. They will not be treated as absences.`}</p>}
         <section className="nf-meal-save-summary" aria-label={locale==="pt-PT"?"Resumo antes de guardar":"Summary before saving"}><span className="eyebrow">{locale==="pt-PT"?"VAI PARA O PLANO":"READY FOR THE PLANNER"}</span><h3>{selectedRecipe?.name??copy.chooseRecipe}</h3><p>{formatDate(target.date,locale)} · {mealLabel(target.mealType,locale)} · {localTime} · {location||"—"}</p><div className="nf-summary-people">{present.map(participant=><span key={participant.personId}>{displayName(people.find(person=>person.id===participant.personId)!)} · {participant.quantity?`${participant.quantity} ${participant.unit}`:copy.defaultPortion}</span>)}</div>{!present.length&&<p role="status">{copy.noPeople}</p>}</section>
         <div className="meal-plan-editor__actions">
           <button
             className="button primary"
-            disabled={busy || !recipeId || !present.length || eligibleRecipes.length === 0}
+            disabled={busy || !recipeId || !present.length || unconfirmed.length>0 || eligibleRecipes.length === 0}
             type="submit"
           >
             {busy ? copy.saving : copy.save}
