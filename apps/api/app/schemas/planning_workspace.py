@@ -121,7 +121,6 @@ class RetailAlternativeRead(BaseModel):
 
 class PlanningRestrictionsRequest(BaseModel):
     attendance: list[MealAttendance] = Field(default_factory=list, max_length=28)
-    attendance_decisions: list[MealAttendanceDecisions] = Field(default_factory=list, max_length=28)
     person_ids: list[uuid.UUID] = Field(min_length=1, max_length=20)
     week_start: date
     meal_types: list[Literal["breakfast", "lunch", "snack", "dinner"]] = Field(
