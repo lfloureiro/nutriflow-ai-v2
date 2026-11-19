@@ -686,6 +686,13 @@ test("weekly attendance decisions persist separately, reject invalid people and 
   const current=await updated.json() as typeof saved;
   expect(current.version).toBe(2);
   expect(current.attendance_decisions[0]?.people[1]?.decision).toBe("absent");
+  const {attendance_decisions:_omitted, ...legacyFields}=base;
+  const legacySave=await request.put(url,{
+    data:{...legacyFields,expected_version:current.version},
+  });
+  expect(legacySave.ok(),`Older client cleared decisions unexpectedly: ${legacySave.status()} ${await legacySave.text()}`).toBe(true);
+  const legacyResult=await legacySave.json() as typeof saved;
+  expect(legacyResult.attendance_decisions).toEqual(current.attendance_decisions);
   const stale=await request.put(url,{data:{...base,expected_version:1}});
   expect(stale.status()).toBe(409);
   const plan=await getJson<{days:{date:string,slots:{meal_type:string,meals:{id:string,participants:{person_id:string}[]}[]}[]}[]}>(
