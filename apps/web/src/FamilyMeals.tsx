@@ -134,7 +134,7 @@ const COPY = {
 
 export type AttendanceDecision = "present" | "absent" | "unconfirmed";
 
-type ParticipantDraft = {
+export type ParticipantDraft = {
   personId: string;
   attendance: AttendanceDecision;
   quantity: string;
@@ -142,9 +142,9 @@ type ParticipantDraft = {
 };
 
 /** Copy decisions only. Inherited quantities or units would be unsafe for another meal. */
-export function copyAttendanceSelection<T extends {personId:string;attendance:AttendanceDecision;quantity:string;unit:string}>(
-  current: T[], previousAttendeeIds: readonly string[],
-): T[] {
+export function copyAttendanceSelection(
+  current: ParticipantDraft[], previousAttendeeIds: readonly string[],
+): ParticipantDraft[] {
   const previous = new Set(previousAttendeeIds);
   return current.map(person => ({...person, attendance: previous.has(person.personId) ? "present" : "absent"}));
 }
