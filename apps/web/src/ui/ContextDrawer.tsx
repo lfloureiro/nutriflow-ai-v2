@@ -54,7 +54,12 @@ export default function ContextDrawer({
       }
       if (event.key !== "Tab" || !panelRef.current) return;
       const candidates = Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE))
-        .filter((element) => element.getClientRects().length > 0 && !element.closest("[inert]"));
+        .filter((element) =>
+          element.getClientRects().length > 0 &&
+          !element.matches(":disabled") &&
+          !element.closest("[inert], [aria-hidden='true']") &&
+          getComputedStyle(element).visibility === "visible",
+        );
       if (!candidates.length) {
         event.preventDefault();
         panelRef.current.focus();
