@@ -162,11 +162,13 @@ test("drawer keyboard focus remains trapped and returns to the underlying page",
 
 test("weekly planner and drawer have no horizontal overflow across four responsive widths and both themes",async ({page,request})=>{
   const fixture=await seed(request);
+  await page.emulateMedia({reducedMotion:"reduce"});
   for(const width of [1440,1024,768,390]){
     await page.setViewportSize({width,height:900});
     for(const theme of ["light","dark"]){
-      await page.addInitScript(value=>window.localStorage.setItem("nutriflow-appearance",value),theme);
       await openFamily(page,fixture.family.id,`/#/meals?date=${DATE}&meal=dinner&mode=week`);
+      await page.evaluate(value=>window.localStorage.setItem("nutriflow-appearance",value),theme);
+      await page.reload();
       const dialog=page.getByRole("dialog");
       await expect(dialog).toBeVisible();
       await expect(page.locator("html")).toHaveAttribute("data-theme",theme);
