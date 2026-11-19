@@ -219,3 +219,10 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Incluído novo Playwright E2E com PostgreSQL sintético para testar drawer do plano semanal a **320 CSS px**, incluindo conteúdo da refeição, limites laterais, ausência de overflow horizontal e fecho do drawer.
 - Este teste de reflow **não substitui** zoom real a 200%, que permanece no plano de aceitação.
 - Versão de interface **2.0.15**, patch Z; não requer teste manual. Apenas declarar este incremento automaticamente validado quando Web CI, API CI e UX E2E terminarem verdes no SHA final. Não fazer merge.
+
+## Patch v2.0.16 — rejeitar decisões semanais de presença duplicadas (19 novembro 2026)
+
+- O E2E API/PostgreSQL sintético verifica agora que o planeamento rejeita com HTTP 422 duas entradas do mesmo dia/tempo em `attendance_decisions` e duas decisões contraditórias para a mesma pessoa no mesmo slot.
+- Complementa o cenário já existente de isolamento por família, datas inválidas, concorrência por `expected_version`, compatibilidade de cliente antigo e preservação dos participantes de refeições guardadas.
+- Trata-se de cobertura de regressão da validação existente, não de mudança no contrato, no motor de nutrição ou nos dados reais.
+- Versão visível **v2.0.16** (patch Z); só considerar validado com Web CI, API CI e UX E2E verdes no SHA final. Continuar sem merge, sem pedir teste manual antes da v2.1.0.
