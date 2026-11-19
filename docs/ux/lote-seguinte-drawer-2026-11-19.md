@@ -12,7 +12,7 @@
 - [x] **03 — Converter detalhe da refeição em contexto lateral.** Na semana, manter visível o mapa ao abrir uma refeição; preservar a célula/dia/modo e não duplicar edição nem motores nutricionais. **Implementação ligada, regressão visual e E2E pendentes:** editor manual e detalhe de avaliação/adaptação semanal utilizam o drawer; transição detalhe → editor evita dois diálogos em simultâneo.
 - [ ] **04 — Guardas e recuperação de contexto.** Fechar drawer, navegar e voltar apenas após resolver alterações por guardar; URL e browser back/forward recuperam refeição/aba; erro e reload não perdem rascunho guardado. **Parcial:** URL com `date`, `mode=week` e `meal=...` adicionada para os quatro tempos, seleção/fecho sincronizados e testes unitários do parser. Navegação browser/rascunhos ainda aguardam E2E.
 - [ ] **05 — Migrar o fluxo de adaptação corrigido para o drawer.** Aceitar proposta diretamente → rever receita preenchida (edição opcional) → confirmar no plano; conservar rascunhos, herança de unidade/quantidade/rendimento ausente e a identidade de ingredientes declarados.
-- [ ] **06 — Detalhe por pessoa sem aprovação implícita.** Mostrar presença, dose, regra e fonte; separar adequação nutricional, preferência/estrelas e estado desconhecido; evitar criar score sem evidência.
+- [ ] **06 — Detalhe por pessoa sem aprovação implícita.** Mostrar presença, dose, regra e fonte; separar adequação nutricional, preferência/estrelas e estado desconhecido; evitar criar score sem evidência. **Parcial:** painel expansível mostra por pessoa as regras e fontes efetivamente devolvidas pela API para a data/slot; ausência de resultados é explicitamente não-validação. Faltam rastreio da dose, distinção completa preferências/estrelas e regressão em navegador.
 - [ ] **07 — Uniformizar formulários secundários.** Aplicar os mesmos padrões a receita, ingrediente e pessoa, sem tornar rendimento, preparação ou valores de energia obrigatórios.
 - [ ] **08 — Rever ações e layout nos quatro tamanhos.** 1440, 1024, 768 e 390 px, claro/escuro; sem overflow, regressos coerentes ou cortes nas ações.
 - [ ] **09 — Completar painel de restrições individuais.** Alergias, intolerâncias, exclusões, preferências, tolerâncias, validade, fonte e incerteza, sem inferir protocolo FODMAP a partir de diagnóstico.
@@ -57,3 +57,10 @@ A branch foi criada a partir de main; apenas os ficheiros indicados no commit da
 - Selecionar/fechar detalhe sincroniza o URL via navegação da aplicação; o fecho e a troca de contexto respeitam `requestNavigation()` e os bloqueios existentes.
 - O parser recebeu testes de roundtrip e de parâmetros indevidos. **Ainda falta executar E2E real em navegador**, sobretudo back/forward e regresso a alterações não guardadas. Não classificar a tarefa 04 como concluída.
 - O utilizador confirmou visualmente o drawer anterior em desktop e referiu bom comportamento em mobile. Isso não substitui testes de teclado nem regressão automatizada.
+
+## Incremento — regras por participante e proveniência (19 novembro 2026)
+
+- `SelectedMealOptions` passou a expor uma secção expansível de restrições individuais, **apenas após resposta da API de restrições**. Filtra pessoa, data e tempo de refeição; preserva tipo/descrição da fonte, avisos e estado sem regras devolvidas, sem chamar seguro ou adequado a nenhum destes estados.
+- A apresentação é compacta no drawer para desktop e mobile e usa os tokens claro/escuro existentes; não muda o motor, os contratos de dados, nem faz qualquer gravação na base.
+- `SelectedMealOptions.test.ts` acrescenta casos de participantes presentes/ausentes, dias distintos, horários distintos, avisos e ausência de regras. A CI web foi acionada para o último SHA e precisa de passar antes de pedir teste manual.
+- **Pendentes:** avaliação end-to-end com API real numa DB sintética, visita a 1440/1024/768/390, confirmação de contraste/teclado e comparação com o HTML aprovado. Não houve acesso à família do utilizador.
