@@ -212,3 +212,10 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Reforçado o cenário E2E API/PostgreSQL temporário de `guest_notices`: após um cliente antigo atualizar o planeamento sem apagar os convidados, uma escrita com `expected_version` obsoleta tenta alterar a contagem de 2 para 3 e deve devolver HTTP 409.
 - O teste relê a API depois da rejeição para confirmar que a contagem original permanece inalterada; o cenário também preserva a verificação de limpeza explícita de convidados e de ausência de alterações nos participantes do plano.
 - Não foram alterados modelos, endpoints, cálculos nutricionais, compras nem dados reais. Versão visível **v2.0.14** (Z): sem pedido de testes manuais. Validar Web CI, API CI e UX E2E no SHA exato e manter o PR #76 em draft.
+
+## Patch v2.0.15 — roteiro de aceitação e reflow a 320 CSS px (19 novembro 2026)
+
+- Criado `docs/ux/aceitacao-manual-v2.1.0.md` com cenários de aceitação para UX, família, restrições, receita/adaptação, semana, convidados, nutrição, compras, idiomas e proteção de dados; inclui matriz de resultados e gates para preparar o próximo Y.
+- Incluído novo Playwright E2E com PostgreSQL sintético para testar drawer do plano semanal a **320 CSS px**, incluindo conteúdo da refeição, limites laterais, ausência de overflow horizontal e fecho do drawer.
+- Este teste de reflow **não substitui** zoom real a 200%, que permanece no plano de aceitação.
+- Versão de interface **2.0.15**, patch Z; não requer teste manual. Apenas declarar este incremento automaticamente validado quando Web CI, API CI e UX E2E terminarem verdes no SHA final. Não fazer merge.
