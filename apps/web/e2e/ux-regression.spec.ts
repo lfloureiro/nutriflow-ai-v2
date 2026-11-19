@@ -588,7 +588,7 @@ test("attendance reuse: copy only people from an earlier dinner and keep source 
   const unsaved=await getJson<typeof before>(request,
     `/families/${familyId}/meal-plan?start_date=2026-11-16&days=7`);
   expect(unsaved.days.find(d=>d.date==="2026-11-20")?.slots.find(s=>s.meal_type==="dinner")?.meals).toEqual([]);
-  await editor.getByRole("button",{name:"Guardar",exact:true}).click();
+  await editor.getByRole("button",{name:"Guardar no plano",exact:true}).click({timeout:10000});
   await expect(editor).toHaveCount(0);
   const after=await getJson<typeof before>(request,
     `/families/${familyId}/meal-plan?start_date=2026-11-16&days=7`);
