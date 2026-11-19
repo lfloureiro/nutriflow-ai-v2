@@ -345,6 +345,32 @@ test("accessible drawer reclaims programmatic focus outside the modal and restor
   expect(await page.evaluate(()=>document.body.style.overflow)).not.toBe("hidden");
 });
 
+test("pantry: create stock in a drawer without replacing list and protect unsaved changes",async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.setViewportSize({width:390,height:844});
+  await openFamily(page,fixture.family.id,"/#/house?tab=pantry");
+  const add=page.getByRole("button",{name:"Adicionar stock"}).first();
+  await expect(add).toBeVisible();
+  await add.click();
+  const dialog=page.getByRole("dialog");
+  await expect(dialog).toHaveCount(1);
+  await expect(page.locator(".pantry-list")).toBeAttached();
+  const form=dialog.locator("form.pantry-editor");
+  await expect(form).toBeVisible();
+  await form.getByLabel("Quantidade").fill("3");
+  await expect(form.getByText("Alterações por guardar")).toBeVisible();
+  page.once("dialog",prompt=>prompt.dismiss());
+  await form.getByRole("button",{name:"Cancelar"}).click();
+  await expect(dialog).toHaveCount(1);
+  await expect(form.getByLabel("Quantidade")).toHaveValue("3");
+  page.once("dialog",prompt=>prompt.accept());
+  await form.getByRole("button",{name:"Cancelar"}).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator(".pantry-list")).toBeAttached();
+  await expect(add).toBeVisible();
+  await expect(page.getByText("Ainda não há stock registado.")).toBeVisible();
+});
+
 test("ingredient: draft warning and optional nutrition persist in isolated database", async ({page,request})=>{
   const fixture=await seed(request);
   await openFamily(page,fixture.family.id,"/#/house?tab=ingredients");
