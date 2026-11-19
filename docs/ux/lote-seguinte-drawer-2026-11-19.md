@@ -262,3 +262,10 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Adicionado Playwright E2E com API/PostgreSQL sintéticos para abrir o editor de novo ingrediente em **320 e 390 CSS px**, nos temas claro e escuro, introduzir texto e verificar o estado de rascunho e visibilidade da ação de guardar.
 - O teste verifica a ausência de overflow horizontal da página, confirmando que a interação pode decorrer sem deslocação horizontal; isto é regressão de reflow, **não** substitui zoom real a 200% nem auditoria visual integral.
 - Frontend **v2.0.21**, patch Z; sem modificação de contratos/API ou dados da família real. Aguardar os três gates verdes no SHA final antes de marcar como validado; PR #76 mantém-se draft, sem solicitação de teste manual até v2.1.0.
+
+## Patch v2.0.22 — editor de perfil responsivo e proteção de rascunhos (19 novembro 2026)
+
+- Confirmado sucesso Web CI, API CI e UX E2E no SHA final de v2.0.21 `f07c9e28d84e7da09a91ab99816a4afd897f794c`.
+- Adicionado cenário Playwright com API/PostgreSQL sintéticos para abrir o perfil de pessoa em 320 e 390 CSS px; verificar ausência de overflow horizontal, campo do nome e estado de alterações não guardadas.
+- O teste verifica cancelamento de descarte (o rascunho permanece), confirmação de descarte (fecha o formulário) e leitura posterior dos membros da família para confirmar que a edição cancelada não alterou a pessoa original.
+- Frontend **v2.0.22**, patch Z; sem alteração de API/schema, sem gravações nos dados familiares reais. Aguardar sucesso Web CI/API CI/UX E2E no último SHA, manter PR #76 draft e não pedir testes manuais antes da minor v2.1.0.
