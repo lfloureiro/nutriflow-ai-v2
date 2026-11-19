@@ -57,7 +57,7 @@ def create_recipe_edit(db, family_id, data):
         recipe.ingredients.append(RecipeIngredient(food_item=food,
             quantity=operation.quantity if operation else ingredient.quantity,
             unit=operation.unit if operation else ingredient.unit,
-            preparation=operation.preparation if operation else ingredient.preparation,
+            preparation=(operation.preparation or None) if operation else ingredient.preparation,
             sort_order=ingredient.sort_order))
         if operation:
             evidence.append({**operation.model_dump(mode="json"),
