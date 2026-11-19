@@ -198,3 +198,28 @@ test("weekly planner and drawer have no horizontal overflow across four responsi
     }
   }
 });
+
+test("API: concurrent daily nutrition refreshes create a single state without a uniqueness conflict",async ({request})=>{
+  const family=await postJson<{id:string}>(request,"/families",{
+    name:"Família concorrência QA",
+    timezone:"Europe/Lisbon",
+    meal_discovery_sources:["shared_recipes"],
+    delivery_address:null,restaurant_area:null,
+  });
+  const person=await postJson<{id:string}>(request,`/families/${family.id}/persons`,{
+    first_name:"Concorrência QA",last_name:null,birth_date:null,
+    preferred_locale:"pt-PT",timezone:"Europe/Lisbon",meal_discovery:null,
+  });
+  const requests=Array.from({length:10},()=>request.get(`${API}/persons/${person.id}/planning-bootstrap`,{
+    params:{scheduled_at:"2026-11-19T20:00:00+00:00",ensure_state:"true"},
+  }));
+  const responses=await Promise.all(requests);
+  for(const response of responses){
+    expect(response.status(), `Concurrent state refresh returned HTTP ${response.status()}: ${await response.text()}`).toBe(200);
+  }
+  const states=await Promise.all(responses.map(async response=>
+    (await response.json() as {daily_nutrition_state:{id:string}|null}).daily_nutrition_state?.id
+  ));
+  expect(states.every(id=>typeof id==="string")).toBe(true);
+  expect(new Set(states).size).toBe(1);
+});
