@@ -251,7 +251,7 @@ function MealEditForm({
   familyId: string;
   recipes: Recipe[];
   people: Person[];
-  onDone: () => void;
+  onDone: (changed?: boolean) => void;
   attendanceSources: {date:string;entry:MealPlanEntry}[];
   registerClose?: (close: () => void) => void;
 }) {
@@ -288,7 +288,7 @@ function MealEditForm({
 
   const [recipeQuery,setRecipeQuery]=useState("");
   const guard=useUnsavedChanges({recipeId,localTime,location,participants},locale==="pt-PT"?"Tens alterações nesta refeição por guardar. Sair e descartá-las?":"You have unsaved meal changes. Leave and discard them?");
-  const closeEditor=()=>{if(!busy&&guard.confirmDiscard())onDone();};
+  const closeEditor=()=>{if(!busy&&guard.confirmDiscard())onDone(false);};
   useEffect(() => { registerClose?.(closeEditor); });
   const present=participants.filter(participant=>participant.attendance==="present");
   const unconfirmed=participants.filter(participant=>participant.attendance==="unconfirmed");
@@ -335,7 +335,7 @@ function MealEditForm({
       } else {
         await createMealPlanEntry(familyId, payload);
       }
-      guard.markSaved();onDone();
+      guard.markSaved();onDone(true);
     } catch (caught: unknown) {
       setError(mealPlanErrorText(caught, locale));
     } finally {
@@ -349,7 +349,7 @@ function MealEditForm({
     setError(null);
     try {
       await cancelMealPlanEntry(familyId, entry.id);
-      guard.markSaved();onDone();
+      guard.markSaved();onDone(true);
     } catch (caught: unknown) {
       setError(mealPlanErrorText(caught, locale));
     } finally {
@@ -630,9 +630,9 @@ export default function FamilyMealsScreen({
     onDataChanged?.();
   }
 
-  function closeEditor() {
+  function closeEditor(changed = false) {
     setEditing(null);
-    refreshPlan();
+    if (changed) refreshPlan();
   }
 
   const consumptionDate = browsingDate;
