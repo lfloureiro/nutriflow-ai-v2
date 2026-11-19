@@ -629,3 +629,68 @@ test("attendance tri-state: unconfirmed is not an implicit absence or a writable
     request,`/families/${fixture.family.id}/meal-plan?start_date=2026-11-16&days=7`);
   expect(after.days.find(d=>d.date==="2026-11-18")?.slots.find(s=>s.meal_type==="dinner")?.meals[0]?.participants.map(p=>p.person_id)).toEqual([fixture.person.id]);
 });
+
+test("weekly attendance decisions persist separately, reject invalid people and protect the planned meals",async ({request})=>{
+  const fixture=await seed(request);
+  const familyId=fixture.family.id;
+  const second=await postJson<{id:string}>(request,`/families/${familyId}/persons`,{
+    first_name:"Pessoa com presença pendente QA",last_name:null,birth_date:null,
+    preferred_locale:"pt-PT",timezone:"Europe/Lisbon",meal_discovery:null,
+  });
+  const thirdFamily=await postJson<{id:string}>(request,"/families",{
+    name:"Família sem acesso QA",timezone:"Europe/Lisbon",
+    meal_discovery_sources:["shared_recipes"],delivery_address:null,restaurant_area:null,
+  });
+  const outsider=await postJson<{id:string}>(request,`/families/${thirdFamily.id}/persons`,{
+    first_name:"Pessoa externa QA",last_name:null,birth_date:null,
+    preferred_locale:"pt-PT",timezone:"Europe/Lisbon",meal_discovery:null,
+  });
+  const url=`${API}/families/${familyId}/planning-setup/2026-11-16`;
+  const base={
+    person_ids:[fixture.person.id,second.id],meal_types:["dinner"],
+    excluded_food_item_ids:[],meal_sources:{dinner:"home"},
+    attendance:[],expected_version:0,
+    attendance_decisions:[{planning_date:DATE,meal_type:"dinner",people:[
+      {person_id:fixture.person.id,decision:"present"},
+      {person_id:second.id,decision:"unconfirmed"},
+    ]}],
+  };
+  const invalid=await request.put(url,{data:{...base,attendance_decisions:[{
+    planning_date:DATE,meal_type:"dinner",people:[{
+      person_id:outsider.id,decision:"present",
+    }],
+  }]}});
+  expect(invalid.status()).toBe(422);
+  const invalidDate=await request.put(url,{data:{...base,attendance_decisions:[{
+    planning_date:"2026-11-23",meal_type:"dinner",people:[{
+      person_id:fixture.person.id,decision:"present",
+    }],
+  }]}});
+  expect(invalidDate.status()).toBe(422);
+  const created=await request.put(url,{data:base});
+  expect(created.ok(),`Cannot persist family decisions: ${created.status()} ${await created.text()}`).toBe(true);
+  const saved=await created.json() as {version:number;attendance_decisions:typeof base.attendance_decisions};
+  expect(saved.version).toBe(1);
+  expect(saved.attendance_decisions).toEqual(base.attendance_decisions);
+  const reopened=await getJson<typeof saved>(request,
+    `/families/${familyId}/planning-setup/2026-11-16`);
+  expect(reopened.attendance_decisions).toEqual(base.attendance_decisions);
+  const resolved={...base,expected_version:saved.version,attendance_decisions:[{
+    ...base.attendance_decisions[0]!,people:[
+      {person_id:fixture.person.id,decision:"present"},
+      {person_id:second.id,decision:"absent"},
+    ],
+  }]};
+  const updated=await request.put(url,{data:resolved});
+  expect(updated.ok(),`Cannot update weekly decisions: ${updated.status()} ${await updated.text()}`).toBe(true);
+  const current=await updated.json() as typeof saved;
+  expect(current.version).toBe(2);
+  expect(current.attendance_decisions[0]?.people[1]?.decision).toBe("absent");
+  const stale=await request.put(url,{data:{...base,expected_version:1}});
+  expect(stale.status()).toBe(409);
+  const plan=await getJson<{days:{date:string,slots:{meal_type:string,meals:{id:string,participants:{person_id:string}[]}[]}[]}[]}>(
+    request,`/families/${familyId}/meal-plan?start_date=2026-11-16&days=7`);
+  const original=plan.days.find(day=>day.date===DATE)?.slots.find(slot=>slot.meal_type==="dinner")?.meals[0];
+  expect(original?.id).toBe(fixture.meal.id);
+  expect(original?.participants.map(person=>person.person_id)).toEqual([fixture.person.id]);
+});
