@@ -131,3 +131,64 @@ test("person: switching local tabs does not discard an unsaved condition",async 
   await page.getByRole("button",{name:"Nutrição",exact:true}).click();
   await expect(page.getByRole("heading",{name:"Nutrição",exact:true})).toBeVisible();
 });
+
+test("drawer keyboard focus remains trapped and returns to the underlying page",async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.setViewportSize({width:1024,height:768});
+  await openFamily(page,fixture.family.id,`/#/meals?date=${DATE}&mode=week`);
+  const slot=page.getByRole("button",{name:/Prato sintético QA/}).first();
+  await expect(slot).toBeVisible();
+  await slot.focus();
+  await slot.click();
+  const dialog=page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  const close=dialog.getByRole("button",{name:"Fechar detalhe"});
+  await expect(close).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  const shiftTabInside=await page.evaluate(()=>Boolean(document.activeElement?.closest('[role="dialog"]')));
+  expect(shiftTabInside).toBe(true);
+  await page.keyboard.press("Tab");
+  await expect(close).toBeFocused();
+  for(let i=0;i<12;i++){
+    await page.keyboard.press("Tab");
+    const focusStillInside=await page.evaluate(()=>Boolean(document.activeElement?.closest('[role="dialog"]')));
+    expect(focusStillInside).toBe(true);
+  }
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator("#root")).not.toHaveAttribute("inert","");
+  await expect(slot).toBeFocused();
+});
+
+test("weekly planner and drawer have no horizontal overflow across four responsive widths and both themes",async ({page,request})=>{
+  const fixture=await seed(request);
+  for(const width of [1440,1024,768,390]){
+    await page.setViewportSize({width,height:900});
+    for(const theme of ["light","dark"]){
+      await page.addInitScript(value=>window.localStorage.setItem("nutriflow-theme",value),theme);
+      await openFamily(page,fixture.family.id,`/#/meals?date=${DATE}&meal=dinner&mode=week`);
+      const dialog=page.getByRole("dialog");
+      await expect(dialog).toBeVisible();
+      const geometry=await page.evaluate(()=>{
+        const drawer=document.querySelector('[role="dialog"]');
+        if(!drawer)throw new Error("Missing meal drawer");
+        const rect=drawer.getBoundingClientRect();
+        return {
+          viewport:window.innerWidth,
+          document:document.documentElement.scrollWidth,
+          body:document.body.scrollWidth,
+          drawerRight:rect.right,
+          drawerLeft:rect.left,
+          drawerClient:drawer.clientWidth,
+          drawerScroll:drawer.scrollWidth,
+        };
+      });
+      expect(geometry.document, `document overflow at ${width}px / ${theme}`).toBeLessThanOrEqual(geometry.viewport+1);
+      expect(geometry.drawerRight,`drawer clipped at ${width}px / ${theme}`).toBeLessThanOrEqual(geometry.viewport+1);
+      expect(geometry.drawerLeft).toBeGreaterThanOrEqual(-1);
+      expect(geometry.drawerScroll,`drawer content overflow at ${width}px / ${theme}`).toBeLessThanOrEqual(geometry.drawerClient+2);
+      await page.getByRole("button",{name:"Fechar detalhe"}).click();
+      await expect(dialog).toHaveCount(0);
+    }
+  }
+});
