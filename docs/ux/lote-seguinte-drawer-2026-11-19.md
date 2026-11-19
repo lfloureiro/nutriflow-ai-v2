@@ -190,3 +190,10 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Vitest e E2E API/PostgreSQL temporário cobrem limites, duplicados, datas, isolamento de participantes e compatibilidade de cliente antigo; E2E UI verifica guardar e recuperar após reload sem reescrever a refeição original.
 - **Limite de produto:** é uma **previsão de número de convidados**, não gestão completa de convidados com preferências, alergias, consentimento e perfil. Até haver informação individual confirmada, a aplicação deve continuar a apresentar adequação nutricional desconhecida para convidados; qualquer refeição destes deve ser revista manualmente. Não inferir segurança FODMAP.
 - Versão **v2.0.11**, incremento Z. Web/API/E2E ainda requerem conclusão verde no SHA exato; não pedir teste manual, não fazer merge para `main` nem usar a base familiar real.
+
+## Patch v2.0.12 — estabilização de foco do drawer (19 novembro 2026)
+
+- Após sucesso dos três gates da v2.0.11 no SHA `a8a27210486ca900a38fb8baae8baabbf1a400f9`, a suite UX E2E concluiu com **19 cenários aprovados, mas 1 teste de foco do drawer precisou de retry** (run `44584110516`). Não confundir o resultado final verde com uma execução sem flakiness.
+- Em `ContextDrawer.tsx`, a navegação Tab/Shift+Tab deixa de depender do foco nativo do browser para mover-se entre itens não extremos: todos os passos de Tab passam a calcular e focar explicitamente o próximo elemento visível/ativo no diálogo, com wrap entre o primeiro e o último. Escape e restauração de foco mantêm-se.
+- O E2E existente verifica foco inicial, Shift+Tab, retorno ao botão de fecho, doze passos Tab sem fuga, Escape e retorno do foco à célula de refeição. Executar novamente Web/API/UX E2E no **SHA final da v2.0.12** e registar se o teste volta a requerer retry.
+- A mudança é de acessibilidade/navegação, sem alteração de dados ou contratos e sem pedir teste manual na série Z.
