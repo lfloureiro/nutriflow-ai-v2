@@ -269,3 +269,10 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Adicionado cenário Playwright com API/PostgreSQL sintéticos para abrir o perfil de pessoa em 320 e 390 CSS px; verificar ausência de overflow horizontal, campo do nome e estado de alterações não guardadas.
 - O teste verifica cancelamento de descarte (o rascunho permanece), confirmação de descarte (fecha o formulário) e leitura posterior dos membros da família para confirmar que a edição cancelada não alterou a pessoa original.
 - Frontend **v2.0.22**, patch Z; sem alteração de API/schema, sem gravações nos dados familiares reais. Aguardar sucesso Web CI/API CI/UX E2E no último SHA, manter PR #76 draft e não pedir testes manuais antes da minor v2.1.0.
+
+## Patch v2.0.23 — regressão de layout e descarte no formulário de saúde (19 novembro 2026)
+
+- A última consulta ao CI de v2.0.22 mostrava Web CI e API CI aprovados e UX E2E ainda em execução; não declarar todos os gates verdes sem resultado observado no SHA exato.
+- Adicionado cenário Playwright com API/PostgreSQL sintéticos para o formulário de condições de saúde em **320 px / tema claro** e **390 px / tema escuro**, verificando campos, rascunho e ausência de overflow horizontal da página e do formulário.
+- O teste cancela uma primeira tentativa de descartar o rascunho (mantendo o conteúdo), confirma o descarte numa segunda tentativa e verifica que nenhuma condição fictícia foi guardada. Não introduz diagnóstico clínico nem altera os registos familiares reais.
+- Versão de interface **v2.0.23** (Z). Teste e documentação não equivalem a validação: confirmar Web CI, API CI e UX E2E no SHA final; manter PR #76 em draft e `main` intacta. Zoom real 200% continua por verificar antes de v2.1.0.
