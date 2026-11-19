@@ -276,3 +276,12 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Adicionado cenário Playwright com API/PostgreSQL sintéticos para o formulário de condições de saúde em **320 px / tema claro** e **390 px / tema escuro**, verificando campos, rascunho e ausência de overflow horizontal da página e do formulário.
 - O teste cancela uma primeira tentativa de descartar o rascunho (mantendo o conteúdo), confirma o descarte numa segunda tentativa e verifica que nenhuma condição fictícia foi guardada. Não introduz diagnóstico clínico nem altera os registos familiares reais.
 - Versão de interface **v2.0.23** (Z). Teste e documentação não equivalem a validação: confirmar Web CI, API CI e UX E2E no SHA final; manter PR #76 em draft e `main` intacta. Zoom real 200% continua por verificar antes de v2.1.0.
+
+## Patch v2.0.24 — restauro do contrato de navegação do protótipo aprovado (19 novembro 2026)
+
+- Após alerta do utilizador sobre **aberturas duplas no mapa semanal e páginas em vez de drawers**, foi revista a referência `Casa_a_Mesa_Prototipo.html` e recuperada a prioridade do chat anterior. Auditoria e lista de desvios/pedidos preservados em `docs/ux/auditoria-fidelidade-prototipo-2026-11-19.md`.
+- **Mapa semanal:** a callback `onEdit` do pai limpa a seleção do detalhe e URL antes de montar o editor, evitando dois `ContextDrawer` simultâneos; células vazias no mapa e no resumo do dia entram diretamente num só editor.
+- **Casa:** receitas e ingredientes deixam de trocar toda a página pelo editor; o catálogo continua montado atrás de um `ContextDrawer`. Ações de guardar, duplicar, sair e proteção de rascunhos mantidas.
+- **Pessoas:** vista de pessoa e criação passam a `ContextDrawer`, com a lista familiar estável no fundo e navegação direta de volta.
+- Novo Playwright E2E verifica quantidade de diálogos igual a um, presença da página base e fecho direto nos percursos de semana, receitas, ingredientes e pessoa, com base de dados fictícia.
+- Versão de interface **v2.0.24**. Ainda exige Web CI, API CI e UX E2E verdes **neste SHA final** e revisão do comportamento visual; não declarar prontidão da v2.1.0 ou efetuar merge.
