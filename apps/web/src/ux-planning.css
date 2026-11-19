@@ -30,3 +30,10 @@
 .nf-person-rule-context__warnings{margin-top:12px;color:var(--color-warning);font-size:12px}
 
 .nf-person-rule-context__person .nf-person-rule-context__portion{margin:6px 0 8px;font-size:12px;line-height:1.5;color:var(--text);font-variant-numeric:tabular-nums}
+
+/* Explicit attendee reuse: never touches saved meals or portion values. */
+.nf-attendance-template{display:flex;flex-wrap:wrap;align-items:end;gap:10px;padding:12px 14px;margin-bottom:14px;border:1px solid var(--border);border-radius:14px;background:var(--surface-soft)}
+.nf-attendance-template>.field{flex:1 1 210px;min-width:0;margin:0}
+.nf-attendance-template>.button{flex:0 0 auto}
+.nf-attendance-template>.muted{width:100%;font-size:12px;line-height:1.5;margin:0}
+@media(max-width:480px){.nf-attendance-template>.button{width:100%}}
