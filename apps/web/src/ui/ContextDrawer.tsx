@@ -60,12 +60,12 @@ export default function ContextDrawer({
         panelRef.current.focus();
         return;
       }
-      const first = candidates[0];
-      const last = candidates[candidates.length - 1];
-      if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
+      const first = candidates[0]!;
+      const last = candidates[candidates.length - 1]!;
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current || !panelRef.current.contains(document.activeElement))) {
         event.preventDefault();
         last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
+      } else if (!event.shiftKey && (document.activeElement === last || !panelRef.current.contains(document.activeElement))) {
         event.preventDefault();
         first.focus();
       }
