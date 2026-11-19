@@ -11,7 +11,7 @@ import SelectedMealOptions from "./SelectedMealOptions";
 import RetailAlternativeCards from "./RetailAlternativeCards";
 import {adaptationSummaries} from "./RecipeAdaptationCards";
 import "./planning-journey.css";
-import {copyWeeklyOrganisation, repeatMealAttendance, setWeeklyAttendanceDecision} from "./weeklyAttendance";
+import {copyWeeklyOrganisation, repeatMealAttendance, setWeeklyAttendanceDecision, setWeeklyGuestCount} from "./weeklyAttendance";
 import {calendarDateOffset} from "./mealAlternatives";
 
 export function nextWeekMonday(referenceDate: string): string {
@@ -97,6 +97,7 @@ export default function PlanningJourney({familyId, referenceDate, onPlanChanged,
         attendance_decisions: (next.attendance_decisions ?? [])
           .filter(a=>next.meal_types.includes(a.meal_type))
           .map(a=>({...a,people:a.people.filter(p=>next.person_ids.includes(p.person_id))})),
+        guest_notices: (next.guest_notices ?? []).filter(a=>next.meal_types.includes(a.meal_type)),
       };
     }); setConfirmed(false); setApplied(false);
   }
@@ -150,6 +151,7 @@ export default function PlanningJourney({familyId, referenceDate, onPlanChanged,
         {Array.from({length:7},(_,offset)=>{const d=new Date(`${week}T12:00:00Z`);d.setUTCDate(d.getUTCDate()+offset);return d.toISOString().slice(0,10);}).flatMap(day=>setup.meal_types.map(meal=>{
           const attendees=setup.attendance?.find(a=>a.planning_date===day && a.meal_type===meal)?.person_ids ?? setup.person_ids;
           const decisions=setup.attendance_decisions?.find(a=>a.planning_date===day&&a.meal_type===meal)?.people??[];
+          const guestCount=setup.guest_notices?.find(a=>a.planning_date===day&&a.meal_type===meal)?.guest_count??0;
           return <fieldset key={`${day}:${meal}`}><legend>{day} · {mealLabels[meal]}</legend><div className="journey-checks">{people.filter(p=>setup.person_ids.includes(p.id)).map(p=><label key={p.id}><input type="checkbox" disabled={busy||copyBusy} checked={attendees.includes(p.id)} onChange={e=>changeChoices(s=>({...s,attendance:[...(s.attendance ?? []).filter(a=>a.planning_date!==day || a.meal_type!==meal),{planning_date:day,meal_type:meal,person_ids:e.target.checked ? [...attendees,p.id] : attendees.filter(id=>id!==p.id)}]}))}/>{p.first_name}</label>)}</div>
             <div className="nf-weekly-attendance-decisions">
               {people.filter(p=>setup.person_ids.includes(p.id)).map(p=><label key={p.id} className="field">
@@ -166,6 +168,20 @@ export default function PlanningJourney({familyId, referenceDate, onPlanChanged,
                 </select>
               </label>)}
             </div>
+            <label className="field nf-weekly-guests">
+              <span>{pt?"Convidados sem perfil · apenas contagem":"Guests without profiles · headcount only"}</span>
+              <input aria-label={`${day} · ${mealLabels[meal]} · ${pt?"Convidados sem perfil":"Unprofiled guests"}`}
+                type="number" min={0} max={12} step={1} value={guestCount} disabled={busy||copyBusy}
+                onChange={event=>{
+                  const count=event.target.valueAsNumber;
+                  if(!Number.isInteger(count)||count<0||count>12)return;
+                  changeChoices(current=>setWeeklyGuestCount(current,day,meal,count));
+                }}
+              />
+            </label>
+            {guestCount>0&&<p role="status" className="muted">{pt
+              ?`${guestCount} convidado(s) apenas registados como previsão; não entram nas doses, avaliações nutricionais nem compras automáticas. Revê a refeição manualmente.`
+              :`${guestCount} guest(s) noted for planning only; not included in portions, nutritional assessments or automatic shopping. Review the meal manually.`}</p>}
             <button type="button" className="button ghost small" disabled={busy||copyBusy||attendees.length===1} onClick={()=>{changeChoices(s=>repeatMealAttendance(s,meal,attendees));setOrganisationNotice(pt?"Presenças repetidas nesta refeição durante os sete dias. Podes ajustar exceções abaixo.":"Attendance repeated for this meal across all seven days. You can adjust exceptions below.");}}>{pt?"Repetir estas presenças em todos os dias":"Repeat these attendees on every day"}</button>{attendees.length===0 && <p>{pt ? "Sem refeição a gerar." : "No meal to generate."}</p>}{attendees.length===1 && <p role="alert">{pt ? "Por agora, planeia esta refeição individual na agenda ou seleciona pelo menos duas pessoas." : "For now, plan this individual meal in the agenda or select at least two people."}</p>}</fieldset>;
         }))}
       </details>
