@@ -1,4 +1,4 @@
-import {useAppRoute,type AppView,type HouseView} from "./navigation";
+import {requestNavigation,useAppRoute,type AppView,type HouseView} from "./navigation";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 
 import { ApiError, getFamilyDashboard } from "./api/client";
@@ -271,7 +271,7 @@ export default function App() {
                   </div>
                   <button
                     className="button primary"
-                    onClick={() => setShowPersonSetup((current) => !current)}
+                    onClick={() => {if(requestNavigation())setShowPersonSetup((current) => !current);}}
                     type="button"
                   >
                     {showPersonSetup
