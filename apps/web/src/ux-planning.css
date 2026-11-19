@@ -28,3 +28,5 @@
 .nf-person-rule-context__person li{padding:3px 0;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
 .nf-person-rule-context__person li small{display:block;color:var(--muted);font-size:11px}
 .nf-person-rule-context__warnings{margin-top:12px;color:var(--color-warning);font-size:12px}
+
+.nf-person-rule-context__person .nf-person-rule-context__portion{margin:6px 0 8px;font-size:12px;line-height:1.5;color:var(--text);font-variant-numeric:tabular-nums}
