@@ -567,9 +567,9 @@ test("attendance reuse: copy only people from an earlier dinner and keep source 
   const drawer=page.getByRole("dialog");
   await expect(drawer).toBeVisible();
   await drawer.getByRole("button",{name:"Escolher receita"}).click();
-  await expect(drawer).toHaveCount(0);
   const editor=page.getByRole("dialog");
   await expect(editor).toBeVisible();
+  await expect(editor.getByRole("heading",{name:"Jantar"})).toBeVisible();
   const before=await getJson<{days:{date:string,slots:{meal_type:string,meals:{id:string,participants:{person_id:string}[]}[]}[]}[]}>(
     request,`/families/${familyId}/meal-plan?start_date=2026-11-16&days=7`);
   expect(before.days.find(d=>d.date==="2026-11-20")?.slots.find(s=>s.meal_type==="dinner")?.meals).toEqual([]);
