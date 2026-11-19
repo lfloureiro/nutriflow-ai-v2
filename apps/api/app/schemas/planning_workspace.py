@@ -76,6 +76,7 @@ class WeekSetupRead(BaseModel):
         Literal["breakfast", "lunch", "snack", "dinner"], Literal["home", "delivery", "restaurant"]
     ] = Field(default_factory=dict, max_length=4)
     attendance: list[MealAttendance] = Field(default_factory=list)
+    attendance_decisions: list[MealAttendanceDecisions] = Field(default_factory=list)
 
 
 class RetailUnitPriceRead(BaseModel):
