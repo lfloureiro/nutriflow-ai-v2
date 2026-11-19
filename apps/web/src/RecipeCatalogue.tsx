@@ -3,6 +3,7 @@ import {requestNavigation} from "./navigation";
 import {browseRecipes,defaultRecipeBrowse,readRecipeBrowse,storeRecipeBrowse,searchText,isAdaptedRecipe,type RecipeBrowse} from "./recipeBrowsing";
 import RecipeTastePanel from "./ui/RecipeTastePanel";
 import Icon from "./ui/Icon";
+import ContextDrawer from "./ui/ContextDrawer";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import {
@@ -834,27 +835,42 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
     [recipes,nutritionFilter,mealFilter,originFilter,sortOrder,locale],
   );
 
-  if (selected !== undefined) {
-    if (selected !== null && !selected.editable) {
-      return <><button type="button" className="button secondary" onClick={()=>copyRecipe(selected)}>{locale==="pt-PT"?"Criar cópia para a família":"Create family copy"}</button><SharedRecipeViewer recipe={selected} onDone={() => setSelected(undefined)} /><RecipeTastePanel key={selected.id} familyId={familyId} recipe={selected}/></>;
-    }
-    return (
-      <>
-      {selected&&<button type="button" className="button secondary" onClick={()=>copyRecipe(selected)}>{locale==="pt-PT"?"Criar cópia para a família":"Create family copy"}</button>}
-      <RecipeEditor key={selected?.id??seedRecipe?.id??"new"}
-        seedRecipe={selected===null?seedRecipe:undefined}
-        familyId={familyId}
-        ingredients={ingredients}
-        recipe={selected}
-        onDone={() => {
-          setSeedRecipe(undefined);setSelected(undefined);
-          setRevision((current) => current + 1);
-        }}
-      />
-      {selected ? <RecipeTastePanel key={selected.id} familyId={familyId} recipe={selected}/> : null}
-      </>
-    );
-  }
+  const editorPanel = selected !== undefined ? (
+    <ContextDrawer
+      title={selected?.name ?? copy.newRecipe}
+      wide
+      closeLabel={locale === "pt-PT" ? "Fechar detalhe" : "Close detail"}
+      onRequestClose={() => {
+        if (!requestNavigation()) return false;
+        setSeedRecipe(undefined);
+        setSelected(undefined);
+        return true;
+      }}
+    >
+      {selected !== null && !selected.editable ? (
+        <>
+          <button type="button" className="button secondary" onClick={()=>copyRecipe(selected)}>{locale==="pt-PT"?"Criar cópia para a família":"Create family copy"}</button>
+          <SharedRecipeViewer recipe={selected} onDone={() => setSelected(undefined)} />
+          <RecipeTastePanel key={selected.id} familyId={familyId} recipe={selected}/>
+        </>
+      ) : (
+        <>
+          {selected&&<button type="button" className="button secondary" onClick={()=>copyRecipe(selected)}>{locale==="pt-PT"?"Criar cópia para a família":"Create family copy"}</button>}
+          <RecipeEditor key={selected?.id??seedRecipe?.id??"new"}
+            seedRecipe={selected===null?seedRecipe:undefined}
+            familyId={familyId}
+            ingredients={ingredients}
+            recipe={selected}
+            onDone={() => {
+              setSeedRecipe(undefined);setSelected(undefined);
+              setRevision((current) => current + 1);
+            }}
+          />
+          {selected ? <RecipeTastePanel key={selected.id} familyId={familyId} recipe={selected}/> : null}
+        </>
+      )}
+    </ContextDrawer>
+  ) : null;
 
   return (
     <div className="recipe-catalogue">
@@ -947,6 +963,7 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
           })}
         </div>
       )}
+      {editorPanel}
     </div>
   );
 }
