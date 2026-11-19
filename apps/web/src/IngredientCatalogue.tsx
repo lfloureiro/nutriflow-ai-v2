@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useUnsavedChanges } from "./useUnsavedChanges";
+import { requestNavigation } from "./navigation";
+import ContextDrawer from "./ui/ContextDrawer";
 
 import {
   ApiError,
@@ -589,20 +591,6 @@ export default function IngredientCatalogue({ familyId }: { familyId: string }) 
     [ingredients],
   );
 
-  if (selected !== undefined) {
-    return (
-      <IngredientEditor
-        familyId={familyId}
-        ingredient={selected}
-        onBack={() => setSelected(undefined)}
-        onSaved={() => {
-          setSelected(undefined);
-          setRevision((current) => current + 1);
-        }}
-      />
-    );
-  }
-
   return (
     <div className="ingredient-catalogue">
       <header className="screen-header compact-screen-header ingredient-header">
@@ -679,6 +667,28 @@ export default function IngredientCatalogue({ familyId }: { familyId: string }) 
           ))}
         </div>
       )}
+      {selected !== undefined ? (
+        <ContextDrawer
+          title={selected?.name ?? copy.createTitle}
+          wide
+          closeLabel={locale === "pt-PT" ? "Fechar detalhe" : "Close detail"}
+          onRequestClose={() => {
+            if (!requestNavigation()) return false;
+            setSelected(undefined);
+            return true;
+          }}
+        >
+          <IngredientEditor
+            familyId={familyId}
+            ingredient={selected}
+            onBack={() => setSelected(undefined)}
+            onSaved={() => {
+              setSelected(undefined);
+              setRevision((current) => current + 1);
+            }}
+          />
+        </ContextDrawer>
+      ) : null}
     </div>
   );
 }
