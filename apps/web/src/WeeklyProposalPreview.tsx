@@ -1283,7 +1283,7 @@ export default function WeeklyProposalPreview({
                                 : ""
                             }`}
                             key={mealType}
-                            onClick={() => {if(!entry && !choice && !pendingReason && onEdit){if(onSelectionChange?.({date:planningDate,mealType})!==false)onEdit(planningDate,mealType,null);}else selectMeal(planningDate,mealType);}}
+                            onClick={() => {if(!entry && !choice && !pendingReason && onEdit){if(requestNavigation())onEdit(planningDate,mealType,null);}else selectMeal(planningDate,mealType);}}
                             type="button"
                           >
                             <span className="weekly-grid-meal__label">
@@ -1363,14 +1363,13 @@ export default function WeeklyProposalPreview({
               wide
               closeLabel={locale === "pt-PT" ? "Fechar detalhe" : "Close meal detail"}
               onRequestClose={() => {
-                if (onSelectionChange?.(null) === false) return false;
-                if (!requestNavigation()) return false;
+                if (onSelectionChange ? onSelectionChange(null) === false : !requestNavigation()) return false;
                 setSelectedMealType(null);
                 return true;
               }}
             >
             <section className="weekly-meal-detail" id="nf-selected-meal" tabIndex={-1}>
-              <button className="button ghost small nf-detail-close" type="button" onClick={()=>{if(onSelectionChange?.(null)!==false&&requestNavigation())setSelectedMealType(null);}}><Icon name="arrow"/>{locale === "pt-PT" ? "Voltar ao mapa" : "Back to planner"}</button>
+              <button className="button ghost small nf-detail-close" type="button" onClick={()=>{if(onSelectionChange ? onSelectionChange(null)!==false : requestNavigation())setSelectedMealType(null);}}><Icon name="arrow"/>{locale === "pt-PT" ? "Voltar ao mapa" : "Back to planner"}</button>
               <div className="weekly-section-heading weekly-meal-detail__heading">
                 <div>
                   <span className="eyebrow">{copy.mealDetail}</span>
@@ -1389,7 +1388,7 @@ export default function WeeklyProposalPreview({
                       <button
                         className="button ghost"
                         disabled={selectedEntry.status !== "planned" || decisionBusy !== null}
-                        onClick={() => {if(onSelectionChange?.(null)!==false&&requestNavigation()){setSelectedMealType(null);onEdit(selectedDate, selectedMealType, selectedEntry);}}}
+                        onClick={() => {if(onSelectionChange ? onSelectionChange(null)!==false : requestNavigation()){setSelectedMealType(null);onEdit(selectedDate, selectedMealType, selectedEntry);}}}
                         type="button"
                       >
                         {selectedEntry.transformations.length > 0
@@ -1422,7 +1421,7 @@ export default function WeeklyProposalPreview({
                           : copy.suggestAdaptation}
                     </button>
                   </div>
-                ) : !selectedEntry && !selectedChoice && onEdit ? <button type="button" className="button primary" onClick={()=>{if(onSelectionChange?.(null)!==false&&requestNavigation()){setSelectedMealType(null);onEdit(selectedDate,selectedMealType,null);}}}>{locale === "pt-PT" ? "Escolher receita" : "Choose recipe"}</button> : null}
+                ) : !selectedEntry && !selectedChoice && onEdit ? <button type="button" className="button primary" onClick={()=>{if(onSelectionChange ? onSelectionChange(null)!==false : requestNavigation()){setSelectedMealType(null);onEdit(selectedDate,selectedMealType,null);}}}>{locale === "pt-PT" ? "Escolher receita" : "Choose recipe"}</button> : null}
               </div>
 
               {reviewError && <p role="alert">{locale==="pt-PT"?"Alternativas indisponíveis: ":"Alternatives unavailable: "}{reviewError}</p>}
