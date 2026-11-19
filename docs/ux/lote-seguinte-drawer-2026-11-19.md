@@ -226,3 +226,11 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Complementa o cenário já existente de isolamento por família, datas inválidas, concorrência por `expected_version`, compatibilidade de cliente antigo e preservação dos participantes de refeições guardadas.
 - Trata-se de cobertura de regressão da validação existente, não de mudança no contrato, no motor de nutrição ou nos dados reais.
 - Versão visível **v2.0.16** (patch Z); só considerar validado com Web CI, API CI e UX E2E verdes no SHA final. Continuar sem merge, sem pedir teste manual antes da v2.1.0.
+
+## Patch v2.0.17 — convidados e presenças no drawer com navegador real (19 novembro 2026)
+
+- Confirmado **Web CI, API CI e UX E2E verdes** no SHA da v2.0.16 `6fd21c8c7ef583610c75dfc95c4962b2a12686a8`.
+- Adicionado Playwright E2E com API real e PostgreSQL sintético: criar segunda pessoa e configuração semanal com dois convidados e uma presença pendente; entrar no assistente, rever as restrições, abrir o detalhe do jantar na semana e verificar ambos os avisos no drawer.
+- O teste fecha o drawer e consulta a API para garantir que a leitura do contexto **não alterou os participantes** nem a refeição guardada. Testes anteriores cobrem isolamento de dia/slot por função e persistência das decisões.
+- A versão visível sobe para **v2.0.17** (Z). Teste novo ainda precisa de completar os workflows Web CI, API CI e UX E2E no **SHA final**; não tomar um código publicado como aprovação automática.
+- Sem alteração de schema, regras nutricionais, clientes da família ou `main`. Continuar a preparar v2.1.0 com checklist `docs/ux/aceitacao-manual-v2.1.0.md`; só pedir testes manuais na minor consolidada.
