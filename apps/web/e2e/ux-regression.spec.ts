@@ -285,6 +285,39 @@ test("person: switching local tabs does not discard an unsaved condition",async 
   await expect(page.getByRole("heading",{name:"Nutrição",exact:true})).toBeVisible();
 });
 
+test("person profile editor: narrow responsive layout and unsaved draft guard",async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.emulateMedia({reducedMotion:"reduce"});
+  for(const width of [320,390]){
+    await page.setViewportSize({width,height:800});
+    await openFamily(page,fixture.family.id,`/#/people?person=${fixture.person.id}`);
+    await page.getByRole("button",{name:"Perfil",exact:true}).click();
+    await page.getByRole("button",{name:"Editar perfil"}).click();
+    const form=page.locator("form.person-profile-form");
+    await expect(form).toBeVisible();
+    await expect(form.getByLabel("Nome",{exact:true})).toHaveValue("Pessoa QA");
+    await form.getByLabel("Nome",{exact:true}).fill(`Pessoa QA ${width}`);
+    await expect(form.getByText("Alterações por guardar")).toBeVisible();
+    const metrics=await page.evaluate(()=>{
+      const form=document.querySelector("form.person-profile-form");
+      const rect=form?.getBoundingClientRect();
+      return {viewport:innerWidth,scrollWidth:document.documentElement.scrollWidth,
+        left:rect?.left??0,right:rect?.right??0};
+    });
+    expect(metrics.scrollWidth,`Page overflow at ${width}px`).toBeLessThanOrEqual(metrics.viewport+1);
+    expect(metrics.left).toBeGreaterThanOrEqual(-1);
+    expect(metrics.right).toBeLessThanOrEqual(metrics.viewport+1);
+    page.once("dialog",dialog=>dialog.dismiss());
+    await form.getByRole("button",{name:"Cancelar"}).click();
+    await expect(form.getByText("Alterações por guardar")).toBeVisible();
+    page.once("dialog",dialog=>dialog.accept());
+    await form.getByRole("button",{name:"Cancelar"}).click();
+    await expect(form).toHaveCount(0);
+    const persisted=await getJson<{first_name:string}>(request,`/persons/${fixture.person.id}`);
+    expect(persisted.first_name).toBe("Pessoa");
+  }
+});
+
 test("drawer keyboard focus remains trapped and returns to the underlying page",async ({page,request})=>{
   const fixture=await seed(request);
   await page.setViewportSize({width:1024,height:768});
