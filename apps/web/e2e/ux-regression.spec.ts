@@ -152,6 +152,42 @@ test("accessible drawer: labelled dialog locks scroll, restores page and survive
   }
 });
 
+test("drawer keyboard navigation skips hidden and fieldset-disabled controls",async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.emulateMedia({reducedMotion:"reduce"});
+  await openFamily(page,fixture.family.id,`/#/meals?date=${DATE}&meal=dinner&mode=week`);
+  const drawer=page.getByRole("dialog");
+  await expect(drawer).toBeVisible();
+  const close=drawer.getByRole("button",{name:"Fechar detalhe"});
+  await expect(close).toBeFocused();
+  // Inject only test controls into the temporary browser DOM; no backend writes.
+  await drawer.evaluate(element=>{
+    const hidden=document.createElement("button");
+    hidden.textContent="Hidden focus trap QA";
+    hidden.id="nf-hidden-focus-qa";
+    hidden.style.visibility="hidden";
+    element.appendChild(hidden);
+    const fieldset=document.createElement("fieldset");
+    fieldset.disabled=true;
+    const disabled=document.createElement("button");
+    disabled.id="nf-disabled-focus-qa";
+    disabled.textContent="Disabled focus trap QA";
+    fieldset.appendChild(disabled);
+    element.appendChild(fieldset);
+  });
+  await page.keyboard.press("Shift+Tab");
+  await expect(close).not.toBeFocused();
+  const target=await page.evaluate(()=>({
+    inDialog:Boolean(document.activeElement?.closest('[role="dialog"]')),
+    id:(document.activeElement as HTMLElement|null)?.id,
+  }));
+  expect(target.inDialog).toBe(true);
+  expect(target.id).not.toBe("nf-hidden-focus-qa");
+  expect(target.id).not.toBe("nf-disabled-focus-qa");
+  await page.keyboard.press("Escape");
+  await expect(drawer).toHaveCount(0);
+});
+
 test("ingredient: draft warning and optional nutrition persist in isolated database", async ({page,request})=>{
   const fixture=await seed(request);
   await openFamily(page,fixture.family.id,"/#/house?tab=ingredients");
