@@ -785,6 +785,17 @@ test("guest notices are bounded, versioned and do not modify participants or sho
   const oldClient=await request.put(url,{data:{...legacy,expected_version:stored.version}});
   expect(oldClient.ok()).toBe(true);
   expect((await oldClient.json() as typeof stored).guest_notices).toEqual(base.guest_notices);
+  // The headcount is versioned independently from meal participants.
+  // An older request must never silently erase a newer explicit guest count.
+  const staleGuestUpdate=await request.put(url,{data:{
+    ...base,expected_version:stored.version,guest_notices:[
+      {planning_date:DATE,meal_type:"dinner",guest_count:3},
+    ],
+  }});
+  expect(staleGuestUpdate.status()).toBe(409);
+  const stillStored=await getJson<typeof stored>(request,
+    `/families/${familyId}/planning-setup/2026-11-16`);
+  expect(stillStored.guest_notices).toEqual(base.guest_notices);
   const changed=await request.put(url,{data:{...base,expected_version:stored.version+1,guest_notices:[]}});
   expect(changed.ok()).toBe(true);
   expect((await changed.json() as typeof stored).guest_notices).toEqual([]);
