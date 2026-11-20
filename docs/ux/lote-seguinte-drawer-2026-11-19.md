@@ -396,3 +396,11 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - No SHA `ee778989f56d897a5a9cec2865a1c64ab857f21c`, o Web CI falhou por **TypeScript TS2352 num fixture parcial** dos testes da composição da porção (cast direto de objeto parcial para `MealPlanFitResult`).
 - Corrigido o teste com cast explícito `unknown`, mantendo a tipagem de produção; a apresentação nutricional passa ainda a tratar strings vazias como **dados desconhecidos**, e não zero. Teste adicional para esse caso.
 - Publicados commits corretivos `8aa8208`, `33eeae5` e `cefae3d`. **Não marcar a entrega como aprovada** sem os três gates verdes no último SHA.
+
+## Entrega agrupada v2.0.38–v2.0.39 — avaliação nutricional a partir da refeição da pessoa (20 novembro 2026)
+
+- **Baseline:** v2.0.37 SHA `bab5ef8ae0928f45ca6c87d55533bc028eeef6aa` com **Web CI, API CI e UX E2E aprovados no mesmo SHA**.
+- **v2.0.38 — atalho de contexto:** em Pessoas → Visão geral → Refeições de hoje, cada refeição com tipo reconhecido passa a ter `Avaliar porção no plano`. Abre diretamente a secção Nutrição **da mesma pessoa**, sem segundo drawer, preservando o separador de pessoa e selecionando o tipo de refeição correspondente (pequeno-almoço/almoço/lanche/jantar). Apenas refeições em que participa têm atalho.
+- **v2.0.39 — escolha explícita e limpar contexto:** o título do plano/da refeição não é usado para adivinhar uma receita. A avaliação contextual começa **sem receita escolhida**, com seletor explícito e botão Avaliar desativado até existir receita/porção utilizável. O contexto mostra uma nota de que o utilizador tem de escolher receita e confirmar quantidade. Mudar de refeição remonta o avaliador para descartar resultados anteriores; `Limpar seleção` regressa ao avaliador genérico sem sair do perfil.
+- Teste Playwright com PostgreSQL sintético cria refeição no dia devolvido pela API do dashboard e verifica atalho mobile, seleção do jantar, ausência de receita implicitamente escolhida, desativação da avaliação sem receita e limpeza sem drawer adicional.
+- **Frontend v2.0.39** (versões 2.0.38 e 2.0.39 agrupadas num lote). Gates Web CI, API CI e UX E2E obrigatórios **no SHA final**. Sem API/schema alterados, `main` intacta, PR #76 draft, dados reais intocados. Ainda sem pedido de testes manuais até v2.1.0.
