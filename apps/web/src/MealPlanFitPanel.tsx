@@ -30,6 +30,7 @@ const COPY = {
     help: "Testa uma receita e uma porção contra as regras alimentares efetivas desta pessoa.",
     meal: "Refeição",
     recipe: "Receita",
+    chooseActualRecipe: "Escolher receita e confirmar porção",
     quantity: "Quantidade",
     evaluate: "Avaliar",
     evaluating: "A avaliar…",
@@ -96,6 +97,7 @@ const COPY = {
     help: "Test a recipe and portion against this person's effective nutrition guidance.",
     meal: "Meal",
     recipe: "Recipe",
+    chooseActualRecipe: "Choose actual recipe and confirm portion",
     quantity: "Quantity",
     evaluate: "Evaluate",
     evaluating: "Evaluating…",
@@ -205,12 +207,14 @@ export default function MealPlanFitPanel({
   planningDate,
   dailyNutritionStateId,
   requestedMealType,
+  requireExplicitRecipe = false,
 }: {
   familyId: string;
   personId: string;
   planningDate: string;
   dailyNutritionStateId: string | null;
   requestedMealType?: PlanningMealType;
+  requireExplicitRecipe?: boolean;
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
@@ -269,7 +273,7 @@ export default function MealPlanFitPanel({
 
   useEffect(() => {
     const current = availableRecipes.find((recipe) => recipe.id === selectedRecipeId);
-    const next = current ?? availableRecipes[0] ?? null;
+    const next = current ?? (requireExplicitRecipe ? null : availableRecipes[0] ?? null);
     if (!next) {
       setSelectedRecipeId("");
       setQuantity("");
@@ -279,7 +283,7 @@ export default function MealPlanFitPanel({
     if (!current) setSelectedRecipeId(next.id);
     setQuantity(initialQuantity(next));
     invalidateEvaluation();
-  }, [availableRecipes, selectedRecipeId]);
+  }, [availableRecipes, selectedRecipeId, requireExplicitRecipe]);
 
   const selectedRecipe = availableRecipes.find((recipe) => recipe.id === selectedRecipeId) ?? null;
   const composition = selectedRecipe?.latest_composition ?? null;
@@ -434,6 +438,7 @@ export default function MealPlanFitPanel({
               invalidateEvaluation();
             }}
           >
+            {requireExplicitRecipe ? <option value="">{copy.chooseActualRecipe}</option> : null}
             {availableRecipes.map((recipe) => (
               <option key={recipe.id} value={recipe.id}>
                 {recipe.name}
