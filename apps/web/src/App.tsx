@@ -316,6 +316,7 @@ export default function App() {
                   onRequestClose={() => setSelectedPersonId(null)}
                 >
                   <PersonOverview
+                    key={selectedMember.person_id}
                     dashboard={dashboard}
                     member={selectedMember}
                     onBack={() => setSelectedPersonId(null)}
