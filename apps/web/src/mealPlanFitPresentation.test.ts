@@ -7,6 +7,7 @@ import {
   planFitEvidenceSummary,
   planFitCandidateNutrition,
   planFitMatchesRequest,
+  transformationMatchesRequest,
   planFitHasOpenEvidence,
   planFitRuleExplanation,
   planFitTargetLabel,
@@ -111,6 +112,19 @@ describe("Plan-Fit presentation localization", () => {
     expect(planFitHasOpenEvidence({...complete,nutrition_plan_authority:{...complete.nutrition_plan_authority,state:"no_active_plan"}})).toBe(true);
     expect(planFitHasOpenEvidence({...complete,status:"conflict"})).toBe(true);
     expect(planFitHasOpenEvidence({...complete,rule_results:[]})).toBe(true);
+  });
+
+  it("rejects transformation proposals for another recipe or baseline serving",()=>{
+    const expected={personId:"person-qa",recipeId:"recipe-qa",planningDate:"2026-11-20",mealType:"lunch",quantity:"1.00"};
+    const baseline={person_id:"person-qa",planning_date:"2026-11-20",meal_type:"lunch",
+      candidate:{quantity:"1"}} as unknown as MealPlanFitResult;
+    const valid={person_id:"person-qa",recipe_id:"recipe-qa",planning_date:"2026-11-20",
+      meal_type:"lunch",baseline_fit:baseline} as unknown as import("./api/mealTransformationTypes").MealTransformationResult;
+    expect(transformationMatchesRequest(valid,expected)).toBe(true);
+    expect(transformationMatchesRequest({...valid,recipe_id:"different"},expected)).toBe(false);
+    expect(transformationMatchesRequest({...valid,person_id:"different"},expected)).toBe(false);
+    expect(transformationMatchesRequest({...valid,planning_date:"2026-11-19"},expected)).toBe(false);
+    expect(transformationMatchesRequest({...valid,baseline_fit:{...baseline,candidate:{...baseline.candidate,quantity:"2"}}},expected)).toBe(false);
   });
 
   it("uses PT-PT nutrient labels and units", () => {
