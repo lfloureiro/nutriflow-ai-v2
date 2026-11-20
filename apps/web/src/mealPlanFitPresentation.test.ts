@@ -6,6 +6,7 @@ import {
   planFitEvidenceSource,
   planFitEvidenceSummary,
   planFitCandidateNutrition,
+  planFitMatchesRequest,
   planFitRuleExplanation,
   planFitTargetLabel,
   planFitUnitLabel,
@@ -83,6 +84,19 @@ describe("Plan-Fit presentation localization", () => {
     expect(planFitCandidateNutrition({
       candidate:{nutrition:{energy_kcal:"350",nutrients:{}}},
     } as unknown as MealPlanFitResult)).toEqual({energyKcal:"350",nutrients:[]});
+  });
+
+  it("rejects a response for another person, date, meal, or serving",()=>{
+    const expected={personId:"person-qa",planningDate:"2026-11-20",mealType:"lunch",quantity:"1.00"};
+    const matched={person_id:"person-qa",planning_date:"2026-11-20",meal_type:"lunch",
+      candidate:{quantity:"1"}} as unknown as MealPlanFitResult;
+    expect(planFitMatchesRequest(matched,expected)).toBe(true);
+    expect(planFitMatchesRequest({...matched,person_id:"another"},expected)).toBe(false);
+    expect(planFitMatchesRequest({...matched,planning_date:"2026-11-19"},expected)).toBe(false);
+    expect(planFitMatchesRequest({...matched,meal_type:"dinner"},expected)).toBe(false);
+    expect(planFitMatchesRequest({...matched,candidate:{...matched.candidate,quantity:"2"}},expected)).toBe(false);
+    expect(planFitMatchesRequest({...matched,candidate:{...matched.candidate,quantity:""}},expected)).toBe(false);
+    expect(planFitMatchesRequest(matched,{...expected,quantity:""})).toBe(false);
   });
 
   it("uses PT-PT nutrient labels and units", () => {
