@@ -341,3 +341,11 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - A componente continua a apresentar claramente que a adequação FODMAP **não foi avaliada por porção**; as fontes educativas não equivalem a aprovação clínica. Registos de substituições, edição de variantes, dados nutricionais e escolhas de receitas não foram removidos.
 - Acrescentado E2E sintético mobile 390px: nenhuma modal ao abrir a lista, uma única modal depois de escolher uma receita, detalhe FODMAP com incerteza, fechar diretamente para a lista e consultar as fontes separadamente.
 - Versão de interface **v2.0.31**. Exigir Web CI/API CI/UX E2E verdes no SHA final antes de marcar como validada; PR #76 permanece draft; `main` e dados reais intactos.
+
+## Patch v2.0.32 — títulos de substituições e distinção entre gosto e adequação (20 novembro 2026)
+
+- A v2.0.31 SHA `f19274821a4342ee0bd7ad40fe04d48c178e7d98` teve Web CI e API CI aprovados; UX E2E **falhou num único cenário**, devido ao título da receita duplicado no drawer, detetado pelo Playwright em strict mode. Os restantes cenários passaram.
+- **Substituições:** removido cabeçalho duplicado no drawer de revisão; o título permanece único e acessível. Na revisão vinculada por `recipeId` o cabeçalho local continua disponível.
+- **Preferências de receitas:** a média familiar é agora identificada explicitamente como **avaliação de gosto**, não score de segurança, FODMAP ou nutrição; estrelas e «Não gosto» apresentam estado `aria-pressed`, sem alterar a regra de elegibilidade.
+- Novo cenário API sintético testa avaliações de dois membros (5 e 1 estrelas), cálculo da média 3, eliminação de uma avaliação, média 5 com apenas um membro e integridade da receita original.
+- Frontend **v2.0.32**. Exigir Web/API/UX E2E verdes **no SHA final**, não declarar a v2.0.31 validada; PR #76 draft, `main` e dados reais intactos.
