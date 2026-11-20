@@ -48,7 +48,7 @@ export function nextMealSlot(plan: FamilyMealPlan, now: number): NextMealSlot | 
     for (const mealType of MEAL_ORDER) {
       const slot = day.slots.find(item => item.meal_type === mealType);
       const entry = slot?.meals
-        .filter(item => item.status !== "cancelled" && item.status !== "completed")
+        .filter(item => !["cancelled", "completed", "served"].includes(item.status))
         .sort((a, b) => Date.parse(a.scheduled_at) - Date.parse(b.scheduled_at))[0] ?? null;
       // A completed slot is already done, even if its default time has not elapsed.
       if (!entry && slot?.meals.some(item => item.status === "completed" || item.status === "served")) continue;
