@@ -111,7 +111,7 @@ export default function RecipeDietaryReview({familyId,planningDate,personIds,onV
   const labels = pt ? {high: "Orientação geral: maior teor", low: "Orientação geral: menor teor", variable: "Variável", unknown: "Desconhecido"}
     : {high: "General guidance: higher content", low: "General guidance: lower content", variable: "Variable", unknown: "Unknown"};
   const detail = recipe ? (
-    <article className="dietary-card" key={recipe.id}><h3>{recipe.name}</h3>
+    <article className="dietary-card" key={recipe.id}>{recipeId ? <h3>{recipe.name}</h3> : null}
         <RecipeVariantEditor key={recipe.id} familyId={familyId} recipe={recipe} planningDate={planningDate} personIds={personIds} mealType={mealType} onChanged={()=>{void listRecipeReviews(familyId).then(setRows).catch(e=>setError(String(e)));onVariantsChanged?.();}}/>
         <p className="dietary-badge">{pt ? "Adequação FODMAP ainda não avaliada por porção" : "FODMAP suitability has not been assessed per serving"}</p>
         {!recipe.ingredients.length && <p>{pt ? "Composição em falta. Obter marca, rótulo e ingredientes antes de avaliar ou adaptar." : "Missing composition. Obtain brand, label and ingredients before assessing or adapting."}</p>}
