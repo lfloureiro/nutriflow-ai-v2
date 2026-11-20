@@ -268,3 +268,12 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - Alteração: esses componentes passam a `React.lazy(() => import(...))` com `Suspense` de estado de carregamento em cada área, preservando a navegação por drawer e os dados que vêm da API. `FamilyMealsMode` mantém-se um `import type` e não força carregamento JS. `HomeBase` e `ShoppingListScreen` já eram diferidos e continuam iguais.
 - O agrupamento real de chunks continua a cargo do Rolldown/Vite. **Verificar o output de build do Web CI para confirmar se o aviso desaparece e identificar o chunk remanescente caso não desapareça**. Evitar impor `manualChunks` por nomes sem provas, por poder introduzir dependências circulares ou mudar a ordem de inicialização.
 - O build local no Windows e as vistas em light/dark devem continuar a ser verificados antes da marca v2.1.0; CI Web/API/UX E2E no mesmo SHA. Sem alterações à API, DB, `main` ou serviços locais; PR #76 draft.
+
+## Prioridade visual — lote v2.0.74 (20/11/2026)
+
+- Corrigir primeiro o shell comum (sidebar, marca, destinos, cartão de IA, família e topbar) **em todas as vistas**, sem qualquer alteração visual condicionada pela rota da Semana.
+- Fonte CSS auditada diretamente em `Casa_a_Mesa_High_Fidelity.html`; tabela de propriedades e limites de validação em `docs/ux/auditoria-shell-prototipo-2026-11-20.md`.
+- Introduzidos `shell-prototype.css` (última folha de estilos), famílias DM Sans/Manrope, paleta decorativa separada da cor de ação, sombras do protótipo e regressão `shellPrototype.test.ts`.
+- **Paridade por computed styles ainda pendente** (mesmo Chrome, escala, tema e viewport); sem prova de igualdade pixel a pixel. CI é prova funcional/técnica, não substitui prova visual.
+- Ordem de revisão aprovada: **A nossa semana → Início → Receitas → Família → Compras → Despensa**. Não iniciar desenho autónomo do próximo ecrã antes de concluir revisão visual da Semana.
+- O PR #76 permanece draft; a versão 2.0.74 é patch, não release candidata 2.1.0.
