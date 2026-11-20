@@ -168,3 +168,19 @@ export function planFitSafetyIssue(issue: string, locale: Locale): string {
   }
   return locale === "pt-PT" ? "Existe um bloqueio de segurança obrigatório." : "There is a mandatory safety block.";
 }
+
+/** Display only measured/computed candidate nutrients returned for the requested portion. */
+export function planFitCandidateNutrition(result: MealPlanFitResult): {
+  energyKcal: string | null;
+  nutrients: {key:string;value:string;unit:string}[];
+} {
+  const energy=result.candidate.nutrition.energy_kcal;
+  const nutrients=Object.entries(result.candidate.nutrition.nutrients)
+    .filter(([,entry])=>entry && Number.isFinite(Number(entry.value)))
+    .map(([key,entry])=>({key,value:entry.value,unit:entry.unit}))
+    .sort((a,b)=>a.key.localeCompare(b.key));
+  return {
+    energyKcal: energy !== null && Number.isFinite(Number(energy)) ? energy : null,
+    nutrients,
+  };
+}
