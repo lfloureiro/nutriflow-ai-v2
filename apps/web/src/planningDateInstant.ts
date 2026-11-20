@@ -5,7 +5,7 @@
 export function planningDateInstant(day: string, timeZone: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error("Invalid planning day");
   const probe = new Date(`${day}T12:00:00Z`);
-  if (Number.isNaN(probe.valueOf())) throw new Error("Invalid planning day");
+  if (Number.isNaN(probe.valueOf()) || probe.toISOString().slice(0, 10) !== day) throw new Error("Invalid planning day");
   const part = new Intl.DateTimeFormat("en-US", {
     timeZone, timeZoneName: "shortOffset", hour: "2-digit",
   }).formatToParts(probe).find((item) => item.type === "timeZoneName")?.value;
