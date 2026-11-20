@@ -82,3 +82,11 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 
 - **Código + documentação** no SHA `55c0626cbc97aeab71b35debc6f2379491519a44`: **Web CI, API CI e UX E2E sintético concluídos com sucesso (3/3)**. O teste de atalho contextual de refeição passou.
 - PR #76 permanece draft; não foi feito merge, não foram modificados dados reais nem solicitados testes manuais. O próximo checkpoint continua a ser a candidata v2.1.0.
+
+## Continuidade agrupada v2.0.40–v2.0.42 — 20/11/2026
+
+- **v2.0.39** `7dbf328cb42a0b777fc5caa648dcd30501068aa7`: gates Web/API/UX E2E aprovados 3/3.
+- **2.0.40:** planeamento nutricional por pessoa respeita a data e o timezone do dashboard, com meio-dia local.
+- **2.0.41:** estado nutricional com data divergente é rejeitado; dados anteriores são limpos na mudança de pessoa/dia; testes de horário de verão, fusos de meia hora e validação de dia.
+- **2.0.42:** avaliação é reiniciada depois de ativar plano profissional, impedindo resultados desatualizados; regressão Playwright compara a data do pedido com a do dashboard. **Aguardar CI do SHA final.**
+- **Pendentes:** automatizar teste com respostas API intencionalmente atrasadas; revisão de restrições/tolerâncias do indivíduo face a elegibilidade; auditoria real de zoom 200% e layouts 320/390/768/1440, light/dark, teclado, i18n; evidência visual e checklist antes do release candidate v2.1.0.
