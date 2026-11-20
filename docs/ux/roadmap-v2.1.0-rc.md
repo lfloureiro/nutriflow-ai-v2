@@ -153,3 +153,10 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - **v2.0.57:** restauro de foco devolvido ao cleanup síncrono original que já tinha sido testado; se o invocador deixou de estar no DOM ou era o `body`, o foco segue para a navegação primária ativa. Não há callbacks `requestAnimationFrame` pendentes que possam roubar foco a drawers reabertos.
 - **v2.0.58:** `PersonOverview` recebe `key={selectedMember.person_id}`: a troca de pessoa num drawer já aberto reinicializa separador ativo, refeição contextual e formulários da pessoa anterior, em vez de reutilizar estado individual. Novo teste E2E muda a rota internamente sem reload, verificando que a segunda pessoa começa em «Visão geral» e não herda «Nutrição».
 - Frontend **v2.0.58**. Validar Web CI, API CI, UX E2E **no mesmo SHA final**, não declarar regressões resolvidas por revisão de código apenas. PR #76 draft, `main` e dados reais intactos.
+
+## Correção de regressão v2.0.59 — foco quando invocador desapareceu (20/11/2026)
+
+- No SHA `3e3daa75ab094cd766d56029a91dc88f6063efa1`, **Web CI/API CI passaram; UX E2E falhou num único cenário** (`drawer restores focus to active navigation when its originating row disappears`). Todos os outros testes de navegador, incluindo troca de pessoa e navegação nativa em disclosures, passaram.
+- A causa provável é a ordem da desmontagem do portal: a recuperação **síncrona** do foco alternativo ocorre durante o cleanup React, mas a remoção DOM do drawer pode voltar a mudar o foco para `body`. A recuperação do foco normal para invocador existente já estava correta e mantém-se síncrona.
+- **v2.0.59:** quando o invocador foi removido, usar `queueMicrotask` para focar a navegação ativa após a remoção DOM do modal, desde que nenhum outro drawer esteja aberto. Não adiar o caso de invocador presente: evita as cinco falhas observadas na versão v2.0.56 com `requestAnimationFrame` indiscriminado.
+- Manter o cenário E2E de fallback original sem afrouxar a asserção. **Exigir novamente 3 CI verdes no mesmo SHA** antes de declarar o patch validado. PR #76 draft, `main` intacta.
