@@ -42,3 +42,33 @@
 .meal-plan-person .nf-attendance-decision{min-width:132px;flex:1 1 132px}
 .meal-plan-person .nf-attendance-decision select{max-width:100%;width:100%}
 .nf-attendance-warning{margin:10px 0;padding:10px 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface-soft);color:var(--text);font-size:12px;line-height:1.55}
+
+/* Week-map colors mirror prototype semantics, not an unconditional proposal tint.
+   A proposed meal is a neutral card until an explicit review hint is present.
+   A saved meal is also neutral; review/uncertainty use the warm warning tokens. */
+.weekly-proposal-preview .weekly-calendar-scroll .weekly-grid-meal.is-planned,
+.weekly-proposal-preview .weekly-calendar-scroll .weekly-grid-meal.is-proposed {
+  background: var(--bg);
+  border-color: var(--border);
+  border-style: solid;
+}
+.weekly-proposal-preview .weekly-calendar-scroll .weekly-grid-meal.is-empty {
+  background: transparent;
+  border-color: var(--border);
+  border-style: dashed;
+}
+.weekly-proposal-preview .weekly-calendar-scroll .weekly-grid-meal.is-proposed .weekly-grid-meal__label em {
+  color: var(--muted);
+}
+.weekly-proposal-preview .weekly-calendar-scroll .weekly-grid-meal .nf-week-change-hint.is-review {
+  border: 1px solid color-mix(in srgb, var(--color-warning) 42%, var(--border));
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+.weekly-proposal-preview .weekly-calendar-scroll .weekly-grid-meal:hover {
+  border-color: var(--accent);
+}
+.weekly-proposal-preview .weekly-calendar-scroll .weekly-grid-meal.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
