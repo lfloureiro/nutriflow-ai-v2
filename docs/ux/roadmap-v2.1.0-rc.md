@@ -90,3 +90,11 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - **2.0.41:** estado nutricional com data divergente é rejeitado; dados anteriores são limpos na mudança de pessoa/dia; testes de horário de verão, fusos de meia hora e validação de dia.
 - **2.0.42:** avaliação é reiniciada depois de ativar plano profissional, impedindo resultados desatualizados; regressão Playwright compara a data do pedido com a do dashboard. **Aguardar CI do SHA final.**
 - **Pendentes:** automatizar teste com respostas API intencionalmente atrasadas; revisão de restrições/tolerâncias do indivíduo face a elegibilidade; auditoria real de zoom 200% e layouts 320/390/768/1440, light/dark, teclado, i18n; evidência visual e checklist antes do release candidate v2.1.0.
+
+## Estado agrupado v2.0.43–v2.0.45 — 20/11/2026
+
+- **2.0.42** SHA `985d21c4cea6749fd92c1b4730bcd50d6e6ecaae`: Web/API/UX E2E **3/3 aprovados**.
+- **2.0.43:** regressão UX E2E sintética com resposta HTTP intencionalmente atrasada após mudar quantidade.
+- **2.0.44:** validação da pessoa, dia, refeição e quantidade presentes no resultado da avaliação antes de aceitar HTTP 200; mensagens de erro PT/EN e testes.
+- **2.0.45:** evidência incompleta ou conflito marcado como pontuação provisória, nunca certificação clínica/FODMAP. **Aguardar CI do último SHA**.
+- **Resta para o candidato 2.1.0:** inspeção visual real vs. `Casa_a_Mesa_Prototipo.html`, zoom 200%, 320/390/768/1440, light/dark, teclado, i18n, revisão de restrições/tolerâncias e políticas de autenticação/consentimento. Não confundir E2E sintético com inspeção visual manual.
