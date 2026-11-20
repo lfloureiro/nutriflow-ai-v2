@@ -1272,6 +1272,10 @@ export default function WeeklyProposalPreview({
           <nav className="nf-week-day-picker" aria-label={locale === "pt-PT" ? "Escolher dia da semana" : "Choose a weekday"}>{weekDates.map(date=>{const day=formatGridDay(date,locale);return <button type="button" key={date} aria-pressed={selectedDate===date} className={selectedDate===date?"selected":""} onClick={()=>selectDay(date)}><span>{day.weekday}</span><b>{day.date}</b></button>;})}</nav>
           <div className="weekly-calendar-scroll">
             <div className="weekly-day-grid" role="group" aria-label={copy.title}>
+              <div className="nf-week-row-labels" aria-hidden="true">
+                <span />
+                {ALL_MEAL_TYPES.map(mealType => <span key={mealType}>{mealLabel(mealType, locale)}</span>)}
+              </div>
               {weekDates.map((planningDate) => {
                 const gridDay = formatGridDay(planningDate, locale);
                 return (
@@ -1304,7 +1308,10 @@ export default function WeeklyProposalPreview({
                             aria-pressed={
                               selectedDate === planningDate && selectedMealType === mealType
                             }
+                            aria-label={`${mealLabel(mealType, locale)} · ${gridDay.weekday} ${gridDay.date} · ${entry ? copy.planned : choice ? copy.proposed : pendingReason ? copy.pending : copy.empty} · ${label}`}
                             className={`weekly-grid-meal is-${state} ${
+                              !entry && (choice?.variant_changes?.length || choice?.transformation || ingredientProposals.length || slotAdaptations?.[entry?.recipe_id ?? choice?.recipe_id ?? ""]?.length) ? "has-review" : ""
+                            } ${
                               selectedDate === planningDate && selectedMealType === mealType
                                 ? "selected"
                                 : ""
