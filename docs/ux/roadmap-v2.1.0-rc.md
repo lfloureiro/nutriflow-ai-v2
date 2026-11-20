@@ -118,3 +118,11 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - **v2.0.48:** impedir avaliação de porções inválidas/negativas com ajuda acessível PT/EN; regressão Playwright.
 - **v2.0.49:** smoke sintético do perfil em inglês e tema escuro, drawer único e persistência das preferências; testes ainda sujeitos a CI do último SHA.
 - **Pendências de release candidate:** screenshots comparativas reais com `Casa_a_Mesa_Prototipo.html`, zoom **real** do browser a 200%, teclado/leitor de ecrã, cobertura P0/P1 de navegação, verificação de restrições/tolerâncias e controlo de acesso, checklist manual v2.1.0. Não declarar pronto antes de evidência e CI 3/3 no SHA final.
+
+## Estado agrupado v2.0.50–v2.0.52 — 20/11/2026
+
+- **v2.0.49:** Web CI, API CI e UX E2E **3/3 verdes no SHA** `d122a2bc6e1e7f7c90ab0a0fcf1b463c44228792`.
+- **v2.0.50:** recusa de propostas de transformação cuja receita, pessoa, dia, refeição ou `baseline_fit` não corresponda ao pedido original.
+- **v2.0.51:** reset de resultados antigos e carregamento de propostas pendentes; cenário E2E com HTTP 200 de outra pessoa bloqueado.
+- **v2.0.52:** unidades de porção validadas juntamente com quantidade, com testes unitários. **Aguardar os três gates verdes no SHA final**.
+- **Pendências antes do RC v2.1.0:** inspeção visual real vs. protótipo aprovado, zoom real 200%, auditoria de leitor de ecrã/teclado, autorização de dados por família, revisão de restrições/tolerâncias e teste manual consolidado. Não declarar pronto só com CI sintético.
