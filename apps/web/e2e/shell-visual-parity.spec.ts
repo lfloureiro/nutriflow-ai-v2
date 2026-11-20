@@ -95,6 +95,9 @@ for (const theme of ["light", "dark"] as const) {
       await expect(page.locator(".primary-nav .nav-item.active")).toHaveText(label);
       expect(await shellSnapshot(page), `Visual shell differs in ${theme} on ${hash}`).toEqual(baseline);
     }
+    await page.getByRole("button",{name:/Gerir o espaço:/}).click();
+    await expect(page).toHaveURL(/#\\/more/);
+    expect(await shellSnapshot(page)).toEqual(baseline);
   });
 }
 
