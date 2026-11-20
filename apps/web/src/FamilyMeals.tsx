@@ -2,7 +2,7 @@ import {useUnsavedChanges} from "./useUnsavedChanges";
 import PersonAvatar from "./ui/PersonAvatar";
 import ContextDrawer from "./ui/ContextDrawer";
 import Icon from "./ui/Icon";
-import NextMealHero, {type HeroSuggestedMeal} from "./NextMealHero";
+import NextMealHero, {type HeroSuggestedMeal} from "./NextMealBanner";
 import {searchText} from "./recipeBrowsing";
 import {listRecipeReviews,type ReviewRecipe} from "./api/dietaryReviewClient";
 import SavedMealChanges from "./SavedMealChanges";
