@@ -111,6 +111,7 @@
   .primary-nav .nav-icon { width: 29px; height: 29px; }
   .primary-nav .nav-icon .nf-icon { width: 28px; height: 28px; }
   .side-nav__ai {
+    margin-top: 0;
     min-height: 166px;
     padding: 22px 25px;
     border-radius: 24px;
@@ -120,6 +121,7 @@
   .side-nav__ai-heading .nf-icon { width: 40px; height: 40px; flex-basis: 40px; }
   .side-nav__ai > span:last-child { font-size: 17px; line-height: 1.6; }
   .side-nav__family {
+    margin-top: auto;
     border-top: 1px solid var(--color-border);
     padding: 30px 6px 12px;
   }
