@@ -191,6 +191,10 @@ export default function App() {
             <span>{locale === "pt-PT" ? "Despensa" : "Pantry"}</span>
           </button>
         </nav>
+        <button className="side-nav__ai" type="button" onClick={() => navigate({view:"meals",mode:"recommend",meal:undefined})}>
+          <span className="side-nav__ai-heading"><Icon name="spark"/><strong>{locale === "pt-PT" ? "Inteligência à mesa" : "Intelligence at the table"}</strong></span>
+          <span>{locale === "pt-PT" ? "Interpretar. Aprender. Explicar." : "Interpret. Learn. Explain."}</span>
+        </button>
         <div className="side-nav__family">
           <span>{t("shell.family")}</span>
           <strong>{familyName}</strong>
