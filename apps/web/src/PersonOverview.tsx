@@ -290,6 +290,8 @@ export default function PersonOverview({
     let cancelled = false;
     const scheduledAt = planningDateInstant(dashboard.dashboard_date, member.timezone || dashboard.timezone);
     setDailyState(null);
+    setPerson(null);
+    setProfile(null);
     void Promise.all([
       getPerson(member.person_id).catch(() => null),
       getPersonEnergyProfile(member.person_id).catch(() => null),
@@ -491,7 +493,7 @@ export default function PersonOverview({
             </p>
           ) : null}
           <MealPlanFitPanel
-            key={`${member.person_id}:${focusedMeal?.id ?? "free"}`}
+            key={`${member.person_id}:${focusedMeal?.id ?? "free"}:${planAuthorityRevision}:${dashboard.dashboard_date}`}
             requestedMealType={focusedMeal?.type}
             requireExplicitRecipe={focusedMeal !== null}
             dailyNutritionStateId={dailyState?.id ?? null}
