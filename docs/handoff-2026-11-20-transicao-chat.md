@@ -74,3 +74,12 @@
 - **Não declarar paridade pixel a pixel**: não houve inspeção de `getComputedStyle` simultânea nos dois documentos com o mesmo navegador, viewport e fonte carregada. O original declara fontes mas não as carrega explicitamente.
 - PR #76 **draft**, `main` intocada; nenhuma alteração em serviços locais ou base de dados real. Versão web 2.0.74. Confirmar os três CI no SHA final antes de marcar como funcionalmente validada.
 - Próxima intervenção após CI: auditoria visual da Semana light/dark (1440/1024/768/390 + 200%) e, depois, revisão de Início, Receitas, Família, Compras e Despensa.
+
+## Continuidade — captura aprovada como alvo visual, v2.0.75
+
+- O utilizador forneceu a captura escura final de composição Semana (1536×1024) e pediu explicitamente paridade também de **brilhos de letras, iluminação, degradés, sombras, famílias, tamanhos e detalhes**, sem avançar para os restantes ecrãs até aprovação.
+- A captura representa a combinação aprovada «protótipo + aplicação real», **não** o HTML original isolado. Não transcrever cegamente textos e dados demo da captura; manter decisões funcionais posteriores, incluindo remoção da faixa informativa e carta «Próxima refeição» dinâmica.
+- `shell-prototype.css`: introduzida escala da sidebar da captura (320px para desktop 1300px+), marca e navegação maiores, fundo em camadas, luz e gradiente âmbar no menu ativo e cartão IA, tudo global às rotas. `week-reference.css`: acrescenta composição de hero (~136px) e grelha (~83px + 4×133px), cores por estado, sombras internas e reflexos locais. `main.tsx` carrega week-reference antes de shell-prototype. Versão 2.0.75.
+- Amostras RGB e limitações documentadas em `docs/ux/auditoria-shell-prototipo-2026-11-20.md`. A cor medida é imagem renderizada, não CSS efetivo.
+- **Estado: ainda não há prova de equivalência pixel a pixel nem 3/3 CI verdes no SHA final.** Não encerrar revisão visual. Próximo passo indispensável: screenshot real da versão 2.0.75 no mesmo viewport/zoom e modo escuro; comparação por diferença de pixels e inspeção computed styles; repetir light quando a referência clara estiver estabelecida.
+- PR #76 draft; `main`, API, DB real e serviços locais preservados.
