@@ -1,6 +1,6 @@
 import WeekOverview from "./ui/WeekOverview";
 import ContextDrawer from "./ui/ContextDrawer";
-import type { HeroSuggestedMeal } from "./NextMealHero";
+import type { HeroSuggestedMeal } from "./NextMealBanner";
 import { requestNavigation } from "./navigation";
 import Icon from "./ui/Icon";
 import SavedMealChanges from "./SavedMealChanges";
