@@ -404,3 +404,8 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - **v2.0.39 — escolha explícita e limpar contexto:** o título do plano/da refeição não é usado para adivinhar uma receita. A avaliação contextual começa **sem receita escolhida**, com seletor explícito e botão Avaliar desativado até existir receita/porção utilizável. O contexto mostra uma nota de que o utilizador tem de escolher receita e confirmar quantidade. Mudar de refeição remonta o avaliador para descartar resultados anteriores; `Limpar seleção` regressa ao avaliador genérico sem sair do perfil.
 - Teste Playwright com PostgreSQL sintético cria refeição no dia devolvido pela API do dashboard e verifica atalho mobile, seleção do jantar, ausência de receita implicitamente escolhida, desativação da avaliação sem receita e limpeza sem drawer adicional.
 - **Frontend v2.0.39** (versões 2.0.38 e 2.0.39 agrupadas num lote). Gates Web CI, API CI e UX E2E obrigatórios **no SHA final**. Sem API/schema alterados, `main` intacta, PR #76 draft, dados reais intocados. Ainda sem pedido de testes manuais até v2.1.0.
+
+## CI de confirmação v2.0.39 — 20/11/2026
+
+- **Código + documentação** no SHA `55c0626cbc97aeab71b35debc6f2379491519a44`: **Web CI, API CI e UX E2E sintético concluídos com sucesso (3/3)**. O teste de atalho contextual de refeição passou.
+- PR #76 permanece draft; não foi feito merge, não foram modificados dados reais nem solicitados testes manuais. O próximo checkpoint continua a ser a candidata v2.1.0.
