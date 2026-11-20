@@ -11,6 +11,7 @@ import "./planning-journey.css";
 import { listRetailAlternatives, type RetailAlternative } from "./api/planningWorkspaceClient";
 import RetailAlternativeCards from "./RetailAlternativeCards";
 import RecipeVariantEditor from "./RecipeVariantEditor";
+import ContextDrawer from "./ui/ContextDrawer";
 
 export function reviewCounts(rows: ReviewRecipe[]) {
   return {
@@ -105,10 +106,26 @@ export default function RecipeDietaryReview({familyId,planningDate,personIds,onV
   }, [familyId, revision]);
   const scopedRows = recipeId ? rows.filter(r=>r.id===recipeId) : rows;
   const filtered = scopedRows.filter(r => r.name.toLocaleLowerCase(locale).includes(search.toLocaleLowerCase(locale)));
-  const recipe = filtered.find(r => r.id === selected) ?? filtered[0]; const counts = reviewCounts(scopedRows);
+  const recipe = recipeId ? filtered[0] : filtered.find(r => r.id === selected); const counts = reviewCounts(scopedRows);
   const refById = new Map(refs.map(r => [r.id, r]));
   const labels = pt ? {high: "Orientação geral: maior teor", low: "Orientação geral: menor teor", variable: "Variável", unknown: "Desconhecido"}
     : {high: "General guidance: higher content", low: "General guidance: lower content", variable: "Variable", unknown: "Unknown"};
+  const detail = recipe ? (
+    <article className="dietary-card" key={recipe.id}><h3>{recipe.name}</h3>
+        <RecipeVariantEditor key={recipe.id} familyId={familyId} recipe={recipe} planningDate={planningDate} personIds={personIds} mealType={mealType} onChanged={()=>{void listRecipeReviews(familyId).then(setRows).catch(e=>setError(String(e)));onVariantsChanged?.();}}/>
+        <p className="dietary-badge">{pt ? "Adequação FODMAP ainda não avaliada por porção" : "FODMAP suitability has not been assessed per serving"}</p>
+        {!recipe.ingredients.length && <p>{pt ? "Composição em falta. Obter marca, rótulo e ingredientes antes de avaliar ou adaptar." : "Missing composition. Obtain brand, label and ingredients before assessing or adapting."}</p>}
+        {recipe.ingredients.map(i => <div className="dietary-ingredient" key={i.id}>
+          <h4><IngredientAlternativeLine name={i.name} quantity={`${new Intl.NumberFormat(locale, {maximumFractionDigits: 4}).format(Number(i.quantity))} ${i.unit}`} alternatives={[...new Set(i.substitutions.filter(s=>s.status!=="rejected").map(s=>s.replacement_name))]}/></h4>
+          <p className="dietary-help">{pt ? "Quantidade da receita completa" : "Quantity for the whole recipe"}</p>
+          {!i.references.length && <p>{pt ? "Sem referência associada — não significa baixo teor." : "No linked reference — this does not mean low content."}</p>}
+          {i.references.map(ref => <p key={ref.id}><span className={`dietary-badge ${ref.classification}`}>{labels[ref.classification]}</span> <a href={ref.source_url} target="_blank" rel="noreferrer">{ref.source_name}</a> · {pt ? "Categoria geral; produto e dose por verificar." : "General category; product and dose unverified."}</p>)}
+          {i.substitutions.map(s => <SubstitutionCard key={`${s.id}:${s.version}`} familyId={familyId} row={s} reference={s.reference_id ? refById.get(s.reference_id) : undefined} onChanged={() => setRevision(x => x + 1)} />)}
+          <RetailAlternativeCards familyId={familyId} products={relatedRetailAlternatives(retail,i.food_item_id)}/>
+          <NewSubstitution key={`${i.id}:${revision}`} familyId={familyId} ingredient={i} references={refs} onChanged={() => setRevision(x => x + 1)} />
+        </div>)}
+      </article>
+  ) : null;
   return <section className="dietary-review" aria-busy={loading}>
     <header><h2>{pt ? "Substituições de ingredientes" : "Ingredient substitutions"}</h2>
       <p>{pt ? "Rever alternativas para cozinhar em família. As propostas não alteram as receitas, o plano semanal ou a lista de compras. A adequação depende dos produtos, preparação, quantidades e regras de cada pessoa." : "Review alternatives for family cooking. Proposals do not change recipes, the weekly plan or shopping list. Suitability depends on products, preparation, quantities and each person's rules."}</p>
@@ -127,21 +144,15 @@ export default function RecipeDietaryReview({familyId,planningDate,personIds,onV
         {filtered.map(r => <button type="button" key={r.id} aria-current={recipe?.id === r.id ? "page" : undefined} onClick={() => setSelected(r.id)}>{r.name} · {r.ingredients.reduce((n,i) => n + i.substitutions.filter(s => s.status !== "rejected").length, 0)}</button>)}
         {!filtered.length && <p>{pt ? "Sem receitas correspondentes." : "No matching recipes."}</p>}
       </nav>}
-      {!recipe && <p role="status">{pt ? "Receita selecionada indisponível para revisão." : "Selected recipe is unavailable for review."}</p>}
-      {recipe && <article className="dietary-card" key={recipe.id}><h3>{recipe.name}</h3>
-        <RecipeVariantEditor key={recipe.id} familyId={familyId} recipe={recipe} planningDate={planningDate} personIds={personIds} mealType={mealType} onChanged={()=>{void listRecipeReviews(familyId).then(setRows).catch(e=>setError(String(e)));onVariantsChanged?.();}}/>
-        <p className="dietary-badge">{pt ? "Adequação FODMAP ainda não avaliada por porção" : "FODMAP suitability has not been assessed per serving"}</p>
-        {!recipe.ingredients.length && <p>{pt ? "Composição em falta. Obter marca, rótulo e ingredientes antes de avaliar ou adaptar." : "Missing composition. Obtain brand, label and ingredients before assessing or adapting."}</p>}
-        {recipe.ingredients.map(i => <div className="dietary-ingredient" key={i.id}>
-          <h4><IngredientAlternativeLine name={i.name} quantity={`${new Intl.NumberFormat(locale, {maximumFractionDigits: 4}).format(Number(i.quantity))} ${i.unit}`} alternatives={[...new Set(i.substitutions.filter(s=>s.status!=="rejected").map(s=>s.replacement_name))]}/></h4>
-          <p className="dietary-help">{pt ? "Quantidade da receita completa" : "Quantity for the whole recipe"}</p>
-          {!i.references.length && <p>{pt ? "Sem referência associada — não significa baixo teor." : "No linked reference — this does not mean low content."}</p>}
-          {i.references.map(ref => <p key={ref.id}><span className={`dietary-badge ${ref.classification}`}>{labels[ref.classification]}</span> <a href={ref.source_url} target="_blank" rel="noreferrer">{ref.source_name}</a> · {pt ? "Categoria geral; produto e dose por verificar." : "General category; product and dose unverified."}</p>)}
-          {i.substitutions.map(s => <SubstitutionCard key={`${s.id}:${s.version}`} familyId={familyId} row={s} reference={s.reference_id ? refById.get(s.reference_id) : undefined} onChanged={() => setRevision(x => x + 1)} />)}
-          <RetailAlternativeCards familyId={familyId} products={relatedRetailAlternatives(retail,i.food_item_id)}/>
-          <NewSubstitution key={`${i.id}:${revision}`} familyId={familyId} ingredient={i} references={refs} onChanged={() => setRevision(x => x + 1)} />
-        </div>)}
-      </article>}
+      {(recipeId || selected) && !recipe && <p role="status">{pt ? "Receita selecionada indisponível para revisão." : "Selected recipe is unavailable for review."}</p>}
+      {recipeId ? (recipe ? detail : null) : selected && recipe ? (
+        <ContextDrawer
+          title={recipe.name}
+          wide
+          closeLabel={pt ? "Fechar detalhe" : "Close detail"}
+          onRequestClose={() => {setSelected("");return true;}}
+        >{detail}</ContextDrawer>
+      ) : null}
       </div></>}
     {!loading && view === "sources" && <>
       <article className="dietary-card"><h3>Monash University</h3>
