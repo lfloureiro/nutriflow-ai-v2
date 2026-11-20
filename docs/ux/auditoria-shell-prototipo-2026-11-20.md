@@ -41,3 +41,28 @@
 - A equivalência de cartões, ícones, fotografias, hero e grelha semanal carece de auditoria por ecrã. Não alterar cores ou valores específicos só por comparação de screenshots.
 - Verificar Web CI, API CI e UX E2E **no mesmo SHA final**, não transpor o verde da v2.0.73 para este lote.
 - PR #76 deve permanecer draft; não fazer merge para `main`; dados reais, backend local e serviços em execução não foram tocados.
+
+## Segundo alvo: composição visual aprovada, v2.0.75
+
+A captura fornecida pelo utilizador nesta sessão (20/11/2026, 1536 × 1024) é o **alvo de aceitação da composição Semana**, que não é exatamente o HTML high-fidelity original: nela existem gradientes, iluminação âmbar, cartão AI mais luminoso, ícones e tipografia maiores, uma faixa informativa que foi posteriormente retirada por decisão explícita, e proporções revistas. A faixa não deve ser restaurada; o conteúdo operacional e a carta «Próxima refeição» prevalecem sobre textos demonstrativos da imagem.
+
+Amostras da imagem, medidas como **medianas RGB de regiões sem texto**, com coordenadas relativas à captura (não são necessariamente valores CSS em bruto, porque podem representar sobreposição de gradientes, transparência e antialiasing):
+
+| Zona amostrada | RGB observado |
+| --- | --- |
+| Sidebar topo | `(30,30,32)` |
+| Sidebar centro | `(31,30,32)` |
+| Sidebar base | `(29,28,32)` |
+| Canvas topo | `(22,22,24)` |
+| Canvas inferior | `(20,20,23)` |
+| Navegação ativa esquerda/direita | `(87,65,45)` / `(81,60,44)` |
+| Cartão IA esquerda/direita | `(60,51,43)` / `(35,33,36)` |
+| Painel semanal alto/baixo | `(31,31,34)` / `(26,26,28)` |
+| Célula normal / por adaptar | `(27,27,30)` / `(75,47,41)` |
+| Dia selecionado / badge | `(76,60,48)` / `(104,73,37)` |
+
+Escalas observadas aproximadamente: limite da sidebar em x≈320, hero horizontal com altura ≈137px, painel semanal de x≈345 a x≈1517, cabeçalho de dias ≈83px, linhas de refeição ≈133px. **São medições da imagem de referência**, não confirmação do CSS calculado da aplicação.
+
+Implementação desta aproximação geométrica/óptica fundamentada: `shell-prototype.css` (todos os ecrãs desktop, sidebar 320px acima de 1300px, gradientes e brilho dark) e `week-reference.css` (somente a semana, hero, grelha, células, tipos de estado, sombras e badges), ambos importados após folhas históricas. Mantêm-se o HTML React, drawers, dados e semântica atuais.
+
+**Gate obrigatório antes de dizer EXATAMENTE igual:** carregar o HTML original, a imagem alvo e a app no mesmo Chromium e confrontar, por viewport e por tema, screenshot de imagem + `getComputedStyle` das classes pertinentes. O CSS é uma transcrição controlada dos valores visíveis, mas não dispomos ainda da screenshot da aplicação v2.0.75 na mesma configuração; a igualdade exata não está demonstrada. Os cartões reais têm conteúdo variável, ao contrário do mockup. Os textos e a data do screenshot são apenas ilustração.
