@@ -582,4 +582,12 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - `next-meal-hero.css`: corrigida a razão de tamanho da imagem que fazia o elemento alcançar ~320px; desktop passa a altura fixa 184px com faixa de imagem contida e texto proporcional, sem alterar dinâmica de próxima refeição, estado ou origem da imagem. Tablet/mobile continuam com altura adaptativa.
 - `shell.css`: bloco «Inteligência à mesa» mais legível nos dois temas, mantendo navegação e rotas; controles de semana mais discretos.
 - **Teste ainda necessário:** captura comparada em ambiente real Windows em light + dark a 1440/1024/768/390 e zoom 200%. CI de TypeScript/Vitest/build, API e UX E2E no mesmo SHA é gate técnica, **não prova equivalência estética**, nem as imagens de todas as receitas estão completas.
-- Sem alterações à API, DB, dados familiares, `main` nem serviços locais; PR #76 em draft. 
+- Sem alterações à API, DB, dados familiares, `main` nem serviços locais; PR #76 em draft.
+
+## v2.0.73 — performance: chunks Vite por rota (20/11/2026)
+
+- O utilizador confirmou `npm run build` com **sucesso (3,04 s)**, mas Vite alertou `Some chunks are larger than 500 kB after minification`. Os relatórios `[PLUGIN_TIMINGS]` são diagnósticos informativos de performance de plugin, não erros. Não subir `chunkSizeWarningLimit` nem desligar os avisos para ocultar o problema.
+- Causa estrutural auditada: `App.tsx` importava estaticamente os módulos grandes `FamilyMeals`, `PersonOverview`, `PersonSetupForm` e `FamilySettings` em qualquer rota; `FamilyMeals` carregava `WeeklyProposalPreview` e `MealPlanner` mesmo fora dos respetivos modos.
+- Alteração: esses componentes passam a `React.lazy(() => import(...))` com `Suspense` de estado de carregamento em cada área, preservando a navegação por drawer e os dados que vêm da API. `FamilyMealsMode` mantém-se um `import type` e não força carregamento JS. `HomeBase` e `ShoppingListScreen` já eram diferidos e continuam iguais.
+- O agrupamento real de chunks continua a cargo do Rolldown/Vite. **Verificar o output de build do Web CI para confirmar se o aviso desaparece e identificar o chunk remanescente caso não desapareça**. Evitar impor `manualChunks` por nomes sem provas, por poder introduzir dependências circulares ou mudar a ordem de inicialização.
+- O build local no Windows e as vistas em light/dark devem continuar a ser verificados antes da marca v2.1.0; CI Web/API/UX E2E no mesmo SHA. Sem alterações à API, DB, `main` ou serviços locais; PR #76 draft.
