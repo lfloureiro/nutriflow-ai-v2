@@ -1,0 +1,166 @@
+/* Approved 20 Nov 2026 composite screenshot, 1536x1024.
+   These rules affect only the weekly planning composition, not the functional model. */
+@media (min-width: 1300px) {
+  .app-shell--meals .shell-main {
+    width: calc(100% - 48px);
+    max-width: 1280px;
+    padding-top: 20px;
+  }
+  .app-shell--meals .nf-next-meal-hero {
+    grid-template-columns: minmax(240px, 26%) minmax(0, 1fr) auto;
+    min-height: 136px;
+    height: auto;
+    margin-bottom: 22px;
+    border-radius: 22px;
+  }
+  .app-shell--meals .nf-next-meal-hero__art img {
+    max-height: none;
+    min-height: 136px;
+    height: 100%;
+  }
+  .app-shell--meals .nf-next-meal-hero__info { padding: 14px 22px; }
+  .app-shell--meals .nf-next-meal-hero h2 {
+    font-size: clamp(22px, 1.8vw, 29px);
+    font-weight: 750;
+    letter-spacing: -.5px;
+  }
+  .app-shell--meals .nf-next-meal-hero__eyebrow {
+    font-size: 15px;
+    font-weight: 750;
+    letter-spacing: .2px;
+    margin-bottom: 6px;
+  }
+  .app-shell--meals .nf-next-meal-hero p { font-size: 16px; }
+  .app-shell--meals .nf-next-meal-hero__actions { min-width: 192px; }
+  .app-shell--meals .nf-next-meal-hero__actions .button {
+    border-radius: 17px;
+    min-height: 49px;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .nf-week-map-final {
+    border-radius: 27px !important;
+    padding: 14px !important;
+  }
+  .nf-week-map-final .weekly-calendar-scroll .weekly-day-grid {
+    grid-template-columns: 120px repeat(7, minmax(0, 1fr));
+    grid-template-rows: 83px repeat(4, minmax(133px, auto));
+    gap: 7px;
+  }
+  .nf-week-map-final .nf-week-row-labels > span {
+    align-items: flex-start;
+    font-size: 17px;
+    padding: 13px 10px;
+    gap: 12px;
+  }
+  .nf-week-map-final .nf-week-row-labels > span .nf-icon { width: 29px; height: 29px; }
+  .nf-week-map-final .weekly-grid-day__date-button { min-height: 80px; border-radius: 19px; }
+  .nf-week-map-final .weekly-grid-day__date-button strong { font-size: 16px !important; }
+  .nf-week-map-final .weekly-grid-day__date-button small { font-size: 29px !important; }
+  .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal {
+    border-radius: 17px;
+    padding: 15px 13px;
+  }
+  .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal > strong {
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.32;
+  }
+  .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal__label em,
+  .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal.is-proposed .weekly-grid-meal__label em,
+  .nf-week-map-final .nf-week-change-hint {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 11px;
+  }
+  .nf-week-map-final .nf-week-empty-action { font-size: 16px; gap: 6px; }
+  .nf-week-map-final .nf-week-empty-action b { font-size: 26px; }
+}
+:root[data-theme="dark"] .app-shell--meals .nf-next-meal-hero {
+  --meal-hero-surface: #292527;
+  --meal-hero-surface-end: #211f23;
+  --meal-hero-border: #494147;
+  --meal-hero-muted: #e4dbda;
+  --meal-hero-title: #f9f7f6;
+  background:
+    radial-gradient(ellipse at 63% 0%, #65433944, transparent 62%),
+    linear-gradient(110deg, #292427 0%, #272326 57%, #211f23 100%);
+  border-color: var(--meal-hero-border);
+  box-shadow: inset 0 1px 0 #ffffff13, 0 18px 34px #00000028;
+}
+:root[data-theme="dark"] .app-shell--meals .nf-next-meal-hero h2 {
+  color: #faf8f8;
+  text-shadow: 0 1px 12px #fff2;
+}
+:root[data-theme="dark"] .app-shell--meals .nf-next-meal-hero__eyebrow {
+  color: #ffbf78;
+  text-shadow: 0 0 13px #dca35b33;
+}
+:root[data-theme="dark"] .app-shell--meals .nf-next-meal-hero__art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 72%, #272326 100%);
+  pointer-events: none;
+}
+:root[data-theme="dark"] .app-shell--meals .nf-next-meal-hero__actions .button.primary {
+  background: #2a2527aa;
+  border: 1.5px solid #ffc168;
+  color: #ffc168;
+  box-shadow: inset 0 0 0 1px #ffc16810, 0 0 14px #f1b35d0a;
+}
+:root[data-theme="dark"] .nf-week-map-final {
+  --week-cell: #151518;
+  --week-panel: #202024;
+  --week-border: #464247;
+  --week-ink: #faf8f7;
+  --week-muted: #e2dddf;
+  --week-status-bg: #634723;
+  --week-status-fg: #fbd19d;
+  --week-review-bg: #452b28;
+  --week-review-border: #cc816e;
+  --week-review-ink: #ffd2be;
+  --week-active-bg: #574237;
+  --week-active-ink: #f8cc9d;
+  background:
+    radial-gradient(ellipse at 24% 0%, #33313577, transparent 65%),
+    linear-gradient(135deg, #202023, #1a1a1e);
+  border-color: #49454a;
+  box-shadow: inset 0 1px 0 #ffffff13, 0 18px 48px #0000002a !important;
+}
+:root[data-theme="dark"] .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal {
+  background: linear-gradient(150deg, #1b1b1d, #111215);
+  border-color: #49464b;
+  box-shadow: inset 0 1px 0 #ffffff0a, 0 5px 15px #00000021;
+}
+:root[data-theme="dark"] .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal.has-review,
+:root[data-theme="dark"] .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal.has-review:not(.selected) {
+  background: linear-gradient(137deg, #5c3732, #382725) !important;
+  border-color: #d1846e !important;
+  box-shadow: inset 0 1px 0 #ffcab61b, 0 5px 14px #00000021;
+}
+:root[data-theme="dark"] .nf-week-map-final .weekly-grid-day.selected .weekly-grid-day__date-button {
+  background: linear-gradient(135deg, #674b39, #513e37);
+  box-shadow: inset 0 1px 0 #ffce9a16;
+}
+:root[data-theme="dark"] .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal.is-empty {
+  background: #ffffff04 !important;
+  border-color: #59545a !important;
+}
+:root[data-theme="dark"] .nf-week-map-final .weekly-grid-meal__label em {
+  background: linear-gradient(100deg, #755126, #573c22);
+  color: #ffe0ad;
+}
+:root[data-theme="dark"] .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal.has-review .nf-week-change-hint.is-review {
+  background: linear-gradient(100deg, #8b4e37, #6e3c31);
+  color: #ffe0cf;
+  box-shadow: 0 1px 10px #00000018;
+}
+@media (max-width: 1299px) {
+  .app-shell--meals .nf-next-meal-hero h2 { font-size: clamp(18px, 2vw, 25px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-shell--meals .nf-next-meal-hero,
+  .nf-week-map-final .weekly-grid-meal { transition: none; }
+}
