@@ -39,8 +39,8 @@
 }
 .nf-context-drawer__close {
   flex: none;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: 1px solid var(--color-border);
   color: var(--color-text);
@@ -89,4 +89,15 @@
 @media (max-width: 420px) {
   .nf-context-drawer__head { gap: 8px; }
   .nf-context-drawer__head h2 { min-width: 0; }
+}
+
+/* Native disclosure controls must be discoverable with keyboard focus. */
+.nf-context-drawer summary:focus-visible {
+  outline: 3px solid var(--color-text);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+.nf-context-drawer__close {
+  cursor: pointer;
+  touch-action: manipulation;
 }
