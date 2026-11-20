@@ -1223,7 +1223,7 @@ export default function WeeklyProposalPreview({
         </div>
       </div> : null}
 
-      {people.length < 2 ? <div className="family-meals-empty-day">{copy.noPeople}</div> : null}
+      {people.length < 2 && (!simpleWeekView || people.length === 0) ? <div className="family-meals-empty-day">{copy.noPeople}</div> : null}
       {loadError ? (
         <div className="error-banner" role="alert">
           <strong>{copy.error}</strong><span>{loadError}</span>
@@ -1380,7 +1380,7 @@ export default function WeeklyProposalPreview({
             </div>
           </div>
 
-          {selectedDate ? (
+          {selectedDate && !simpleWeekView ? (
             <details className="nf-day-overview"><summary>{locale === "pt-PT" ? "Resumo do dia selecionado" : "Selected day overview"}</summary><section className="weekly-day-detail">
               <div className="weekly-section-heading">
                 <div>
