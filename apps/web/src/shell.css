@@ -652,3 +652,14 @@
     width: 100%;
   }
 }
+
+/* Week planning receives the broader canvas of the approved prototype.
+   Other pages keep their existing content width and toolbar. */
+@media (min-width: 1101px) {
+  .app-shell--meals .shell-main {
+    width: min(calc(100% - 44px), 1280px);
+  }
+  .app-shell--meals .shell-topbar {
+    min-height: 56px;
+  }
+}
