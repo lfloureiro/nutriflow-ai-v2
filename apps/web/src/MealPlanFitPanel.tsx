@@ -34,6 +34,7 @@ const COPY = {
     recipe: "Receita",
     chooseActualRecipe: "Escolher receita e confirmar porção",
     quantity: "Quantidade",
+    quantityInvalid: "Indica uma quantidade positiva antes de avaliar. A unidade é a da composição da receita.",
     evaluate: "Avaliar",
     evaluating: "A avaliar…",
     improve: "Sugerir melhoria",
@@ -103,6 +104,7 @@ const COPY = {
     recipe: "Recipe",
     chooseActualRecipe: "Choose actual recipe and confirm portion",
     quantity: "Quantity",
+    quantityInvalid: "Enter a positive quantity before evaluating. The unit comes from the recipe composition.",
     evaluate: "Evaluate",
     evaluating: "Evaluating…",
     improve: "Suggest improvement",
@@ -293,11 +295,12 @@ export default function MealPlanFitPanel({
 
   const selectedRecipe = availableRecipes.find((recipe) => recipe.id === selectedRecipeId) ?? null;
   const composition = selectedRecipe?.latest_composition ?? null;
+  const quantityValid = quantity.trim() !== "" && Number.isFinite(Number(quantity)) && Number(quantity) > 0;
 
   async function runEvaluation() {
     if (!selectedRecipe || !composition) return;
     const numericQuantity = Number(quantity);
-    if (!Number.isFinite(numericQuantity) || numericQuantity <= 0) return;
+    if (!quantityValid || !Number.isFinite(numericQuantity) || numericQuantity <= 0) return;
 
     const epoch = ++evaluationEpoch.current;
     transformationEpoch.current += 1;
@@ -463,6 +466,8 @@ export default function MealPlanFitPanel({
               min="0.01"
               step="0.01"
               type="number"
+              aria-invalid={quantity.length > 0 && !quantityValid}
+              aria-describedby={quantity.length > 0 && !quantityValid ? "nf-plan-fit-quantity-help" : undefined}
               value={quantity}
               onChange={(event) => {
                 setQuantity(event.target.value);
@@ -473,11 +478,12 @@ export default function MealPlanFitPanel({
             />
             <span>{planFitUnitLabel(composition?.reference_unit, locale, quantity)}</span>
           </div>
+          {quantity.length > 0 && !quantityValid ? <small id="nf-plan-fit-quantity-help" role="status">{copy.quantityInvalid}</small> : null}
         </label>
 
         <button
           className="button primary"
-          disabled={busy || !selectedRecipe || !quantity}
+          disabled={busy || !selectedRecipe || !quantityValid}
           onClick={() => void runEvaluation()}
           type="button"
         >
