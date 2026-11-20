@@ -64,3 +64,9 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - **v2.0.37**: invalidar avaliação e propostas assíncronas quando muda pessoa, data, refeição, receita ou porção. **Exigir CI 3/3 no SHA final**, não declarar patches anteriores validados de modo independente.
 - **Pendentes:** teste E2E com atraso artificial e troca de contexto; referências profissionais por pessoa; comparação nutricional em refeições concretas; inspeção visual zoom 200%, i18n e aceitação manual v2.1.0.
 - Manter o documento de lote `docs/ux/lote-seguinte-drawer-2026-11-19.md` como registo por patch e este roteiro como fonte de prioridade.
+
+## Correção durante validação do lote 2.0.35–2.0.37 (20 novembro 2026)
+
+- No SHA `ee778989f56d897a5a9cec2865a1c64ab857f21c`, o Web CI falhou por **TypeScript TS2352 num fixture parcial** dos testes da composição da porção (cast direto de objeto parcial para `MealPlanFitResult`).
+- Corrigido o teste com cast explícito `unknown`, mantendo a tipagem de produção; a apresentação nutricional passa ainda a tratar strings vazias como **dados desconhecidos**, e não zero. Teste adicional para esse caso.
+- Publicados commits corretivos `8aa8208`, `33eeae5` e `cefae3d`. **Não marcar a entrega como aprovada** sem os três gates verdes no último SHA.
