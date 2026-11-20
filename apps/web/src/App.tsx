@@ -196,10 +196,16 @@ export default function App() {
           <span className="side-nav__ai-heading"><Icon name="spark"/><strong>{locale === "pt-PT" ? "Inteligência à mesa" : "Intelligence at the table"}</strong></span>
           <span>{locale === "pt-PT" ? "Interpretar. Aprender. Explicar." : "Interpret. Learn. Explain."}</span>
         </button>
-        <div className="side-nav__family">
-          <span>{t("shell.family")}</span>
-          <strong>{familyName}</strong>
-        </div>
+        <button className="side-nav__family" type="button" onClick={() => setView("more")}
+          aria-label={locale === "pt-PT" ? `Gerir o espaço: ${familyName}` : `Manage family space: ${familyName}`}>
+          <span className="side-nav__family-avatar" aria-hidden="true">
+            {familyName.trim().split(/\\s+/).at(-1)?.charAt(0).toUpperCase() || "F"}
+          </span>
+          <span className="side-nav__family-copy">
+            <strong>{familyName}</strong>
+            <small>{locale === "pt-PT" ? "Gerir o nosso espaço" : "Manage our space"}</small>
+          </span>
+        </button>
       </aside>
 
       <div className="shell-content">
