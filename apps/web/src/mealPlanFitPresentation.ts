@@ -203,3 +203,13 @@ export function planFitMatchesRequest(
     && Number.isFinite(responseQuantity)
     && Math.abs(requestQuantity-responseQuantity)<1e-8;
 }
+
+/** A numeric fit is not a certification when evidence is incomplete or conflicting. */
+export function planFitHasOpenEvidence(result:MealPlanFitResult):boolean {
+  const coverage=planFitEvidenceSummary(result);
+  return coverage.evaluated===0 || coverage.unknown>0 ||
+    coverage.unevaluatedGuidelines>0 ||
+    result.nutrition_plan_authority.state!=="active_plan" ||
+    result.status==="unknown" || result.status==="partial" ||
+    result.status==="conflict" || result.conflicts.length>0;
+}
