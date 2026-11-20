@@ -73,6 +73,7 @@ describe("Plan-Fit presentation localization", () => {
         protein:{value:"18.4",unit:"g"},
         fiber:{value:"2.0",unit:"g"},
         unknown:{value:"not-a-number",unit:"g"},
+        blank:{value:"",unit:"g"},
       }}},
     } as unknown as MealPlanFitResult;
     expect(planFitCandidateNutrition(result)).toEqual({
