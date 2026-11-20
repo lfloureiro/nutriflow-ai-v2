@@ -43,7 +43,6 @@ import {
   recommendationSourceKinds,
   type RecommendationSource,
 } from "./recommendationPlanning";
-import "./weekly-matrix.css";
 
 export function guidedMealSources(meal: MealType, configured?: Partial<Record<MealType,"home"|"delivery"|"restaurant">>): RecommendationSource[] {
   const source=configured?.[meal] ?? (configured && meal==="lunch" ? "delivery":"home");
