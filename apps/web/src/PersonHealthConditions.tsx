@@ -5,6 +5,7 @@ import {
   type ConditionEvent, type ConditionInput, type HealthCondition,
 } from "./api/dietaryReviewClient";
 import { useI18n } from "./i18n";
+import { conditionEvidenceSummary } from "./conditionEvidence";
 import "./dietary-review.css";
 
 const empty: ConditionInput = {
@@ -79,6 +80,7 @@ export default function PersonHealthConditions({familyId, personId}: {familyId: 
   return <section className="dietary-review" aria-busy={loading || busy}>
     <header><h2>{pt ? "Doenças e condições de saúde" : "Diseases and health conditions"}</h2>
       <p>{pt ? "Histórico individual com origem, datas e revisões. O registo de uma condição não ativa uma dieta nem altera receitas." : "Individual history with source, dates and revisions. Recording a condition does not activate a diet or change recipes."}</p>
+      <p className="dietary-help">{pt ? "A origem e o estado são informações registadas, não uma verificação clínica automática. As restrições alimentares exigem orientação específica." : "Source and status are recorded information, not automatic clinical verification. Dietary restrictions require specific guidance."}</p>
       <button type="button" disabled={busy} onClick={() => openForm(empty)}>{pt ? "Adicionar condição" : "Add condition"}</button></header>
     {error && <p role="alert">{error} <button type="button" onClick={() => setRevision(x => x + 1)}>{pt ? "Recarregar" : "Reload"}</button></p>}
     {loading ? <p role="status">{pt ? "A carregar…" : "Loading…"}</p> : !rows.length && !error ? <p>{pt ? "Sem condições registadas." : "No conditions recorded."}</p> : null}
@@ -101,7 +103,14 @@ export default function PersonHealthConditions({familyId, personId}: {familyId: 
     {rows.map(row => <article className="dietary-card" key={row.id}>
       <h3>{row.name} <span className="dietary-badge">{statuses[row.status]}</span></h3>
       <p>{sources[row.source]}{row.source_reference ? ` · ${row.source_reference}` : ""} · {pt ? "Revisão" : "Revision"} {row.version}</p>
-      {(row.started_on || row.ended_on) && <p>{row.started_on ?? "—"} → {row.ended_on ?? "—"}</p>}
+      <dl className="nf-condition-evidence">
+        <div><dt>{pt ? "Referência da origem" : "Source reference"}</dt><dd>{conditionEvidenceSummary(row).hasSourceReference ? row.source_reference : (pt ? "Não indicada" : "Not provided")}</dd></div>
+        <div><dt>{pt ? "Início conhecido" : "Known start"}</dt><dd>{row.started_on ?? (pt ? "Desconhecido" : "Unknown")}</dd></div>
+        <div><dt>{pt ? "Fim conhecido" : "Known end"}</dt><dd>{row.ended_on ?? (pt ? "Desconhecido" : "Unknown")}</dd></div>
+      </dl>
+      {conditionEvidenceSummary(row).needsProfessionalEvidence ? (
+        <p className="dietary-help" role="note">{pt ? "Confirmação profissional indicada no registo, mas a origem ou a referência apresentada não permite verificá-la aqui." : "Professional confirmation is recorded, but the listed source or reference cannot verify it here."}</p>
+      ) : null}
       {row.notes && <p className="dietary-notes">{row.notes}</p>}
       <div className="dietary-actions">
         <button type="button" disabled={busy} onClick={() => openForm({code: row.code, name: row.name, status: row.status, source: row.source, source_reference: row.source_reference, started_on: row.started_on, ended_on: row.ended_on, notes: row.notes}, row)}>{pt ? "Editar / atualizar estado" : "Edit / update status"}</button>
