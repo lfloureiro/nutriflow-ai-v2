@@ -204,15 +204,17 @@ export default function MealPlanFitPanel({
   personId,
   planningDate,
   dailyNutritionStateId,
+  requestedMealType,
 }: {
   familyId: string;
   personId: string;
   planningDate: string;
   dailyNutritionStateId: string | null;
+  requestedMealType?: PlanningMealType;
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
-  const [mealType, setMealType] = useState<PlanningMealType>("lunch");
+  const [mealType, setMealType] = useState<PlanningMealType>(requestedMealType ?? "lunch");
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [selectedRecipeId, setSelectedRecipeId] = useState("");
   const [quantity, setQuantity] = useState("");
