@@ -1,4 +1,5 @@
 import type { Locale } from "./i18n";
+import type { MealTransformationResult } from "./api/mealTransformationTypes";
 import type { MealPlanFitGuideline, MealPlanFitRule, MealPlanFitResult, PlanFitConflict, PlanFitSource } from "./api/planFitTypes";
 
 const TARGET_LABELS: Record<string, { "pt-PT": string; en: string }> = {
@@ -212,4 +213,18 @@ export function planFitHasOpenEvidence(result:MealPlanFitResult):boolean {
     result.nutrition_plan_authority.state!=="active_plan" ||
     result.status==="unknown" || result.status==="partial" ||
     result.status==="conflict" || result.conflicts.length>0;
+}
+
+/** A proposal response is never automatically applied; it must also describe
+ * the same person, source recipe and portion as the triggering assessment.
+ */
+export function transformationMatchesRequest(
+  response: MealTransformationResult,
+  requested: {personId:string;recipeId:string;planningDate:string;mealType:string;quantity:string},
+): boolean {
+  return response.person_id === requested.personId &&
+    response.recipe_id === requested.recipeId &&
+    response.planning_date === requested.planningDate &&
+    response.meal_type === requested.mealType &&
+    planFitMatchesRequest(response.baseline_fit, requested);
 }
