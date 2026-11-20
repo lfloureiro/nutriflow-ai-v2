@@ -390,3 +390,9 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Frontend marcado v2.0.37. **Gate final obrigatório:** Web CI, API CI e UX E2E verdes no mesmo SHA deste lote. Continuar PR #76 draft, `main` e base familiar real intactos.
 
 **Limites:** ainda falta teste browser específico para respostas deliberadamente atrasadas, visualização ao zoom 200% e revisão transversal de restrições/tolerâncias face a fontes clínicas. Não declarar v2.1.0 pronta só com estes patches.
+
+## Correção durante validação do lote 2.0.35–2.0.37 (20 novembro 2026)
+
+- No SHA `ee778989f56d897a5a9cec2865a1c64ab857f21c`, o Web CI falhou por **TypeScript TS2352 num fixture parcial** dos testes da composição da porção (cast direto de objeto parcial para `MealPlanFitResult`).
+- Corrigido o teste com cast explícito `unknown`, mantendo a tipagem de produção; a apresentação nutricional passa ainda a tratar strings vazias como **dados desconhecidos**, e não zero. Teste adicional para esse caso.
+- Publicados commits corretivos `8aa8208`, `33eeae5` e `cefae3d`. **Não marcar a entrega como aprovada** sem os três gates verdes no último SHA.
