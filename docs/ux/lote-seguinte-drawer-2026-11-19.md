@@ -366,3 +366,27 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Ao existir estado `confirmed` com origem do utilizador ou referência ausente, o ecrã assinala que a confirmação profissional **não pode ser verificada ali**. Mesmo com fonte preenchida, a app não certifica diagnósticos; registar condição não cria automaticamente uma restrição alimentar, receita ou prescrição.
 - Introduzido `conditionEvidenceSummary` com testes unitários de datas desconhecidas, dados de fonte, confirmação declarada e referência insuficiente; layout responsive da evidência.
 - **Frontend v2.0.34**, patch Z; sem alteração na API/schema ou nos dados reais. Exigir Web CI/API CI/UX E2E verdes no SHA final; PR #76 mantém-se draft, `main` intacta e nenhuma solicitação de teste manual antes de v2.1.0.
+
+## Lote consecutivo v2.0.35–v2.0.37 — porções, proveniência e consistência assíncrona (20 novembro 2026)
+
+**Base verificada:** v2.0.34 SHA `aee0e83763f2ee9ffb0909bda40390fd7152bf87` com **Web CI, API CI e UX E2E verdes**.
+
+### v2.0.35 — composição da porção realmente avaliada
+- Em Pessoa → Nutrição → Adequação ao plano, o resultado mostra energia e nutrientes devolvidos pela API para a **porção selecionada**, e não valores de receita integral inferidos ou uma receita genérica.
+- Energia desconhecida é apresentada como desconhecida, **nunca 0 kcal**. Nutrientes não devolvidos não são apresentados como zeros; valores não numéricos são filtrados da grelha.
+- `planFitCandidateNutrition` com regressão unitária para energia e nutrientes em falta; layout responsive em `meal-plan-fit.css`.
+- Frontend marcado v2.0.35; marco intermédio, sem validação independente no SHA final após patches posteriores.
+
+### v2.0.36 — metadados de plano profissional
+- `NutritionPlanAuthorityCard` apresenta referência documental e número da versão de cada plano ativo, com indicação de referência ausente.
+- Aviso claro: declarar um profissional ou uma origem no registo **não equivale a verificar credenciais ou autenticidade**. Validade e cobertura por refeição continuam independentes.
+- `nutritionPlanProvenance` + testes unitários de fonte ausente, referência fornecida e data final opcional. Sem novo esquema, sem alterações de elegibilidade.
+- Frontend marcado v2.0.36; marco intermédio, sem validação independente no SHA final após patches posteriores.
+
+### v2.0.37 — descartar resultados assíncronos de contexto anterior
+- `MealPlanFitPanel` invalida respostas pendentes sempre que mudam pessoa, data, estado nutricional do dia, refeição, receita ou quantidade. A avaliação usa contador de geração para aceitar **só a resposta do contexto atual**.
+- A geração de propostas de transformação usa contador independente, invalidado ao iniciar outra avaliação ou ao alterar qualquer parâmetro. `finally` e erros de pedidos anteriores não alteram a UI atual.
+- Evita resultados e propostas de adaptação desfasados de seleção/porção; o backend e a persistência não mudaram.
+- Frontend marcado v2.0.37. **Gate final obrigatório:** Web CI, API CI e UX E2E verdes no mesmo SHA deste lote. Continuar PR #76 draft, `main` e base familiar real intactos.
+
+**Limites:** ainda falta teste browser específico para respostas deliberadamente atrasadas, visualização ao zoom 200% e revisão transversal de restrições/tolerâncias face a fontes clínicas. Não declarar v2.1.0 pronta só com estes patches.
