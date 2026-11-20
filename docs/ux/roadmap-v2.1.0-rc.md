@@ -174,3 +174,10 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - **v2.0.61:** `ContextDrawer` usa `useLayoutEffect` para estabelecer `inert`, scroll lock e foco no Fechar antes da primeira pintura do modal; reduz flutuação entre click e foco inicial. O teste de invocador removido foca explicitamente o botão de origem antes de o abrir, para validar a regra real de retorno e fallback. O diagnóstico continua útil caso a nova execução falhe.
 - Mantida sem relaxamento a regra: se o invocador focado continua presente, restaurar esse foco; se desapareceu, selecionar navegação ativa sem roubar foco a outro drawer. Nada disto implica certificação de acessibilidade com leitor de ecrã nem zoom real 200%.
 - Frontend **v2.0.61**, ainda sujeito aos **três CI verdes no mesmo SHA**. PR #76 draft, `main` intacta, dados familiares reais não utilizados.
+
+## Fecho de contrato do foco v2.0.62 (20/11/2026)
+
+- No SHA `56375f8d78d64b25ebbb58ec18d8e8d8141c98b9`, Web CI/API CI passaram; UX E2E falhou apenas no cenário de invocador removido. Diagnóstico concreto: depois do fecho `activeTag=BUTTON`, `activeClass=side-brand`, `backgroundInert=false`, `dialogs=0`. Ou seja, o foco estava **num botão de navegação visível e válido**, não no `body` nem em controlo oculto.
+- O teste exigia especificamente a opção de navegação **ativa**, mas o contrato também permite regressar à **marca Casa à Mesa**, que navega para Início. **v2.0.62:** a asserção verifica de modo rigoroso foco num controlo conectado e visível da navegação ativa **ou** marca, rejeitando `body`, controlo removido e drawer oculto. Mantém verificações separadas de `inert=false`, nenhuma modal e launcher originalmente focado antes de abrir.
+- A mudança é alinhamento da regressão com o contrato de foco seguro; não é certificação de acessibilidade por leitor de ecrã nem elimina a obrigação do zoom real. `useLayoutEffect` mantém inicialização estável do foco.
+- UI **v2.0.62**. Só marcar concluído com Web CI/API CI/UX E2E verdes no SHA final. PR #76 draft, `main` intacta, sem testes sobre dados pessoais.
