@@ -696,7 +696,7 @@ export default function FamilyMealsScreen({
           {copy.today}
         </button>
         <button
-          className={mode === "week" ? "active" : ""}
+          className=""
           onClick={() => {
             if(onModeChange("week")===false)return;setEditing(null);
           }}
