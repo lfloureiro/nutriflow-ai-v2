@@ -98,3 +98,10 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - **2.0.44:** validação da pessoa, dia, refeição e quantidade presentes no resultado da avaliação antes de aceitar HTTP 200; mensagens de erro PT/EN e testes.
 - **2.0.45:** evidência incompleta ou conflito marcado como pontuação provisória, nunca certificação clínica/FODMAP. **Aguardar CI do último SHA**.
 - **Resta para o candidato 2.1.0:** inspeção visual real vs. `Casa_a_Mesa_Prototipo.html`, zoom 200%, 320/390/768/1440, light/dark, teclado, i18n, revisão de restrições/tolerâncias e políticas de autenticação/consentimento. Não confundir E2E sintético com inspeção visual manual.
+
+## Correção v2.0.46 — E2E revelou resposta nutricional desatualizada após editar porção (20 novembro 2026)
+
+- No SHA `2b3b2dc5bfdf5844667ec8957733853d40fb3ad9`, **Web CI e API CI passaram** e UX E2E **falhou num cenário novo**, `nutrition: late fit response cannot overwrite a changed portion`, em ambas as tentativas. Os outros 38 testes passaram.
+- A causa foi confirmada no código: o `onChange` da quantidade apagava o resultado visível mas **não incrementava o contador de invalidação**. Assim, uma avaliação HTTP antiga completada após a edição voltava a mostrar a porção anterior.
+- Em v2.0.46, o `onChange` da quantidade passa a chamar `invalidateEvaluation()` para cancelar logicamente tanto a avaliação como propostas de adaptação pendentes. Mantém-se o teste Playwright com HTTP deliberadamente atrasado, sem afrouxar a asserção.
+- Versão web **2.0.46**; exigir Web/API/UX E2E verdes **no mesmo SHA final**, PR #76 draft, `main` intacta. A v2.0.45 não passou 3/3 e não deve ser indicada como validada.
