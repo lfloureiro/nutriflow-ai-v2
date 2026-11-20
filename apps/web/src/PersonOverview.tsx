@@ -17,7 +17,7 @@ import { memberDisplayName } from "./FamilyHome";
 import type { Locale } from "./i18n";
 import { useI18n } from "./i18n";
 import MealPlanFitPanel from "./MealPlanFitPanel";
-import { planningDateInstant } from "./planningDateInstant";
+import { dailyStateMatchesDate, planningDateInstant } from "./planningDateInstant";
 import NutritionPlanAuthorityCard from "./NutritionPlanAuthorityCard";
 import NutritionPlanImportPanel from "./NutritionPlanImportPanel";
 import PersonProfileEditor from "./PersonProfileEditor";
@@ -300,7 +300,7 @@ export default function PersonOverview({
       if (cancelled) return;
       setPerson(personResult);
       setProfile(profileResult);
-      setDailyState(contextResult?.planning_date === dashboard.dashboard_date && contextResult.daily_nutrition_state?.state_date === dashboard.dashboard_date ? contextResult.daily_nutrition_state : null);
+      setDailyState(dailyStateMatchesDate(contextResult, dashboard.dashboard_date) ? contextResult.daily_nutrition_state : null);
     });
     return () => {
       cancelled = true;
