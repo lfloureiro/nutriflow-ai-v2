@@ -744,11 +744,14 @@ export default function WeeklyProposalPreview({
   renderSelectedMeal,
   recipeReviews,
   initialSelection,
+  initialDate,
   onSelectionChange,
   onMealCommitted,
 }: {
   onMealCommitted?:()=>void;
   initialSelection?: {date:string;mealType:MealType} | null;
+  /** Preferred day from the weekly route, even when no meal drawer is open. */
+  initialDate?: string;
   onSelectionChange?: (selection:{date:string;mealType:MealType}|null)=>boolean|void;
   recipeReviews?: ReviewRecipe[];
   renderSelectedMeal?: (context: SelectedMealContext) => ReactNode;
@@ -791,12 +794,13 @@ export default function WeeklyProposalPreview({
   const [shoppingSummary, setShoppingSummary] = useState<ShoppingRefreshSummary | null>(null);
   const [planRefreshWarning, setPlanRefreshWarning] = useState<string | null>(null);
   const [shoppingWarning, setShoppingWarning] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(initialSelection?.date ?? null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(initialSelection?.date ?? initialDate ?? null);
   const [selectedMealType, setSelectedMealType] = useState<MealType | null>(initialSelection?.mealType ?? null);
   useEffect(() => {
     if (initialSelection) setSelectedDate(initialSelection.date);
+    else if (initialDate) setSelectedDate(initialDate);
     setSelectedMealType(initialSelection?.mealType ?? null);
-  }, [initialSelection?.date, initialSelection?.mealType]);
+  }, [initialDate, initialSelection?.date, initialSelection?.mealType]);
   const [adaptationBusy, setAdaptationBusy] = useState(false);
   const [adaptationResult, setAdaptationResult] =
     useState<SharedMealTransformationResult | null>(null);
