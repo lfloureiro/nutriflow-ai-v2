@@ -13,6 +13,7 @@ import {
   planFitConflictMessage,
   planFitCandidateNutrition,
   planFitMatchesRequest,
+  planFitHasOpenEvidence,
   planFitEvidenceSource,
   planFitEvidenceSummary,
   planFitGuidelineExplanation,
@@ -64,6 +65,7 @@ const COPY = {
     coverageGuidelines: "Orientações não avaliadas",
     coverageBlocks: "Bloqueios obrigatórios identificados",
     coverageHelp: "A falta de dados não demonstra segurança ou adequação nutricional. O resultado depende da porção indicada e das fontes efetivamente registadas.",
+    provisionalScore: "Avaliação com evidência incompleta ou não confirmada. A pontuação não equivale a uma certificação nutricional ou FODMAP.",
     evidenceSource: "Origem registada",
     missingSource: "Origem não indicada",
     eligible: "Elegível",
@@ -132,6 +134,7 @@ const COPY = {
     coverageGuidelines: "Unevaluated guidance",
     coverageBlocks: "Identified mandatory blocks",
     coverageHelp: "Missing data does not demonstrate safety or nutritional suitability. Results depend on the selected portion and recorded sources.",
+    provisionalScore: "Some evidence is incomplete or unconfirmed. This score is not a nutrition or FODMAP certification.",
     evidenceSource: "Recorded source",
     missingSource: "Source not supplied",
     eligible: "Eligible",
@@ -513,6 +516,8 @@ export default function MealPlanFitPanel({
               </strong>
             </div>
           </div>
+
+          {planFitHasOpenEvidence(result) ? <p className="plan-fit-provisional" role="note">{copy.provisionalScore}</p> : null}
 
           {portionNutrition ? (
             <section className="plan-fit-portion" aria-label={copy.portionNutrition}>
