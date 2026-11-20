@@ -456,3 +456,8 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - **v2.0.52:** validação da unidade da porção na resposta (`g` vs `serving`), além do valor numérico: a mesma quantidade com unidade diferente não passa a verificação de contexto. Testes unitários da avaliação e do `baseline_fit` das transformações.
 - Frontend **2.0.52**, três patches Z agrupados, sem prova CI independente das versões intermédias. Obrigatório: **Web CI, API CI e UX E2E verdes no SHA final**.
 - PR #76 mantém-se draft, `main` intacta; apenas dados sintéticos e HTTP simulado nos testes, sem mudanças de API/schema nem certificação nutricional/FODMAP inventada.
+
+## Fecho de validação v2.0.52 — 20/11/2026
+
+- **Código e documentação no SHA `3833c18fa8284299ef964607889784a7a58c1ff2`: Web CI, API CI e UX E2E sintético concluídos com sucesso (3/3).** Inclui os novos testes de respostas HTTP 200 de outra pessoa, validação do contrato de transformações e unidade/quantidade.
+- Os três gates aprovam o código do lote; continua pendente a inspeção visual real, zoom 200% e aceitação manual para a candidata v2.1.0. PR #76 mantém-se draft, sem merge ou acesso a dados familiares reais.
