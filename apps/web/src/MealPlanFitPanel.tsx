@@ -12,6 +12,7 @@ import {
   formatPlanFitNumber,
   planFitConflictMessage,
   planFitCandidateNutrition,
+  planFitMatchesRequest,
   planFitEvidenceSource,
   planFitEvidenceSummary,
   planFitGuidelineExplanation,
@@ -90,6 +91,7 @@ const COPY = {
     dinner: "Jantar",
     loadError: "Não foi possível carregar as receitas.",
     evaluateError: "Não foi possível avaliar esta refeição.",
+    responseMismatch: "A avaliação recebida não corresponde à pessoa, data, refeição ou porção selecionada. Volta a avaliar.",
     transformationError: "Não foi possível calcular melhorias para esta refeição.",
   },
   en: {
@@ -157,6 +159,7 @@ const COPY = {
     dinner: "Dinner",
     loadError: "Could not load recipes.",
     evaluateError: "Could not evaluate this meal.",
+    responseMismatch: "The returned assessment does not match the selected person, date, meal or portion. Please evaluate again.",
     transformationError: "Could not calculate improvements for this meal.",
   },
 } as const;
@@ -310,7 +313,10 @@ export default function MealPlanFitPanel({
           quantity_unit: composition.reference_unit,
         },
       });
-      if (epoch === evaluationEpoch.current) setResult(response);
+      if (epoch === evaluationEpoch.current) {
+        if (planFitMatchesRequest(response,{personId,planningDate,mealType,quantity})) setResult(response);
+        else { setResult(null);setError(copy.responseMismatch); }
+      }
     } catch (caught: unknown) {
       if (epoch === evaluationEpoch.current) {
         setResult(null);
