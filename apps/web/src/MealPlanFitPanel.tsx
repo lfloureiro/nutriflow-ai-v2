@@ -227,7 +227,8 @@ export default function MealPlanFitPanel({
   function invalidateEvaluation() {
     evaluationEpoch.current += 1;
     transformationEpoch.current += 1;
-    invalidateEvaluation();
+    setResult(null);
+    setTransformation(null);
     setBusy(false);
     setTransformationBusy(false);
   }
