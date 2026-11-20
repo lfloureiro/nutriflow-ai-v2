@@ -50,7 +50,7 @@ describe("Plan-Fit presentation localization", () => {
     const result={
       rule_results:[passing,unknown,mandatory],
       guideline_results:[{status:"not_evaluated"},{status:"not_evaluated"}],
-    } as MealPlanFitResult;
+    } as unknown as MealPlanFitResult;
     expect(planFitEvidenceSummary(result)).toEqual({
       evaluated:2, unknown:1, unevaluatedGuidelines:2, blocking:1,
     });
@@ -74,14 +74,14 @@ describe("Plan-Fit presentation localization", () => {
         fiber:{value:"2.0",unit:"g"},
         unknown:{value:"not-a-number",unit:"g"},
       }}},
-    } as MealPlanFitResult;
+    } as unknown as MealPlanFitResult;
     expect(planFitCandidateNutrition(result)).toEqual({
       energyKcal:null,
       nutrients:[{key:"fiber",value:"2.0",unit:"g"},{key:"protein",value:"18.4",unit:"g"}],
     });
     expect(planFitCandidateNutrition({
       candidate:{nutrition:{energy_kcal:"350",nutrients:{}}},
-    } as MealPlanFitResult)).toEqual({energyKcal:"350",nutrients:[]});
+    } as unknown as MealPlanFitResult)).toEqual({energyKcal:"350",nutrients:[]});
   });
 
   it("uses PT-PT nutrient labels and units", () => {
