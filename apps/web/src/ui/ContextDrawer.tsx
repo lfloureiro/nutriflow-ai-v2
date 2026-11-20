@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useId, useLayoutEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import "./ContextDrawer.css";
@@ -38,7 +38,7 @@ export default function ContextDrawer({
   const onCloseRef = useRef(onRequestClose);
   onCloseRef.current = onRequestClose;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
     // The drawer is portaled outside #root, so the rest of the app is not interactive.
