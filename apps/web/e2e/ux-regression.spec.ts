@@ -352,6 +352,29 @@ test("nutrition: successful HTTP response for another person is rejected",async 
   await expect(evaluator.locator(".plan-fit-result")).toHaveCount(0);
 });
 
+test("switching a person through the app route clears their previous nutrition section",async ({page,request})=>{
+  const fixture=await seed(request);
+  const other=await postJson<{id:string}>(request,`/families/${fixture.family.id}/persons`,{
+    first_name:"Segundo membro QA",last_name:null,birth_date:null,
+    preferred_locale:"pt-PT",timezone:"Europe/Lisbon",meal_discovery:null,
+  });
+  await openFamily(page,fixture.family.id,`/#/people?person=${fixture.person.id}`);
+  const drawer=page.getByRole("dialog");
+  await expect(drawer).toHaveCount(1);
+  await drawer.getByRole("button",{name:"Nutrição",exact:true}).click();
+  await expect(drawer.getByRole("button",{name:"Nutrição",exact:true})).toHaveAttribute("aria-current","page");
+  // Exercise an in-app route update while the same dialog stays mounted:
+  // a full page reload would hide the state-leak regression.
+  await page.evaluate(id=>{
+    window.history.pushState(null,"",`#/people?person=${id}`);
+    window.dispatchEvent(new Event("nf-route"));
+  },other.id);
+  await expect(drawer).toHaveCount(1);
+  await expect(drawer).toContainText("Segundo membro QA");
+  await expect(drawer.getByRole("button",{name:"Visão geral",exact:true})).toHaveAttribute("aria-current","page");
+  await expect(drawer.getByRole("button",{name:"Nutrição",exact:true})).not.toHaveAttribute("aria-current","page");
+});
+
 test("catalogue and person details open once over their parent list",async ({page,request})=>{
   const fixture=await seed(request);
   await page.setViewportSize({width:1280,height:860});
