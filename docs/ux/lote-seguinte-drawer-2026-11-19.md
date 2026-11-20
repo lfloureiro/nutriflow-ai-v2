@@ -470,3 +470,10 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - **v2.0.55 — alvo de interação e foco visível:** botão Fechar passa a 44×44 CSS px, com `touch-action: manipulation`; `summary:focus-visible` recebe contorno explícito. Regressão de reflow já existente a 640 CSS px e 320×550 confirma a dimensão do alvo, sem scroll horizontal ou cabeçalho cortado.
 - Frontend **v2.0.55**, três incrementos Z agrupados, sem CI independente para os marcadores intermédios. Exigir **Web CI/API CI/UX E2E verdes no SHA final**.
 - A auditoria com zoom **real** do browser, tecnologia de assistência e comparação visual com protótipo continua **pendente** e não pode ser inferida destes testes. PR #76 draft; `main`, API/schema e dados familiares reais não foram alterados.
+
+## Correção v2.0.56 — verificações de acessibilidade encontraram problemas no ciclo do drawer (20/11/2026)
+
+- No SHA `ca796e085b315da1226dabb72d506a2cac9f4056`, **Web CI e API CI passaram**. UX E2E **falhou em 2 testes novos**: `summary` de demonstração injetado *fora* do corpo rolável (num filho do flex panel com clipping) não recebia foco; restauro de foco de um invocador removido ocorria no cleanup do efeito antes do fim da remoção do portal.
+- **Teste disclosure corrigido sem o eliminar:** o `details` sintético é introduzido no início do corpo realmente rolável; valida Tab de Fechar para `summary`, Enter, Tab ao controlo expandido, Shift+Tab e fecho.
+- **Restauro de foco corrigido no produto:** `requestAnimationFrame` espera a desmontagem completa do portal, repõe o foco no invocador ainda presente ou na navegação primária se já não existir; evita reenviar foco se entretanto abrir outro drawer.
+- Versão web **2.0.56** (patch Z). Exigir **Web CI, API CI e UX E2E 3/3 verdes no SHA final** antes de declarar o lote validado. PR #76 draft, `main` e dados reais intactos.
