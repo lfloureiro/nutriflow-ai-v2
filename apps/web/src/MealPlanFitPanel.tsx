@@ -13,6 +13,7 @@ import {
   planFitConflictMessage,
   planFitCandidateNutrition,
   planFitMatchesRequest,
+  transformationMatchesRequest,
   planFitHasOpenEvidence,
   planFitEvidenceSource,
   planFitEvidenceSummary,
@@ -96,6 +97,7 @@ const COPY = {
     evaluateError: "Não foi possível avaliar esta refeição.",
     responseMismatch: "A avaliação recebida não corresponde à pessoa, data, refeição ou porção selecionada. Volta a avaliar.",
     transformationError: "Não foi possível calcular melhorias para esta refeição.",
+    transformationMismatch: "As propostas recebidas já não correspondem à receita, à pessoa ou à porção selecionada. Volta a pedir sugestões.",
   },
   en: {
     title: "Plan fit",
@@ -166,6 +168,7 @@ const COPY = {
     evaluateError: "Could not evaluate this meal.",
     responseMismatch: "The returned assessment does not match the selected person, date, meal or portion. Please evaluate again.",
     transformationError: "Could not calculate improvements for this meal.",
+    transformationMismatch: "The proposals no longer match the selected recipe, person or portion. Request new suggestions.",
   },
 } as const;
 
@@ -348,7 +351,10 @@ export default function MealPlanFitPanel({
         daily_nutrition_state_id: dailyNutritionStateId,
         max_proposals: 5,
       });
-      if (epoch === transformationEpoch.current) setTransformation(response);
+      if (epoch === transformationEpoch.current) {
+        if (transformationMatchesRequest(response,{personId,recipeId:selectedRecipe.id,planningDate,mealType,quantity})) setTransformation(response);
+        else {setTransformation(null);setError(copy.transformationMismatch);}
+      }
     } catch (caught: unknown) {
       if (epoch === transformationEpoch.current) {
         setTransformation(null);
