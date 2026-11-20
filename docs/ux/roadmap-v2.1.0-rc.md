@@ -199,3 +199,9 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - Referência direta: `Casa_a_Mesa_Prototipo(1).html`, seletor `.overlay`, `background:#0d1d184d`; regra de escuro `rgba(8,8,10,.68)` já corrigida em v2.0.63.
 - A `.nf-context-overlay` usa agora a mesma cor e transparência exatas do protótipo em tema claro. Não altera largura, montagem, interações, transições, API ou base de dados.
 - A correspondência visual real dos ecrãs ainda **não foi certificada**: capturas comparativas 1440/390, 1024/768 e zoom real 200% continuam pendentes de observação. O PR #76 permanece draft; CI 3/3 necessário no SHA final.
+
+## v2.0.65 — hierarquia dos cabeçalhos dos drawers (20/11/2026)
+
+- O HTML de referência `Casa_a_Mesa_Prototipo(1).html` apresenta eyebrow de 10 px, 1,8 px letter-spacing e margem de 9 px antes do título no cabeçalho do drawer. O componente partilhado da aplicação não tinha esse nível.
+- `ContextDrawer` mantém o título acessível via `aria-labelledby` e passa a apresentá-lo sob o rótulo visual `NutriFlow AI · Casa à Mesa` (não usa a expressão «demonstração» do protótipo académico). Cor `--color-muted` existente e tamanhos limitados a CSS do cabeçalho; botões Fechar com alvo 44 px e funcionalidade inalterados.
+- Não existe comparação por screenshot nem zoom real 200% validado neste patch. Verificar os três CI no SHA final; PR #76 draft, main e dados reais sem alterações.
