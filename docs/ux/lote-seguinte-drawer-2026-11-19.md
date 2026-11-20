@@ -427,3 +427,10 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - **v2.0.45 — resultados provisórios:** a pontuação ganha nota explícita de **evidência incompleta/não certificação** quando há regras desconhecidas, orientações não avaliadas, plano ausente/parcial/conflituoso ou zero regras avaliadas. `planFitHasOpenEvidence` e testes unitários, acessibilidade e CSS neutro responsivo.
 - O resultado mantém a decisão/score do backend como fornecido, sem calcular ou inventar segurança FODMAP, nutrição ou validação clínica. Interface **v2.0.45**; versões intermédias agrupadas, sem provas CI separadas.
 - **Obrigatório:** Web CI, API CI e UX E2E verdes **no SHA final**. PR #76 draft, `main` e dados familiares reais intactos. Sem solicitação de teste manual até v2.1.0.
+
+## Correção v2.0.46 — E2E revelou resposta nutricional desatualizada após editar porção (20 novembro 2026)
+
+- No SHA `2b3b2dc5bfdf5844667ec8957733853d40fb3ad9`, **Web CI e API CI passaram** e UX E2E **falhou num cenário novo**, `nutrition: late fit response cannot overwrite a changed portion`, em ambas as tentativas. Os outros 38 testes passaram.
+- A causa foi confirmada no código: o `onChange` da quantidade apagava o resultado visível mas **não incrementava o contador de invalidação**. Assim, uma avaliação HTTP antiga completada após a edição voltava a mostrar a porção anterior.
+- Em v2.0.46, o `onChange` da quantidade passa a chamar `invalidateEvaluation()` para cancelar logicamente tanto a avaliação como propostas de adaptação pendentes. Mantém-se o teste Playwright com HTTP deliberadamente atrasado, sem afrouxar a asserção.
+- Versão web **2.0.46**; exigir Web/API/UX E2E verdes **no mesmo SHA final**, PR #76 draft, `main` intacta. A v2.0.45 não passou 3/3 e não deve ser indicada como validada.
