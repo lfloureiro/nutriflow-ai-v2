@@ -461,3 +461,12 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 
 - **Código e documentação no SHA `3833c18fa8284299ef964607889784a7a58c1ff2`: Web CI, API CI e UX E2E sintético concluídos com sucesso (3/3).** Inclui os novos testes de respostas HTTP 200 de outra pessoa, validação do contrato de transformações e unidade/quantidade.
 - Os três gates aprovam o código do lote; continua pendente a inspeção visual real, zoom 200% e aceitação manual para a candidata v2.1.0. PR #76 mantém-se draft, sem merge ou acesso a dados familiares reais.
+
+## Entrega agrupada v2.0.53–v2.0.55 — acessibilidade real dos drawers (20 novembro 2026)
+
+- **Baseline:** v2.0.52, SHA `d06f402a9bfb398084ef91e26a46da09cfb79b6c`, obteve **Web CI, API CI e UX E2E sintético verdes (3/3)**.
+- **v2.0.53 — navegação em disclosures:** o ciclo de Tab/Shift+Tab de `ContextDrawer` passa a incluir `<summary>` de secções `<details>` e campos `contenteditable`, que antes podiam ser omitidos do foco apesar de serem controles nativos. E2E com `details` sintético aberto/fechado confirma Summary → botão expandido → Summary e wrap ao Fechar.
+- **v2.0.54 — restauro de foco resiliente:** ao fechar um drawer cujo elemento invocador já desapareceu por filtro/atualização, o foco regressa à navegação primária ativa ou à marca, em vez de ficar perdido no `body`. A manutenção habitual de foco sobre invocadores existentes permanece inalterada. E2E simula remoção sintética do botão invocador sem persistir alterações na base.
+- **v2.0.55 — alvo de interação e foco visível:** botão Fechar passa a 44×44 CSS px, com `touch-action: manipulation`; `summary:focus-visible` recebe contorno explícito. Regressão de reflow já existente a 640 CSS px e 320×550 confirma a dimensão do alvo, sem scroll horizontal ou cabeçalho cortado.
+- Frontend **v2.0.55**, três incrementos Z agrupados, sem CI independente para os marcadores intermédios. Exigir **Web CI/API CI/UX E2E verdes no SHA final**.
+- A auditoria com zoom **real** do browser, tecnologia de assistência e comparação visual com protótipo continua **pendente** e não pode ser inferida destes testes. PR #76 draft; `main`, API/schema e dados familiares reais não foram alterados.
