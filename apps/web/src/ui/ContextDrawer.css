@@ -5,7 +5,7 @@
   z-index: 1000;
   display: flex;
   justify-content: flex-end;
-  background: color-mix(in srgb, var(--color-bg) 34%, transparent);
+  background: rgba(13, 29, 24, 0.30);
   backdrop-filter: blur(4px);
 }
 /* Match the approved prototype's deeper modal scrim in dark mode. */
