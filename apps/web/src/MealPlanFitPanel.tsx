@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ApiError, listFamilyRecipes } from "./api/client";
 import { proposeMealTransformations } from "./api/mealTransformationClient";
@@ -222,6 +222,20 @@ export default function MealPlanFitPanel({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<MealPlanFitResult | null>(null);
   const [transformation, setTransformation] = useState<MealTransformationResult | null>(null);
+  const evaluationEpoch = useRef(0);
+  const transformationEpoch = useRef(0);
+  function invalidateEvaluation() {
+    evaluationEpoch.current += 1;
+    transformationEpoch.current += 1;
+    invalidateEvaluation();
+    setBusy(false);
+    setTransformationBusy(false);
+  }
+  useEffect(() => {
+    // Switching people, dates or daily states invalidates in-flight API responses.
+    invalidateEvaluation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personId, planningDate, dailyNutritionStateId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -256,14 +270,12 @@ export default function MealPlanFitPanel({
     if (!next) {
       setSelectedRecipeId("");
       setQuantity("");
-      setResult(null);
-      setTransformation(null);
+      invalidateEvaluation();
       return;
     }
     if (!current) setSelectedRecipeId(next.id);
     setQuantity(initialQuantity(next));
-    setResult(null);
-    setTransformation(null);
+    invalidateEvaluation();
   }, [availableRecipes, selectedRecipeId]);
 
   const selectedRecipe = availableRecipes.find((recipe) => recipe.id === selectedRecipeId) ?? null;
@@ -274,6 +286,8 @@ export default function MealPlanFitPanel({
     const numericQuantity = Number(quantity);
     if (!Number.isFinite(numericQuantity) || numericQuantity <= 0) return;
 
+    const epoch = ++evaluationEpoch.current;
+    transformationEpoch.current += 1;
     setBusy(true);
     setError(null);
     setTransformation(null);
@@ -289,17 +303,20 @@ export default function MealPlanFitPanel({
           quantity_unit: composition.reference_unit,
         },
       });
-      setResult(response);
+      if (epoch === evaluationEpoch.current) setResult(response);
     } catch (caught: unknown) {
-      setResult(null);
-      setError(errorText(caught, copy.evaluateError));
+      if (epoch === evaluationEpoch.current) {
+        setResult(null);
+        setError(errorText(caught, copy.evaluateError));
+      }
     } finally {
-      setBusy(false);
+      if (epoch === evaluationEpoch.current) setBusy(false);
     }
   }
 
   async function runTransformations() {
     if (!selectedRecipe || !composition || !result) return;
+    const epoch = ++transformationEpoch.current;
     setTransformationBusy(true);
     setError(null);
     try {
@@ -312,12 +329,14 @@ export default function MealPlanFitPanel({
         daily_nutrition_state_id: dailyNutritionStateId,
         max_proposals: 5,
       });
-      setTransformation(response);
+      if (epoch === transformationEpoch.current) setTransformation(response);
     } catch (caught: unknown) {
-      setTransformation(null);
-      setError(errorText(caught, copy.transformationError));
+      if (epoch === transformationEpoch.current) {
+        setTransformation(null);
+        setError(errorText(caught, copy.transformationError));
+      }
     } finally {
-      setTransformationBusy(false);
+      if (epoch === transformationEpoch.current) setTransformationBusy(false);
     }
   }
 
@@ -388,8 +407,7 @@ export default function MealPlanFitPanel({
             value={mealType}
             onChange={(event) => {
               setMealType(event.target.value as PlanningMealType);
-              setResult(null);
-              setTransformation(null);
+              invalidateEvaluation();
             }}
           >
             {MEAL_TYPES.map((item) => (
@@ -410,8 +428,7 @@ export default function MealPlanFitPanel({
               setSelectedRecipeId(nextId);
               const nextRecipe = availableRecipes.find((recipe) => recipe.id === nextId);
               if (nextRecipe) setQuantity(initialQuantity(nextRecipe));
-              setResult(null);
-              setTransformation(null);
+              invalidateEvaluation();
             }}
           >
             {availableRecipes.map((recipe) => (
