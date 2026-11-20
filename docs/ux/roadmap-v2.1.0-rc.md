@@ -110,3 +110,11 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 
 - **SHA `a411eb9162deb93054a81eed7bf14ace6e05d00a`: Web CI, API CI e UX E2E sintético concluídos com sucesso (3/3).** O E2E novo de resposta tardia após alterar a porção passou sem enfraquecer a asserção.
 - A correção v2.0.46 permanece no PR #76 draft; `main` intacta. Esta validação não substitui a auditoria visual, o zoom 200% nem a aceitação manual previstos para v2.1.0.
+
+## Lote v2.0.47–v2.0.49 — 20/11/2026
+
+- **v2.0.46:** três CI **verdes** no SHA `6355d48db5583ad5d8bf68c8949ce9c4c8496d89`.
+- **v2.0.47:** testes sintéticos de reflow do drawer a 640 CSS px (proxy para zoom 200%, não zoom verdadeiro) e 320×550; foco visível, scroll do corpo, Escape/foco restaurado, CSS adaptativo.
+- **v2.0.48:** impedir avaliação de porções inválidas/negativas com ajuda acessível PT/EN; regressão Playwright.
+- **v2.0.49:** smoke sintético do perfil em inglês e tema escuro, drawer único e persistência das preferências; testes ainda sujeitos a CI do último SHA.
+- **Pendências de release candidate:** screenshots comparativas reais com `Casa_a_Mesa_Prototipo.html`, zoom **real** do browser a 200%, teclado/leitor de ecrã, cobertura P0/P1 de navegação, verificação de restrições/tolerâncias e controlo de acesso, checklist manual v2.1.0. Não declarar pronto antes de evidência e CI 3/3 no SHA final.
