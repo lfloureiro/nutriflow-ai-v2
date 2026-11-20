@@ -55,3 +55,12 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - **v2.0.33:** três gates **verdes** no SHA `c5fc2e4432deb933016fcc7b426f00b3759129e0`. Evidência de adequação nutricional separa regras avaliadas, desconhecidas e fontes registadas.
 - **v2.0.34:** saúde individual apresenta origem e intervalos temporais explicitamente desconhecidos quando em falta e avisa quando um estado de confirmação profissional não dispõe de referência verificável. Testes unitários e CSS responsivo incluídos. **Validação do SHA final ainda pendente.**
 - **Pendentes prioritários:** ligar a seleção contextual da refeição à avaliação individual; comparar porções com orientação profissional efetiva; distinguir tolerâncias declaradas de restrições médicas; rever zoom 200% e equivalência visual com o protótipo antes do RC.
+
+## Entrega agrupada — 20/11/2026, versões 2.0.35 a 2.0.37
+
+- **v2.0.34**: Web CI, API CI, UX E2E **3/3 aprovados** no SHA `aee0e83763f2ee9ffb0909bda40390fd7152bf87`.
+- **v2.0.35**: composição energética/nutricional da porção avaliada sem preencher nutrientes desconhecidos. Teste unitário e CSS responsive.
+- **v2.0.36**: fonte, referência documental e versão dos planos profissionais, distinguindo fonte declarada de verificação profissional. Teste unitário e CSS.
+- **v2.0.37**: invalidar avaliação e propostas assíncronas quando muda pessoa, data, refeição, receita ou porção. **Exigir CI 3/3 no SHA final**, não declarar patches anteriores validados de modo independente.
+- **Pendentes:** teste E2E com atraso artificial e troca de contexto; referências profissionais por pessoa; comparação nutricional em refeições concretas; inspeção visual zoom 200%, i18n e aceitação manual v2.1.0.
+- Manter o documento de lote `docs/ux/lote-seguinte-drawer-2026-11-19.md` como registo por patch e este roteiro como fonte de prioridade.
