@@ -176,11 +176,11 @@ export function planFitCandidateNutrition(result: MealPlanFitResult): {
 } {
   const energy=result.candidate.nutrition.energy_kcal;
   const nutrients=Object.entries(result.candidate.nutrition.nutrients)
-    .filter(([,entry])=>entry && Number.isFinite(Number(entry.value)))
+    .filter(([,entry])=>entry && entry.value?.trim() !== "" && Number.isFinite(Number(entry.value)))
     .map(([key,entry])=>({key,value:entry.value,unit:entry.unit}))
     .sort((a,b)=>a.key.localeCompare(b.key));
   return {
-    energyKcal: energy !== null && Number.isFinite(Number(energy)) ? energy : null,
+    energyKcal: energy !== null && energy.trim() !== "" && Number.isFinite(Number(energy)) ? energy : null,
     nutrients,
   };
 }
