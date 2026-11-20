@@ -1,6 +1,6 @@
 /* Canonical Casa à Mesa shell: one visual contract for EVERY route.
    Measured from Casa_a_Mesa_High_Fidelity.html, 20 Nov 2026.
-   Route-specific app-shell--meals remains limited to the main canvas. */
+   Route-specific selectors remain limited to the main weekly canvas. */
 @media (min-width: 761px) {
   .side-nav {
     width: 230px;
