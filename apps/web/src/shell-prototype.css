@@ -67,3 +67,118 @@
     backdrop-filter: none;
   }
 }
+
+/* Screenshot-approved composite target, 1536x1024, 20 Nov 2026.
+   The following optical treatment is shared by every desktop screen.
+   Dark gradients are intentionally distinct from the original flat HTML. */
+:root[data-theme="dark"] {
+  --nf-optical-ink: #f7f4f3;
+  --nf-optical-gold: #f4bc76;
+  --nf-optical-edge: #494549;
+  --nf-optical-glow: 0 0 22px #f4bc7614;
+  --nf-optical-shadow: 0 20px 55px #00000052;
+}
+:root[data-theme="dark"] body,
+:root[data-theme="dark"] .app-shell,
+:root[data-theme="dark"] .shell-content {
+  background:
+    radial-gradient(ellipse 75% 48% at 74% -10%, #332c2c55, transparent 76%),
+    radial-gradient(ellipse 80% 75% at 75% 115%, #29232b36, transparent 82%),
+    #151518;
+}
+@media (min-width: 1300px) {
+  .side-nav {
+    width: 320px;
+    padding: 48px 22px 26px;
+    gap: 48px;
+  }
+  .shell-content { margin-left: 320px; }
+  .nf-brand-mark { width: 60px; height: 60px; border-radius: 16px; }
+  .nf-brand-mark .nf-icon { width: 30px; height: 30px; }
+  .nf-brand-name { font-size: 29px; letter-spacing: -1.3px; }
+  .nf-brand-name small { font-size: 16px; letter-spacing: 0; }
+  .nf-brand-version { font-size: 12px; }
+  .primary-nav { gap: 3px; }
+  .primary-nav .nav-item {
+    grid-template-columns: 31px minmax(0,1fr);
+    gap: 19px;
+    min-height: 66px;
+    padding: 14px 20px;
+    border-radius: 16px;
+    font-size: 20px;
+    font-weight: 500;
+  }
+  .primary-nav .nav-icon { width: 29px; height: 29px; }
+  .primary-nav .nav-icon .nf-icon { width: 28px; height: 28px; }
+  .side-nav__ai {
+    min-height: 166px;
+    padding: 22px 25px;
+    border-radius: 24px;
+    gap: 12px;
+  }
+  .side-nav__ai-heading { font-size: 20px; gap: 17px; line-height: 1.3; }
+  .side-nav__ai-heading .nf-icon { width: 40px; height: 40px; flex-basis: 40px; }
+  .side-nav__ai > span:last-child { font-size: 17px; line-height: 1.6; }
+  .side-nav__family {
+    border-top: 1px solid var(--color-border);
+    padding: 30px 6px 12px;
+  }
+  .side-nav__family span { font-size: 14px; letter-spacing: .03em; }
+  .side-nav__family strong { font-size: 18px; }
+}
+:root[data-theme="dark"] .side-nav {
+  background:
+    radial-gradient(ellipse at 18% 0%, #333030ab, transparent 60%),
+    linear-gradient(165deg, #242326 0%, #1c1b1f 65%, #211e23 100%);
+  border-right-color: #3a3539;
+  box-shadow: 8px 0 35px #00000022;
+}
+:root[data-theme="dark"] .nf-brand-mark {
+  background: linear-gradient(138deg, #e5b37e 0%, #d29a67 100%);
+  color: #252024;
+  box-shadow: inset 0 1px #fff3, 0 8px 27px #b9783f22;
+}
+:root[data-theme="dark"] .nf-brand-name {
+  color: #faf8f8;
+  text-shadow: 0 1px 9px #fff2;
+}
+:root[data-theme="dark"] .primary-nav .nav-item {
+  color: #e4dfe0;
+  text-shadow: 0 0 15px #ffffff08;
+}
+:root[data-theme="dark"] .primary-nav .nav-item.active {
+  color: #f1bd86;
+  background: linear-gradient(111deg, #654b33d9, #513c31ba);
+  box-shadow: inset 0 1px 0 #f7c78818, 0 4px 20px #00000018;
+  font-weight: 700;
+}
+:root[data-theme="dark"] .primary-nav .nav-item.active .nav-icon {
+  background: transparent;
+  color: inherit;
+}
+:root[data-theme="dark"] .side-nav__ai {
+  background:
+    radial-gradient(ellipse at 15% 0%, #7c5c4155, transparent 65%),
+    linear-gradient(140deg, #302a2b 0%, #282428 75%);
+  border-color: #77685f;
+  box-shadow: inset 0 1px 0 #ffffff12, 0 18px 30px #00000018;
+}
+:root[data-theme="dark"] .side-nav__ai-heading .nf-icon { color: #f7b65f; filter: drop-shadow(0 0 9px #e6a35444); }
+:root[data-theme="dark"] .side-nav__family {
+  background: transparent;
+  color: #f8f6f5;
+}
+:root[data-theme="dark"] .shell-topbar {
+  background: linear-gradient(90deg, #211f23ee, #1a191dee);
+  border-bottom-color: #3a3539;
+}
+:root[data-theme="dark"] .shell-topbar strong,
+:root[data-theme="dark"] .screen-header h1 { color: #f7f4f3; }
+@media (max-width: 1299px) and (min-width: 761px) {
+  .side-nav { width: 230px; }
+  .shell-content { margin-left: 230px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .primary-nav .nav-item,
+  .side-nav__ai { transition: none; }
+}
