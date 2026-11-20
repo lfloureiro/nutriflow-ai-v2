@@ -17,3 +17,10 @@ export function planningDateInstant(day: string, timeZone: string): string {
   const mins = String(Math.abs(minutes) % 60).padStart(2, "0");
   return `${day}T12:00:00${sign}${hours}:${mins}`;
 }
+
+/** Never reuse a nutrition state returned for another calendar day. */
+export function dailyStateMatchesDate<T extends {planning_date:string;daily_nutrition_state:{state_date:string}|null}>(
+  context:T|null, day:string,
+): context is T & {daily_nutrition_state:NonNullable<T["daily_nutrition_state"]>} {
+  return context?.planning_date === day && context.daily_nutrition_state?.state_date === day;
+}
