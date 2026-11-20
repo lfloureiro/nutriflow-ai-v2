@@ -235,6 +235,30 @@ test("substitution review keeps its recipe list behind one contextual drawer",as
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
+test("person meal shortcut selects meal type but requires explicit recipe and preserves person drawer",async ({page,request})=>{
+  const fixture=await seed(request);
+  const dashboard=await getJson<{dashboard_date:string}>(request,`/families/${fixture.family.id}/dashboard`);
+  await postJson(request,`/families/${fixture.family.id}/meal-plan`,{
+    date:dashboard.dashboard_date,meal_type:"dinner",local_time:"20:00",
+    recipe_id:fixture.recipe.id,participants:[{person_id:fixture.person.id,quantity:"1",unit:"serving"}],
+    location:null,notes:null,
+  });
+  await page.setViewportSize({width:390,height:844});
+  await openFamily(page,fixture.family.id,"/#/people");
+  await page.getByRole("button",{name:/Pessoa QA/}).first().click();
+  const person=page.getByRole("dialog");
+  await expect(person).toHaveCount(1);
+  await person.getByRole("button",{name:"Avaliar porção no plano"}).click();
+  await expect(person.getByRole("heading",{name:"Nutrição"})).toBeVisible();
+  await expect(person.getByText("Refeição selecionada para avaliação: Prato sintético QA")).toBeVisible();
+  await expect(person.locator(".plan-fit-controls select").first()).toHaveValue("dinner");
+  await expect(person.locator(".plan-fit-controls__recipe select")).toHaveValue("");
+  await expect(person.getByRole("button",{name:"Avaliar",exact:true})).toBeDisabled();
+  await person.getByRole("button",{name:"Limpar seleção"}).click();
+  await expect(person.getByText("Refeição selecionada para avaliação: Prato sintético QA")).toHaveCount(0);
+  await expect(person).toHaveCount(1);
+});
+
 test("catalogue and person details open once over their parent list",async ({page,request})=>{
   const fixture=await seed(request);
   await page.setViewportSize({width:1280,height:860});
