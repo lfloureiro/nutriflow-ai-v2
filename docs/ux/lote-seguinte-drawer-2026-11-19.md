@@ -409,3 +409,12 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 
 - **Código + documentação** no SHA `55c0626cbc97aeab71b35debc6f2379491519a44`: **Web CI, API CI e UX E2E sintético concluídos com sucesso (3/3)**. O teste de atalho contextual de refeição passou.
 - PR #76 permanece draft; não foi feito merge, não foram modificados dados reais nem solicitados testes manuais. O próximo checkpoint continua a ser a candidata v2.1.0.
+
+## Entrega agrupada v2.0.40–v2.0.42 — coerência temporal e validade de avaliação (20 novembro 2026)
+
+- **Baseline validada:** v2.0.39 SHA `7dbf328cb42a0b777fc5caa648dcd30501068aa7`: Web CI, API CI e UX E2E **verdes no mesmo commit**.
+- **v2.0.40 — data e fuso horário:** `PersonOverview` deixa de obter estado nutricional com `new Date().toISOString()` e passa a usar **meio-dia local no dia do dashboard**, com offset explícito de `Intl.DateTimeFormat(timeZoneName: shortOffset)`. Evita consultar um dia UTC que não corresponda ao dia em que a pessoa está a analisar refeições.
+- **v2.0.41 — rejeição de contexto incompatível:** apenas usar `daily_nutrition_state` quando tanto a resposta `planning_date` como o campo `state_date` correspondem exatamente ao dia do dashboard. Dados ausentes/dia diferente não são misturados; pessoa, perfil e estado antigo são limpos quando muda o contexto. `planningDateInstant` rejeita datas impossíveis.
+- **v2.0.42 — plano atualizado invalida avaliação anterior:** importar/ativar um plano profissional incrementa `planAuthorityRevision` e remonta o avaliador da pessoa, removendo resultados calculados sob o plano anterior, sem interferir na UI de outros membros. Teste E2E verifica que o pedido de bootstrap usa a data do dashboard; testes Vitest cobrem Lisboa inverno/verão, fuso de meia hora, fuso +13, contexto de dia errado e estado inexistente.
+- Frontend **2.0.42** — lote de três incrementos, sem validação CI separada de cada número intermédio. Requer Web CI, API CI, UX E2E verdes **no SHA final** antes de ser considerado aprovado.
+- PR #76 draft; `main`, dados pessoais, schema e API de produção intactos. Continuar sem testes manuais até candidato v2.1.0.
