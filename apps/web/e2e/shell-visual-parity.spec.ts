@@ -114,6 +114,11 @@ test("weekly image never enlarges the hero and the desktop map preserves seven d
   }});
   expect(response.ok()).toBe(true);
   const family = await response.json() as {id:string};
+  const personResponse = await request.post(`${API}/families/${family.id}/persons`,{data:{
+    first_name:"Pessoa Visual Semana",last_name:null,birth_date:null,
+    preferred_locale:"pt-PT",timezone:"Europe/Lisbon",meal_discovery:null,
+  }});
+  expect(personResponse.ok()).toBe(true);
   await page.setViewportSize({width:1440,height:900});
   await page.addInitScript(id => {
     window.localStorage.setItem("nutriflow-family-id",id);
