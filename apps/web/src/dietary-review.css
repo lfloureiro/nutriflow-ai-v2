@@ -36,3 +36,9 @@
   .nf-condition-form .dietary-actions { align-items: stretch; }
   .nf-condition-form .dietary-actions button { min-height: 42px; }
 }
+
+/* Recorded health-condition metadata: unknown means missing evidence, not absence. */
+.nf-condition-evidence{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:10px;margin:12px 0}
+.nf-condition-evidence>div{min-width:0;padding:10px;background:var(--surface-soft);border-radius:10px;overflow-wrap:anywhere}
+.nf-condition-evidence dt{font-size:12px;color:var(--muted)}
+.nf-condition-evidence dd{margin:4px 0 0;font-size:13px;font-weight:600}
