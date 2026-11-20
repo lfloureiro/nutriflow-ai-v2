@@ -42,7 +42,7 @@
 .nf-context-drawer__eyebrow {
   display: block;
   margin-bottom: 9px;
-  color: var(--color-text-muted, var(--color-text));
+  color: var(--color-muted);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 1.8px;
