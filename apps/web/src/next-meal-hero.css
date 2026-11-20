@@ -1,0 +1,65 @@
+/* Casa à Mesa: next-meal hero; visual surface, never a nutrition certification. */
+.nf-next-meal-hero {
+  display: grid;
+  grid-template-columns: minmax(160px, 30%) minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 148px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: linear-gradient(110deg, var(--surface), var(--surface-soft));
+  color: var(--text);
+  margin: 0 0 22px;
+}
+.nf-next-meal-hero__art {
+  height: 100%;
+  min-height: 148px;
+  overflow: hidden;
+  background: var(--surface-soft);
+}
+.nf-next-meal-hero__art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 148px;
+  object-fit: cover;
+}
+.nf-next-meal-hero__info { min-width: 0; padding: 18px 22px; }
+.nf-next-meal-hero__eyebrow {
+  display: block; margin-bottom: 8px; color: var(--accent);
+  font-size: 10px; font-weight: 750; letter-spacing: 1.2px; text-transform: uppercase;
+}
+.nf-next-meal-hero h2 {
+  margin: 0 0 7px; font-size: clamp(18px, 2.2vw, 25px);
+  letter-spacing: -.5px; line-height: 1.25; overflow-wrap: anywhere;
+}
+.nf-next-meal-hero p { margin: 0 0 10px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.nf-next-meal-hero__context {
+  display: flex; align-items: center; gap: 7px;
+  color: var(--muted); font-size: 11px; line-height: 1.5;
+}
+.nf-next-meal-hero__context svg { width: 14px; height: 14px; }
+.nf-next-meal-hero__credit {
+  display: block; margin-top: 6px; color: var(--muted);
+  font-size: 9px; line-height: 1.4; overflow-wrap: anywhere;
+}
+.nf-next-meal-hero__actions {
+  display: grid; justify-items: stretch; gap: 9px;
+  min-width: 155px; padding: 20px 22px 20px 0;
+}
+.nf-next-meal-hero__actions .button { white-space: normal; text-align: center; }
+.nf-next-meal-hero__actions svg { width: 15px; height: 15px; }
+@media (max-width: 1050px) {
+  .nf-next-meal-hero { grid-template-columns: minmax(140px, 28%) minmax(0, 1fr); }
+  .nf-next-meal-hero__actions { grid-column: 2; padding: 0 20px 18px; grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 580px) {
+  .nf-next-meal-hero { grid-template-columns: 1fr; }
+  .nf-next-meal-hero__art { min-height: 125px; max-height: 170px; }
+  .nf-next-meal-hero__art img { min-height: 125px; }
+  .nf-next-meal-hero__info { padding: 16px 18px; }
+  .nf-next-meal-hero__actions { grid-column: 1; padding: 0 18px 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nf-next-meal-hero *, .nf-next-meal-hero *::before { transition: none; }
+}
