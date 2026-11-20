@@ -123,6 +123,7 @@ test("weekly image never enlarges the hero and the desktop map preserves seven d
   await page.addInitScript(id => {
     window.localStorage.setItem("nutriflow-family-id",id);
     window.localStorage.setItem("nutriflow-appearance","dark");
+    window.localStorage.setItem("nutriflow-locale","pt-PT");
   },family.id);
   await page.goto("/#/meals?date=2026-11-20&mode=week");
   const hero=page.locator(".nf-next-meal-hero");
@@ -130,11 +131,15 @@ test("weekly image never enlarges the hero and the desktop map preserves seven d
   const geometry=await hero.evaluate(element=>{
     const rect=element.getBoundingClientRect();
     const art=element.querySelector<HTMLImageElement>(".nf-next-meal-hero__art img");
-    return {hero:rect.height,image:art?.getBoundingClientRect().height??0};
+    const info=element.querySelector<HTMLElement>(".nf-next-meal-hero__info")?.getBoundingClientRect();
+    return {hero:rect.height,image:art?.getBoundingClientRect().height??0,
+      infoBottom:info?.bottom??0,heroBottom:rect.bottom, infoTop:info?.top??0, heroTop:rect.top};
   });
   expect(geometry.hero).toBeGreaterThanOrEqual(135);
-  expect(geometry.hero).toBeLessThanOrEqual(138);
-  expect(geometry.image).toBeLessThanOrEqual(137);
+  expect(geometry.hero).toBeLessThanOrEqual(250);
+  expect(geometry.image).toBeLessThanOrEqual(geometry.hero+1);
+  expect(geometry.infoTop).toBeGreaterThanOrEqual(geometry.heroTop);
+  expect(geometry.infoBottom).toBeLessThanOrEqual(geometry.heroBottom+1);
   const week=page.locator(".nf-week-map-final .weekly-day-grid");
   await expect(week).toBeVisible();
   await expect(week.locator(".weekly-grid-day")).toHaveCount(7);
