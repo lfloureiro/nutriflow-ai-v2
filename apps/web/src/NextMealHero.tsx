@@ -30,15 +30,23 @@ type HeroImage = { src: string; author: string; source: string; license: string 
  */
 export function verifiedRecipePhoto(name: string | null): HeroImage | null {
   const normalized = name?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase() ?? "";
-  if (normalized === "salmao no forno com ervas") {
-    return {
-      src: "https://commons.wikimedia.org/wiki/Special:FilePath/Steckenroth%2C_salmon_on_baked_vegetables.jpg?width=900",
-      author: "Steckenroth",
-      source: "https://commons.wikimedia.org/wiki/File:Steckenroth,_salmon_on_baked_vegetables.jpg",
-      license: "CC0 1.0",
-    };
-  }
-  return null;
+  const photos: Record<string, { file: string; author: string }> = {
+    "salmao no forno com ervas": {file:"Steckenroth, salmon on baked vegetables.jpg", author:"Steckenroth"},
+    "salmao no forno com ervinhas da provenca": {file:"Steckenroth, salmon on baked vegetables.jpg", author:"Steckenroth"},
+    "pao, queijo e tomate": {file:"Toast with cheddar cheese and tomato.jpg", author:"OKJaguar"},
+    "torrada com queijo": {file:"Toast with cheddar cheese and tomato.jpg", author:"OKJaguar"},
+    "frango rapido": {file:"Chicken plate.jpg", author:"Wikimedia Commons contributor"},
+    "omelete de espinafres": {file:"An omelette.jpg", author:"Wikimedia Commons contributor"},
+  };
+  const entry = photos[normalized];
+  if (!entry) return null;
+  const encoded = encodeURIComponent(entry.file).replace(/%2F/g, "/");
+  return {
+    src: `https://commons.wikimedia.org/wiki/Special:FilePath/${encoded}?width=900`,
+    author: entry.author,
+    source: `https://commons.wikimedia.org/wiki/File:${entry.file.replace(/ /g, "_")}`,
+    license: "CC0 1.0",
+  };
 }
 
 type LoadState = { slot: string; proposal: SharedWeeklyPlanProposal; request: SharedWeeklyPlanProposalRequest } | null;
