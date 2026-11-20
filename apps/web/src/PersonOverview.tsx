@@ -17,6 +17,7 @@ import { memberDisplayName } from "./FamilyHome";
 import type { Locale } from "./i18n";
 import { useI18n } from "./i18n";
 import MealPlanFitPanel from "./MealPlanFitPanel";
+import { planningDateInstant } from "./planningDateInstant";
 import NutritionPlanAuthorityCard from "./NutritionPlanAuthorityCard";
 import NutritionPlanImportPanel from "./NutritionPlanImportPanel";
 import PersonProfileEditor from "./PersonProfileEditor";
@@ -287,21 +288,22 @@ export default function PersonOverview({
 
   useEffect(() => {
     let cancelled = false;
-    const now = new Date().toISOString();
+    const scheduledAt = planningDateInstant(dashboard.dashboard_date, member.timezone || dashboard.timezone);
+    setDailyState(null);
     void Promise.all([
       getPerson(member.person_id).catch(() => null),
       getPersonEnergyProfile(member.person_id).catch(() => null),
-      getPersonPlanningContext(member.person_id, now).catch(() => null),
+      getPersonPlanningContext(member.person_id, scheduledAt).catch(() => null),
     ]).then(([personResult, profileResult, contextResult]) => {
       if (cancelled) return;
       setPerson(personResult);
       setProfile(profileResult);
-      setDailyState(contextResult?.daily_nutrition_state ?? null);
+      setDailyState(contextResult?.planning_date === dashboard.dashboard_date && contextResult.daily_nutrition_state?.state_date === dashboard.dashboard_date ? contextResult.daily_nutrition_state : null);
     });
     return () => {
       cancelled = true;
     };
-  }, [member.person_id, revision]);
+  }, [member.person_id, member.timezone, dashboard.dashboard_date, dashboard.timezone, revision]);
 
   const displayName = person
     ? [person.first_name, person.last_name].filter(Boolean).join(" ")
