@@ -517,3 +517,9 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 
 - **SHA `f05188505b1f01c7a36939d511892686ddaac38e`: Web CI, API CI e UX E2E sintético concluídos com sucesso (3/3).** O caso de foco alternativo passou, tal como a mudança de pessoa num drawer já aberto, os ciclos repetidos de teclado, reflow e restantes regressões.
 - v2.0.62 estabiliza a acessibilidade automatizada do drawer, mas **não certifica** zoom real a 200%, leitores de ecrã nem equivalência visual com `Casa_a_Mesa_Prototipo.html`. PR #76 permanece draft; não há merge nem testes manuais até cumprir os gates documentados da candidata v2.1.0.
+
+## Patch v2.0.64 — overlay claro a partir do HTML aprovado (20/11/2026)
+
+- Corrigida apenas a transparência/cor da cortina por trás do drawer no tema claro: o protótipo original especifica `#0d1d184d`; a aplicação usava mistura de cor dependente do token do fundo.
+- v2.0.63 (overlay escuro) tinha os três gates CI verdes no SHA `7d9d54bb06b87dd854a5857c71e6d311029eae31`. Para v2.0.64, conferir os três gates no commit final; não declarar equivalência visual nem pedir teste manual antecipado.
+- Não foram modificados endpoints, rotas, state React, lógica de nutrição, API, DB ou `main`.
