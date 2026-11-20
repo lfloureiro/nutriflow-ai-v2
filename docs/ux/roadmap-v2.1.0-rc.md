@@ -205,3 +205,9 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - O HTML de referência `Casa_a_Mesa_Prototipo(1).html` apresenta eyebrow de 10 px, 1,8 px letter-spacing e margem de 9 px antes do título no cabeçalho do drawer. O componente partilhado da aplicação não tinha esse nível.
 - `ContextDrawer` mantém o título acessível via `aria-labelledby` e passa a apresentá-lo sob o rótulo visual `NutriFlow AI · Casa à Mesa` (não usa a expressão «demonstração» do protótipo académico). Cor `--color-muted` existente e tamanhos limitados a CSS do cabeçalho; botões Fechar com alvo 44 px e funcionalidade inalterados.
 - Não existe comparação por screenshot nem zoom real 200% validado neste patch. Verificar os três CI no SHA final; PR #76 draft, main e dados reais sem alterações.
+
+## Correção v2.0.66 — identidade da aplicação (20/11/2026)
+
+- A decisão já implementada em `apps/web/src/ui/Brand.tsx` mantém-se: **NutriFlow AI** (nome), **Casa à Mesa** (subtítulo) e **v${APP_VERSION}** (versão de `apps/web/package.json`). Não criar marcas paralelas nos drawers.
+- Revertida a legenda «NutriFlow AI · Casa à Mesa» introduzida incorretamente nos cabeçalhos do `ContextDrawer` na v2.0.65. O drawer conserva só o título da operação e os comportamentos existentes de foco/fecho. Mantidos os ajustes dos overlays claro e escuro das v2.0.63–64.
+- Patch só frontend e documentação, sem alterações de API, base de dados ou `main`. CI Web/API/UX E2E no SHA final ainda por verificar.
