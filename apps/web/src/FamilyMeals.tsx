@@ -644,6 +644,7 @@ export default function FamilyMealsScreen({
 
   return (
     <div className="family-meals-screen">
+      {mode !== "week" ? (
       <header className="screen-header compact-screen-header family-meals-header">
         <div>
           <span className="eyebrow">Plano</span>
@@ -651,7 +652,46 @@ export default function FamilyMealsScreen({
           <p>{copy.help}</p>
         </div>
       </header>
+      ) : null}
       {reviewLoadError && <p role="status">{locale==="pt-PT"?"Não foi possível carregar as alternativas dos ingredientes.":"Ingredient alternatives could not be loaded."}</p>}
+      {mode === "week" ? (
+        <p className="nf-week-ai-note" role="note">
+          <Icon name="spark"/>
+          {locale === "pt-PT"
+            ? "As propostas exigem confirmação. A informação nutricional depende dos dados disponíveis."
+            : "Proposals require confirmation. Nutritional information depends on the available evidence."}
+        </p>
+      ) : null}
+      {mode === "week" && people.length > 0 ? (
+        <NextMealHero
+          familyId={familyId}
+          timezone={plan?.timezone ?? people[0]?.timezone ?? "Europe/Lisbon"}
+          people={people}
+          revision={revision}
+          onOpen={(date, mealType, entry) => {
+            navigateDate(date);
+            setHeroSuggestion(null);
+            if (entry) {
+              if (onMealSelectionChange?.({date,mealType}) === false) return;
+              setMealSelection({date,mealType});
+            } else {
+              if (onMealSelectionChange?.(null) === false) return;
+              setMealSelection(null);
+              setEditing({date,mealType,entry:null});
+            }
+          }}
+          onReview={(suggested) => {
+            if (onMealSelectionChange?.({date:suggested.date,mealType:suggested.mealType}) === false) return;
+            navigateDate(suggested.date);
+            setEditing(null);
+            setHeroSuggestion(suggested);
+            setMealSelection({date:suggested.date,mealType:suggested.mealType});
+          }}
+        />
+      ) : null}
+
+      <details className={`nf-week-tools ${mode === "week" ? "nf-week-tools--collapsed" : ""}`} open={mode !== "week"}>
+        <summary>{locale === "pt-PT" ? "Outras vistas e ferramentas de planeamento" : "Other views and planning tools"}</summary>
       <nav className="secondary-tabs family-meals-tabs" aria-label={copy.navigation}>
         <button type="button" onClick={() => onModeChange("prepare")}>{locale === "pt-PT" ? "Planear próxima semana" : "Plan next week"}</button>
         <button
@@ -682,6 +722,7 @@ export default function FamilyMealsScreen({
           {copy.recommend}
         </button>
       </nav>
+      </details>
 
       {mode !== "recommend" ? (
         <nav className="family-meals-date-nav" aria-label={copy.dateNavigation}>
@@ -715,33 +756,6 @@ export default function FamilyMealsScreen({
         </nav>
       ) : null}
 
-      {mode === "week" && people.length > 0 ? (
-        <NextMealHero
-          familyId={familyId}
-          timezone={plan?.timezone ?? people[0]?.timezone ?? "Europe/Lisbon"}
-          people={people}
-          revision={revision}
-          onOpen={(date, mealType, entry) => {
-            navigateDate(date);
-            setHeroSuggestion(null);
-            if (entry) {
-              if (onMealSelectionChange?.({date,mealType}) === false) return;
-              setMealSelection({date,mealType});
-            } else {
-              if (onMealSelectionChange?.(null) === false) return;
-              setMealSelection(null);
-              setEditing({date,mealType,entry:null});
-            }
-          }}
-          onReview={(suggested) => {
-            if (onMealSelectionChange?.({date:suggested.date,mealType:suggested.mealType}) === false) return;
-            navigateDate(suggested.date);
-            setEditing(null);
-            setHeroSuggestion(suggested);
-            setMealSelection({date:suggested.date,mealType:suggested.mealType});
-          }}
-        />
-      ) : null}
       {mode === "recommend" ? <MealPlanner familyId={familyId} /> : null}
       {mode !== "recommend" && error ? (
         <div className="error-banner" role="alert">
