@@ -417,6 +417,47 @@ test("accessible drawer: labelled dialog locks scroll, restores page and survive
   }
 });
 
+test("responsive reflow at the effective 200 percent browser-zoom width",async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.emulateMedia({reducedMotion:"reduce"});
+  // A 1280px desktop window at 200% browser zoom has roughly 640 CSS px
+  // of layout viewport. This checks reflow, not an actual browser zoom audit.
+  for(const {width,height} of [{width:640,height:720},{width:320,height:550}]){
+    await page.setViewportSize({width,height});
+    await openFamily(page,fixture.family.id,`/#/meals?date=${DATE}&mode=week`);
+    const slot=page.getByRole("button",{name:/Prato sintético QA/}).first();
+    await expect(slot).toBeVisible();
+    await slot.click();
+    const drawer=page.getByRole("dialog");
+    await expect(drawer).toHaveCount(1);
+    const close=drawer.getByRole("button",{name:"Fechar detalhe"});
+    await expect(close).toBeVisible();
+    const metrics=await page.evaluate(()=>{
+      const panel=document.querySelector<HTMLElement>(".nf-context-drawer");
+      const heading=panel?.querySelector<HTMLElement>(".nf-context-drawer__head");
+      const body=panel?.querySelector<HTMLElement>(".nf-context-drawer__body");
+      const rect=panel?.getBoundingClientRect();
+      const close=panel?.querySelector<HTMLElement>(".nf-context-drawer__close")?.getBoundingClientRect();
+      return {viewport:innerWidth,height:innerHeight,
+        docWidth:document.documentElement.scrollWidth,
+        left:rect?.left??-1,right:rect?.right??-1,
+        headingBottom:heading?.getBoundingClientRect().bottom??-1,
+        bodyHeight:body?.clientHeight??0,
+        closeLeft:close?.left??-1,closeRight:close?.right??-1};
+    });
+    expect(metrics.docWidth).toBeLessThanOrEqual(metrics.viewport+1);
+    expect(metrics.left).toBeGreaterThanOrEqual(-1);
+    expect(metrics.right).toBeLessThanOrEqual(metrics.viewport+1);
+    expect(metrics.closeLeft).toBeGreaterThanOrEqual(-1);
+    expect(metrics.closeRight).toBeLessThanOrEqual(metrics.viewport+1);
+    expect(metrics.headingBottom).toBeLessThanOrEqual(metrics.height);
+    expect(metrics.bodyHeight).toBeGreaterThan(0);
+    await page.keyboard.press("Escape");
+    await expect(drawer).toHaveCount(0);
+    await expect(slot).toBeFocused();
+  }
+});
+
 test("drawer keyboard navigation skips hidden and fieldset-disabled controls",async ({page,request})=>{
   const fixture=await seed(request);
   await page.emulateMedia({reducedMotion:"reduce"});
