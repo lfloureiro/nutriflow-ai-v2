@@ -230,6 +230,17 @@ test("mobile: drawer remains within viewport in both themes",async ({page,reques
   await expect(drawer).toHaveCount(0);
 });
 
+test("weekly mobile route keeps the requested day selected without a meal drawer",async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.setViewportSize({width:390,height:844});
+  await openFamily(page,fixture.family.id,`/#/meals?date=${DATE}&mode=week`);
+  const days=page.locator(".nf-week-day-picker button");
+  await expect(days).toHaveCount(7);
+  await expect(days.nth(3)).toHaveAttribute("aria-pressed","true");
+  await expect(page.getByRole("button",{name:/Prato sintético QA/}).first()).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
 test("narrow viewport: weekly drawer reflows at 320 CSS px without horizontal scrolling", async ({page,request})=>{
   const fixture=await seed(request);
   await page.setViewportSize({width:320,height:640});
