@@ -86,13 +86,13 @@
     radial-gradient(ellipse 80% 75% at 75% 115%, #29232b36, transparent 82%),
     #151518;
 }
-@media (min-width: 1300px) {
+@media (min-width: 1101px) {
   .side-nav {
-    width: 320px;
+    width: clamp(230px, 20.833vw, 320px);
     padding: 48px 22px 26px;
     gap: 48px;
   }
-  .shell-content { margin-left: 320px; }
+  .shell-content { margin-left: clamp(230px, 20.833vw, 320px); }
   .nf-brand-mark { width: 60px; height: 60px; border-radius: 16px; }
   .nf-brand-mark .nf-icon { width: 30px; height: 30px; }
   .nf-brand-name { font-size: 29px; letter-spacing: -1.3px; }
@@ -176,7 +176,7 @@
 }
 :root[data-theme="dark"] .shell-topbar strong,
 :root[data-theme="dark"] .screen-header h1 { color: #f7f4f3; }
-@media (max-width: 1299px) and (min-width: 761px) {
+@media (max-width: 1100px) and (min-width: 761px) {
   .side-nav { width: 230px; }
   .shell-content { margin-left: 230px; }
 }
