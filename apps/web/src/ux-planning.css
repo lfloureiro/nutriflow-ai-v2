@@ -148,3 +148,22 @@
   background: color-mix(in srgb, var(--color-danger) 16%, var(--surface));
   border-color: color-mix(in srgb, var(--color-danger) 32%, var(--border));
 }
+
+/* Approved week mockup: hero first, progressive tools, no repeated page headline. */
+.nf-week-ai-note {
+  display:flex; align-items:center; gap:11px; margin:0 0 16px;
+  padding:13px 17px; border:1px solid var(--border); border-radius:14px;
+  color:var(--text); background:var(--surface-soft); font-size:12px; line-height:1.55;
+}
+.nf-week-ai-note .nf-icon {width:17px;height:17px;flex-shrink:0;color:var(--accent)}
+.nf-week-tools {margin:0 0 16px;min-width:0}
+.nf-week-tools>summary {cursor:pointer;color:var(--muted);font-size:12px;line-height:1.6;padding:8px 0}
+.nf-week-tools:not(.nf-week-tools--collapsed)>summary {display:none}
+.nf-week-tools .family-meals-tabs {margin:0}
+.nf-week-tools--collapsed[open] .family-meals-tabs {margin-top:8px}
+.family-meals-screen:has(.nf-next-meal-hero) .family-meals-date-nav {
+  margin-bottom:15px; flex-wrap:wrap;
+}
+@media(min-width:1101px) {
+  .family-meals-screen:has(.nf-next-meal-hero) .family-meals-date-nav .button {min-height:36px;font-size:12px}
+}
