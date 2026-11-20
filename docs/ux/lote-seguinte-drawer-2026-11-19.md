@@ -418,3 +418,12 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - **v2.0.42 — plano atualizado invalida avaliação anterior:** importar/ativar um plano profissional incrementa `planAuthorityRevision` e remonta o avaliador da pessoa, removendo resultados calculados sob o plano anterior, sem interferir na UI de outros membros. Teste E2E verifica que o pedido de bootstrap usa a data do dashboard; testes Vitest cobrem Lisboa inverno/verão, fuso de meia hora, fuso +13, contexto de dia errado e estado inexistente.
 - Frontend **2.0.42** — lote de três incrementos, sem validação CI separada de cada número intermédio. Requer Web CI, API CI, UX E2E verdes **no SHA final** antes de ser considerado aprovado.
 - PR #76 draft; `main`, dados pessoais, schema e API de produção intactos. Continuar sem testes manuais até candidato v2.1.0.
+
+## Entrega agrupada v2.0.43–v2.0.45 — respostas tardias, validação do contexto e confiança nutricional (20 novembro 2026)
+
+- **Baseline:** v2.0.42 SHA `985d21c4cea6749fd92c1b4730bcd50d6e6ecaae` teve Web CI, API CI e UX E2E **3/3 aprovados**.
+- **v2.0.43 — regressão de resposta tardia:** novo Playwright com PostgreSQL sintético e composição de receita **apenas simulada em HTTP**. Interceta `POST /meal-plan-fit`, atrasa deliberadamente a resposta, altera a porção e verifica que o resultado antigo não aparece, sem afetar dados reais. O teste espera a entrega efetiva da resposta.
+- **v2.0.44 — validação do contrato de resposta:** `planFitMatchesRequest` compara pessoa, dia, tipo de refeição e quantidade numérica da resposta contra o pedido que originou a avaliação. Mesmo um HTTP 200 para outro contexto é rejeitado com explicação localizada PT/EN, em vez de mostrar uma pontuação incorreta. Testes unitários verificam diferenças e quantidades vazias.
+- **v2.0.45 — resultados provisórios:** a pontuação ganha nota explícita de **evidência incompleta/não certificação** quando há regras desconhecidas, orientações não avaliadas, plano ausente/parcial/conflituoso ou zero regras avaliadas. `planFitHasOpenEvidence` e testes unitários, acessibilidade e CSS neutro responsivo.
+- O resultado mantém a decisão/score do backend como fornecido, sem calcular ou inventar segurança FODMAP, nutrição ou validação clínica. Interface **v2.0.45**; versões intermédias agrupadas, sem provas CI separadas.
+- **Obrigatório:** Web CI, API CI e UX E2E verdes **no SHA final**. PR #76 draft, `main` e dados familiares reais intactos. Sem solicitação de teste manual até v2.1.0.
