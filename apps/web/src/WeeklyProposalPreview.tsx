@@ -1326,7 +1326,7 @@ export default function WeeklyProposalPreview({
                             }
                             aria-label={`${mealLabel(mealType, locale)} · ${gridDay.weekday} ${gridDay.date} · ${entry ? copy.planned : choice ? copy.proposed : pendingReason ? copy.pending : copy.empty} · ${label}`}
                             className={`weekly-grid-meal is-${state} ${
-                              !entry && (choice?.variant_changes?.length || choice?.transformation || ingredientProposals.length || slotAdaptations?.[entry?.recipe_id ?? choice?.recipe_id ?? ""]?.length) ? "has-review" : ""
+                              !entry && (choice?.variant_changes?.length || choice?.transformation || ingredientProposals.length || slotAdaptations?.[choice?.recipe_id ?? ""]?.length) ? "has-review" : ""
                             } ${
                               selectedDate === planningDate && selectedMealType === mealType
                                 ? "selected"
