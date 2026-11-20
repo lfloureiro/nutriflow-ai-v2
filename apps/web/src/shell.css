@@ -663,3 +663,16 @@
     min-height: 56px;
   }
 }
+
+/* Casa à Mesa: actionable AI card below the primary navigation. */
+.side-nav__ai {
+  display:grid; gap:10px; text-align:left; margin-top:auto;
+  padding:17px 15px; color:var(--text); background:var(--bg);
+  border:1px solid var(--border); border-radius:17px; cursor:pointer;
+}
+.side-nav__ai-heading {display:flex;align-items:center;gap:12px;font-size:13px;line-height:1.4}
+.side-nav__ai-heading .nf-icon {width:25px;height:25px;flex:0 0 25px;color:var(--accent)}
+.side-nav__ai>span:last-child {color:var(--muted);font-size:11px;line-height:1.55}
+.side-nav__ai:hover,.side-nav__ai:focus-visible {border-color:var(--accent)}
+.side-nav__ai+.side-nav__family {margin-top:0}
+@media(max-width:760px){.side-nav__ai{display:none}}
