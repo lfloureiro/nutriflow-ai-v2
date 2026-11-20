@@ -1,5 +1,6 @@
 import WeekOverview from "./ui/WeekOverview";
 import ContextDrawer from "./ui/ContextDrawer";
+import type { HeroSuggestedMeal } from "./NextMealHero";
 import { requestNavigation } from "./navigation";
 import Icon from "./ui/Icon";
 import SavedMealChanges from "./SavedMealChanges";
@@ -732,6 +733,7 @@ function sourceKindsFor(sources: RecommendationSource[]): string[] {
 export default function WeeklyProposalPreview({
   familyId,
   weekStart,
+  heroSuggestion,
   people,
   plan: suppliedPlan,
   onEdit,
@@ -756,6 +758,7 @@ export default function WeeklyProposalPreview({
   recipeReviews?: ReviewRecipe[];
   renderSelectedMeal?: (context: SelectedMealContext) => ReactNode;
   familyId: string;
+  heroSuggestion?: HeroSuggestedMeal | null;
   weekStart?: string;
   people: Person[];
   plan?: FamilyMealPlan;
@@ -826,6 +829,19 @@ export default function WeeklyProposalPreview({
     setAdaptationError(null);
     setAdaptationBusy(false);
   }, [familyId, weekStart]);
+
+  // A read-only recommendation from the top card enters the existing review
+  // flow. It is not persisted or accepted until the family confirms it here.
+  useEffect(() => {
+    if (!heroSuggestion || !effectiveWeekStart) return;
+    if (heroSuggestion.proposal.family_id !== familyId) return;
+    const weekEnd = addCalendarDays(effectiveWeekStart, 6);
+    if (heroSuggestion.date < effectiveWeekStart || heroSuggestion.date > weekEnd) return;
+    setProposalRequest(heroSuggestion.request);
+    setProposal(heroSuggestion.proposal);
+    setSelectedDate(heroSuggestion.date);
+    setSelectedMealType(heroSuggestion.mealType);
+  }, [familyId, effectiveWeekStart, heroSuggestion]);
 
   useEffect(() => {
     if (suppliedPlan || !weekStart) return;
