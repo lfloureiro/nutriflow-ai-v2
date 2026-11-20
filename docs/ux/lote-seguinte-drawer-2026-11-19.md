@@ -439,3 +439,11 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 
 - **SHA `a411eb9162deb93054a81eed7bf14ace6e05d00a`: Web CI, API CI e UX E2E sintético concluídos com sucesso (3/3).** O E2E novo de resposta tardia após alterar a porção passou sem enfraquecer a asserção.
 - A correção v2.0.46 permanece no PR #76 draft; `main` intacta. Esta validação não substitui a auditoria visual, o zoom 200% nem a aceitação manual previstos para v2.1.0.
+
+## Lote consecutivo v2.0.47–v2.0.49 — reflow, quantidade segura e idiomas (20 novembro 2026)
+
+- **Baseline validada:** v2.0.46 no SHA `6355d48db5583ad5d8bf68c8949ce9c4c8496d89` passou Web CI/API CI/UX E2E no mesmo commit.
+- **v2.0.47 — reflow equivalente a zoom 200%:** novo Playwright sintético testa o drawer no viewport CSS de 640px (largura equivalente a uma janela desktop de 1280px sob zoom real a 200%, **sem afirmar que o browser foi aumentado realmente**) e no viewport 320×550; verifica ausência de overflow horizontal, cabeçalho, controlo Fechar visível, região de conteúdo rolável, Escape e restauro do foco. Ajustados CSS da altura reduzida e `:focus-visible` do Fechar. A verdadeira inspeção com zoom do browser a 200% **permanece pendente** na checklist.
+- **v2.0.48 — validação de quantidade da avaliação:** quantidade 0, negativa, vazia ou inválida não pode iniciar avaliação; valores inválidos preenchidos recebem `aria-invalid` e mensagem `aria-describedby` localizada PT/EN. A resposta continua vinculada à quantidade selecionada, nunca assumindo dados em falta como zero. Regressão E2E sintética de -1 e zero integrada no teste de resposta tardia.
+- **v2.0.49 — percurso multilingue/tema:** novo Playwright em mobile muda PT→EN e tema escuro, abre o perfil de pessoa em um só drawer, percorre Nutrição e Saúde, fecha com Escape e confirma preferência após reload. Ajustado o helper de testes para não sobrepor escolha de idioma em cada reload; não muda o comportamento de produção.
+- Frontend **v2.0.49**, lote de três patches (sem CI independente dos marcadores intermédios). **Exigir Web CI/API CI/UX E2E verdes no SHA final.** Sem schema/API alterados, PR #76 draft, `main` e dados familiares reais intactos.
