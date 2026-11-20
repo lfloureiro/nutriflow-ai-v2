@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+// @ts-expect-error Node types are not in the browser-only TypeScript project.
 import { readFileSync } from "node:fs";
 
 // Read source files from disk: Vitest can transform ?raw CSS imports to empty strings.
