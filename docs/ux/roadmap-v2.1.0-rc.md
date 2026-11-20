@@ -131,3 +131,11 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 
 - **Código e documentação no SHA `3833c18fa8284299ef964607889784a7a58c1ff2`: Web CI, API CI e UX E2E sintético concluídos com sucesso (3/3).** Inclui os novos testes de respostas HTTP 200 de outra pessoa, validação do contrato de transformações e unidade/quantidade.
 - Os três gates aprovam o código do lote; continua pendente a inspeção visual real, zoom 200% e aceitação manual para a candidata v2.1.0. PR #76 mantém-se draft, sem merge ou acesso a dados familiares reais.
+
+## Estado agrupado v2.0.53–v2.0.55 — 20/11/2026
+
+- **v2.0.52:** Web/API/UX E2E **3/3 verdes no SHA** `d06f402a9bfb398084ef91e26a46da09cfb79b6c`.
+- **v2.0.53:** keyboard focus trap permite interagir com disclosures nativos (`summary` e conteúdo expandido); teste E2E.
+- **v2.0.54:** fallback de foco para navegação ativa após remoção do botão que abriu o drawer, com E2E.
+- **v2.0.55:** Fechar com área de alvo 44×44 CSS px, foco explícito em `summary`, testes de reflow curto/estreito. **CI do SHA final pendente.**
+- **Antes de v2.1.0 RC:** inspeção visual efetiva com o protótipo aprovado; zoom do browser a 200% (não apenas largura CSS equivalente); leitores de ecrã, contraste, ordem de foco e navegação real; integrações e restrições clínicas sem falsas certezas; checklist de aceitação manual. Não fazer merge do PR #76 sem aprovação.
