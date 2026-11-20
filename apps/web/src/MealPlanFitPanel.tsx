@@ -327,7 +327,7 @@ export default function MealPlanFitPanel({
         },
       });
       if (epoch === evaluationEpoch.current) {
-        if (planFitMatchesRequest(response,{personId,planningDate,mealType,quantity})) setResult(response);
+        if (planFitMatchesRequest(response,{personId,planningDate,mealType,quantity,quantityUnit:composition.reference_unit})) setResult(response);
         else { setResult(null);setError(copy.responseMismatch); }
       }
     } catch (caught: unknown) {
@@ -356,7 +356,7 @@ export default function MealPlanFitPanel({
         max_proposals: 5,
       });
       if (epoch === transformationEpoch.current) {
-        if (transformationMatchesRequest(response,{personId,recipeId:selectedRecipe.id,planningDate,mealType,quantity})) setTransformation(response);
+        if (transformationMatchesRequest(response,{personId,recipeId:selectedRecipe.id,planningDate,mealType,quantity,quantityUnit:composition.reference_unit})) setTransformation(response);
         else {setTransformation(null);setError(copy.transformationMismatch);}
       }
     } catch (caught: unknown) {
