@@ -191,13 +191,14 @@ export function planFitCandidateNutrition(result: MealPlanFitResult): {
  */
 export function planFitMatchesRequest(
   result:MealPlanFitResult,
-  requested:{personId:string;planningDate:string;mealType:string;quantity:string},
+  requested:{personId:string;planningDate:string;mealType:string;quantity:string;quantityUnit?:string},
 ):boolean {
   const requestQuantity=Number(requested.quantity);
   const responseQuantity=Number(result.candidate?.quantity);
   return result.person_id===requested.personId
     && result.planning_date===requested.planningDate
     && result.meal_type===requested.mealType
+    && (requested.quantityUnit === undefined || result.candidate?.quantity_unit === requested.quantityUnit)
     && requested.quantity.trim()!==""
     && result.candidate?.quantity?.trim()!==""
     && Number.isFinite(requestQuantity)
@@ -220,7 +221,7 @@ export function planFitHasOpenEvidence(result:MealPlanFitResult):boolean {
  */
 export function transformationMatchesRequest(
   response: MealTransformationResult,
-  requested: {personId:string;recipeId:string;planningDate:string;mealType:string;quantity:string},
+  requested: {personId:string;recipeId:string;planningDate:string;mealType:string;quantity:string;quantityUnit?:string},
 ): boolean {
   return response.person_id === requested.personId &&
     response.recipe_id === requested.recipeId &&
