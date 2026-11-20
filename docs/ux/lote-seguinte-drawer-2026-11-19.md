@@ -550,3 +550,11 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - `ux-planning.css` usa grelha desktop de oito colunas (78 px + 7 dias), quatro linhas de refeição compactas, datas hierarquizadas, cartões vazios discretos e `has-review` em cor de atenção só quando existem trocas/variantes que exigem revisão. Não confundir destaques de revisão com avaliação clínica validada.
 - `App.tsx` dá classe contextual à rota Refeições e `shell.css` aumenta apenas nesse ecrã o espaço útil do mapa para até 1280 px e reduz a altura da topbar em desktop. Mantém menus/estrutura funcional, tema claro/escuro e mobile por dia.
 - Ainda **não foi feita captura real pós-patch**, nem inspeção de 200% zoom. Exigir Web CI, API CI, UX E2E no mesmo SHA. Não alterar dados reais, API, `main` nem fundir PR #76 antes da candidata v2.1.0.
+
+## v2.0.69 — carta inteligente «Próxima refeição» (20/11/2026)
+
+- Decisão do utilizador fechada em `docs/ux/proxima-refeicao-decisoes-2026-11-20.md`; recuperar o mockup com fotografia editorial acima do mapa semanal e regra funcional do próximo horário familiar.
+- Primeiro incremento de implementação: `nextMealHero.ts`, `NextMealHero.tsx`, CSS e regressões de calendário. Quando existir refeição guardada para o próximo horário, mostrar e abrir o detalhe. Se não existir, consultar o **motor familiar de propostas existente** para um único slot a partir dos candidatos reais (nunca receita fictícia). A proposta abre no drawer de revisão e só é guardada após confirmação explícita.
+- Uma proposta falhada ou impossível é sinalizada sem falsos scores. Faz-se fallback de ilustração local quando não existe fotografia aprovada para o nome exato; catálogo inicial de fotografias CC0 da Wikimedia Commons com fonte/licença. **Cobertura completa de imagens e revisão de presenças por slot ainda pendentes**.
+- Ponto técnico a validar: chamar proposta semanal para apenas um slot com candidatos obtidos do bootstrap, sem alterações de API; evitar recomendações de outra pessoa, dados antigos e refreshs redundantes; verificar fluxo concreto via E2E com API real sintética.
+- PR #76 draft; `main`, serviços locais e DB real intactos. Verificar Web/API/UX E2E no SHA final. Não marcar v2.1.0 pronta sem auditoria visual e aceitação.
