@@ -676,3 +676,49 @@
 .side-nav__ai:hover,.side-nav__ai:focus-visible {border-color:var(--accent)}
 .side-nav__ai+.side-nav__family {margin-top:0}
 @media(max-width:760px){.side-nav__ai{display:none}}
+
+/* v2.0.72: warm but legible sidebar AI tile and quiet weekly controls.
+   Keep the app's six established destinations and other screens unchanged. */
+.app-shell--meals .side-nav__ai {
+  border-radius: 14px;
+  padding: 14px 13px;
+  border-color: var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--text);
+  box-shadow: none;
+}
+.app-shell--meals .side-nav__ai-heading {
+  gap: 10px;
+  line-height: 1.4;
+}
+.app-shell--meals .side-nav__ai-heading .nf-icon { color: var(--color-action); }
+.app-shell--meals .side-nav__ai > span:last-child {
+  color: var(--color-muted);
+  font-size: 11px;
+}
+:root[data-theme="dark"] .app-shell--meals .side-nav__ai {
+  border-color: #67564b;
+  background: linear-gradient(140deg, #322b29, #262326);
+}
+:root[data-theme="dark"] .app-shell--meals .side-nav__ai-heading .nf-icon {
+  color: #f0bf7a;
+}
+.app-shell--meals .family-meals-screen:has(.nf-next-meal-hero) .family-meals-date-nav {
+  margin-bottom: 14px;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.app-shell--meals .family-meals-screen:has(.nf-next-meal-hero) .family-meals-date-nav .button {
+  min-height: 34px;
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: none;
+}
+@media (min-width: 761px) {
+  .app-shell--meals .side-nav { gap: 22px; }
+  .app-shell--meals .primary-nav { gap: 3px; }
+  .app-shell--meals .primary-nav .nav-item { min-height: 44px; }
+  .app-shell--meals .side-nav__family { padding: 11px 12px; }
+}
