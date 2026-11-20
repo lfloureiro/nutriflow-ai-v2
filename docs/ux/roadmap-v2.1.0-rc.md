@@ -139,3 +139,10 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - **v2.0.54:** fallback de foco para navegação ativa após remoção do botão que abriu o drawer, com E2E.
 - **v2.0.55:** Fechar com área de alvo 44×44 CSS px, foco explícito em `summary`, testes de reflow curto/estreito. **CI do SHA final pendente.**
 - **Antes de v2.1.0 RC:** inspeção visual efetiva com o protótipo aprovado; zoom do browser a 200% (não apenas largura CSS equivalente); leitores de ecrã, contraste, ordem de foco e navegação real; integrações e restrições clínicas sem falsas certezas; checklist de aceitação manual. Não fazer merge do PR #76 sem aprovação.
+
+## Correção v2.0.56 — verificações de acessibilidade encontraram problemas no ciclo do drawer (20/11/2026)
+
+- No SHA `ca796e085b315da1226dabb72d506a2cac9f4056`, **Web CI e API CI passaram**. UX E2E **falhou em 2 testes novos**: `summary` de demonstração injetado *fora* do corpo rolável (num filho do flex panel com clipping) não recebia foco; restauro de foco de um invocador removido ocorria no cleanup do efeito antes do fim da remoção do portal.
+- **Teste disclosure corrigido sem o eliminar:** o `details` sintético é introduzido no início do corpo realmente rolável; valida Tab de Fechar para `summary`, Enter, Tab ao controlo expandido, Shift+Tab e fecho.
+- **Restauro de foco corrigido no produto:** `requestAnimationFrame` espera a desmontagem completa do portal, repõe o foco no invocador ainda presente ou na navegação primária se já não existir; evita reenviar foco se entretanto abrir outro drawer.
+- Versão web **2.0.56** (patch Z). Exigir **Web CI, API CI e UX E2E 3/3 verdes no SHA final** antes de declarar o lote validado. PR #76 draft, `main` e dados reais intactos.
