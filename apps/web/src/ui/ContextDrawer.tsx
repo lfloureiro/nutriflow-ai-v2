@@ -106,17 +106,19 @@ export default function ContextDrawer({
       if (originalUsable) {
         previousFocus.focus({ preventScroll: true });
       } else {
-        // React unmounts the portal after effect cleanup. A synchronous
-        // fallback can be lost when the browser discards the active modal.
-        // A microtask runs after that commit, unlike an animation frame that
-        // may be delayed or focus a different drawer after a quick reopening.
-        queueMicrotask(() => {
+        // Portal DOM removal and route updates can occur after passive-effect
+        // cleanup. Defer only this unusual fallback to the next task, leaving
+        // the normal launcher restoration synchronous and deterministic.
+        window.setTimeout(() => {
           if (document.querySelector(".nf-context-drawer")) return;
+          if (document.activeElement !== document.body &&
+              document.activeElement !== document.documentElement &&
+              document.activeElement?.isConnected) return;
           const fallback = document.querySelector<HTMLElement>(
             ".primary-nav [aria-current='page'], .side-brand, .shell-main [tabindex='0']",
           );
           fallback?.focus({ preventScroll: true });
-        });
+        }, 0);
       }
     };
   }, []);
