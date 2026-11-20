@@ -655,14 +655,6 @@ export default function FamilyMealsScreen({
       </header>
       ) : null}
       {reviewLoadError && <p role="status">{locale==="pt-PT"?"Não foi possível carregar as alternativas dos ingredientes.":"Ingredient alternatives could not be loaded."}</p>}
-      {mode === "week" ? (
-        <p className="nf-week-ai-note" role="note">
-          <Icon name="spark"/>
-          {locale === "pt-PT"
-            ? "As propostas exigem confirmação. A informação nutricional depende dos dados disponíveis."
-            : "Proposals require confirmation. Nutritional information depends on the available evidence."}
-        </p>
-      ) : null}
       {mode === "week" && people.length > 0 ? (
         <NextMealHero
           familyId={familyId}
@@ -691,9 +683,8 @@ export default function FamilyMealsScreen({
         />
       ) : null}
 
-      <details className={`nf-week-tools ${mode === "week" ? "nf-week-tools--collapsed" : ""}`} open={mode !== "week"}>
-        <summary>{locale === "pt-PT" ? "Outras vistas e ferramentas de planeamento" : "Other views and planning tools"}</summary>
-      <nav className="secondary-tabs family-meals-tabs" aria-label={copy.navigation}>
+      {mode !== "week" ? (
+        <nav className="secondary-tabs family-meals-tabs" aria-label={copy.navigation}>
         <button type="button" onClick={() => onModeChange("prepare")}>{locale === "pt-PT" ? "Planear próxima semana" : "Plan next week"}</button>
         <button
           className={mode === "today" ? "active" : ""}
@@ -723,7 +714,7 @@ export default function FamilyMealsScreen({
           {copy.recommend}
         </button>
       </nav>
-      </details>
+      ) : null}
 
       {mode !== "recommend" ? (
         <nav className="family-meals-date-nav" aria-label={copy.dateNavigation}>
@@ -770,6 +761,7 @@ export default function FamilyMealsScreen({
       {mode !== "recommend" && !busy && plan ? (
         mode === "week" ? (
           <WeeklyProposalPreview
+            simpleWeekView
             heroSuggestion={heroSuggestion}
             initialDate={initialDate ?? browsingDate}
             initialSelection={mealSelection} onSelectionChange={(selection)=>{
