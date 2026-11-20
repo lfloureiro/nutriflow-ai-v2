@@ -1,5 +1,5 @@
 import type { Locale } from "./i18n";
-import type { MealPlanFitGuideline, MealPlanFitRule, PlanFitConflict } from "./api/planFitTypes";
+import type { MealPlanFitGuideline, MealPlanFitRule, MealPlanFitResult, PlanFitConflict, PlanFitSource } from "./api/planFitTypes";
 
 const TARGET_LABELS: Record<string, { "pt-PT": string; en: string }> = {
   energy: { "pt-PT": "Energia", en: "Energy" },
@@ -38,6 +38,28 @@ export function planFitTargetLabel(key: string, locale: Locale): string {
 export function planFitSourceLabel(value: string | null | undefined, locale: Locale): string {
   if (!value) return "NutriFlow";
   return SOURCE_LABELS[value]?.[locale] ?? value;
+}
+
+/** Distinguish missing evaluation from a confirmed safe or passing meal. */
+export function planFitEvidenceSummary(result: MealPlanFitResult): {
+  evaluated: number;
+  unknown: number;
+  unevaluatedGuidelines: number;
+  blocking: number;
+} {
+  return {
+    evaluated: result.rule_results.filter((rule) => ["pass", "fail", "support"].includes(rule.status)).length,
+    unknown: result.rule_results.filter((rule) => ["unknown", "not_evaluated"].includes(rule.status)).length,
+    unevaluatedGuidelines: result.guideline_results.filter((item) => item.status === "not_evaluated").length,
+    blocking: result.rule_results.filter((rule) => rule.is_mandatory && rule.status === "fail").length,
+  };
+}
+
+/** Return only evidence actually supplied by the backend, never inferred provenance. */
+export function planFitEvidenceSource(source: PlanFitSource, locale: Locale): string[] {
+  const values = [source.plan_title, source.source_name ?? source.rule_source, source.source_reference];
+  return [...new Set(values.filter((value): value is string => Boolean(value?.trim())))]
+    .map((value) => planFitSourceLabel(value, locale));
 }
 
 export function formatPlanFitNumber(value: string | null | undefined, locale: Locale): string {
