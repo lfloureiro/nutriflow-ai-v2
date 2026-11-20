@@ -248,3 +248,13 @@
 .plan-fit-rule__evidence{margin-top:8px;max-width:100%;overflow-wrap:anywhere}
 .plan-fit-rule__evidence summary{font-size:12px;color:var(--muted);cursor:pointer}
 .plan-fit-rule__evidence p{font-size:12px;line-height:1.5;margin:6px 0 0}
+
+/* Values come from the evaluated portion, not the full recipe or a default zero. */
+.plan-fit-portion{padding:16px;border:1px solid var(--border);border-radius:14px;min-width:0;background:var(--surface)}
+.plan-fit-portion h4{margin:0 0 10px}
+.plan-fit-portion>p{margin:0 0 10px;font-size:13px}
+.plan-fit-portion dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));gap:10px;margin:0 0 10px}
+.plan-fit-portion dl>div{min-width:0;padding:10px;background:var(--surface-soft);border-radius:10px;overflow-wrap:anywhere}
+.plan-fit-portion dt{font-size:12px;color:var(--muted)}
+.plan-fit-portion dd{margin:5px 0 0;font-weight:650;font-size:16px}
+.plan-fit-portion>small{font-size:12px;line-height:1.55;color:var(--muted)}
