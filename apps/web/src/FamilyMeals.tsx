@@ -1,6 +1,7 @@
 import {useUnsavedChanges} from "./useUnsavedChanges";
 import PersonAvatar from "./ui/PersonAvatar";
 import ContextDrawer from "./ui/ContextDrawer";
+import NextMealHero, {type HeroSuggestedMeal} from "./NextMealHero";
 import {searchText} from "./recipeBrowsing";
 import {listRecipeReviews,type ReviewRecipe} from "./api/dietaryReviewClient";
 import SavedMealChanges from "./SavedMealChanges";
@@ -563,6 +564,7 @@ export default function FamilyMealsScreen({
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   const [editing, setEditing] = useState<EditTarget | null>(null);
+  const [heroSuggestion, setHeroSuggestion] = useState<HeroSuggestedMeal | null>(null);
   const requestEditorClose = useRef<() => void>(() => {});
   const [mealSelection,setMealSelection]=useState<{date:string;mealType:MealType}|null>(()=>initialDate&&selectedMealType?{date:initialDate,mealType:selectedMealType}:null);
   const [busy, setBusy] = useState(false);
@@ -577,6 +579,7 @@ export default function FamilyMealsScreen({
   }, [familyId, initialDate]);
   useEffect(() => {
     setEditing(null);
+    setHeroSuggestion(null);
   }, [familyId]);
   useEffect(() => {
     setMealSelection(initialDate && selectedMealType ? {date:initialDate,mealType:selectedMealType} : null);
@@ -712,6 +715,33 @@ export default function FamilyMealsScreen({
         </nav>
       ) : null}
 
+      {mode === "week" && people.length > 0 ? (
+        <NextMealHero
+          familyId={familyId}
+          timezone={plan?.timezone ?? people[0]?.timezone ?? "Europe/Lisbon"}
+          people={people}
+          revision={revision}
+          onOpen={(date, mealType, entry) => {
+            navigateDate(date);
+            setHeroSuggestion(null);
+            if (entry) {
+              if (onMealSelectionChange?.({date,mealType}) === false) return;
+              setMealSelection({date,mealType});
+            } else {
+              if (onMealSelectionChange?.(null) === false) return;
+              setMealSelection(null);
+              setEditing({date,mealType,entry:null});
+            }
+          }}
+          onReview={(suggested) => {
+            if (onMealSelectionChange?.({date:suggested.date,mealType:suggested.mealType}) === false) return;
+            navigateDate(suggested.date);
+            setEditing(null);
+            setHeroSuggestion(suggested);
+            setMealSelection({date:suggested.date,mealType:suggested.mealType});
+          }}
+        />
+      ) : null}
       {mode === "recommend" ? <MealPlanner familyId={familyId} /> : null}
       {mode !== "recommend" && error ? (
         <div className="error-banner" role="alert">
@@ -725,10 +755,12 @@ export default function FamilyMealsScreen({
       {mode !== "recommend" && !busy && plan ? (
         mode === "week" ? (
           <WeeklyProposalPreview
+            heroSuggestion={heroSuggestion}
             initialDate={initialDate ?? browsingDate}
             initialSelection={mealSelection} onSelectionChange={(selection)=>{
               if(onMealSelectionChange?.(selection)===false)return false;
               setMealSelection(selection);
+              if (!selection || selection.date !== heroSuggestion?.date || selection.mealType !== heroSuggestion?.mealType) setHeroSuggestion(null);
               return true;
             }} onMealCommitted={onDataChanged}
             familyId={familyId}
