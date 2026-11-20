@@ -1292,7 +1292,7 @@ export default function WeeklyProposalPreview({
             <div className="weekly-day-grid" role="group" aria-label={copy.title}>
               <div className="nf-week-row-labels" aria-hidden="true">
                 <span />
-                {ALL_MEAL_TYPES.map(mealType => <span key={mealType}>{mealLabel(mealType, locale)}</span>)}
+                {ALL_MEAL_TYPES.map(mealType => <span key={mealType}><Icon name={mealType === "breakfast" ? "coffee" : mealType === "lunch" ? "utensils" : mealType === "snack" ? "apple" : "cloche"}/>{mealLabel(mealType, locale)}</span>)}
               </div>
               {weekDates.map((planningDate) => {
                 const gridDay = formatGridDay(planningDate, locale);
