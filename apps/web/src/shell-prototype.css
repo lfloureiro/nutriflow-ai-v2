@@ -184,3 +184,74 @@
   .primary-nav .nav-item,
   .side-nav__ai { transition: none; }
 }
+
+/* Screenshot family identity: semantic settings action, real family initials. */
+@media (min-width: 761px) {
+  .side-nav__family {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    gap: 14px;
+    background: transparent;
+    color: var(--color-text);
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    text-align: left;
+    cursor: pointer;
+  }
+  .side-nav__family-avatar {
+    display: grid;
+    place-items: center;
+    flex: 0 0 46px;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: #e4cdb3;
+    color: #242025;
+    font: 700 20px/1 "Manrope", sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0;
+  }
+  .side-nav__family .side-nav__family-copy {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+    color: var(--color-text);
+    font-size: inherit;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .side-nav__family-copy strong {
+    color: inherit;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 700;
+  }
+  .side-nav__family-copy small {
+    color: var(--color-muted);
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.4;
+    text-transform: none;
+  }
+  .side-nav__family:hover .side-nav__family-copy strong,
+  .side-nav__family:focus-visible .side-nav__family-copy strong { text-decoration: underline; }
+}
+@media (min-width: 1101px) {
+  .side-nav__family-avatar {
+    flex-basis: clamp(46px, 3.9vw, 60px);
+    width: clamp(46px, 3.9vw, 60px);
+    height: clamp(46px, 3.9vw, 60px);
+    font-size: clamp(20px, 1.56vw, 24px);
+  }
+  .side-nav__family-copy strong { font-size: clamp(15px, 1.3vw, 20px); }
+  .side-nav__family-copy small { font-size: clamp(12px, 1.11vw, 17px); }
+}
+:root[data-theme="dark"] .side-nav__family-avatar {
+  background: linear-gradient(135deg, #f8d2a7, #e6b88a);
+  color: #211c1e;
+  box-shadow: inset 0 1px 0 #ffffff66, 0 7px 22px #00000021;
+}
