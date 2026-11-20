@@ -66,3 +66,16 @@ Escalas observadas aproximadamente: limite da sidebar em x≈320, hero horizonta
 Implementação desta aproximação geométrica/óptica fundamentada: `shell-prototype.css` (todos os ecrãs desktop, sidebar 320px acima de 1300px, gradientes e brilho dark) e `week-reference.css` (somente a semana, hero, grelha, células, tipos de estado, sombras e badges), ambos importados após folhas históricas. Mantêm-se o HTML React, drawers, dados e semântica atuais.
 
 **Gate obrigatório antes de dizer EXATAMENTE igual:** carregar o HTML original, a imagem alvo e a app no mesmo Chromium e confrontar, por viewport e por tema, screenshot de imagem + `getComputedStyle` das classes pertinentes. O CSS é uma transcrição controlada dos valores visíveis, mas não dispomos ainda da screenshot da aplicação v2.0.75 na mesma configuração; a igualdade exata não está demonstrada. Os cartões reais têm conteúdo variável, ao contrário do mockup. Os textos e a data do screenshot são apenas ilustração.
+
+## Verificação da aplicação real através de capturas (20/11/2026, 23:06–23:07)
+
+Recebidas duas capturas da app **v2.0.75** (imagens originais 1920×1200, com barras do Chrome/Windows) e a composição aprovada (1536×1024, apenas interface). As capturas não estão em coordenadas comparáveis por diferenças de janela, browser chrome, escala e região visível: **não calcular pixel-diff bruto entre os PNG completos**.
+
+Factos visíveis nas capturas reais: a sidebar e a topbar têm o mesmo estilo nas duas posições de scroll; o cartão IA e a navegação apresentam gradiente e destaque âmbar. A app mostra **estado real e honesto** da carta seguinte («Nenhuma proposta elegível confirmada») e utiliza ilustração fallback, porque não há fotografia real da refeição seguinte. Não substituir por «Salmão» ilustrativo apenas para fingir fidelidade ao mockup. A grelha contém a semana real, com espaços vazios e estados «Planeada», «Por verificar» e «Adaptação aplicada». O cabeçalho global, navegação entre semanas e barra de tarefas presentes na captura real não existem na composição ilustrativa.
+
+Diferença funcional importante: a imagem da referência mostra uma carta de sugestão estática, mas o produto aprovado usa a carta **«Próxima refeição» dinâmica** e não inventa recomendações. A fidelidade exata aplica-se a contornos, proporções, imagem quando existir, layout, luz, cor e tipografia, não à identidade de dados irreais.
+
+Defeitos concretos encontrados:
+- A imagem `/images/shared-meal.svg` estava a controlar a altura intrínseca da grelha do hero, deixando o cartão maior do que o alvo. A regra desktop em `week-reference.css` fixa 136px também na imagem para impedir expansão.
+- O Web CI v2.0.75 anterior falhou em dois testes novos por importações `?raw` de CSS vazias no Vitest, não por falha funcional. `shellPrototype.test.ts` foi corrigido para ler os ficheiros por `node:fs`.
+- Testes, screenshot da app com **viewport de conteúdo 1536×1024**, escala 100%, fonte carregada em dark/light e medição de `getComputedStyle` continuam obrigatórios para afirmar igualdade.
