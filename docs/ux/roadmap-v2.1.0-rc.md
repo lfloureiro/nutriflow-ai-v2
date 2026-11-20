@@ -160,3 +160,10 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - A causa provável é a ordem da desmontagem do portal: a recuperação **síncrona** do foco alternativo ocorre durante o cleanup React, mas a remoção DOM do drawer pode voltar a mudar o foco para `body`. A recuperação do foco normal para invocador existente já estava correta e mantém-se síncrona.
 - **v2.0.59:** quando o invocador foi removido, usar `queueMicrotask` para focar a navegação ativa após a remoção DOM do modal, desde que nenhum outro drawer esteja aberto. Não adiar o caso de invocador presente: evita as cinco falhas observadas na versão v2.0.56 com `requestAnimationFrame` indiscriminado.
 - Manter o cenário E2E de fallback original sem afrouxar a asserção. **Exigir novamente 3 CI verdes no mesmo SHA** antes de declarar o patch validado. PR #76 draft, `main` intacta.
+
+## Diagnóstico e patch v2.0.60 — fallback de foco após desmontagem (20/11/2026)
+
+- No SHA `39846a9e433abecc2a123080aacae7850714b7da`, Web CI e API CI passaram; UX E2E **falhou somente o teste de retorno de foco à navegação quando o invocador foi removido**. Os restantes cenários de navegador, inclusive todos os restantes de acessibilidade, passaram. A correção v2.0.59 ainda não cumpriu o gate 3/3.
+- **v2.0.60:** mantendo restauro síncrono do foco quando o botão invocador continua disponível, o fallback anómalo (invocador removido) ocorre no próximo macrotask `setTimeout(...,0)` depois da desmontagem e dos efeitos de rota. Não desviar foco se outro drawer estiver presente ou se um utilizador/script já tiver focado outro elemento conectado. 
+- O teste E2E preserva a expectativa de foco na navegação ativa, verifica que `root.inert=false` e que não existem drawers residuais, e reporta estado real do foco em caso de falha. Não reduz o critério para passar artificialmente.
+- Frontend **v2.0.60**, gate 3/3 novamente obrigatório no SHA final. PR #76 draft; `main` e dados reais intactos.
