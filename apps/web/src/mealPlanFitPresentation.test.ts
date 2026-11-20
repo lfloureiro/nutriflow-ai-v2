@@ -5,6 +5,7 @@ import {
   formatPlanFitNumber,
   planFitEvidenceSource,
   planFitEvidenceSummary,
+  planFitCandidateNutrition,
   planFitRuleExplanation,
   planFitTargetLabel,
   planFitUnitLabel,
@@ -64,6 +65,23 @@ describe("Plan-Fit presentation localization", () => {
     expect(planFitEvidenceSource({
       ...rule().source, source_name:null,
     },"pt-PT")).toEqual([]);
+  });
+
+  it("uses candidate portion values without inventing missing energy or nutrient zeros", () => {
+    const result={
+      candidate:{nutrition:{energy_kcal:null,nutrients:{
+        protein:{value:"18.4",unit:"g"},
+        fiber:{value:"2.0",unit:"g"},
+        unknown:{value:"not-a-number",unit:"g"},
+      }}},
+    } as MealPlanFitResult;
+    expect(planFitCandidateNutrition(result)).toEqual({
+      energyKcal:null,
+      nutrients:[{key:"fiber",value:"2.0",unit:"g"},{key:"protein",value:"18.4",unit:"g"}],
+    });
+    expect(planFitCandidateNutrition({
+      candidate:{nutrition:{energy_kcal:"350",nutrients:{}}},
+    } as MealPlanFitResult)).toEqual({energyKcal:"350",nutrients:[]});
   });
 
   it("uses PT-PT nutrient labels and units", () => {
