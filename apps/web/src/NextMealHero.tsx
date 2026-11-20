@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getFamilyMealPlan } from "./api/client";
-import type { FamilyMealPlan, MealType } from "./api/mealPlanTypes";
+import type { FamilyMealPlan, MealPlanEntry, MealType } from "./api/mealPlanTypes";
 import { getRecommendationBootstrap } from "./api/recommendationClient";
 import { requestSharedWeeklyPlanProposal } from "./api/weeklyPlanningClient";
 import type {
@@ -74,7 +74,7 @@ export default function NextMealHero({
   timezone: string;
   people: Person[];
   revision: number;
-  onOpen: (date: string, mealType: MealType) => void;
+  onOpen: (date: string, mealType: MealType, entry: MealPlanEntry | null) => void;
   onReview: (value: HeroSuggestedMeal) => void;
 }) {
   const { locale } = useI18n();
@@ -201,7 +201,7 @@ export default function NextMealHero({
         {slot && <button className="button primary" type="button" onClick={() => {
           if (choice && currentSuggestion) {
             onReview({date:slot.date,mealType:slot.mealType,request:currentSuggestion.request,proposal:currentSuggestion.proposal});
-          } else onOpen(slot.date,slot.mealType);
+          } else onOpen(slot.date,slot.mealType,slot.entry);
         }}>
           <Icon name={ready ? "book" : choice ? "spark" : "calendar"}/>
           {ready ? copy.open : choice ? copy.review : copy.schedule}
