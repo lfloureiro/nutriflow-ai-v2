@@ -70,3 +70,10 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - No SHA `ee778989f56d897a5a9cec2865a1c64ab857f21c`, o Web CI falhou por **TypeScript TS2352 num fixture parcial** dos testes da composição da porção (cast direto de objeto parcial para `MealPlanFitResult`).
 - Corrigido o teste com cast explícito `unknown`, mantendo a tipagem de produção; a apresentação nutricional passa ainda a tratar strings vazias como **dados desconhecidos**, e não zero. Teste adicional para esse caso.
 - Publicados commits corretivos `8aa8208`, `33eeae5` e `cefae3d`. **Não marcar a entrega como aprovada** sem os três gates verdes no último SHA.
+
+## Estado de execução — 20/11/2026, entrega agrupada 2.0.38–2.0.39
+
+- **v2.0.37:** CI Web/API/UX E2E **3/3 aprovado** no SHA `bab5ef8ae0928f45ca6c87d55533bc028eeef6aa`.
+- **v2.0.38:** atalho Refeições de hoje → Nutrição na mesma pessoa, respeitando o tipo de refeição, sem abrir um segundo drawer.
+- **v2.0.39:** seleção da receita obrigatória no contexto (nunca inferida do título), quantidade a confirmar e opção de limpar seleção, com remontagem do avaliador entre refeições para eliminar estados antigos. E2E sintético de contexto adicionado; **aguardar 3 CI verdes no SHA final**.
+- **Pendentes para RC 2.1.0:** comparação mais direta com a porção planeada efetiva e restrições profissionais reais, regressões de rede atrasada e dados insuficientes, equivalência visual com protótipo, zoom 200%, temas/i18n e checklist de acessibilidade.
