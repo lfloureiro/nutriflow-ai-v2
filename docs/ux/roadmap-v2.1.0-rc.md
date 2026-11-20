@@ -181,3 +181,8 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - O teste exigia especificamente a opção de navegação **ativa**, mas o contrato também permite regressar à **marca Casa à Mesa**, que navega para Início. **v2.0.62:** a asserção verifica de modo rigoroso foco num controlo conectado e visível da navegação ativa **ou** marca, rejeitando `body`, controlo removido e drawer oculto. Mantém verificações separadas de `inert=false`, nenhuma modal e launcher originalmente focado antes de abrir.
 - A mudança é alinhamento da regressão com o contrato de foco seguro; não é certificação de acessibilidade por leitor de ecrã nem elimina a obrigação do zoom real. `useLayoutEffect` mantém inicialização estável do foco.
 - UI **v2.0.62**. Só marcar concluído com Web CI/API CI/UX E2E verdes no SHA final. PR #76 draft, `main` intacta, sem testes sobre dados pessoais.
+
+## CI de fecho do lote v2.0.62 — 20/11/2026
+
+- **SHA `f05188505b1f01c7a36939d511892686ddaac38e`: Web CI, API CI e UX E2E sintético concluídos com sucesso (3/3).** O caso de foco alternativo passou, tal como a mudança de pessoa num drawer já aberto, os ciclos repetidos de teclado, reflow e restantes regressões.
+- v2.0.62 estabiliza a acessibilidade automatizada do drawer, mas **não certifica** zoom real a 200%, leitores de ecrã nem equivalência visual com `Casa_a_Mesa_Prototipo.html`. PR #76 permanece draft; não há merge nem testes manuais até cumprir os gates documentados da candidata v2.1.0.
