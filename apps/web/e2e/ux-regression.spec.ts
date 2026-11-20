@@ -54,7 +54,7 @@ async function seed(request: APIRequestContext) {
 async function openFamily(page:Page,familyId:string,route:string){
   await page.addInitScript((id:string)=>{
     window.localStorage.setItem("nutriflow-family-id",id);
-    window.localStorage.setItem("nutriflow-locale","pt-PT");
+    if(!window.localStorage.getItem("nutriflow-locale")) window.localStorage.setItem("nutriflow-locale","pt-PT");
   },familyId);
   await page.goto(route);
 }
