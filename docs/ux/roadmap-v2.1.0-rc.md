@@ -36,3 +36,9 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - **v2.0.31**: fluxo de revisão de substituições passa a um único drawer a partir da lista; modo de receita fixa preserva renderização contextual; E2E de navegação/FODMAP adicionado. **Aguardar CI do SHA final.**
 - **Pendentes prioritários:** avaliações por pessoa/receita sem confundir gosto com restrições; fontes e validade das restrições individuais e plano profissional; comparação de nutrição por porção com metas de refeição; revisão de navegação e acessibilidade; zoom real 200% e evidência visual antes do marco 2.1.0.
 - **Obrigação de documentação por patch:** atualizar este roteiro, `docs/ux/lote-seguinte-drawer-2026-11-19.md` e a secção de estado do handoff, registando SHA e estado dos três gates sem declarar como concluído o que não foi testado.
+
+## Estado de execução — 20/11/2026, patch v2.0.32
+
+- **v2.0.31**: Web CI e API CI verdes; UX E2E falhou num cenário por duplicação do nome da receita em dois títulos no drawer de revisão. Não marcou o gate 3/3.
+- **v2.0.32**: título duplicado removido; preferências de receitas descrevem de forma explícita o score de gosto, separado de segurança/nutrição/FODMAP; teste API sintético verifica médias por pessoa e limpeza. **Aguardar os três gates no último SHA.**
+- Próximos blocos após gate verde: avaliação nutricional individual e proveniência/validade do plano profissional; melhoria da experiência de ratings no contexto das receitas; inspeção visual responsive/zoom 200%, seguida do candidato 2.1.0.
