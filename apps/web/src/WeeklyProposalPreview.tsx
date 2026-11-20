@@ -1189,7 +1189,7 @@ export default function WeeklyProposalPreview({
   }, [autoGenerate, plan, people]);
 
   return (
-    <section className="meal-plan-editor weekly-proposal-preview">
+    <section className={`meal-plan-editor weekly-proposal-preview ${simpleWeekView ? "nf-week-map-final" : ""}`}>
       {!simpleWeekView || proposal?.selected_plan ? <div className="meal-plan-editor__heading">
         <div>
           <span className="eyebrow">{copy.eyebrow}</span>
