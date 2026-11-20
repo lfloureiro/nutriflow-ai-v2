@@ -528,3 +528,9 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 
 - Reposição no `ContextDrawer` da hierarquia de cabeçalho do protótipo: legenda discreta NutriFlow AI · Casa à Mesa acima do título, alinhamento com área de fecho e estilo independente do conteúdo. `aria-labelledby` continua a apontar apenas para o título específico, evitando repetição decorativa para leitores de ecrã.
 - Sem alterações de callbacks, dados ou geometria do modal; a regra do foco e o botão de 44 px permanecem como em v2.0.62. CI Web/API/UX E2E e auditoria visual ainda precisam de confirmação no SHA desta versão.
+
+## Correção v2.0.66 — identidade da aplicação (20/11/2026)
+
+- A decisão já implementada em `apps/web/src/ui/Brand.tsx` mantém-se: **NutriFlow AI** (nome), **Casa à Mesa** (subtítulo) e **v${APP_VERSION}** (versão de `apps/web/package.json`). Não criar marcas paralelas nos drawers.
+- Revertida a legenda «NutriFlow AI · Casa à Mesa» introduzida incorretamente nos cabeçalhos do `ContextDrawer` na v2.0.65. O drawer conserva só o título da operação e os comportamentos existentes de foco/fecho. Mantidos os ajustes dos overlays claro e escuro das v2.0.63–64.
+- Patch só frontend e documentação, sem alterações de API, base de dados ou `main`. CI Web/API/UX E2E no SHA final ainda por verificar.
