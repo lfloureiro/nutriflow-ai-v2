@@ -1296,6 +1296,7 @@ export default function WeeklyProposalPreview({
               </div>
               {weekDates.map((planningDate) => {
                 const gridDay = formatGridDay(planningDate, locale);
+                const shortDayNumber = Number(planningDate.slice(-2)).toString();
                 return (
                   <article
                     className={`weekly-grid-day ${selectedDate === planningDate ? "selected is-mobile-day" : ""}`}
@@ -1307,7 +1308,7 @@ export default function WeeklyProposalPreview({
                       type="button"
                     >
                       <strong>{gridDay.weekday}</strong>
-                      <small>{gridDay.date}</small>
+                      <small>{simpleWeekView ? shortDayNumber : gridDay.date}</small>
                     </button>
                     <div className="weekly-grid-day__meals">
                       {ALL_MEAL_TYPES.map((mealType) => {
@@ -1331,7 +1332,7 @@ export default function WeeklyProposalPreview({
                             aria-pressed={
                               selectedDate === planningDate && selectedMealType === mealType
                             }
-                            aria-label={`${mealLabel(mealType, locale)} · ${gridDay.weekday} ${gridDay.date} · ${entry ? copy.planned : choice ? copy.proposed : pendingReason ? copy.pending : copy.empty} · ${label}`}
+                            aria-label={`${mealLabel(mealType, locale)} · ${gridDay.weekday} ${planningDate} · ${entry ? copy.planned : choice ? copy.proposed : pendingReason ? copy.pending : copy.empty} · ${label}`}
                             className={`weekly-grid-meal is-${state} ${
                               needsReview ? "has-review" : ""
                             } ${
