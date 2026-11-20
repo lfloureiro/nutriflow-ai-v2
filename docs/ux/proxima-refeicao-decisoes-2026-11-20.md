@@ -46,3 +46,10 @@ Cada ficheiro conserva ligação à página original e é indicado como *fotogra
 - Auditoria visual 1440/1024/768/390 e zoom 200%, temas claro/escuro, i18n e acessibilidade de foco/fecho.
 - Teste de disponibilidade das URLs externas, licenças e adequação visual de cada fotografia.
 - Manter PR #76 draft; `main`, API principal, dados familiares reais e serviços locais intactos. Não declarar v2.1.0 pronta só com esta implementação.
+
+## v2.0.70 — apresentação do ecrã semanal aprovada (20/11/2026)
+
+- A carta dinâmica da v2.0.69 é colocada no topo visual do ecrã semanal. Não se repete o título longo do editor; as restantes vistas e ferramentas mantêm-se acessíveis num disclosure «Outras vistas e ferramentas de planeamento», sem eliminar capacidades.
+- A sidebar recupera o cartão «Inteligência à mesa · Interpretar. Aprender. Explicar.» do protótipo. Ao ativá-lo, abre a vista de recomendação já existente. Bloco oculto no menu móvel para não competir com os cinco destinos.
+- Os controlos de semana anterior/atual/seguinte continuam disponíveis abaixo da carta. Todos os dados e refeições guardados conservam-se inalterados.
+- **Pendências:** testar fluxo com API sintética e avaliar se o motor de um slot incorpora suficientemente o histórico/variedade semanal; rever presenças antes de aceitar, confirmar licenças de fotografias e completar cobertura de imagens; CI três gates no SHA final; comparar screenshots reais e zoom 200%. PR #76 draft, sem alteração de base real.
