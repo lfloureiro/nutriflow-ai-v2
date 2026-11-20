@@ -193,3 +193,9 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - Na aplicação, `ContextDrawer.css` já preservava largura 620/780 px, abertura lateral, foco e acessibilidade, mas aplicava a ambos os temas o mesmo fundo `color-mix(...)` sem a sobreposição mais escura prevista no protótipo.
 - v2.0.63 adiciona apenas a regra de fundo do overlay escuro, sem alterar portal, eventos, restauração de foco, rotas ou cálculos. `main` e dados reais continuam fora do âmbito.
 - **Verificação pendente:** Web CI, API CI e UX E2E no SHA final; comparar screenshots reais do protótipo e da aplicação em 1440/390 px e temas claro/escuro. Não confundir revisão do CSS com auditoria visual concluída, nem declarar v2.1.0 pronta.
+
+## v2.0.64 — correspondência do overlay em tema claro (20/11/2026)
+
+- Referência direta: `Casa_a_Mesa_Prototipo(1).html`, seletor `.overlay`, `background:#0d1d184d`; regra de escuro `rgba(8,8,10,.68)` já corrigida em v2.0.63.
+- A `.nf-context-overlay` usa agora a mesma cor e transparência exatas do protótipo em tema claro. Não altera largura, montagem, interações, transições, API ou base de dados.
+- A correspondência visual real dos ecrãs ainda **não foi certificada**: capturas comparativas 1440/390, 1024/768 e zoom real 200% continuam pendentes de observação. O PR #76 permanece draft; CI 3/3 necessário no SHA final.
