@@ -10,6 +10,12 @@ test("weekly map remains usable from desktop through 200% equivalent narrow view
   }});
   expect(response.ok()).toBe(true);
   const family=await response.json() as {id:string};
+  // The hero intentionally requires at least one family member; seed a fictional one.
+  const personResponse = await request.post(`${API}/families/${family.id}/persons`,{data:{
+    first_name:"Pessoa Visual QA",last_name:null,birth_date:null,
+    preferred_locale:"pt-PT",timezone:"Europe/Lisbon",meal_discovery:null,
+  }});
+  expect(personResponse.ok()).toBe(true);
   await page.addInitScript(id=>{
     window.localStorage.setItem("nutriflow-family-id",id);
     window.localStorage.setItem("nutriflow-locale","pt-PT");
