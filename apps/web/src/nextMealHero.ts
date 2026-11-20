@@ -36,7 +36,7 @@ export function familyMealInstant(date: string, mealType: MealType, timezone: st
   if (!offset) throw new Error("Unsupported timezone");
   const sign = offset[1] === "-" ? -1 : 1;
   const offsetMinutes = sign * (Number(offset[2] ?? "0") * 60 + Number(offset[3] ?? "0"));
-  const [hours, minutes] = time.split(":").map(Number);
+  const [hours = 0, minutes = 0] = time.split(":").map(Number);
   const localMinutes = hours * 60 + minutes;
   return new Date(Date.parse(`${date}T12:00:00Z`) + (localMinutes - 720 - offsetMinutes) * 60_000).toISOString();
 }
