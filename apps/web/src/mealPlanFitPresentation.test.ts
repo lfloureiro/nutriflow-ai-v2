@@ -93,6 +93,8 @@ describe("Plan-Fit presentation localization", () => {
     const matched={person_id:"person-qa",planning_date:"2026-11-20",meal_type:"lunch",
       candidate:{quantity:"1"}} as unknown as MealPlanFitResult;
     expect(planFitMatchesRequest(matched,expected)).toBe(true);
+    expect(planFitMatchesRequest({...matched,candidate:{...matched.candidate,quantity_unit:"g"}},{...expected,quantityUnit:"serving"})).toBe(false);
+    expect(planFitMatchesRequest({...matched,candidate:{...matched.candidate,quantity_unit:"serving"}},{...expected,quantityUnit:"serving"})).toBe(true);
     expect(planFitMatchesRequest({...matched,person_id:"another"},expected)).toBe(false);
     expect(planFitMatchesRequest({...matched,planning_date:"2026-11-19"},expected)).toBe(false);
     expect(planFitMatchesRequest({...matched,meal_type:"dinner"},expected)).toBe(false);
@@ -121,6 +123,7 @@ describe("Plan-Fit presentation localization", () => {
     const valid={person_id:"person-qa",recipe_id:"recipe-qa",planning_date:"2026-11-20",
       meal_type:"lunch",baseline_fit:baseline} as unknown as import("./api/mealTransformationTypes").MealTransformationResult;
     expect(transformationMatchesRequest(valid,expected)).toBe(true);
+    expect(transformationMatchesRequest({...valid,baseline_fit:{...baseline,candidate:{...baseline.candidate,quantity_unit:"g"}}},{...expected,quantityUnit:"serving"})).toBe(false);
     expect(transformationMatchesRequest({...valid,recipe_id:"different"},expected)).toBe(false);
     expect(transformationMatchesRequest({...valid,person_id:"different"},expected)).toBe(false);
     expect(transformationMatchesRequest({...valid,planning_date:"2026-11-19"},expected)).toBe(false);
