@@ -349,3 +349,12 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - **Preferências de receitas:** a média familiar é agora identificada explicitamente como **avaliação de gosto**, não score de segurança, FODMAP ou nutrição; estrelas e «Não gosto» apresentam estado `aria-pressed`, sem alterar a regra de elegibilidade.
 - Novo cenário API sintético testa avaliações de dois membros (5 e 1 estrelas), cálculo da média 3, eliminação de uma avaliação, média 5 com apenas um membro e integridade da receita original.
 - Frontend **v2.0.32**. Exigir Web/API/UX E2E verdes **no SHA final**, não declarar a v2.0.31 validada; PR #76 draft, `main` e dados reais intactos.
+
+## Patch v2.0.33 — cobertura nutricional individual e proveniência das regras (20 novembro 2026)
+
+- **Baseline:** a v2.0.32 no SHA `b39005f478865a8a3f24d5b89aab146edae24474` passou Web CI, API CI e UX E2E no mesmo commit.
+- **Pessoa → Nutrição → Adequação ao plano:** após avaliar uma receita/porção, o painel apresenta contagens distintas de regras efetivamente avaliadas, regras sem evidência suficiente, orientações profissionais ainda não avaliadas e bloqueios obrigatórios identificados. As contagens são derivadas **apenas** dos estados devolvidos pela API; não simulam avaliação clínica.
+- Cada regra/orientação permite expandir as **fontes efetivamente registadas** (título de plano, nome de origem e referência, quando disponíveis); se faltarem, a interface identifica essa ausência em vez de inferir fontes.
+- Mantidos elegibilidade do motor, estado do plano profissional, valores observados, projeções diárias, conflitos, melhoria e transformação. Nenhuma alteração na avaliação API, no esquema, nos planos reais ou na classificação FODMAP.
+- Novos testes unitários de ausência de evidência, bloqueios obrigatórios e proveniência explícita, além de layout responsivo de cobertura.
+- Versão de interface **v2.0.33** (Z). É necessário confirmar Web CI, API CI e UX E2E verdes neste SHA final; PR #76 draft, `main` e dados familiares reais intactos.
