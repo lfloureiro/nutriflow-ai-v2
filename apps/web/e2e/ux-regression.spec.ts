@@ -520,6 +520,53 @@ test("mobile locale and theme changes retain the same single contextual person d
   await expect(page.getByRole("combobox",{name:"Language"})).toHaveValue("en");
 });
 
+test("accessible drawer keyboard includes native disclosure summaries and expanded details",async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.emulateMedia({reducedMotion:"reduce"});
+  await openFamily(page,fixture.family.id,`/#/meals?date=${DATE}&meal=dinner&mode=week`);
+  const drawer=page.getByRole("dialog");
+  await expect(drawer).toHaveCount(1);
+  await drawer.evaluate(element=>{
+    const details=document.createElement("details");
+    details.id="nf-disclosure-focus-qa";
+    const summary=document.createElement("summary");
+    summary.textContent="Synthetic disclosure QA";
+    const button=document.createElement("button");
+    button.textContent="Expanded detail QA";
+    details.append(summary,button);
+    element.appendChild(details);
+  });
+  const disclosure=drawer.locator("#nf-disclosure-focus-qa");
+  const summary=disclosure.locator("summary");
+  await expect(disclosure).not.toHaveAttribute("open","");
+  await page.keyboard.press("Shift+Tab");
+  await expect(summary).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(disclosure).toHaveAttribute("open","");
+  await page.keyboard.press("Tab");
+  await expect(disclosure.getByRole("button",{name:"Expanded detail QA"})).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(summary).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(disclosure).not.toHaveAttribute("open","");
+  await page.keyboard.press("Tab");
+  await expect(drawer.getByRole("button",{name:"Fechar detalhe"})).toBeFocused();
+});
+
+test("drawer restores focus to active navigation when its originating row disappears",async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.emulateMedia({reducedMotion:"reduce"});
+  await openFamily(page,fixture.family.id,`/#/meals?date=${DATE}&mode=week`);
+  const slot=page.getByRole("button",{name:/Prato sintético QA/}).first();
+  await slot.click();
+  const drawer=page.getByRole("dialog");
+  await expect(drawer).toHaveCount(1);
+  await slot.evaluate(element=>element.remove());
+  await page.keyboard.press("Escape");
+  await expect(drawer).toHaveCount(0);
+  await expect(page.locator(".primary-nav [aria-current='page']")).toBeFocused();
+});
+
 test("drawer keyboard navigation skips hidden and fieldset-disabled controls",async ({page,request})=>{
   const fixture=await seed(request);
   await page.emulateMedia({reducedMotion:"reduce"});
