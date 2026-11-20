@@ -96,16 +96,19 @@ export default function ContextDrawer({
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
       if (appRoot) appRoot.inert = wasInert;
-      // When the originating row vanished (e.g. after saving or filtering),
-      // move focus to the active navigation item instead of leaving it on <body>.
-      if (previousFocus?.isConnected && !previousFocus.closest("[inert]")) {
-        previousFocus.focus();
-      } else {
+      // Wait until React has removed the portal before restoring focus.
+      // Focusing during effect cleanup may still target a live aria-modal panel.
+      window.requestAnimationFrame(() => {
+        if (document.querySelector(".nf-context-drawer")) return;
+        // When the originating row vanished (e.g. after saving/filtering),
+        // use the active navigation target rather than leaving focus on <body>.
         const fallback = document.querySelector<HTMLElement>(
           ".primary-nav [aria-current='page'], .side-brand, .shell-main [tabindex='0']",
         );
-        fallback?.focus();
-      }
+        const target = previousFocus?.isConnected && !previousFocus.closest("[inert]")
+          ? previousFocus : fallback;
+        target?.focus({ preventScroll: true });
+      });
     };
   }, []);
 
