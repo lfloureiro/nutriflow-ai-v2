@@ -19,6 +19,8 @@ const FOCUSABLE = [
   "input:not([disabled])",
   "select:not([disabled])",
   "textarea:not([disabled])",
+  "summary",
+  "[contenteditable='true']",
   "[tabindex]:not([tabindex='-1'])",
 ].join(", ");
 
@@ -94,7 +96,16 @@ export default function ContextDrawer({
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
       if (appRoot) appRoot.inert = wasInert;
-      previousFocus?.focus();
+      // When the originating row vanished (e.g. after saving or filtering),
+      // move focus to the active navigation item instead of leaving it on <body>.
+      if (previousFocus?.isConnected && !previousFocus.closest("[inert]")) {
+        previousFocus.focus();
+      } else {
+        const fallback = document.querySelector<HTMLElement>(
+          ".primary-nav [aria-current='page'], .side-brand, .shell-main [tabindex='0']",
+        );
+        fallback?.focus();
+      }
     };
   }, []);
 
