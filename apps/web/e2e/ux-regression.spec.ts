@@ -184,6 +184,35 @@ test("weekly map: editing a saved or empty meal never stacks two side drawers",a
   await expect(page.locator(".weekly-day-grid")).toBeVisible();
 });
 
+test("family taste ratings persist per person independently of nutrition and can be cleared",async ({request})=>{
+  const fixture=await seed(request);
+  const familyId=fixture.family.id;
+  const recipeId=fixture.recipe.id;
+  const other=await postJson<{id:string}>(request,`/families/${familyId}/persons`,{
+    first_name:"Segundo membro QA",last_name:null,birth_date:null,
+    preferred_locale:"pt-PT",timezone:"Europe/Lisbon",meal_discovery:null,
+  });
+  const base=`/families/${familyId}/recipes/${recipeId}/preferences`;
+  const first=await request.put(`${API}${base}/${fixture.person.id}`,{data:{rating:5}});
+  expect(first.ok()).toBeTruthy();
+  const second=await request.put(`${API}${base}/${other.id}`,{data:{rating:1}});
+  expect(second.ok()).toBeTruthy();
+  const summary=await getJson<{rating_count:number;average_rating:string|null;ratings:{person_id:string;rating:number}[]}>(request,base);
+  expect(summary.rating_count).toBe(2);
+  expect(Number(summary.average_rating)).toBe(3);
+  expect(summary.ratings.find(x=>x.person_id===fixture.person.id)?.rating).toBe(5);
+  expect(summary.ratings.find(x=>x.person_id===other.id)?.rating).toBe(1);
+  const clear=await request.delete(`${API}${base}/${other.id}`);
+  expect(clear.ok()).toBeTruthy();
+  const persisted=await getJson<{rating_count:number;average_rating:string|null;ratings:{person_id:string;rating:number}[]}>(request,base);
+  expect(persisted.rating_count).toBe(1);
+  expect(Number(persisted.average_rating)).toBe(5);
+  expect(persisted.ratings[0]?.person_id).toBe(fixture.person.id);
+  const recipe=await getJson<{name:string;ingredients:unknown[]}>(request,`/families/${familyId}/recipes/${recipeId}`);
+  expect(recipe.name).toBe("Prato sintético QA");
+  expect(recipe.ingredients.length).toBe(1);
+});
+
 test("substitution review keeps its recipe list behind one contextual drawer",async ({page,request})=>{
   const fixture=await seed(request);
   await page.setViewportSize({width:390,height:844});
