@@ -199,7 +199,7 @@ export default function App() {
         <button className="side-nav__family" type="button" onClick={() => setView("more")}
           aria-label={locale === "pt-PT" ? `Gerir o espaço: ${familyName}` : `Manage family space: ${familyName}`}>
           <span className="side-nav__family-avatar" aria-hidden="true">
-            {familyName.trim().split(/\\s+/).at(-1)?.charAt(0).toUpperCase() || "F"}
+            {familyName.trim().split(/\s+/).at(-1)?.charAt(0).toUpperCase() || "F"}
           </span>
           <span className="side-nav__family-copy">
             <strong>{familyName}</strong>
