@@ -7,6 +7,7 @@ import {
   planFitEvidenceSummary,
   planFitCandidateNutrition,
   planFitMatchesRequest,
+  planFitHasOpenEvidence,
   planFitRuleExplanation,
   planFitTargetLabel,
   planFitUnitLabel,
@@ -97,6 +98,19 @@ describe("Plan-Fit presentation localization", () => {
     expect(planFitMatchesRequest({...matched,candidate:{...matched.candidate,quantity:"2"}},expected)).toBe(false);
     expect(planFitMatchesRequest({...matched,candidate:{...matched.candidate,quantity:""}},expected)).toBe(false);
     expect(planFitMatchesRequest(matched,{...expected,quantity:""})).toBe(false);
+  });
+
+  it("marks incomplete or conflicting plan-fit scores as provisional",()=>{
+    const complete={
+      rule_results:[rule()],guideline_results:[],conflicts:[],
+      nutrition_plan_authority:{state:"active_plan"},status:"pass",
+    } as unknown as MealPlanFitResult;
+    expect(planFitHasOpenEvidence(complete)).toBe(false);
+    expect(planFitHasOpenEvidence({...complete,rule_results:[rule({status:"unknown"})]})).toBe(true);
+    expect(planFitHasOpenEvidence({...complete,guideline_results:[{status:"not_evaluated"}]} as MealPlanFitResult)).toBe(true);
+    expect(planFitHasOpenEvidence({...complete,nutrition_plan_authority:{...complete.nutrition_plan_authority,state:"no_active_plan"}})).toBe(true);
+    expect(planFitHasOpenEvidence({...complete,status:"conflict"})).toBe(true);
+    expect(planFitHasOpenEvidence({...complete,rule_results:[]})).toBe(true);
   });
 
   it("uses PT-PT nutrient labels and units", () => {
