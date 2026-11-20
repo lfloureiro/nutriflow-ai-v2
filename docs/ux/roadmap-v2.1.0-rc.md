@@ -186,3 +186,10 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 
 - **SHA `f05188505b1f01c7a36939d511892686ddaac38e`: Web CI, API CI e UX E2E sintético concluídos com sucesso (3/3).** O caso de foco alternativo passou, tal como a mudança de pessoa num drawer já aberto, os ciclos repetidos de teclado, reflow e restantes regressões.
 - v2.0.62 estabiliza a acessibilidade automatizada do drawer, mas **não certifica** zoom real a 200%, leitores de ecrã nem equivalência visual com `Casa_a_Mesa_Prototipo.html`. PR #76 permanece draft; não há merge nem testes manuais até cumprir os gates documentados da candidata v2.1.0.
+
+## Incremento v2.0.63 — alinhamento visual do drawer escuro (20/11/2026)
+
+- Referência inspecionada: `Casa_a_Mesa_Prototipo(1).html`, que define `[data-theme=dark] .overlay { background: rgba(8,8,10,.68) }`.
+- Na aplicação, `ContextDrawer.css` já preservava largura 620/780 px, abertura lateral, foco e acessibilidade, mas aplicava a ambos os temas o mesmo fundo `color-mix(...)` sem a sobreposição mais escura prevista no protótipo.
+- v2.0.63 adiciona apenas a regra de fundo do overlay escuro, sem alterar portal, eventos, restauração de foco, rotas ou cálculos. `main` e dados reais continuam fora do âmbito.
+- **Verificação pendente:** Web CI, API CI e UX E2E no SHA final; comparar screenshots reais do protótipo e da aplicação em 1440/390 px e temas claro/escuro. Não confundir revisão do CSS com auditoria visual concluída, nem declarar v2.1.0 pronta.
