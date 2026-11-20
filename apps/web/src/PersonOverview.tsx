@@ -70,6 +70,7 @@ const COPY = {
     mealsHelp: "Apenas as refeições em que esta pessoa participa.",
     reviewMeal: "Avaliar porção no plano",
     contextualMeal: "Refeição selecionada para avaliação",
+    clearMealContext: "Limpar seleção",
     contextualMealHelp: "Foi selecionado o tipo de refeição. Escolhe a receita e confirma a quantidade real antes de avaliar; o título do plano não identifica automaticamente uma receita.",
     noMeals: "Sem refeições para esta pessoa hoje.",
     noData: "Sem dados",
@@ -130,6 +131,7 @@ const COPY = {
     mealsHelp: "Only meals this person participates in.",
     reviewMeal: "Assess portion against plan",
     contextualMeal: "Meal selected for evaluation",
+    clearMealContext: "Clear selection",
     contextualMealHelp: "Only the meal type was selected. Choose the actual recipe and confirm its portion before evaluating; the plan title does not automatically identify a recipe.",
     noMeals: "No meals for this person today.",
     noData: "No data",
@@ -483,6 +485,7 @@ export default function PersonOverview({
             <p className="person-meal-fit-context" role="status">
               <strong>{copy.contextualMeal}: {focusedMeal.title}</strong>
               <span>{copy.contextualMealHelp}</span>
+              <button type="button" className="button ghost person-meal-fit-clear" onClick={()=>setFocusedMeal(null)}>{copy.clearMealContext}</button>
             </p>
           ) : null}
           <MealPlanFitPanel
