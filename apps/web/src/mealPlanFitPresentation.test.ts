@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { MealPlanFitRule } from "./api/planFitTypes";
+import type { MealPlanFitResult, MealPlanFitRule } from "./api/planFitTypes";
 import {
   formatPlanFitNumber,
+  planFitEvidenceSource,
+  planFitEvidenceSummary,
   planFitRuleExplanation,
   planFitTargetLabel,
   planFitUnitLabel,
@@ -40,6 +42,30 @@ function rule(overrides: Partial<MealPlanFitRule> = {}): MealPlanFitRule {
 }
 
 describe("Plan-Fit presentation localization", () => {
+  it("keeps unknown evidence distinct from passing and mandatory failures", () => {
+    const passing=rule({rule_id:"passed"});
+    const unknown=rule({rule_id:"unknown",status:"unknown"});
+    const mandatory=rule({rule_id:"mandatory",status:"fail",is_mandatory:true});
+    const result={
+      rule_results:[passing,unknown,mandatory],
+      guideline_results:[{status:"not_evaluated"},{status:"not_evaluated"}],
+    } as MealPlanFitResult;
+    expect(planFitEvidenceSummary(result)).toEqual({
+      evaluated:2, unknown:1, unevaluatedGuidelines:2, blocking:1,
+    });
+  });
+
+  it("shows only explicitly supplied provenance and never fabricates a source", () => {
+    expect(planFitEvidenceSource(rule().source,"pt-PT")).toEqual(["Demo"]);
+    expect(planFitEvidenceSource({
+      ...rule().source,plan_title:"Plano exemplo",
+      source_name:"Clínica QA",source_reference:"Relatório 2026",
+    },"pt-PT")).toEqual(["Plano exemplo","Clínica QA","Relatório 2026"]);
+    expect(planFitEvidenceSource({
+      ...rule().source, source_name:null,
+    },"pt-PT")).toEqual([]);
+  });
+
   it("uses PT-PT nutrient labels and units", () => {
     expect(planFitTargetLabel("protein", "pt-PT")).toBe("Proteína");
     expect(planFitTargetLabel("sodium", "pt-PT")).toBe("Sódio");
