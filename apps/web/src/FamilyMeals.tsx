@@ -27,9 +27,9 @@ import type { Recipe } from "./api/recipeTypes";
 import type { Person } from "./api/types";
 import { useI18n, type Locale } from "./i18n";
 import MealConsumptionControls from "./MealConsumptionControls";
-import MealPlanner from "./MealPlanner";
+const MealPlanner = lazy(() => import("./MealPlanner"));
 import { localDateValue } from "./planning";
-import WeeklyProposalPreview from "./WeeklyProposalPreview";
+const WeeklyProposalPreview = lazy(() => import("./WeeklyProposalPreview"));
 const PlanningJourney = lazy(() => import("./PlanningJourney"));
 
 export type FamilyMealsMode = "prepare" | "today" | "week" | "recommend";
@@ -748,7 +748,7 @@ export default function FamilyMealsScreen({
         </nav>
       ) : null}
 
-      {mode === "recommend" ? <MealPlanner familyId={familyId} /> : null}
+      {mode === "recommend" ? <Suspense fallback={<div className="shell-loading" role="status">{copy.loading}</div>}><MealPlanner familyId={familyId} /></Suspense> : null}
       {mode !== "recommend" && error ? (
         <div className="error-banner" role="alert">
           <strong>{copy.error}</strong><span>{error}</span>
@@ -760,7 +760,7 @@ export default function FamilyMealsScreen({
 
       {mode !== "recommend" && !busy && plan ? (
         mode === "week" ? (
-          <WeeklyProposalPreview
+          <Suspense fallback={<div className="shell-loading" role="status">{copy.loading}</div>}><WeeklyProposalPreview
             simpleWeekView
             heroSuggestion={heroSuggestion}
             initialDate={initialDate ?? browsingDate}
@@ -782,7 +782,7 @@ export default function FamilyMealsScreen({
             people={people}
             plan={plan}
             weekStart={plan.start_date}
-          />
+          /></Suspense>
         ) : (
           <div className="meal-plan-days today">
             {plan.days.map((day) => (
