@@ -19,7 +19,8 @@
   background: var(--color-surface);
   color: var(--color-text);
   box-shadow: -15px 0 70px #0002;
-  animation: nf-context-enter var(--motion-panel) var(--motion-ease) both;
+  /* A non-overshooting easing keeps the panel inside a 320px viewport throughout entry. */
+  animation: nf-context-enter var(--motion-panel) ease-out both;
 }
 .nf-context-drawer--wide { width: min(780px, 100%); }
 .nf-context-drawer__head {
