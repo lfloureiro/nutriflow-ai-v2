@@ -358,3 +358,11 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Mantidos elegibilidade do motor, estado do plano profissional, valores observados, projeções diárias, conflitos, melhoria e transformação. Nenhuma alteração na avaliação API, no esquema, nos planos reais ou na classificação FODMAP.
 - Novos testes unitários de ausência de evidência, bloqueios obrigatórios e proveniência explícita, além de layout responsivo de cobertura.
 - Versão de interface **v2.0.33** (Z). É necessário confirmar Web CI, API CI e UX E2E verdes neste SHA final; PR #76 draft, `main` e dados familiares reais intactos.
+
+## Patch v2.0.34 — proveniência e incerteza de condições individuais (20 novembro 2026)
+
+- **Baseline validada:** a v2.0.33 no SHA `c5fc2e4432deb933016fcc7b426f00b3759129e0` passou Web CI, API CI e UX E2E no mesmo commit.
+- **Pessoas → Saúde:** cada condição mostra agora, separadamente, a referência da origem, o início e o fim conhecidos; falta de informação é **desconhecido/não indicado**, não ausência de doença ou aprovação.
+- Ao existir estado `confirmed` com origem do utilizador ou referência ausente, o ecrã assinala que a confirmação profissional **não pode ser verificada ali**. Mesmo com fonte preenchida, a app não certifica diagnósticos; registar condição não cria automaticamente uma restrição alimentar, receita ou prescrição.
+- Introduzido `conditionEvidenceSummary` com testes unitários de datas desconhecidas, dados de fonte, confirmação declarada e referência insuficiente; layout responsive da evidência.
+- **Frontend v2.0.34**, patch Z; sem alteração na API/schema ou nos dados reais. Exigir Web CI/API CI/UX E2E verdes no SHA final; PR #76 mantém-se draft, `main` intacta e nenhuma solicitação de teste manual antes de v2.1.0.
