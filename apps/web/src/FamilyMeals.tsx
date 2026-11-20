@@ -725,6 +725,7 @@ export default function FamilyMealsScreen({
       {mode !== "recommend" && !busy && plan ? (
         mode === "week" ? (
           <WeeklyProposalPreview
+            initialDate={initialDate ?? browsingDate}
             initialSelection={mealSelection} onSelectionChange={(selection)=>{
               if(onMealSelectionChange?.(selection)===false)return false;
               setMealSelection(selection);
