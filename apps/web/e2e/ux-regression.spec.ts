@@ -484,13 +484,16 @@ test("responsive reflow at the effective 200 percent browser-zoom width",async (
         left:rect?.left??-1,right:rect?.right??-1,
         headingBottom:heading?.getBoundingClientRect().bottom??-1,
         bodyHeight:body?.clientHeight??0,
-        closeLeft:close?.left??-1,closeRight:close?.right??-1};
+        closeLeft:close?.left??-1,closeRight:close?.right??-1,
+        closeWidth:close?.width??0,closeHeight:close?.height??0};
     });
     expect(metrics.docWidth).toBeLessThanOrEqual(metrics.viewport+1);
     expect(metrics.left).toBeGreaterThanOrEqual(-1);
     expect(metrics.right).toBeLessThanOrEqual(metrics.viewport+1);
     expect(metrics.closeLeft).toBeGreaterThanOrEqual(-1);
     expect(metrics.closeRight).toBeLessThanOrEqual(metrics.viewport+1);
+    expect(metrics.closeWidth).toBeGreaterThanOrEqual(44);
+    expect(metrics.closeHeight).toBeGreaterThanOrEqual(44);
     expect(metrics.headingBottom).toBeLessThanOrEqual(metrics.height);
     expect(metrics.bodyHeight).toBeGreaterThan(0);
     await page.keyboard.press("Escape");
