@@ -11,6 +11,8 @@ import { useI18n } from "./i18n";
 import {
   formatPlanFitNumber,
   planFitConflictMessage,
+  planFitEvidenceSource,
+  planFitEvidenceSummary,
   planFitGuidelineExplanation,
   planFitRuleExplanation,
   planFitSafetyIssue,
@@ -49,6 +51,14 @@ const COPY = {
     no_active_plan: "Sem plano activo",
     plan_conflict: "Conflito no plano",
     score: "Adequação",
+    coverageTitle: "Cobertura da avaliação",
+    coverageRules: "Regras avaliadas",
+    coverageUnknown: "Regras sem evidência suficiente",
+    coverageGuidelines: "Orientações não avaliadas",
+    coverageBlocks: "Bloqueios obrigatórios identificados",
+    coverageHelp: "A falta de dados não demonstra segurança ou adequação nutricional. O resultado depende da porção indicada e das fontes efetivamente registadas.",
+    evidenceSource: "Origem registada",
+    missingSource: "Origem não indicada",
     eligible: "Elegível",
     blocked: "Bloqueada",
     mealRules: "Regras desta refeição",
@@ -103,6 +113,14 @@ const COPY = {
     no_active_plan: "No active plan",
     plan_conflict: "Plan conflict",
     score: "Fit",
+    coverageTitle: "Evaluation coverage",
+    coverageRules: "Rules evaluated",
+    coverageUnknown: "Rules lacking sufficient evidence",
+    coverageGuidelines: "Unevaluated guidance",
+    coverageBlocks: "Identified mandatory blocks",
+    coverageHelp: "Missing data does not demonstrate safety or nutritional suitability. Results depend on the selected portion and recorded sources.",
+    evidenceSource: "Recorded source",
+    missingSource: "Source not supplied",
     eligible: "Eligible",
     blocked: "Blocked",
     mealRules: "Rules for this meal",
@@ -300,6 +318,7 @@ export default function MealPlanFitPanel({
       : Math.round(Number(result.fit_score) * 100);
   const mealRuleResults = result?.rule_results.filter((rule) => rule.scope !== "daily") ?? [];
   const dailyRuleResults = result?.rule_results.filter((rule) => rule.scope === "daily") ?? [];
+  const evidence = result ? planFitEvidenceSummary(result) : null;
 
   function renderRule(rule: MealPlanFitRule) {
     return (
@@ -335,6 +354,10 @@ export default function MealPlanFitPanel({
           ) : null}
         </div>
         <p>{planFitRuleExplanation(rule, locale)}</p>
+        <details className="plan-fit-rule__evidence">
+          <summary>{copy.evidenceSource}</summary>
+          <p>{planFitEvidenceSource(rule.source, locale).join(" · ") || copy.missingSource}</p>
+        </details>
       </article>
     );
   }
@@ -450,6 +473,18 @@ export default function MealPlanFitPanel({
             </div>
           </div>
 
+          {evidence ? (
+            <section className="plan-fit-coverage" aria-label={copy.coverageTitle}>
+              <h4>{copy.coverageTitle}</h4>
+              <dl>
+                <div><dt>{copy.coverageRules}</dt><dd>{evidence.evaluated}</dd></div>
+                <div><dt>{copy.coverageUnknown}</dt><dd>{evidence.unknown}</dd></div>
+                <div><dt>{copy.coverageGuidelines}</dt><dd>{evidence.unevaluatedGuidelines}</dd></div>
+                <div><dt>{copy.coverageBlocks}</dt><dd>{evidence.blocking}</dd></div>
+              </dl>
+              <p>{copy.coverageHelp}</p>
+            </section>
+          ) : null}
           {result.safety_issues.length > 0 ? (
             <div className="plan-fit-alert">
               <strong>{copy.safety}</strong>
@@ -560,6 +595,10 @@ export default function MealPlanFitPanel({
                     <span className="plan-fit-status status-not_evaluated">{copy.not_evaluated}</span>
                   </div>
                   <p>{planFitGuidelineExplanation(guideline, locale)}</p>
+                  <details className="plan-fit-rule__evidence">
+                    <summary>{copy.evidenceSource}</summary>
+                    <p>{planFitEvidenceSource(guideline.source, locale).join(" · ") || copy.missingSource}</p>
+                  </details>
                 </article>
               ))}
             </div>
