@@ -1,6 +1,6 @@
 /* Approved 20 Nov 2026 composite screenshot, 1536x1024.
    These rules affect only the weekly planning composition, not the functional model. */
-@media (min-width: 1300px) {
+@media (min-width: 1101px) {
   .app-shell--meals .shell-main {
     width: calc(100% - 48px);
     max-width: 1280px;
@@ -160,7 +160,7 @@
   color: #ffe0cf;
   box-shadow: 0 1px 10px #00000018;
 }
-@media (max-width: 1299px) {
+@media (max-width: 1100px) {
   .app-shell--meals .nf-next-meal-hero h2 { font-size: clamp(18px, 2vw, 25px); }
 }
 @media (prefers-reduced-motion: reduce) {
