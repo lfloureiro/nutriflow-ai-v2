@@ -184,3 +184,22 @@ export function planFitCandidateNutrition(result: MealPlanFitResult): {
     nutrients,
   };
 }
+
+/** Reject even a successful API response if it represents a different person,
+ * day, meal or serving than the request that initiated it.
+ */
+export function planFitMatchesRequest(
+  result:MealPlanFitResult,
+  requested:{personId:string;planningDate:string;mealType:string;quantity:string},
+):boolean {
+  const requestQuantity=Number(requested.quantity);
+  const responseQuantity=Number(result.candidate?.quantity);
+  return result.person_id===requested.personId
+    && result.planning_date===requested.planningDate
+    && result.meal_type===requested.mealType
+    && requested.quantity.trim()!==""
+    && result.candidate?.quantity?.trim()!==""
+    && Number.isFinite(requestQuantity)
+    && Number.isFinite(responseQuantity)
+    && Math.abs(requestQuantity-responseQuantity)<1e-8;
+}
