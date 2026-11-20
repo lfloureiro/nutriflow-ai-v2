@@ -11,6 +11,7 @@ import { useI18n } from "./i18n";
 import {
   formatPlanFitNumber,
   planFitConflictMessage,
+  planFitCandidateNutrition,
   planFitEvidenceSource,
   planFitEvidenceSummary,
   planFitGuidelineExplanation,
@@ -51,6 +52,10 @@ const COPY = {
     no_active_plan: "Sem plano activo",
     plan_conflict: "Conflito no plano",
     score: "Adequação",
+    portionNutrition: "Composição da porção avaliada",
+    portionEnergy: "Energia da porção",
+    portionUncertain: "Energia não disponível — não assumir zero.",
+    nutrientUncertain: "Outros nutrientes sem evidência não são apresentados como zero.",
     coverageTitle: "Cobertura da avaliação",
     coverageRules: "Regras avaliadas",
     coverageUnknown: "Regras sem evidência suficiente",
@@ -113,6 +118,10 @@ const COPY = {
     no_active_plan: "No active plan",
     plan_conflict: "Plan conflict",
     score: "Fit",
+    portionNutrition: "Evaluated portion composition",
+    portionEnergy: "Portion energy",
+    portionUncertain: "Energy unavailable — do not assume zero.",
+    nutrientUncertain: "Other nutrients without evidence are not treated as zero.",
     coverageTitle: "Evaluation coverage",
     coverageRules: "Rules evaluated",
     coverageUnknown: "Rules lacking sufficient evidence",
@@ -319,6 +328,7 @@ export default function MealPlanFitPanel({
   const mealRuleResults = result?.rule_results.filter((rule) => rule.scope !== "daily") ?? [];
   const dailyRuleResults = result?.rule_results.filter((rule) => rule.scope === "daily") ?? [];
   const evidence = result ? planFitEvidenceSummary(result) : null;
+  const portionNutrition = result ? planFitCandidateNutrition(result) : null;
 
   function renderRule(rule: MealPlanFitRule) {
     return (
@@ -472,6 +482,24 @@ export default function MealPlanFitPanel({
               </strong>
             </div>
           </div>
+
+          {portionNutrition ? (
+            <section className="plan-fit-portion" aria-label={copy.portionNutrition}>
+              <h4>{copy.portionNutrition}</h4>
+              <p>{copy.portionEnergy}: {portionNutrition.energyKcal === null
+                ? copy.portionUncertain
+                : `${formatPlanFitNumber(portionNutrition.energyKcal, locale)} kcal`}</p>
+              {portionNutrition.nutrients.length > 0 ? (
+                <dl>{portionNutrition.nutrients.map((nutrient)=>(
+                  <div key={nutrient.key}>
+                    <dt>{planFitTargetLabel(nutrient.key,locale)}</dt>
+                    <dd>{formatPlanFitNumber(nutrient.value,locale)} {planFitUnitLabel(nutrient.unit,locale,nutrient.value)}</dd>
+                  </div>
+                ))}</dl>
+              ) : null}
+              <small>{copy.nutrientUncertain}</small>
+            </section>
+          ) : null}
 
           {evidence ? (
             <section className="plan-fit-coverage" aria-label={copy.coverageTitle}>
