@@ -318,3 +318,9 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Um rascunho com nome, quantidade ou unidade alterados exige confirmação ao fechar/navegar. Recusar mantém o formulário; aceitar fecha sem persistir. Guardar usa o contrato API existente e atualiza o artigo, distinguindo alteração de artigo de receção de stock.
 - Playwright com PostgreSQL sintético cria um artigo manual fictício, abre edição em 390px, verifica que só existe um diálogo e a lista permanece; recusa/aceita descarte e, na segunda abertura, confirma a alteração persistida.
 - Interface **v2.0.28**, patch Z; sem API/schema novos nem alterações na `main`. Confirmar sucesso Web CI, API CI e UX E2E **no mesmo SHA final**, manter PR #76 draft e não pedir teste manual antes da v2.1.0.
+
+## Patch v2.0.29 — corrigir overshoot do drawer a 320px (20 novembro 2026)
+
+- A v2.0.28 no SHA `620aa0a21e64fa82fed7900ab7e82888582dddfc` passou Web CI e API CI e passou o novo E2E de compras e o E2E de despensa, **mas falhou o gate UX E2E** no teste existente `narrow viewport: weekly drawer reflows at 320 CSS px without horizontal scrolling` (limite 321px, posição direita observada 321,281px, retry 321,282px). Não declarar v2.0.28 aprovada.
+- O CSS de abertura do drawer usava `var(--motion-ease)`, cujo easing permite overshoot transitório; a animação foi trocada para `ease-out` monotónico sem ultrapassar o ponto final, preservando o movimento e `prefers-reduced-motion`.
+- Frontend **v2.0.29** (patch Z). Usar o E2E existente a 320px como gate da correção; a aprovação requer Web CI, API CI e UX E2E verdes **no mesmo SHA final**. Sem alteração de API/schema, dados reais ou `main`, PR #76 mantém-se draft.
