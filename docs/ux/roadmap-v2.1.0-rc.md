@@ -49,3 +49,9 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - v2.0.33: o painel individual de adequação nutricional distingue cobertura de regras, dados desconhecidos, orientações não avaliadas e bloqueios obrigatórios. Proveniência expandível sem inventar fonte; testes unitários adicionados. **CI do SHA final ainda por confirmar.**
 - Próximos blocos após gate verde: ligação entre avaliação individual e seleção da refeição contextual, melhor leitura de tolerâncias e proveniência de condições, comparação com plano profissional por porção; acessibilidade e zoom 200% antes do RC.
 - Documentação, testes e SHA/CI atualizados por patch. Nenhum dado pessoal no GitHub, nenhuma promoção de PR draft para `main` sem aprovação.
+
+## Estado de execução — 20/11/2026, patch v2.0.34
+
+- **v2.0.33:** três gates **verdes** no SHA `c5fc2e4432deb933016fcc7b426f00b3759129e0`. Evidência de adequação nutricional separa regras avaliadas, desconhecidas e fontes registadas.
+- **v2.0.34:** saúde individual apresenta origem e intervalos temporais explicitamente desconhecidos quando em falta e avisa quando um estado de confirmação profissional não dispõe de referência verificável. Testes unitários e CSS responsivo incluídos. **Validação do SHA final ainda pendente.**
+- **Pendentes prioritários:** ligar a seleção contextual da refeição à avaliação individual; comparar porções com orientação profissional efetiva; distinguir tolerâncias declaradas de restrições médicas; rever zoom 200% e equivalência visual com o protótipo antes do RC.
