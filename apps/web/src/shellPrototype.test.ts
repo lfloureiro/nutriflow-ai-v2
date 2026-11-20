@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
-import baseShell from "./shell.css?raw";
-import prototypeShell from "./shell-prototype.css?raw";
-import prototypeTokens from "./design-tokens.css?raw";
-import main from "./main.tsx?raw";
+import { readFileSync } from "node:fs";
+
+// Read source files from disk: Vitest can transform ?raw CSS imports to empty strings.
+const source = (name: string) => readFileSync(new URL(name, import.meta.url), "utf8");
+const baseShell = source("./shell.css");
+const prototypeShell = source("./shell-prototype.css");
+const prototypeTokens = source("./design-tokens.css");
+const main = source("./main.tsx");
 
 describe("Casa à Mesa shared visual shell", () => {
   it("does not customize global navigation, family tile or topbar for the weekly route", () => {
