@@ -184,6 +184,28 @@ test("weekly map: editing a saved or empty meal never stacks two side drawers",a
   await expect(page.locator(".weekly-day-grid")).toBeVisible();
 });
 
+test("substitution review keeps its recipe list behind one contextual drawer",async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.setViewportSize({width:390,height:844});
+  await openFamily(page,fixture.family.id,"/#/house?tab=substitutions");
+  const recipes=page.getByRole("navigation",{name:"Receitas"});
+  const item=recipes.getByRole("button",{name:/Prato sintético QA/});
+  await expect(item).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await item.click();
+  const drawer=page.getByRole("dialog");
+  await expect(drawer).toHaveCount(1);
+  await expect(drawer.getByRole("heading",{name:"Prato sintético QA"})).toBeVisible();
+  await expect(drawer.getByText("Adequação FODMAP ainda não avaliada por porção")).toBeVisible();
+  await expect(recipes).toBeAttached();
+  await drawer.getByRole("button",{name:"Fechar detalhe"}).click();
+  await expect(drawer).toHaveCount(0);
+  await expect(item).toBeVisible();
+  await page.getByRole("button",{name:"FODMAP · fontes e dados"}).click();
+  await expect(page.getByRole("heading",{name:"Monash University"})).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
 test("catalogue and person details open once over their parent list",async ({page,request})=>{
   const fixture=await seed(request);
   await page.setViewportSize({width:1280,height:860});
