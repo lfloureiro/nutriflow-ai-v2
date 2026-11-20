@@ -466,8 +466,9 @@ export default function MealPlanFitPanel({
               value={quantity}
               onChange={(event) => {
                 setQuantity(event.target.value);
-                setResult(null);
-                setTransformation(null);
+                // Changing the portion must invalidate requests already in flight,
+                // not only clear the visible result.
+                invalidateEvaluation();
               }}
             />
             <span>{planFitUnitLabel(composition?.reference_unit, locale, quantity)}</span>
