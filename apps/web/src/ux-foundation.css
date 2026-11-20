@@ -38,3 +38,11 @@ html,body,*{scrollbar-width:none}*::-webkit-scrollbar{width:0;height:0}button:fo
 
 /* Application release indicator: kept legible without enlarging the sidebar. */
 .nf-brand-version{display:inline-block;vertical-align:baseline;margin-left:5px;padding:1px 5px;border:1px solid var(--border);border-radius:5px;background:var(--surface-soft);color:var(--muted);font-size:9px;font-weight:650;letter-spacing:0;line-height:1.35;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* Casa à Mesa prototype: quiet six-destination desktop navigation. */
+@media (min-width: 761px) {
+  .primary-nav { gap: 5px; }
+  .primary-nav .nav-item { min-height: 46px; border-radius: 11px; padding: 12px 14px; font-size: 13px; font-weight: 550; }
+  .primary-nav .nav-item.active { background: var(--color-action-soft); color: var(--color-action); }
+  .primary-nav .nav-item:hover:not(.active) { background: var(--surface-soft); }
+}
