@@ -75,3 +75,18 @@
 @media (prefers-reduced-motion: reduce) {
   .nf-context-drawer { animation: none; }
 }
+
+/* High zoom and compact landscape: keep close action and a scrollable body available. */
+.nf-context-drawer__close:focus-visible {
+  outline: 3px solid var(--color-text);
+  outline-offset: 3px;
+}
+@media (max-height: 600px) {
+  .nf-context-drawer__head { padding-block: 10px; }
+  .nf-context-drawer__body { padding-block: 12px; }
+  .nf-context-drawer__foot { padding-block: 8px; }
+}
+@media (max-width: 420px) {
+  .nf-context-drawer__head { gap: 8px; }
+  .nf-context-drawer__head h2 { min-width: 0; }
+}
