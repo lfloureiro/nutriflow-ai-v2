@@ -588,6 +588,8 @@ test("drawer restores focus to active navigation when its originating row disapp
   await page.emulateMedia({reducedMotion:"reduce"});
   await openFamily(page,fixture.family.id,`/#/meals?date=${DATE}&mode=week`);
   const slot=page.getByRole("button",{name:/Prato sintético QA/}).first();
+  // Make the removed row the actual focused launcher before mounting the modal.
+  await slot.focus();
   await slot.click();
   const drawer=page.getByRole("dialog");
   await expect(drawer).toHaveCount(1);
