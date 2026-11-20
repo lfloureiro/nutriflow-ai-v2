@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FamilyMealPlan, MealPlanEntry } from "./api/mealPlanTypes";
-import { familyLocalDate, familyMealInstant, nextMealSlot } from "./nextMealHero";
+import { familyLocalDate, familyMealInstant, nextMealSlot } from "./nextMealSelection";
 
 const plan = (days: FamilyMealPlan["days"]): FamilyMealPlan => ({
   family_id: "family", family_name: "Família", timezone: "Europe/Lisbon",
