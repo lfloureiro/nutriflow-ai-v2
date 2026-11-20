@@ -126,3 +126,8 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - **v2.0.51:** reset de resultados antigos e carregamento de propostas pendentes; cenário E2E com HTTP 200 de outra pessoa bloqueado.
 - **v2.0.52:** unidades de porção validadas juntamente com quantidade, com testes unitários. **Aguardar os três gates verdes no SHA final**.
 - **Pendências antes do RC v2.1.0:** inspeção visual real vs. protótipo aprovado, zoom real 200%, auditoria de leitor de ecrã/teclado, autorização de dados por família, revisão de restrições/tolerâncias e teste manual consolidado. Não declarar pronto só com CI sintético.
+
+## Fecho de validação v2.0.52 — 20/11/2026
+
+- **Código e documentação no SHA `3833c18fa8284299ef964607889784a7a58c1ff2`: Web CI, API CI e UX E2E sintético concluídos com sucesso (3/3).** Inclui os novos testes de respostas HTTP 200 de outra pessoa, validação do contrato de transformações e unidade/quantidade.
+- Os três gates aprovam o código do lote; continua pendente a inspeção visual real, zoom 200% e aceitação manual para a candidata v2.1.0. PR #76 mantém-se draft, sem merge ou acesso a dados familiares reais.
