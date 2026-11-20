@@ -264,3 +264,6 @@
 .person-meal-fit-context{display:grid;gap:6px;padding:14px 16px;margin:12px 0;border:1px solid var(--border);border-radius:12px;background:var(--surface-soft);overflow-wrap:anywhere}
 .person-meal-fit-context strong{font-size:13px}
 .person-meal-fit-context span{font-size:12px;color:var(--muted);line-height:1.55}
+
+/* Do not visually certify a meal when plan evidence is absent or not assessed. */
+.plan-fit-provisional{margin:0;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface-soft);color:var(--muted);font-size:13px;line-height:1.55;overflow-wrap:anywhere}
