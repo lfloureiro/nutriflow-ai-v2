@@ -146,3 +146,10 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - **Teste disclosure corrigido sem o eliminar:** o `details` sintético é introduzido no início do corpo realmente rolável; valida Tab de Fechar para `summary`, Enter, Tab ao controlo expandido, Shift+Tab e fecho.
 - **Restauro de foco corrigido no produto:** `requestAnimationFrame` espera a desmontagem completa do portal, repõe o foco no invocador ainda presente ou na navegação primária se já não existir; evita reenviar foco se entretanto abrir outro drawer.
 - Versão web **2.0.56** (patch Z). Exigir **Web CI, API CI e UX E2E 3/3 verdes no SHA final** antes de declarar o lote validado. PR #76 draft, `main` e dados reais intactos.
+
+## Fecho de correção agrupada v2.0.57–v2.0.58 — 20/11/2026
+
+- **Regressão observada em v2.0.56, SHA `40d865805531df7b292c7a4918998e00c19d0145`:** Web CI e API CI passaram; UX E2E **falhou em cinco cenários de restauro de foco**. A tentativa de adiar `focus()` para `requestAnimationFrame` alterou a semântica de foco e quebrou testes existentes. O teste de `summary` passou. v2.0.56 **não estava validada**.
+- **v2.0.57:** restauro de foco devolvido ao cleanup síncrono original que já tinha sido testado; se o invocador deixou de estar no DOM ou era o `body`, o foco segue para a navegação primária ativa. Não há callbacks `requestAnimationFrame` pendentes que possam roubar foco a drawers reabertos.
+- **v2.0.58:** `PersonOverview` recebe `key={selectedMember.person_id}`: a troca de pessoa num drawer já aberto reinicializa separador ativo, refeição contextual e formulários da pessoa anterior, em vez de reutilizar estado individual. Novo teste E2E muda a rota internamente sem reload, verificando que a segunda pessoa começa em «Visão geral» e não herda «Nutrição».
+- Frontend **v2.0.58**. Validar Web CI, API CI, UX E2E **no mesmo SHA final**, não declarar regressões resolvidas por revisão de código apenas. PR #76 draft, `main` e dados reais intactos.
