@@ -63,3 +63,14 @@
 ## Prompt recomendado para colar no próximo chat
 
 «Continua o desenvolvimento de NutriFlow AI v2, PR #76 draft, branch `codex/ux-drawer-next-batch-20261119`. Lê primeiro `docs/handoff-2026-11-20-transicao-chat.md`, `docs/handoff-2026-11-19.md` e a documentação UX. A versão validada é v2.0.73, commit `3dc7bf7e2a994d1e157b3c1ebaa779f50046541f`, 3/3 CI verdes. Há um problema de paridade do protótipo: o menu é único em App.tsx, mas os CSS `.app-shell--meals` causam aspeto diferente na Semana e no Início; as cores e fontes continuam diferentes do HTML `Casa_a_Mesa_High_Fidelity.html`. Quero equivalência visual exata em light e dark. Reabre o HTML, obtém os CSS reais e as fontes, uniformiza primeiro o shell em todas as rotas e compara a grelha semanal a nível de computed styles. Não inventes cores nem faças apenas patches aproximados. Não percas funcionalidades, não mexas em dados reais, mantém PR draft e docs/CI atualizados. Depois retomamos a revisão visual ecrã a ecrã.»
+
+## Continuidade desta sessão — v2.0.74 (20/11/2026)
+
+- Reaberto o HTML exato `Casa_a_Mesa_High_Fidelity.html` da biblioteca do projeto e extraídas regras e tokens do CSS inline. A auditoria e matriz de propriedades estão em `docs/ux/auditoria-shell-prototipo-2026-11-20.md`.
+- Removidas do `shell.css` as diferenças de sidebar, AI e topbar sob `.app-shell--meals`; mantidas regras de layout exclusivamente interiores da página semanal.
+- Criada `apps/web/src/shell-prototype.css` como última importação CSS; largura sidebar 230px, navegação e cabeçalho comuns a todas as rotas, conforme a fonte original. A estrutura do menu continua partilhada em `App.tsx`.
+- `styles.css`: corpo DM Sans 14px/1.55, títulos Manrope; `index.html`: carga das famílias a partir de Google Fonts; `design-tokens.css`: acento decorativo e sombras do HTML de referência. Os seis menus, drawers, decisões da carta «Próxima refeição», dados e API permanecem intactos.
+- Adicionado `shellPrototype.test.ts` para proteger invariantes estáticos de styling e importação global.
+- **Não declarar paridade pixel a pixel**: não houve inspeção de `getComputedStyle` simultânea nos dois documentos com o mesmo navegador, viewport e fonte carregada. O original declara fontes mas não as carrega explicitamente.
+- PR #76 **draft**, `main` intocada; nenhuma alteração em serviços locais ou base de dados real. Versão web 2.0.74. Confirmar os três CI no SHA final antes de marcar como funcionalmente validada.
+- Próxima intervenção após CI: auditoria visual da Semana light/dark (1440/1024/768/390 + 200%) e, depois, revisão de Início, Receitas, Família, Compras e Despensa.
