@@ -318,6 +318,40 @@ test("nutrition: late fit response cannot overwrite a changed portion",async ({p
   await expect(evaluator.getByRole("button",{name:"Avaliar",exact:true})).toBeEnabled();
 });
 
+test("nutrition: successful HTTP response for another person is rejected",async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.route(`**/api/families/${fixture.family.id}/recipes*`,async route=>{
+    const response=await route.fetch();
+    const recipes=await response.json() as {id:string;latest_composition:unknown}[];
+    await route.fulfill({response,json:recipes.map(recipe=>recipe.id===fixture.recipe.id
+      ? {...recipe,latest_composition:{id:"synthetic-composition-qa",reference_quantity:"2",
+        reference_unit:"serving",energy_kcal:"250",composition_version:"qa",
+        calculation_version:"qa",computed_at:"2026-11-20T00:00:00Z",nutrients:[]}}
+      : recipe)});
+  });
+  await page.route(`**/api/persons/${fixture.person.id}/meal-plan-fit`,async route=>{
+    const payload=route.request().postDataJSON() as {planning_date:string;meal_type:string;candidate:{quantity:string}};
+    await route.fulfill({status:200,json:{
+      person_id:"another-synthetic-person",planning_date:payload.planning_date,meal_type:payload.meal_type,
+      daily_nutrition_state_id:null,eligible:true,status:"pass",fit_score:"1",
+      candidate:{key:"synthetic",name:"Prato sintético QA",kind:"recipe",quantity:payload.candidate.quantity,
+        quantity_unit:"serving",nutrition:{energy_kcal:"250",nutrients:{}}},
+      active_plans:[],nutrition_plan_authority:{state:"no_active_plan",active_plans:[],
+        plan_rule_ids:[],plan_guideline_ids:[],unknown_evidence:[],explanation:[]},
+      conflicts:[],safety_issues:[],rule_results:[],guideline_results:[],explanation:[],
+    }});
+  });
+  await openFamily(page,fixture.family.id,"/#/people");
+  await page.getByRole("button",{name:/Pessoa QA/}).first().click();
+  const person=page.getByRole("dialog");
+  await person.getByRole("button",{name:"Nutrição"}).click();
+  const evaluator=person.locator(".plan-fit-panel");
+  await expect(evaluator.locator(".plan-fit-controls__recipe select")).toHaveValue(fixture.recipe.id);
+  await evaluator.getByRole("button",{name:"Avaliar",exact:true}).click();
+  await expect(evaluator.getByRole("alert")).toContainText("A avaliação recebida não corresponde");
+  await expect(evaluator.locator(".plan-fit-result")).toHaveCount(0);
+});
+
 test("catalogue and person details open once over their parent list",async ({page,request})=>{
   const fixture=await seed(request);
   await page.setViewportSize({width:1280,height:860});
