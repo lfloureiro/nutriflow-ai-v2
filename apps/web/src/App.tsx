@@ -161,7 +161,7 @@ export default function App() {
   );
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${view === "meals" ? " app-shell--meals" : ""}`}>
       <aside className="side-nav">
         <button className="side-brand" onClick={() => openPrimaryView("home")} type="button">
           <Brand />
