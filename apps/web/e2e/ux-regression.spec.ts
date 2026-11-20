@@ -303,7 +303,9 @@ test("nutrition: late fit response cannot overwrite a changed portion",async ({p
   await evaluator.getByRole("button",{name:"Avaliar",exact:true}).click();
   await expect.poll(()=>releaseResponse!==undefined).toBe(true);
   await portion.fill("2");
+  const delivered=page.waitForResponse(response=>response.url().endsWith(`/persons/${fixture.person.id}/meal-plan-fit`) && response.request().method()==="POST");
   releaseResponse?.();
+  await delivered;
   await expect(evaluator.locator(".plan-fit-result")).toHaveCount(0);
   await expect(portion).toHaveValue("2");
   await expect(evaluator.getByRole("button",{name:"Avaliar",exact:true})).toBeEnabled();
