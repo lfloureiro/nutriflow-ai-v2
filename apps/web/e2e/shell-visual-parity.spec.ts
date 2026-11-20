@@ -126,4 +126,14 @@ test("weekly image never enlarges the hero and the desktop map preserves seven d
   await expect(week.locator(".weekly-grid-day")).toHaveCount(7);
   const columns=await week.evaluate(element=>getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean).length);
   expect(columns).toBe(8);
+
+  // Reference-compatible synthetic captures, never a private family session.
+  await page.evaluate(() => document.fonts.ready);
+  await page.screenshot({path:"test-results/visual-week-dark-1440.png",fullPage:true});
+  await page.locator(".nf-appearance").selectOption("light");
+  await expect(page.locator("html")).toHaveAttribute("data-theme","light");
+  await page.screenshot({path:"test-results/visual-week-light-1440.png",fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  await expect(page.locator(".nf-week-day-picker")).toBeVisible();
+  await page.screenshot({path:"test-results/visual-week-light-mobile-390.png",fullPage:true});
 });
