@@ -103,10 +103,21 @@ export default function ContextDrawer({
         previousFocus !== document.body &&
         previousFocus !== document.documentElement &&
         previousFocus.isConnected;
-      const fallback = document.querySelector<HTMLElement>(
-        ".primary-nav [aria-current='page'], .side-brand, .shell-main [tabindex='0']",
-      );
-      (originalUsable ? previousFocus : fallback)?.focus({ preventScroll: true });
+      if (originalUsable) {
+        previousFocus.focus({ preventScroll: true });
+      } else {
+        // React unmounts the portal after effect cleanup. A synchronous
+        // fallback can be lost when the browser discards the active modal.
+        // A microtask runs after that commit, unlike an animation frame that
+        // may be delayed or focus a different drawer after a quick reopening.
+        queueMicrotask(() => {
+          if (document.querySelector(".nf-context-drawer")) return;
+          const fallback = document.querySelector<HTMLElement>(
+            ".primary-nav [aria-current='page'], .side-brand, .shell-main [tabindex='0']",
+          );
+          fallback?.focus({ preventScroll: true });
+        });
+      }
     };
   }, []);
 
