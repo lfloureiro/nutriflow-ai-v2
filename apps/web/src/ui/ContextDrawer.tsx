@@ -96,19 +96,17 @@ export default function ContextDrawer({
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
       if (appRoot) appRoot.inert = wasInert;
-      // Wait until React has removed the portal before restoring focus.
-      // Focusing during effect cleanup may still target a live aria-modal panel.
-      window.requestAnimationFrame(() => {
-        if (document.querySelector(".nf-context-drawer")) return;
-        // When the originating row vanished (e.g. after saving/filtering),
-        // use the active navigation target rather than leaving focus on <body>.
-        const fallback = document.querySelector<HTMLElement>(
-          ".primary-nav [aria-current='page'], .side-brand, .shell-main [tabindex='0']",
-        );
-        const target = previousFocus?.isConnected && !previousFocus.closest("[inert]")
-          ? previousFocus : fallback;
-        target?.focus({ preventScroll: true });
-      });
+      // Restore synchronously as before: waiting for the next animation frame
+      // loses keyboard focus on rapid modal close/open cycles in Chromium.
+      // If the launcher was removed, never restore focus to <body>.
+      const originalUsable = previousFocus !== null &&
+        previousFocus !== document.body &&
+        previousFocus !== document.documentElement &&
+        previousFocus.isConnected;
+      const fallback = document.querySelector<HTMLElement>(
+        ".primary-nav [aria-current='page'], .side-brand, .shell-main [tabindex='0']",
+      );
+      (originalUsable ? previousFocus : fallback)?.focus({ preventScroll: true });
     };
   }, []);
 
