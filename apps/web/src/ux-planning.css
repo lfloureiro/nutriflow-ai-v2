@@ -167,3 +167,206 @@
 @media(min-width:1101px) {
   .family-meals-screen:has(.nf-next-meal-hero) .family-meals-date-nav .button {min-height:36px;font-size:12px}
 }
+
+/* v2.0.71: single-purpose week map. Match the approved compact editorial
+   seven-day composition; never apply these overrides to other planners. */
+.family-meals-screen .nf-week-map-final {
+  padding: 18px !important;
+  border-radius: 24px !important;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: none !important;
+  gap: 0 !important;
+}
+.nf-week-map-final .weekly-calendar-scroll { overflow-x: visible; }
+.nf-week-map-final .weekly-grid-meal__label small { display: none; }
+.nf-week-map-final .weekly-grid-meal__label em {
+  color: var(--color-warning);
+  background: var(--color-warning-soft);
+  border-radius: 7px;
+  padding: 4px 7px;
+  font-size: 10px;
+  line-height: 1.4;
+  font-weight: 650;
+}
+.nf-week-map-final .weekly-grid-meal.is-proposed .weekly-grid-meal__label em {
+  color: var(--color-action);
+  background: var(--color-action-soft);
+}
+.nf-week-map-final .weekly-grid-meal__label { margin-top: auto; order: 2; }
+.nf-week-map-final .weekly-grid-meal > strong {
+  display: block;
+  line-height: 1.35;
+  font-size: 12px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: 4;
+}
+.nf-week-map-final .weekly-grid-meal.has-review {
+  background: var(--color-danger-soft) !important;
+  border-color: color-mix(in srgb, var(--color-danger) 62%, var(--border)) !important;
+}
+.nf-week-map-final .weekly-grid-meal.has-review .nf-week-change-hint.is-review {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 17%, var(--surface));
+  border: none;
+  padding: 4px 8px;
+  font-weight: 700;
+}
+.nf-week-map-final .nf-week-change-hint {
+  align-self: flex-start;
+  display: inline-flex;
+  width: fit-content;
+  white-space: normal;
+  max-width: 100%;
+  line-height: 1.3;
+}
+.nf-week-map-final .nf-week-empty-action {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 450;
+  color: var(--muted);
+}
+.nf-week-map-final .nf-week-empty-action b { font-size: 22px; font-weight: 300; }
+.nf-week-map-final .weekly-grid-meal.is-empty {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  border-style: dashed !important;
+  border-color: var(--border) !important;
+  background: transparent !important;
+}
+.nf-week-map-final .weekly-grid-meal.is-empty:hover,
+.nf-week-map-final .weekly-grid-meal.is-empty:focus-visible {
+  border-color: var(--accent) !important;
+  background: var(--surface-soft) !important;
+}
+.nf-week-map-final .weekly-grid-day__date-button {
+  border: 0 !important;
+  background: transparent;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px;
+  min-height: 56px;
+  border-radius: 14px;
+}
+.nf-week-map-final .weekly-grid-day.selected .weekly-grid-day__date-button {
+  background: var(--color-action-soft);
+}
+.nf-week-map-final .weekly-grid-day__date-button strong {
+  font-size: 11px !important;
+  font-weight: 500;
+  color: var(--muted);
+}
+.nf-week-map-final .weekly-grid-day__date-button small {
+  font-size: 20px !important;
+  font-weight: 750;
+  color: var(--text);
+  line-height: 1.2;
+}
+.nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 13px 10px;
+  border-radius: 13px;
+  gap: 7px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  transition: border-color .15s ease, transform .15s ease;
+}
+.nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal:hover {
+  transform: translateY(-1px);
+}
+@media (min-width: 1101px) {
+  .nf-week-map-final .weekly-calendar-scroll .weekly-day-grid {
+    display: grid;
+    grid-template-columns: 90px repeat(7, minmax(0, 1fr));
+    grid-template-rows: 56px repeat(4, 134px);
+    gap: 8px;
+    min-width: 0;
+  }
+  .nf-week-map-final .weekly-calendar-scroll .nf-week-row-labels {
+    display: grid;
+    grid-column: 1;
+    grid-row: 1 / span 5;
+    grid-template-rows: subgrid;
+  }
+  .nf-week-map-final .nf-week-row-labels > span {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 9px;
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--muted);
+    padding-right: 7px;
+  }
+  .nf-week-map-final .nf-week-row-labels > span .nf-icon {
+    width: 23px;
+    height: 23px;
+    color: var(--accent);
+  }
+  .nf-week-map-final .weekly-calendar-scroll .weekly-grid-day {
+    display: grid;
+    grid-row: 1 / span 5;
+    grid-template-rows: subgrid;
+    gap: 8px;
+    border: 0;
+    background: transparent;
+    min-width: 0;
+    box-shadow: none;
+  }
+  .nf-week-map-final .weekly-calendar-scroll .weekly-grid-day__meals { display: contents; }
+  .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal { height: 100%; }
+}
+@media (min-width: 1101px) and (max-width: 1360px) {
+  .nf-week-map-final .weekly-calendar-scroll .weekly-day-grid {
+    grid-template-columns: 76px repeat(7, minmax(0, 1fr));
+    grid-template-rows: 56px repeat(4, 134px);
+    gap: 7px;
+  }
+  .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal { padding: 11px 8px; }
+  .nf-week-map-final .weekly-grid-meal > strong { font-size: 11px; }
+}
+@media (max-width: 1100px) {
+  .nf-week-map-final .weekly-calendar-scroll .weekly-day-grid {
+    display: block;
+  }
+  .nf-week-map-final .nf-week-row-labels { display: none; }
+  .nf-week-map-final .weekly-calendar-scroll .weekly-grid-day { display: none; }
+  .nf-week-map-final .weekly-calendar-scroll .weekly-grid-day.is-mobile-day {
+    display: grid;
+    grid-template-rows: none;
+  }
+  .nf-week-map-final .weekly-grid-day__date-button { display: none; }
+  .nf-week-map-final .weekly-calendar-scroll .weekly-grid-day__meals {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal {
+    min-height: 138px;
+  }
+  .nf-week-map-final .weekly-grid-meal__label small { display: inline; }
+}
+@media (max-width: 580px) {
+  .family-meals-screen .nf-week-map-final { padding: 12px !important; }
+  .nf-week-map-final .weekly-calendar-scroll .weekly-grid-day__meals {
+    grid-template-columns: 1fr;
+    gap: 9px;
+  }
+  .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal { min-height: 110px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal { transition: none; }
+  .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal:hover { transform: none; }
+}
