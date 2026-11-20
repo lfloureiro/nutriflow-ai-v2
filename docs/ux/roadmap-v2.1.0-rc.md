@@ -235,3 +235,10 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - Uma proposta falhada ou impossível é sinalizada sem falsos scores. Faz-se fallback de ilustração local quando não existe fotografia aprovada para o nome exato; catálogo inicial de fotografias CC0 da Wikimedia Commons com fonte/licença. **Cobertura completa de imagens e revisão de presenças por slot ainda pendentes**.
 - Ponto técnico a validar: chamar proposta semanal para apenas um slot com candidatos obtidos do bootstrap, sem alterações de API; evitar recomendações de outra pessoa, dados antigos e refreshs redundantes; verificar fluxo concreto via E2E com API real sintética.
 - PR #76 draft; `main`, serviços locais e DB real intactos. Verificar Web/API/UX E2E no SHA final. Não marcar v2.1.0 pronta sem auditoria visual e aceitação.
+
+## v2.0.70 — apresentação do ecrã semanal aprovada (20/11/2026)
+
+- A carta dinâmica da v2.0.69 é colocada no topo visual do ecrã semanal. Não se repete o título longo do editor; as restantes vistas e ferramentas mantêm-se acessíveis num disclosure «Outras vistas e ferramentas de planeamento», sem eliminar capacidades.
+- A sidebar recupera o cartão «Inteligência à mesa · Interpretar. Aprender. Explicar.» do protótipo. Ao ativá-lo, abre a vista de recomendação já existente. Bloco oculto no menu móvel para não competir com os cinco destinos.
+- Os controlos de semana anterior/atual/seguinte continuam disponíveis abaixo da carta. Todos os dados e refeições guardados conservam-se inalterados.
+- **Pendências:** testar fluxo com API sintética e avaliar se o motor de um slot incorpora suficientemente o histórico/variedade semanal; rever presenças antes de aceitar, confirmar licenças de fotografias e completar cobertura de imagens; CI três gates no SHA final; comparar screenshots reais e zoom 200%. PR #76 draft, sem alteração de base real.
