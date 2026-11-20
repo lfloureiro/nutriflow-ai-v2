@@ -465,6 +465,27 @@ test("responsive reflow at the effective 200 percent browser-zoom width",async (
   }
 });
 
+test("mobile locale and theme changes retain the same single contextual person drawer",async ({page,request})=>{
+  const fixture=await seed(request);
+  await page.setViewportSize({width:390,height:844});
+  await openFamily(page,fixture.family.id,"/#/people");
+  await page.getByRole("combobox",{name:"Idioma"}).selectOption("en");
+  await page.getByRole("combobox",{name:"Appearance"}).selectOption("dark");
+  await expect(page.locator("html")).toHaveAttribute("data-theme","dark");
+  await page.getByRole("button",{name:/Pessoa QA/}).first().click();
+  const person=page.getByRole("dialog");
+  await expect(person).toHaveCount(1);
+  await person.getByRole("button",{name:"Nutrition"}).click();
+  await expect(person.getByRole("heading",{name:"Plan fit"})).toBeVisible();
+  await person.getByRole("button",{name:"Health"}).click();
+  await expect(person.getByRole("heading",{name:"Diseases and health conditions"})).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(person).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme","dark");
+  await expect(page.getByRole("combobox",{name:"Language"})).toHaveValue("en");
+});
+
 test("drawer keyboard navigation skips hidden and fieldset-disabled controls",async ({page,request})=>{
   const fixture=await seed(request);
   await page.emulateMedia({reducedMotion:"reduce"});
