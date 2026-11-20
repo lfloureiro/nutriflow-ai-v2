@@ -33,9 +33,9 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { view: "home", icon: "home", labelKey: "nav.home" },
   { view: "meals", icon: "calendar", labelKey: "nav.meals" },
-  { view: "shopping", icon: "bag", labelKey: "nav.shopping" },
-  { view: "people", icon: "people", labelKey: "nav.people" },
   { view: "house", icon: "book", labelKey: "nav.house" },
+  { view: "people", icon: "people", labelKey: "nav.people" },
+  { view: "shopping", icon: "bag", labelKey: "nav.shopping" },
 ];
 
 function initialFamilyId(): string {
@@ -169,8 +169,8 @@ export default function App() {
         <nav className="primary-nav" aria-label={t("nav.primary")}>
           {NAV_ITEMS.map((item) => (
             <button
-              aria-current={view === item.view ? "page" : undefined}
-              className={`nav-item ${view === item.view ? "active" : ""}`}
+              aria-current={view === item.view && (item.view !== "house" || houseInitialView !== "pantry") ? "page" : undefined}
+              className={`nav-item ${view === item.view && (item.view !== "house" || houseInitialView !== "pantry") ? "active" : ""}`}
               key={item.view}
               onClick={() => openPrimaryView(item.view)}
               type="button"
@@ -178,9 +178,18 @@ export default function App() {
               <span className="nav-icon" aria-hidden="true">
                 <Icon name={item.icon}/>
               </span>
-              <span>{item.view === "house" ? (locale === "pt-PT" ? "Receitas" : "Recipes") : item.view === "people" ? (locale === "pt-PT" ? "Família" : "Family") : t(item.labelKey)}</span>
+              <span>{item.view === "meals" ? (locale === "pt-PT" ? "A nossa semana" : "Our week") : item.view === "house" ? (locale === "pt-PT" ? "Receitas" : "Recipes") : item.view === "people" ? (locale === "pt-PT" ? "Família" : "Family") : t(item.labelKey)}</span>
             </button>
           ))}
+          <button
+            aria-current={view === "house" && houseInitialView === "pantry" ? "page" : undefined}
+            className={`nav-item ${view === "house" && houseInitialView === "pantry" ? "active" : ""}`}
+            onClick={() => navigate({view:"house",house:"pantry"})}
+            type="button"
+          >
+            <span className="nav-icon" aria-hidden="true"><Icon name="pantry"/></span>
+            <span>{locale === "pt-PT" ? "Despensa" : "Pantry"}</span>
+          </button>
         </nav>
         <div className="side-nav__family">
           <span>{t("shell.family")}</span>
