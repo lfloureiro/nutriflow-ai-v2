@@ -132,6 +132,7 @@ export default function NextMealHero({
     setPendingKey(identity);
     setFailedKey(null);
     const first = people[0];
+    if (!first) return;
     const rejectedKeys = new Set(rejected);
     // Bootstrap and proposal are read-only; there is no automatic meal save.
     void (async () => {
