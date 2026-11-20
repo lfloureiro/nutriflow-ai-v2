@@ -42,3 +42,10 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - **v2.0.31**: Web CI e API CI verdes; UX E2E falhou num cenário por duplicação do nome da receita em dois títulos no drawer de revisão. Não marcou o gate 3/3.
 - **v2.0.32**: título duplicado removido; preferências de receitas descrevem de forma explícita o score de gosto, separado de segurança/nutrição/FODMAP; teste API sintético verifica médias por pessoa e limpeza. **Aguardar os três gates no último SHA.**
 - Próximos blocos após gate verde: avaliação nutricional individual e proveniência/validade do plano profissional; melhoria da experiência de ratings no contexto das receitas; inspeção visual responsive/zoom 200%, seguida do candidato 2.1.0.
+
+## Estado de execução — 20/11/2026, patch v2.0.33
+
+- v2.0.32: Web CI, API CI e UX E2E **verdes no mesmo SHA** `b39005f478865a8a3f24d5b89aab146edae24474`.
+- v2.0.33: o painel individual de adequação nutricional distingue cobertura de regras, dados desconhecidos, orientações não avaliadas e bloqueios obrigatórios. Proveniência expandível sem inventar fonte; testes unitários adicionados. **CI do SHA final ainda por confirmar.**
+- Próximos blocos após gate verde: ligação entre avaliação individual e seleção da refeição contextual, melhor leitura de tolerâncias e proveniência de condições, comparação com plano profissional por porção; acessibilidade e zoom 200% antes do RC.
+- Documentação, testes e SHA/CI atualizados por patch. Nenhum dado pessoal no GitHub, nenhuma promoção de PR draft para `main` sem aprovação.
