@@ -1297,6 +1297,11 @@ export default function WeeklyProposalPreview({
               {weekDates.map((planningDate) => {
                 const gridDay = formatGridDay(planningDate, locale);
                 const shortDayNumber = Number(planningDate.slice(-2)).toString();
+                const weekdayIndex = new Date(`${planningDate}T00:00:00Z`).getUTCDay();
+                const weekdayAbbreviations = locale === "pt-PT"
+                  ? ["dom.", "seg.", "ter.", "qua.", "qui.", "sex.", "sáb."]
+                  : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+                const shortWeekday = simpleWeekView ? weekdayAbbreviations[weekdayIndex] : gridDay.weekday;
                 return (
                   <article
                     className={`weekly-grid-day ${selectedDate === planningDate ? "selected is-mobile-day" : ""}`}
@@ -1307,7 +1312,7 @@ export default function WeeklyProposalPreview({
                       onClick={() => selectDay(planningDate)}
                       type="button"
                     >
-                      <strong>{gridDay.weekday}</strong>
+                      <strong>{shortWeekday}</strong>
                       <small>{simpleWeekView ? shortDayNumber : gridDay.date}</small>
                     </button>
                     <div className="weekly-grid-day__meals">
