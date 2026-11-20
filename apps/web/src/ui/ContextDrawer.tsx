@@ -134,7 +134,10 @@ export default function ContextDrawer({
         tabIndex={-1}
       >
         <header className="nf-context-drawer__head">
-          <h2 id={titleId}>{title}</h2>
+          <div className="nf-context-drawer__heading">
+            <span className="nf-context-drawer__eyebrow" aria-hidden="true">NutriFlow AI · Casa à Mesa</span>
+            <h2 id={titleId}>{title}</h2>
+          </div>
           <button
             ref={closeRef}
             className="nf-context-drawer__close"
