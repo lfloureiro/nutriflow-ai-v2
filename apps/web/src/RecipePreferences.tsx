@@ -19,6 +19,8 @@ const COPY = {
     recipe: "Receita",
     chooseRecipe: "Escolher receita",
     familyAverage: "Média da família",
+    familyAverageHelp: "Média de gosto dos membros que avaliaram. Não é uma classificação de segurança, FODMAP ou adequação nutricional.",
+    ratingsHelp: "As estrelas representam apenas o gosto individual; restrições obrigatórias e planos profissionais são avaliados separadamente.",
     noRatings: "Ainda sem avaliações",
     ratings: "avaliações",
     loading: "A carregar preferências…",
@@ -36,6 +38,8 @@ const COPY = {
     recipe: "Recipe",
     chooseRecipe: "Choose recipe",
     familyAverage: "Family average",
+    familyAverageHelp: "Average taste rating from members who have rated. Not a safety, FODMAP or nutritional suitability score.",
+    ratingsHelp: "Stars represent individual taste only; mandatory restrictions and professional plans are evaluated separately.",
     noRatings: "No ratings yet",
     ratings: "ratings",
     loading: "Loading preferences…",
@@ -194,6 +198,7 @@ export default function RecipePreferences({ familyId, fixedRecipe }: { familyId:
             <div className="recipe-preference-average">
               <span>{copy.familyAverage}</span>
               <strong>{averageText(summary, locale)} / 5</strong>
+              <small>{copy.familyAverageHelp}</small>
               <small>
                 {summary && summary.rating_count > 0
                   ? `${summary.rating_count} ${copy.ratings}`
@@ -206,6 +211,7 @@ export default function RecipePreferences({ familyId, fixedRecipe }: { familyId:
 
           {!loading && recipeId ? (
             <div className="recipe-preference-people">
+              <p className="dietary-help">{copy.ratingsHelp}</p>
               {people.map((person) => {
                 const current = ratingByPerson.get(person.id) ?? null;
                 return (
@@ -214,6 +220,7 @@ export default function RecipePreferences({ familyId, fixedRecipe }: { familyId:
                     <div className="recipe-preference-controls">
                       <button
                         className={`button ghost recipe-dislike ${current === 0 ? "active" : ""}`}
+                        aria-pressed={current === 0}
                         disabled={savingPersonId !== null}
                         onClick={() => void rate(person.id, 0)}
                         type="button"
@@ -225,6 +232,7 @@ export default function RecipePreferences({ familyId, fixedRecipe }: { familyId:
                           <button
                             aria-label={`${rating} ${rating === 1 ? copy.star : copy.stars}`}
                             className={current !== null && rating <= current ? "selected" : ""}
+                            aria-pressed={current === rating}
                             disabled={savingPersonId !== null}
                             key={rating}
                             onClick={() => void rate(person.id, rating)}
