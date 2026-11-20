@@ -523,3 +523,8 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - Corrigida apenas a transparência/cor da cortina por trás do drawer no tema claro: o protótipo original especifica `#0d1d184d`; a aplicação usava mistura de cor dependente do token do fundo.
 - v2.0.63 (overlay escuro) tinha os três gates CI verdes no SHA `7d9d54bb06b87dd854a5857c71e6d311029eae31`. Para v2.0.64, conferir os três gates no commit final; não declarar equivalência visual nem pedir teste manual antecipado.
 - Não foram modificados endpoints, rotas, state React, lógica de nutrição, API, DB ou `main`.
+
+## Patch v2.0.65 — hierarquia contextual do título (20/11/2026)
+
+- Reposição no `ContextDrawer` da hierarquia de cabeçalho do protótipo: legenda discreta NutriFlow AI · Casa à Mesa acima do título, alinhamento com área de fecho e estilo independente do conteúdo. `aria-labelledby` continua a apontar apenas para o título específico, evitando repetição decorativa para leitores de ecrã.
+- Sem alterações de callbacks, dados ou geometria do modal; a regra do foco e o botão de 44 px permanecem como em v2.0.62. CI Web/API/UX E2E e auditoria visual ainda precisam de confirmação no SHA desta versão.
