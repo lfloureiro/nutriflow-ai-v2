@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { planningDateInstant } from "./planningDateInstant";
+import { dailyStateMatchesDate, planningDateInstant } from "./planningDateInstant";
 
 describe("planning-day instant",()=>{
+  it("rejects an API nutrition snapshot for a different date",()=>{
+    const valid={planning_date:"2026-11-20",daily_nutrition_state:{state_date:"2026-11-20"}};
+    expect(dailyStateMatchesDate(valid,"2026-11-20")).toBe(true);
+    expect(dailyStateMatchesDate({...valid,planning_date:"2026-11-19"},"2026-11-20")).toBe(false);
+    expect(dailyStateMatchesDate({...valid,daily_nutrition_state:{state_date:"2026-11-19"}},"2026-11-20")).toBe(false);
+    expect(dailyStateMatchesDate({planning_date:"2026-11-20",daily_nutrition_state:null},"2026-11-20")).toBe(false);
+    expect(dailyStateMatchesDate(null,"2026-11-20")).toBe(false);
+  });
   it("uses Lisbon winter offset and same local calendar date",()=>{
     expect(planningDateInstant("2026-11-20","Europe/Lisbon")).toBe("2026-11-20T12:00:00+00:00");
   });
