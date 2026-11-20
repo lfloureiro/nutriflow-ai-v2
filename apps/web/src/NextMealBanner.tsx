@@ -13,7 +13,6 @@ import {
   recommendationCandidates,
 } from "./recommendationPlanning";
 import Icon from "./ui/Icon";
-import "./next-meal-hero.css";
 
 export type HeroSuggestedMeal = {
   date: string;
