@@ -43,3 +43,4 @@ createRoot(root).render(
 );
 
 import "./ux-workflow.css";
+import "./shell-prototype.css";
