@@ -488,6 +488,7 @@ export default function PersonOverview({
           <MealPlanFitPanel
             key={`${member.person_id}:${focusedMeal?.id ?? "free"}`}
             requestedMealType={focusedMeal?.type}
+            requireExplicitRecipe={focusedMeal !== null}
             dailyNutritionStateId={dailyState?.id ?? null}
             familyId={dashboard.family_id}
             personId={member.person_id}
