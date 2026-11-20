@@ -6,16 +6,17 @@ import type { Family } from "./api/setupTypes";
 import type { FamilyDashboard } from "./api/types";
 import FamilyEntryScreen from "./FamilyEntryScreen";
 import FamilyHome, { memberDisplayName } from "./FamilyHome";
-import FamilyMealsScreen, { type FamilyMealsMode } from "./FamilyMeals";
-import FamilySettings from "./FamilySettings";
+import type { FamilyMealsMode } from "./FamilyMeals";
+const FamilyMealsScreen = lazy(() => import("./FamilyMeals"));
+const FamilySettings = lazy(() => import("./FamilySettings"));
 import Brand from "./ui/Brand";
 import ContextDrawer from "./ui/ContextDrawer";
 import Icon, {type IconName} from "./ui/Icon";
 import PersonAvatar from "./ui/PersonAvatar";
 const HomeBase = lazy(() => import("./HomeBase"));
 import { useI18n, type Locale } from "./i18n";
-import PersonOverview from "./PersonOverview";
-import PersonSetupForm from "./PersonSetupForm";
+const PersonOverview = lazy(() => import("./PersonOverview"));
+const PersonSetupForm = lazy(() => import("./PersonSetupForm"));
 const ShoppingListScreen = lazy(() => import("./ShoppingListScreen"));
 import { useTheme, type Appearance } from "./theme";
 
@@ -254,7 +255,7 @@ export default function App() {
           ) : null}
 
           {view === "meals" ? (
-            <FamilyMealsScreen
+            <Suspense fallback={<div className="shell-loading" role="status">{t("home.loading")}</div>}><FamilyMealsScreen
               familyId={activeFamilyId}
               mode={mealsMode}
               onDataChanged={refreshDashboard}
@@ -264,7 +265,7 @@ export default function App() {
               selectedMealType={route.meal}
               onMealSelectionChange={(selection) => navigate({date:selection?.date ?? route.date,meal:selection?.mealType,view:"meals",mode:"week"})}
               referenceDate={dashboard?.dashboard_date}
-            />
+            /></Suspense>
           ) : null}
 
           {view === "people" ? (
@@ -313,12 +314,12 @@ export default function App() {
                   closeLabel={locale === "pt-PT" ? "Fechar detalhe" : "Close detail"}
                   onRequestClose={() => {if(!requestNavigation())return false;setShowPersonSetup(false);return true;}}
                 >
-                  <PersonSetupForm
+                  <Suspense fallback={<p role="status">{t("home.loading")}</p>}><PersonSetupForm
                     familyId={activeFamilyId}
                     familyTimezone={dashboard.timezone}
                     onCancel={() => setShowPersonSetup(false)}
                     onCreated={() => { setShowPersonSetup(false); refreshDashboard(); }}
-                  />
+                  /></Suspense>
                 </ContextDrawer>
               ) : null}
               {selectedMember && dashboard ? (
@@ -328,13 +329,13 @@ export default function App() {
                   closeLabel={locale === "pt-PT" ? "Fechar detalhe" : "Close detail"}
                   onRequestClose={() => setSelectedPersonId(null)}
                 >
-                  <PersonOverview
+                  <Suspense fallback={<p role="status">{t("home.loading")}</p>}><PersonOverview
                     key={selectedMember.person_id}
                     dashboard={dashboard}
                     member={selectedMember}
                     onBack={() => setSelectedPersonId(null)}
                     onDataChanged={refreshDashboard}
-                  />
+                  /></Suspense>
                 </ContextDrawer>
               ) : null}
             </div>
@@ -352,10 +353,10 @@ export default function App() {
                   <p>{t("more.help")}</p>
                 </div>
               </header>
-              <FamilySettings
+              <Suspense fallback={<p role="status">{t("home.loading")}</p>}><FamilySettings
                 familyId={activeFamilyId}
                 onSaved={() => refreshDashboard()}
-              />
+              /></Suspense>
               <section className="settings-card">
                 <label className="field">
                   <span>{t("nav.language")}</span>
