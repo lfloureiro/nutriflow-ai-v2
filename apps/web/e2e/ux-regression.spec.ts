@@ -245,7 +245,10 @@ test("person meal shortcut selects meal type but requires explicit recipe and pr
   });
   await page.setViewportSize({width:390,height:844});
   await openFamily(page,fixture.family.id,"/#/people");
+  const bootstrap=page.waitForRequest(r=>r.url().includes(`/persons/${fixture.person.id}/planning-bootstrap`));
   await page.getByRole("button",{name:/Pessoa QA/}).first().click();
+  const nutritionRequest=await bootstrap;
+  expect(new URL(nutritionRequest.url()).searchParams.get("scheduled_at")?.startsWith(dashboard.dashboard_date+"T12:00:00")).toBe(true);
   const person=page.getByRole("dialog");
   await expect(person).toHaveCount(1);
   await person.getByRole("button",{name:"Avaliar porção no plano"}).click();
