@@ -277,3 +277,9 @@ Trabalhar em `codex/ux-drawer-next-batch-20261119` / PR #76 **draft**. Não faze
 - **Paridade por computed styles ainda pendente** (mesmo Chrome, escala, tema e viewport); sem prova de igualdade pixel a pixel. CI é prova funcional/técnica, não substitui prova visual.
 - Ordem de revisão aprovada: **A nossa semana → Início → Receitas → Família → Compras → Despensa**. Não iniciar desenho autónomo do próximo ecrã antes de concluir revisão visual da Semana.
 - O PR #76 permanece draft; a versão 2.0.74 é patch, não release candidata 2.1.0.
+
+## Bloqueio de fidelidade visual — v2.0.75
+
+A imagem de composição Semana enviada em 20/11/2026 (1536×1024, dark) passa a ser a referência **primária de aceitação visual**. Os tons flat do protótipo HTML continuam a orientar tokens e light mode; os efeitos óticos adicionais (gradientes, luz, reflexos, sombras, tipografia maior e escala 320px do menu) são definidos pela imagem composta aprovada. Ver amostras e diferenças em `docs/ux/auditoria-shell-prototipo-2026-11-20.md`.
+
+O lote 2.0.75 aplica esta camada em `shell-prototype.css` (global, não dependente de rotas) e `week-reference.css` (Semana). **Não considerar a Semana pronta nem passar para Início** sem comparar captura da aplicação à mesma resolução, mesmas fontes e 100% de zoom, light/dark, e obter aprovação visual. A API, base de dados, regras nutricionais, drawers e carta dinâmica continuam como estão. PR #76 draft; 3 CI no último SHA obrigatórios.
