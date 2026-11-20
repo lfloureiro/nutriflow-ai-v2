@@ -8,18 +8,28 @@
   }
   .app-shell--meals .nf-next-meal-hero {
     grid-template-columns: minmax(240px, 26%) minmax(0, 1fr) auto;
-    height: 136px;
+    height: auto;
     min-height: 136px;
+    grid-template-rows: auto;
     margin-bottom: 22px;
     border-radius: 22px;
   }
-  .app-shell--meals .nf-next-meal-hero__art img {
-    max-height: 136px;
-    min-height: 0;
-    height: 136px;
+  .app-shell--meals .nf-next-meal-hero__art {
+    position: relative;
+    height: auto;
+    min-height: 136px;
+    align-self: stretch;
   }
-  .app-shell--meals .nf-next-meal-hero__art { height: 136px; min-height: 0; }
-  .app-shell--meals .nf-next-meal-hero__info { padding: 11px 22px; }
+  .app-shell--meals .nf-next-meal-hero__art img {
+    position: absolute;
+    inset: 0;
+    max-height: none;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .app-shell--meals .nf-next-meal-hero__info { padding: 14px 22px; }
   .app-shell--meals .nf-next-meal-hero__credit { font-size: 9px; }
   .app-shell--meals .nf-next-meal-hero__context { font-size: 10px; }
   .app-shell--meals .nf-next-meal-hero h2 {
