@@ -236,3 +236,15 @@
     flex-direction: column;
   }
 }
+
+/* Evidence coverage is informational, never a clinical approval badge. */
+.plan-fit-coverage{padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--surface-soft);min-width:0}
+.plan-fit-coverage h4{margin:0 0 12px}
+.plan-fit-coverage dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));gap:10px;margin:0}
+.plan-fit-coverage dl>div{min-width:0;display:grid;gap:4px;padding:10px;background:var(--surface);border-radius:10px}
+.plan-fit-coverage dt{font-size:12px;color:var(--muted)}
+.plan-fit-coverage dd{font-size:20px;font-weight:650;margin:0}
+.plan-fit-coverage>p{font-size:12px;line-height:1.55;color:var(--muted);margin:12px 0 0}
+.plan-fit-rule__evidence{margin-top:8px;max-width:100%;overflow-wrap:anywhere}
+.plan-fit-rule__evidence summary{font-size:12px;color:var(--muted);cursor:pointer}
+.plan-fit-rule__evidence p{font-size:12px;line-height:1.5;margin:6px 0 0}
