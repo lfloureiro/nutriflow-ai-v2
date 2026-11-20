@@ -734,6 +734,7 @@ export default function WeeklyProposalPreview({
   familyId,
   weekStart,
   heroSuggestion,
+  simpleWeekView = false,
   people,
   plan: suppliedPlan,
   onEdit,
@@ -759,6 +760,7 @@ export default function WeeklyProposalPreview({
   renderSelectedMeal?: (context: SelectedMealContext) => ReactNode;
   familyId: string;
   heroSuggestion?: HeroSuggestedMeal | null;
+  simpleWeekView?: boolean;
   weekStart?: string;
   people: Person[];
   plan?: FamilyMealPlan;
@@ -1188,7 +1190,7 @@ export default function WeeklyProposalPreview({
 
   return (
     <section className="meal-plan-editor weekly-proposal-preview">
-      <div className="meal-plan-editor__heading">
+      {!simpleWeekView || proposal?.selected_plan ? <div className="meal-plan-editor__heading">
         <div>
           <span className="eyebrow">{copy.eyebrow}</span>
           <h2>{copy.title}</h2>
@@ -1205,7 +1207,7 @@ export default function WeeklyProposalPreview({
               {decisionBusy === "apply" ? copy.applyingWeek : copy.applyWeek}
             </button>
           ) : null}
-          <button
+          {!simpleWeekView ? <button
             className={proposal?.selected_plan ? "button ghost" : "button primary"}
             disabled={busy || decisionBusy !== null || people.length < 2 || !plan}
             onClick={() => void generateProposal()}
@@ -1218,9 +1220,9 @@ export default function WeeklyProposalPreview({
               : proposal
                 ? copy.regenerate
                 : copy.generate}
-          </button>
+          </button> : null}
         </div>
-      </div>
+      </div> : null}
 
       {people.length < 2 ? <div className="family-meals-empty-day">{copy.noPeople}</div> : null}
       {loadError ? (
@@ -1284,7 +1286,7 @@ export default function WeeklyProposalPreview({
         <div className="shell-loading" role="status">{copy.loading}</div>
       ) : (
         <>
-          <WeekOverview plan={plan} proposed={weekDates.reduce((sum,date)=>sum+ALL_MEAL_TYPES.filter(kind=>!mealEntryFor(plan,date,kind)&&choiceFor(grouped,date,kind)).length,0)}/>
+          {!simpleWeekView ? <WeekOverview plan={plan} proposed={weekDates.reduce((sum,date)=>sum+ALL_MEAL_TYPES.filter(kind=>!mealEntryFor(plan,date,kind)&&choiceFor(grouped,date,kind)).length,0)}/> : null}
           <nav className="nf-week-day-picker" aria-label={locale === "pt-PT" ? "Escolher dia da semana" : "Choose a weekday"}>{weekDates.map(date=>{const day=formatGridDay(date,locale);return <button type="button" key={date} aria-pressed={selectedDate===date} className={selectedDate===date?"selected":""} onClick={()=>selectDay(date)}><span>{day.weekday}</span><b>{day.date}</b></button>;})}</nav>
           <div className="weekly-calendar-scroll">
             <div className="weekly-day-grid" role="group" aria-label={copy.title}>
@@ -1316,6 +1318,11 @@ export default function WeeklyProposalPreview({
                         const ingredientProposals=recipeProposedChanges(currentReviews,entry?.recipe_id??choice?.recipe_id);
                         const pendingReason = skippedSlots[slotKey(planningDate, mealType)];
                         const state = entry ? "planned" : choice ? "proposed" : "empty";
+                        const hasAppliedChanges = Boolean(entry?.variant_changes?.length || entry?.transformations.length);
+                        const needsReview = !hasAppliedChanges && Boolean(
+                          choice?.variant_changes?.length || choice?.transformation ||
+                          ingredientProposals.length || slotAdaptations?.[entry?.recipe_id ?? choice?.recipe_id ?? ""]?.length
+                        );
                         const label = entry
                           ? entryName(entry)
                           : choice?.candidate_name ?? (pendingReason ? copy.pending : locale === "pt-PT" ? "+ Adicionar" : "+ Add");
@@ -1326,7 +1333,7 @@ export default function WeeklyProposalPreview({
                             }
                             aria-label={`${mealLabel(mealType, locale)} · ${gridDay.weekday} ${gridDay.date} · ${entry ? copy.planned : choice ? copy.proposed : pendingReason ? copy.pending : copy.empty} · ${label}`}
                             className={`weekly-grid-meal is-${state} ${
-                              !entry && (choice?.variant_changes?.length || choice?.transformation || ingredientProposals.length || slotAdaptations?.[choice?.recipe_id ?? ""]?.length) ? "has-review" : ""
+                              needsReview ? "has-review" : ""
                             } ${
                               selectedDate === planningDate && selectedMealType === mealType
                                 ? "selected"
@@ -1336,20 +1343,28 @@ export default function WeeklyProposalPreview({
                             onClick={() => selectMeal(planningDate,mealType)}
                             type="button"
                           >
-                            <span className="weekly-grid-meal__label">
-                              <small>{mealLabel(mealType, locale)}</small>
-                              <em>
-                                {entry
-                                  ? copy.planned
-                                  : choice
-                                    ? copy.proposed
-                                    : pendingReason
-                                      ? copy.pending
-                                      : copy.empty}
-                              </em>
-                            </span>
-                            <strong>{label}</strong>
-                            {(entry?.variant_changes?.length || entry?.transformations.length || choice?.variant_changes?.length || choice?.transformation || ingredientProposals.length || slotAdaptations?.[entry?.recipe_id ?? choice?.recipe_id ?? ""]?.length) ? <small className={`nf-week-change-hint ${entry?.variant_changes?.length || entry?.transformations.length ? "is-applied" : "is-review"}`}>{entry?.variant_changes?.length || entry?.transformations.length ? (locale === "pt-PT" ? "Adaptação aplicada" : "Adaptation applied") : choice?.variant_changes?.length || choice?.transformation ? (locale === "pt-PT" ? "Adaptação em proposta" : "Proposed adaptation") : (locale === "pt-PT" ? "Trocas por rever" : "Substitutions to review")}</small> : null}
+                            {state === "empty" && !pendingReason ? (
+                              <span className="nf-week-empty-action" aria-hidden="true">
+                                <b>+</b><span>{locale === "pt-PT" ? "Adicionar" : "Add"}</span>
+                              </span>
+                            ) : (
+                              <>
+                                <strong>{label}</strong>
+                                {needsReview || hasAppliedChanges ? (
+                                  <small className={`nf-week-change-hint ${hasAppliedChanges ? "is-applied" : "is-review"}`}>
+                                    {hasAppliedChanges ? (locale === "pt-PT" ? "Adaptação aplicada" : "Adaptation applied") :
+                                      choice?.variant_changes?.length || choice?.transformation
+                                        ? (locale === "pt-PT" ? "Adaptar" : "Adapt")
+                                        : (locale === "pt-PT" ? "Por verificar" : "Review")}
+                                  </small>
+                                ) : (
+                                  <span className="weekly-grid-meal__label">
+                                    <small>{mealLabel(mealType, locale)}</small>
+                                    <em>{entry ? copy.planned : choice ? copy.proposed : copy.pending}</em>
+                                  </span>
+                                )}
+                              </>
+                            )}
                           </button>
                         );
                       })}
