@@ -537,12 +537,16 @@ test("accessible drawer keyboard includes native disclosure summaries and expand
     const button=document.createElement("button");
     button.textContent="Expanded detail QA";
     details.append(summary,button);
-    element.appendChild(details);
+    // Keep disclosure within the actual scrollable region, not clipped after
+    // the flex body's footer where it would be invisible in short viewports.
+    element.querySelector(".nf-context-drawer__body")?.prepend(details);
   });
   const disclosure=drawer.locator("#nf-disclosure-focus-qa");
   const summary=disclosure.locator("summary");
   await expect(disclosure).not.toHaveAttribute("open","");
-  await page.keyboard.press("Shift+Tab");
+  const close=drawer.getByRole("button",{name:"Fechar detalhe"});
+  await expect(close).toBeFocused();
+  await page.keyboard.press("Tab");
   await expect(summary).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(disclosure).toHaveAttribute("open","");
@@ -552,8 +556,8 @@ test("accessible drawer keyboard includes native disclosure summaries and expand
   await expect(summary).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(disclosure).not.toHaveAttribute("open","");
-  await page.keyboard.press("Tab");
-  await expect(drawer.getByRole("button",{name:"Fechar detalhe"})).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(close).toBeFocused();
 });
 
 test("drawer restores focus to active navigation when its originating row disappears",async ({page,request})=>{
