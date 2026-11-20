@@ -72,3 +72,79 @@
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* Screenshot parity: a shared left-hand meal label column replaces
+   28 repeated meal-type labels on the desktop weekly map. */
+.nf-week-row-labels { display: none; }
+@media (min-width: 1101px) {
+  .family-meals-screen .weekly-proposal-preview { padding: 18px !important; }
+  .weekly-proposal-preview .weekly-calendar-scroll .weekly-day-grid {
+    display: grid;
+    grid-template-columns: 78px repeat(7, minmax(0, 1fr));
+    grid-template-rows: 58px repeat(4, minmax(136px, auto));
+    gap: 8px;
+  }
+  .weekly-proposal-preview .weekly-calendar-scroll .nf-week-row-labels {
+    display: grid;
+    grid-column: 1;
+    grid-row: 1 / span 5;
+    grid-template-rows: subgrid;
+    align-items: stretch;
+    min-width: 0;
+  }
+  .nf-week-row-labels > span {
+    display: flex;
+    align-items: center;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+  .weekly-proposal-preview .weekly-calendar-scroll .weekly-grid-day {
+    grid-row: 1 / span 5;
+    gap: 8px;
+  }
+  .weekly-proposal-preview .weekly-calendar-scroll .weekly-grid-meal {
+    min-height: 0;
+    padding: 12px 10px;
+    gap: 8px;
+  }
+  .weekly-proposal-preview .weekly-grid-meal__label {
+    margin-top: auto;
+    order: 2;
+  }
+  .weekly-proposal-preview .weekly-grid-meal__label small {
+    display: none;
+  }
+  .weekly-proposal-preview .weekly-grid-meal__label em {
+    display: inline-flex;
+    width: fit-content;
+    border-radius: 6px;
+    background: var(--color-action-soft);
+    color: var(--color-action);
+    font-weight: 650;
+    padding: 4px 6px;
+  }
+  .weekly-proposal-preview .weekly-grid-meal.is-empty {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+  .weekly-proposal-preview .weekly-grid-meal.is-empty > strong {
+    color: var(--muted);
+    font-weight: 450;
+  }
+  .weekly-proposal-preview .weekly-grid-meal.is-empty .weekly-grid-meal__label { display: none; }
+  .weekly-proposal-preview .weekly-grid-meal__date-button { min-height: 58px; }
+  .weekly-proposal-preview .weekly-grid-day__date-button strong { font-size: 11px; color: var(--muted); font-weight: 500; }
+  .weekly-proposal-preview .weekly-grid-day__date-button small { font-size: 19px; color: var(--text); font-weight: 700; }
+}
+.weekly-proposal-preview .weekly-calendar-scroll .weekly-grid-meal.has-review:not(.selected) {
+  border-color: color-mix(in srgb, var(--color-danger) 48%, var(--border));
+  background: color-mix(in srgb, var(--color-danger) 17%, var(--bg));
+}
+.weekly-proposal-preview .weekly-calendar-scroll .weekly-grid-meal.has-review .nf-week-change-hint.is-review {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 16%, var(--surface));
+  border-color: color-mix(in srgb, var(--color-danger) 32%, var(--border));
+}
