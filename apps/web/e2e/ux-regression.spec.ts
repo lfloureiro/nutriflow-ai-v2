@@ -262,6 +262,53 @@ test("person meal shortcut selects meal type but requires explicit recipe and pr
   await expect(person).toHaveCount(1);
 });
 
+test("nutrition: late fit response cannot overwrite a changed portion",async ({page,request})=>{
+  const fixture=await seed(request);
+  // A deliberately synthetic composition enables the evaluator without writing
+  // nutritional values or clinical rules to the isolated database.
+  await page.route(`**/api/families/${fixture.family.id}/recipes*`,async route=>{
+    const response=await route.fetch();
+    const recipes=await response.json() as {id:string;latest_composition:unknown;serving_count:string|null}[];
+    await route.fulfill({response,json:recipes.map(recipe=>recipe.id===fixture.recipe.id
+      ? {...recipe,latest_composition:{
+        id:"synthetic-composition-qa",reference_quantity:"2",
+        reference_unit:"serving",energy_kcal:"250",
+        energy_per_serving_kcal:"125",composition_version:"qa",
+        calculation_version:"qa",evidence:"synthetic_development",
+        computed_at:"2026-11-20T00:00:00Z",nutrients:[],
+      }} : recipe)});
+  });
+  let releaseResponse:(()=>void)|undefined;
+  await page.route(`**/api/persons/${fixture.person.id}/meal-plan-fit`,async route=>{
+    await new Promise<void>(resolve=>{releaseResponse=resolve;});
+    const payload=route.request().postDataJSON() as {planning_date:string;meal_type:string;candidate:{quantity:string}};
+    await route.fulfill({status:200,json:{
+      person_id:fixture.person.id,planning_date:payload.planning_date,meal_type:payload.meal_type,
+      daily_nutrition_state_id:null,eligible:true,status:"pass",fit_score:"1",
+      candidate:{key:"synthetic-qa",name:"Prato sintético QA",kind:"recipe",quantity:payload.candidate.quantity,
+        quantity_unit:"serving",nutrition:{energy_kcal:"250",nutrients:{}}},
+      active_plans:[],nutrition_plan_authority:{state:"no_active_plan",active_plans:[],
+        plan_rule_ids:[],plan_guideline_ids:[],unknown_evidence:[],explanation:[]},
+      conflicts:[],safety_issues:[],rule_results:[],guideline_results:[],explanation:[],
+    }});
+  });
+  await openFamily(page,fixture.family.id,"/#/people");
+  await page.getByRole("button",{name:/Pessoa QA/}).first().click();
+  const person=page.getByRole("dialog");
+  await person.getByRole("button",{name:"Nutrição"}).click();
+  const evaluator=person.locator(".plan-fit-panel");
+  await expect(evaluator.locator(".plan-fit-controls__recipe select")).toHaveValue(fixture.recipe.id);
+  const portion=evaluator.locator(".plan-fit-quantity input");
+  await portion.fill("1");
+  await evaluator.getByRole("button",{name:"Avaliar",exact:true}).click();
+  await expect.poll(()=>releaseResponse!==undefined).toBe(true);
+  await portion.fill("2");
+  releaseResponse?.();
+  await expect(evaluator.locator(".plan-fit-result")).toHaveCount(0);
+  await expect(portion).toHaveValue("2");
+  await expect(evaluator.getByRole("button",{name:"Avaliar",exact:true})).toBeEnabled();
+});
+
 test("catalogue and person details open once over their parent list",async ({page,request})=>{
   const fixture=await seed(request);
   await page.setViewportSize({width:1280,height:860});
