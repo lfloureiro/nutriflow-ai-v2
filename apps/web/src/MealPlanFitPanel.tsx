@@ -246,6 +246,7 @@ export default function MealPlanFitPanel({
     transformationEpoch.current += 1;
     setResult(null);
     setTransformation(null);
+    setError(null);
     setBusy(false);
     setTransformationBusy(false);
   }
@@ -309,7 +310,10 @@ export default function MealPlanFitPanel({
     transformationEpoch.current += 1;
     setBusy(true);
     setError(null);
+    setResult(null);
     setTransformation(null);
+    // The old proposal was invalidated above; do not retain its loading state.
+    setTransformationBusy(false);
     try {
       const response = await evaluateMealPlanFit(personId, {
         planning_date: planningDate,
