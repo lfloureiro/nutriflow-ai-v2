@@ -8,6 +8,11 @@
   background: color-mix(in srgb, var(--color-bg) 34%, transparent);
   backdrop-filter: blur(4px);
 }
+/* Match the approved prototype's deeper modal scrim in dark mode. */
+:root[data-theme="dark"] .nf-context-overlay {
+  background: rgba(8, 8, 10, 0.68);
+}
+
 .nf-context-drawer {
   display: flex;
   flex-direction: column;
