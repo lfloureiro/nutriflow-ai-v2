@@ -594,6 +594,15 @@ test("drawer restores focus to active navigation when its originating row disapp
   await slot.evaluate(element=>element.remove());
   await page.keyboard.press("Escape");
   await expect(drawer).toHaveCount(0);
+  // Diagnostic state is emitted only in CI output if the focus contract fails.
+  const focusState=await page.evaluate(()=>({
+    activeTag:document.activeElement?.tagName,
+    activeClass:(document.activeElement as HTMLElement|null)?.className,
+    backgroundInert:document.getElementById("root")?.inert,
+    dialogs:document.querySelectorAll(".nf-context-drawer").length,
+  }));
+  expect(focusState.backgroundInert).toBe(false);
+  expect(focusState.dialogs).toBe(0);
   await expect(page.locator(".primary-nav [aria-current='page']")).toBeFocused();
 });
 
