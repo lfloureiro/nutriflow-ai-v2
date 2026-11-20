@@ -332,3 +332,12 @@ Ao avançar para um novo Z, atualizar `apps/web/package.json` e o registo de mud
 - **Correção de produto 2:** `WeeklyProposalPreview` recebe agora `initialDate` independentemente de `initialSelection` (que só existe quando uma refeição concreta está selecionada). O mapa mobile respeita a data explícita do URL, em vez de a substituir pelo dia atual; o drawer não abre apenas por existir data.
 - Adicionado E2E sintético de rota `/#/meals?date=2026-11-19&mode=week` a 390px, que verifica quinta-feira selecionada, refeição datada visível, e ausência de drawer automático. Os três testes de acessibilidade/reflow que falharam mantêm-se ativos como regressões obrigatórias.
 - Frontend **v2.0.30**, patch Z; exigir Web CI, API CI e UX E2E verdes **neste SHA final** antes de continuar para novas funcionalidades. Sem merge, API/schema ou dados familiares reais.
+
+## Patch v2.0.31 — substituições por receita em drawer, fontes FODMAP preservadas (20 novembro 2026)
+
+- **Baseline validada:** a v2.0.30 no SHA `277e87f898064919fd95e361fe59e085797debe8` obteve os três gates verdes (Web CI, API CI e UX E2E sintético).
+- **Casa → Mais ferramentas → Substituições:** na revisão não vinculada a uma refeição específica, clicar numa receita abre **um único `ContextDrawer`** e mantém a lista de receitas/filtro montados no fundo. O primeiro item deixa de ser expandido automaticamente quando o utilizador abre o separador.
+- A revisão de uma receita já fixada pelo contexto (`recipeId` explícito, por exemplo num fluxo de adaptação) **continua inline** no contexto existente, sem empilhar drawers.
+- A componente continua a apresentar claramente que a adequação FODMAP **não foi avaliada por porção**; as fontes educativas não equivalem a aprovação clínica. Registos de substituições, edição de variantes, dados nutricionais e escolhas de receitas não foram removidos.
+- Acrescentado E2E sintético mobile 390px: nenhuma modal ao abrir a lista, uma única modal depois de escolher uma receita, detalhe FODMAP com incerteza, fechar diretamente para a lista e consultar as fontes separadamente.
+- Versão de interface **v2.0.31**. Exigir Web CI/API CI/UX E2E verdes no SHA final antes de marcar como validada; PR #76 permanece draft; `main` e dados reais intactos.
