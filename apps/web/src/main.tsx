@@ -48,3 +48,4 @@ import "./next-meal-hero.css";
 import "./week-reference.css";
 import "./shell-prototype.css";
 import "./screen-reference.css";
+import "./viewport-density.css";
