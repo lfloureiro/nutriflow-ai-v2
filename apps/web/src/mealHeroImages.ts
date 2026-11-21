@@ -62,6 +62,18 @@ const CURATED: Record<string, CuratedPhoto> = {
     author: "Zorin90",
     license: "CC BY-SA 4.0",
   },
+  "torrada mista": {
+    filename: "Ham and Cheese Toastie, Epoch Cafe, 2026 (01).jpg",
+    subject: "Tosta quente de fiambre e queijo (fotografia ilustrativa)",
+    author: "Bahnfrend",
+    license: "CC BY-SA 4.0",
+  },
+  "omelete de espinafres": {
+    filename: "Spinach omelette (3278835124).jpg",
+    subject: "Omelete de espinafres (fotografia ilustrativa)",
+    author: "David Pursehouse",
+    license: "CC BY 2.0",
+  },
   "pao queijo e tomate": {
     filename: "Toast with cheddar cheese and tomato.jpg",
     subject: "Torrada com queijo e tomate",
