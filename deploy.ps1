@@ -37,7 +37,41 @@ function Executable([string]$name) {
     return $cmd.Source
 }
 function Listener([int]$port) {
-    return @(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)
+    # Query both Windows TCP sources. Get-NetTCPConnection may transiently
+    # return zero rows while an existing Uvicorn process is responding.
+    $entries = @()
+    try {
+        $entries = @(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+            ForEach-Object {
+                [pscustomobject]@{
+                    LocalAddress = [string]$_.LocalAddress
+                    LocalPort = [int]$_.LocalPort
+                    OwningProcess = [int]$_.OwningProcess
+                }
+            })
+    } catch { $entries = @() }
+    foreach ($line in @(& netstat.exe -ano -p tcp 2>$null)) {
+        # A listening socket has remote port 0. No locale-specific state
+        # comparison is needed to extract the owning PID.
+        if ($line -notmatch '^\s*TCP\s+(\S+):(\d+)\s+(\S+):(\d+)\s+\S+\s+(\d+)\s*$') {
+            continue
+        }
+        $localPort = [int]$Matches[2]
+        $remotePort = [int]$Matches[4]
+        $ownerId = [int]$Matches[5]
+        if ($localPort -ne $port -or $remotePort -ne 0 -or $ownerId -le 0) { continue }
+        $localAddress = [string]$Matches[1]
+        if (@($entries | Where-Object {
+            $_.OwningProcess -eq $ownerId -and $_.LocalAddress -eq $localAddress
+        }).Count -eq 0) {
+            $entries += [pscustomobject]@{
+                LocalAddress = $localAddress
+                LocalPort = $port
+                OwningProcess = $ownerId
+            }
+        }
+    }
+    return $entries
 }
 function Healthy([string]$url) {
     try {
