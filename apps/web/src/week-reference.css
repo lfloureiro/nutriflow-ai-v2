@@ -177,3 +177,116 @@
   .app-shell--meals .nf-next-meal-hero,
   .nf-week-map-final .weekly-grid-meal { transition: none; }
 }
+
+/* v2.0.80 — fit the seven-day/four-meal map to the usable browser height.
+   The short desktop layout is intentionally limited to the WEEK route.
+   In extremely short windows (<680 CSS px) the normal vertical scrolling
+   remains available instead of hiding meal names or interactive controls. */
+@media (min-width: 1101px) and (min-height: 680px) and (max-height: 960px) {
+  .app-shell--meals .shell-main {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .app-shell--meals .family-meals-screen:has(.nf-next-meal-hero) {
+    --week-compact-row: clamp(80px, calc((100dvh - 420px) / 4), 122px);
+  }
+  .app-shell--meals .nf-next-meal-hero {
+    min-height: 100px;
+    margin-bottom: 8px;
+    border-radius: 18px;
+  }
+  .app-shell--meals .nf-next-meal-hero__art {
+    min-height: 100px;
+  }
+  .app-shell--meals .nf-next-meal-hero__info {
+    padding: 8px 17px;
+  }
+  .app-shell--meals .nf-next-meal-hero__eyebrow {
+    margin-bottom: 3px;
+    font-size: 11px;
+  }
+  .app-shell--meals .nf-next-meal-hero h2 {
+    margin-bottom: 2px;
+    font-size: clamp(18px, 1.45vw, 23px);
+    line-height: 1.16;
+  }
+  .app-shell--meals .nf-next-meal-hero p { margin-bottom: 3px; font-size: 12px; }
+  .app-shell--meals .nf-next-meal-hero__context { font-size: 10px; }
+  .app-shell--meals .nf-next-meal-hero__credit { margin-top: 2px; font-size: 9px; }
+  .app-shell--meals .nf-next-meal-hero__actions {
+    min-width: 150px;
+    padding: 8px 14px 8px 0;
+  }
+  .app-shell--meals .nf-next-meal-hero__actions .button {
+    min-height: 36px;
+    padding: 7px 10px;
+    font-size: 12px;
+    border-radius: 12px;
+  }
+  .app-shell--meals .family-meals-screen:has(.nf-next-meal-hero) .family-meals-date-nav {
+    margin-bottom: 8px;
+    gap: 6px;
+  }
+  .app-shell--meals .family-meals-screen:has(.nf-next-meal-hero) .family-meals-date-nav .button {
+    min-height: 30px;
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+  .app-shell--meals .nf-week-map-final {
+    padding: 10px !important;
+    border-radius: 20px !important;
+  }
+  .app-shell--meals .nf-week-map-final .weekly-calendar-scroll .weekly-day-grid {
+    grid-template-columns: 90px repeat(7, minmax(0, 1fr));
+    grid-template-rows: 48px repeat(4, minmax(0, var(--week-compact-row)));
+    gap: 6px;
+  }
+  .app-shell--meals .nf-week-map-final .weekly-grid-day__date-button {
+    min-height: 46px;
+    padding: 5px 6px;
+    border-radius: 13px;
+  }
+  .app-shell--meals .nf-week-map-final .weekly-grid-day__date-button strong { font-size: 12px !important; }
+  .app-shell--meals .nf-week-map-final .weekly-grid-day__date-button small { font-size: 21px !important; }
+  .app-shell--meals .nf-week-map-final .nf-week-row-labels > span {
+    align-items: flex-start;
+    gap: 5px;
+    padding: 8px 6px;
+    font-size: 13px;
+    line-height: 1.25;
+  }
+  .app-shell--meals .nf-week-map-final .nf-week-row-labels > span .nf-icon { width: 21px; height: 21px; }
+  .app-shell--meals .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal {
+    height: 100%;
+    min-height: 0;
+    padding: 8px 8px;
+    gap: 4px;
+    border-radius: 11px;
+    justify-content: space-between;
+  }
+  .app-shell--meals .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal > strong {
+    font-size: 13px;
+    line-height: 1.24;
+    -webkit-line-clamp: 3;
+  }
+  .app-shell--meals .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal__label em,
+  .app-shell--meals .nf-week-map-final .nf-week-change-hint {
+    font-size: 10px;
+    padding: 4px 7px;
+    border-radius: 8px;
+  }
+  .app-shell--meals .nf-week-map-final .nf-week-empty-action {
+    font-size: 13px;
+    gap: 3px;
+  }
+  .app-shell--meals .nf-week-map-final .nf-week-empty-action b { font-size: 20px; }
+}
+@media (min-width: 1101px) and (min-height: 680px) and (max-height: 790px) {
+  .app-shell--meals .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal > strong {
+    -webkit-line-clamp: 2;
+    font-size: 12px;
+  }
+  .app-shell--meals .nf-week-map-final .weekly-calendar-scroll .weekly-grid-meal {
+    padding: 6px 7px;
+  }
+}
