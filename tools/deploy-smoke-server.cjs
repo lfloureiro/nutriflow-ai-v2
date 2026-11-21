@@ -5,12 +5,12 @@ const port = Number(process.argv[2] || 5173);
 const server = http.createServer((request, response) => {
   if (request.url === "/@vite/client") {
     response.writeHead(200, {"Content-Type": "application/javascript"});
-    response.end("/* vite client smoke fixture */\nexport const vite = true;\n");
+    response.end("/* deliberately not Vite; exercise ownership fallback */\n");
     return;
   }
   if (request.url === "/") {
     response.writeHead(200, {"Content-Type": "text/html"});
-    response.end("<!doctype html><title>NutriFlow AI</title><div>smoke fixture</div>");
+    response.end("<!doctype html><title>Process lifecycle smoke test</title><div>smoke fixture</div>");
     return;
   }
   response.writeHead(404);
