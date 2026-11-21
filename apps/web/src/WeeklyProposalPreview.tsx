@@ -1366,11 +1366,12 @@ export default function WeeklyProposalPreview({
       {proposal && !proposal.selected_plan ? (
         <div className="family-meals-empty-day">
           {proposalHasOnlySkippedSlots(proposal) ? copy.allOpenSlotsPending : copy.noPlan}
-          {proposal.skipped_slots.length > 0 ? (
-            <p>{locale === "pt-PT"
-              ? "As propostas foram avaliadas, mas nenhuma satisfez simultaneamente as regras de todos os participantes. Seleciona o pequeno-almoço para ver o motivo."
-              : "The proposals were evaluated, but none satisfied all participants' rules. Select breakfast to review the reason."}</p>
-          ) : null}
+          {proposal.skipped_slots.map(slot => (
+            <p key={slot.slot_key}>
+              <strong>{mealLabel(slot.meal_type, locale)} · {slot.planning_date}: </strong>
+              {skippedSlots[slot.slot_key] ?? copy.unavailableSlot}
+            </p>
+          ))}
         </div>
       ) : null}
 
