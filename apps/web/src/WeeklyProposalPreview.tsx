@@ -820,6 +820,7 @@ export default function WeeklyProposalPreview({
   // Let the simple week use genuinely free browser space instead of guessing
   // a CSS viewport breakpoint. Never squeeze the four meal rows to achieve fit.
   const weekGridRef = useRef<HTMLDivElement | null>(null);
+  const weekDayPickerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     const grid = weekGridRef.current;
     if (!simpleWeekView || !grid) return;
@@ -949,6 +950,19 @@ export default function WeeklyProposalPreview({
       weekDates.includes(today) ? today : weekDates[0] ?? null
     );
   }, [weekDates, plan?.timezone]);
+  // Keep the selected day visible in the horizontal weekday picker as well.
+  // Selecting a date does not steal keyboard focus or change the URL.
+  useEffect(() => {
+    if (!selectedDate) return;
+    const picker = weekDayPickerRef.current;
+    const button = Array.from(picker?.querySelectorAll<HTMLButtonElement>("button") ?? [])
+      .find(element => element.dataset.planningDate === selectedDate);
+    if (!picker || !button || picker.scrollWidth <= picker.clientWidth) return;
+    picker.scrollTo({
+      left: Math.max(0, button.offsetLeft - (picker.clientWidth - button.offsetWidth) / 2),
+      behavior: "auto",
+    });
+  }, [selectedDate, weekDates]);
   // On narrow layouts the current/selected day must also be visible,
   // not merely marked as selected off-screen to the right.
   useEffect(() => {
@@ -1380,7 +1394,7 @@ export default function WeeklyProposalPreview({
       ) : (
         <>
           {!simpleWeekView ? <WeekOverview plan={plan} proposed={weekDates.reduce((sum,date)=>sum+ALL_MEAL_TYPES.filter(kind=>!mealEntryFor(plan,date,kind)&&choiceFor(grouped,date,kind)).length,0)}/> : null}
-          <nav className="nf-week-day-picker" aria-label={locale === "pt-PT" ? "Escolher dia da semana" : "Choose a weekday"}>{weekDates.map(date=>{const day=formatGridDay(date,locale);return <button type="button" key={date} aria-pressed={selectedDate===date} className={selectedDate===date?"selected":""} onClick={()=>selectDay(date)}><span>{day.weekday}</span><b>{day.date}</b></button>;})}</nav>
+          <nav ref={weekDayPickerRef} className="nf-week-day-picker" aria-label={locale === "pt-PT" ? "Escolher dia da semana" : "Choose a weekday"}>{weekDates.map(date=>{const day=formatGridDay(date,locale);return <button type="button" key={date} data-planning-date={date} aria-pressed={selectedDate===date} className={selectedDate===date?"selected":""} onClick={()=>selectDay(date)}><span>{day.weekday}</span><b>{day.date}</b></button>;})}</nav>
           <div className="weekly-calendar-scroll">
             <div className="weekly-day-grid" ref={weekGridRef} role="group" aria-label={copy.title}>
               <div className="nf-week-row-labels" aria-hidden="true">
