@@ -346,3 +346,13 @@ O utilizador voltou a indicar que o **Início ainda não cabe no ecrã do seu Ch
 - Fotos e dados dos PNG aprovados são **mockup**, não dados a injetar na aplicação. A semana v2.0.86 mantém-se intocada; PR #76 draft; sem DB real/backend local/serviços.
 - A equivalência final com `inicio.png`, `receitas.png`, `familia.png`, `compras.png` e `despensa.png` ainda precisa de revisão visual nos estados preenchidos.
 - Critério de fit não substitui testes a 200% zoom, 390/768/1024/1440 e diferentes alturas. Em páginas com listas extensas, o scroll dentro da lista é aceitável, não a perda de dados.
+
+## v2.0.92 — segunda correção de densidade do Início (21/11/2026)
+
+O teste sintético da v2.0.91 (1280 × 700 CSS px, quatro membros) passou e a captura mostrou que **já não era preciso scroll**, mas o Início estava pequeno demais e havia excesso de espaço vazio no fundo; o painel lateral só mostrava aproximadamente um membro antes de fazer scroll. Critério do utilizador: ocupar bem o ecrã mantendo a página inteira visível.
+
+Correção em `screen-reference.css`: a grelha principal passa a utilizar `height:min(775px, calc(100dvh - 94px))` com linhas flexíveis e uma linha central `minmax(0,1fr)`, ampliando os cartões do dia e o painel familiar segundo a altura efetiva. Hero e ações rápidas mantêm-se acessíveis no mesmo viewport. A família pode fazer scroll interno quando o número de membros é elevado; o teste E2E exige **pelo menos três membros visíveis**, sem scroll de página, a 1280 × 700. Para alturas pequenas e mobile mantém-se fallback responsivo. O botão «Adaptar plano» encaminha agora para `mode=recommend` através da navegação existente, não apenas para o mapa semanal.
+
+O hero do Início exibe atribuição discreta sobre a fotografia licenciada (autor/licença/link) sem aumentar a altura. Não se alteraram a Semana aprovada, o backend ou a base de dados real.
+
+A versão está pronta para avaliação apenas depois de Web CI, API CI e UX E2E no **mesmo SHA final**, com captura da nova geometria. Continuam pendentes equivalência visual exata dos cinco PNG e estados preenchidos dos restantes ecrãs.
