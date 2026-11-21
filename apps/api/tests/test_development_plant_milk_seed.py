@@ -8,10 +8,9 @@ from app.development_plant_milk_seed import (
     seed_development_plant_milk_options,
 )
 from app.models.family import Family
-from app.models.food_catalog import FoodItem
+from app.models.food_catalog import FoodItem, Recipe
 from app.models.food_transformation_profile import FoodTransformationProfile
 from app.services.shared_meal_transformation import _load_variants
-from app.models.food_catalog import Recipe
 
 
 def test_milk_alternatives_are_idempotent_and_reusable_for_breakfast(
