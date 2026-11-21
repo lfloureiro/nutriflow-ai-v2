@@ -71,3 +71,12 @@ Novo feedback com captura v2.0.98/97: não houve aumento visível. Inspeção da
 **Correção concreta**: o `useEffect` desse componente remove o estilo inline anterior, mede a grelha *renderizada* e a folga disponível, e aplica `grid.style.gridTemplateRows = "48px repeat(4, Npx)"` à própria `.weekly-day-grid` (com altura do cabeçalho real e N medido). Mantém `--week-compact-row` para testes/utilizadores da variável, mas não depende da cascata para a altura real. Em janelas de altura <700 usa limite de aumento menor e preserva reserva de 12px. O cleanup remove ambas as propriedades inline. `e2e/week-responsive-visual.spec.ts` passa a exigir que a grelha montada tenha `style.gridTemplateRows` explícito, para evitar regressão ao problema de editar uma regra sem efeito.
 
 Apenas altura da grelha semanal; não alterar navegação, dados, rotas ou drawers. **Aceitação só quando Web/API/E2E confirmados no mesmo SHA e screenshot real mostrar crescimento.**
+
+## v2.1.1 — diagnóstico do viewport físico ≠ CSS (21/11/2026)
+Após screenshot v2.1.0, utilizador confirma que o mapa está igual. **Causa identificada**: todas as tentativas recentes que aumentavam os tracks tinham media query `min-height:700px`; o viewport efetivo do Windows/Chrome do utilizador é próximo de **1229 × 610 CSS px**, apesar de screenshot físico de 1536 × 959 px (escala de ecrã). As regras de 700+ nunca atuaram neste caso. Também existia uma regra 560–679 a manter linhas compactas.
+
+Implementação: adicionar à folha CSS carregada por último (`viewport-density.css`) uma regra **exclusiva para desktops com altura 560–699 CSS px**, aplicada ao elemento *real* `.weekly-day-grid`:
+`grid-template-rows:40px repeat(4,minmax(0,clamp(56px,calc(25dvh - 80px),82px))) !important`.
+A 610px CSS esta expressão produz aproximadamente 72,5px por refeição, sem alterar largura das 7 colunas, cabeçalho, menu ou drawers. No E2E, a 610px, exigir cada linha >=70px e <=83px e manter a última linha no viewport. A regra de >=700px e as demais rotas ficam separadas. Não voltar a tentar corrigir o caso do utilizador apenas alterando CSS >=700px.
+
+**Estado:** alteração em branch/PR draft; Web/API/UX E2E no SHA final ainda por confirmar. A captura real é o gate final, não a versão numerada.
