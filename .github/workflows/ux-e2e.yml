@@ -72,12 +72,15 @@ jobs:
       - name: Run browser regressions against synthetic data
         working-directory: apps/web
         run: npx playwright test --config playwright.config.ts
-      - name: Upload synthetic week visual review (dark, light, mobile)
+      - name: Upload synthetic screen visual review (dark, light, mobile)
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: week-visual-${{ github.sha }}
-          path: apps/web/test-results/visual-week-*.png
+          name: screen-visual-${{ github.sha }}
+          path: |
+            apps/web/test-results/visual-week-*.png
+            apps/web/test-results/visual-home-*.png
+            apps/web/test-results/visual-screen-*.png
           if-no-files-found: ignore
           retention-days: 5
       - name: Upload failing traces and service logs
