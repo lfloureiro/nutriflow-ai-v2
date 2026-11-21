@@ -14,6 +14,7 @@ param(
     [int]$WebPort = 5173,
     [switch]$ForceRestart,
     [switch]$VerifyFrontendOnly,
+    [switch]$VerifyNetstatOnly,
     [switch]$Diagnose
 )
 Set-StrictMode -Version Latest
@@ -40,16 +41,18 @@ function Listener([int]$port) {
     # Query both Windows TCP sources. Get-NetTCPConnection may transiently
     # return zero rows while an existing Uvicorn process is responding.
     $entries = @()
-    try {
-        $entries = @(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
-            ForEach-Object {
-                [pscustomobject]@{
-                    LocalAddress = [string]$_.LocalAddress
-                    LocalPort = [int]$_.LocalPort
-                    OwningProcess = [int]$_.OwningProcess
-                }
-            })
-    } catch { $entries = @() }
+    if (-not ($VerifyFrontendOnly -and $VerifyNetstatOnly)) {
+        try {
+            $entries = @(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+                ForEach-Object {
+                    [pscustomobject]@{
+                        LocalAddress = [string]$_.LocalAddress
+                        LocalPort = [int]$_.LocalPort
+                        OwningProcess = [int]$_.OwningProcess
+                    }
+                })
+        } catch { $entries = @() }
+    }
     foreach ($line in @(& netstat.exe -ano -p tcp 2>$null)) {
         # A listening socket has remote port 0. No locale-specific state
         # comparison is needed to extract the owning PID.
