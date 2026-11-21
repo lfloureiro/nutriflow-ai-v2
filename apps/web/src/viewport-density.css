@@ -129,3 +129,93 @@
   .nf-home .nf-person-copy small {font-size:9px;line-height:1.2}
   .nf-home .nf-panel-footnote {margin:3px 0 0;font-size:9px}
 }
+
+/* 1229x610: keep the desktop Home composition in compact editorial rows.
+   The earlier min-height:680 breakpoint reverted to a long stacked page. */
+@media(min-width:1101px) and (max-height:679px) {
+  .nf-home {
+    display:grid;
+    grid-template-columns:minmax(0,1.55fr) minmax(240px,1fr);
+    grid-template-areas:"hero hero" "today members" "quick plans" "note note";
+    grid-template-rows:88px minmax(0,1fr) auto auto;
+    column-gap:9px;
+    row-gap:6px;
+    box-sizing:border-box;
+    height:calc(100dvh - 70px);
+    min-height:0;
+    align-content:stretch;
+  }
+  .nf-home .nf-home-heading {display:none}
+  .nf-home .nf-home-grid {display:contents}
+  .nf-home .nf-meal-hero {
+    grid-area:hero;height:88px;min-height:0;
+    border-radius:14px;overflow:hidden;
+  }
+  .nf-home .nf-meal-hero-art {left:0;right:auto;top:0;bottom:0;width:29%;height:100%;
+    opacity:1;object-fit:cover;transform:none;}
+  .nf-home .nf-meal-hero-art.nf-meal-hero-photo {
+    width:29%;left:0;right:auto;mask-image:none;opacity:1;filter:none;
+  }
+  .nf-home .nf-meal-hero-copy {
+    margin-left:29%;max-width:none;width:71%;
+    display:grid;align-content:center;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:2px 8px;padding:5px 11px;
+  }
+  .nf-home .nf-meal-hero-copy>.eyebrow,
+  .nf-home .nf-home-hero-date,
+  .nf-home .nf-meal-hero h2,
+  .nf-home .nf-meal-hero p,
+  .nf-home .nf-hero-meta {grid-column:1}
+  .nf-home .nf-meal-hero h2 {font-size:15px;margin:0}
+  .nf-home .nf-meal-hero p {font-size:9px;margin:0;line-height:1.2}
+  .nf-home .nf-meal-hero .button.primary {
+    grid-column:2;grid-row:1/6;align-self:center;justify-self:end;
+    min-height:30px;font-size:10px;padding:5px 8px;
+  }
+  .nf-home .nf-family-panel {grid-area:members;min-width:0;min-height:0;height:100%;
+    max-height:none;overflow-y:auto;padding:8px 10px;}
+  .nf-home .nf-today-section {grid-area:today;min-width:0;min-height:0;
+    display:flex;flex-direction:column;margin:0;}
+  .nf-home .nf-today-section .nf-panel-heading {flex:0 0 auto;margin-bottom:4px}
+  .nf-home .nf-today-section h2 {font-size:13px;margin:0}
+  .nf-home .nf-day-slots {
+    flex:1 1 auto;min-height:0;display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;
+  }
+  .nf-home .nf-day-slot {
+    height:100%;min-height:0;min-width:0;padding:6px;
+    gap:4px;border-radius:11px;overflow:hidden;
+  }
+  .nf-home .nf-day-slot strong {font-size:10px;line-height:1.25}
+  .nf-home .nf-day-slot small,.nf-home .nf-slot-status {font-size:9px}
+  .nf-home .nf-day-slot .nf-slot-icon {display:none}
+  .nf-home .nf-today-photo {width:calc(100% + 12px);height:49px;
+    margin:-6px -6px 0;object-fit:cover}
+  .nf-home .nf-home-shortcuts {
+    grid-area:quick;margin:0;min-width:0;
+    padding:8px;border:1px solid var(--nf-screen-card-border);
+    border-radius:13px;background:var(--nf-screen-card-surface);
+  }
+  .nf-home .nf-home-shortcuts .nf-panel-heading {margin-bottom:4px}
+  .nf-home .nf-home-shortcut-grid {grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+  .nf-home .nf-home-shortcut-grid>button {min-height:55px;gap:3px;padding:4px 3px}
+  .nf-home .nf-home-shortcut-grid>button .nf-icon {height:17px;width:17px}
+  .nf-home .nf-home-shortcut-grid>button strong {font-size:9px;line-height:1.2}
+  .nf-home .nf-saved-weeks {
+    grid-area:plans;align-self:stretch;margin:0;min-width:0;
+    padding:8px;border:1px solid var(--nf-screen-card-border);
+    border-radius:13px;background:var(--nf-screen-card-surface);
+  }
+  .nf-home .nf-saved-weeks-heading {margin-bottom:4px}
+  .nf-home .nf-saved-weeks-heading h2 {font-size:12px}
+  .nf-home .nf-saved-weeks-heading small {display:none}
+  .nf-home .nf-home-week-cards {gap:4px}
+  .nf-home .nf-home-week-card {min-height:55px;padding:5px;gap:2px}
+  .nf-home .nf-home-week-card .nf-icon {width:14px;height:14px}
+  .nf-home .nf-home-week-card strong {font-size:9px}
+  .nf-home .nf-home-week-card span {font-size:9px}
+  .nf-home .nf-home-week-card small {display:none}
+  .nf-home .nf-home-week-details {font-size:9px;margin-top:3px}
+  .nf-home .nf-home-note {grid-area:note;margin:0;font-size:9px;line-height:1.2}
+}
