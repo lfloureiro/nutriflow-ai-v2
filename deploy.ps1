@@ -170,10 +170,9 @@ function Test-NutriFlowApi([int]$port) {
         return [string]$data.info.title -eq 'NutriFlow AI'
     } catch { return $false }
 }
-function FindLocalApiProcess([int]$port) {
-    # The original user API may respond while Windows exposes no TCP LISTEN
-    # row in a particular query. Search the exact Python/Uvicorn command
-    # belonging to this checkout as a second independent identification.
+function FindLocalApiProcess([int]$port,[bool]$AllowSelection = $false) {
+    # Never infer the active API from process count alone: old deployments
+    # can leave several Uvicorn processes with identical command lines.
     if (-not (Test-NutriFlowApi $port)) { return $null }
     $expectedEnvironment = Join-Path $root '.venv\Scripts\python.exe'
     $candidateProcesses = @()
@@ -190,12 +189,39 @@ function FindLocalApiProcess([int]$port) {
             $candidateProcesses += $process
         }
     }
-    if ($candidateProcesses.Count -eq 1) { return $candidateProcesses[0] }
-    if ($candidateProcesses.Count -gt 1) {
-        throw ('Multiple NutriFlow Uvicorn candidates found for port ' + $port +
-            '; refusing to choose a process automatically.')
+    if ($candidateProcesses.Count -eq 0) { return $null }
+
+    # The TCP socket owner takes precedence only when exactly one matching
+    # candidate owns the port. Never select by process age or list order.
+    $owners = @(Listener $port | Select-Object -ExpandProperty OwningProcess -Unique)
+    $socketMatches = @($candidateProcesses | Where-Object { $owners -contains $_.Id })
+    if ($socketMatches.Count -eq 1) {
+        Write-Host ('Verified Uvicorn socket owner on port ' + $port +
+            ': PID ' + $socketMatches[0].Id)
+        return $socketMatches[0]
     }
-    return $null
+
+    if ($candidateProcesses.Count -eq 1) { return $candidateProcesses[0] }
+    Write-Warning ('Found ' + $candidateProcesses.Count +
+        ' matching local NutriFlow Uvicorn processes on port ' + $port +
+        '; TCP owners found: ' + ($owners -join ', '))
+    foreach ($process in $candidateProcesses) {
+        $isListener = if ($owners -contains $process.Id) { ' [TCP OWNER]' } else { '' }
+        Write-Host ('Candidate PID ' + $process.Id +
+            ', start UTC ' + $process.StartTime.ToUniversalTime().ToString('o') +
+            $isListener)
+    }
+    if (-not $AllowSelection) { return $null }
+    # Explicit selection is a recovery action, never an automatic kill.
+    # AdoptLegacy will independently request confirmation before stopping.
+    $chosen = Read-Host ('Select the PID to adopt for port ' + $port +
+        ' (or press Enter to cancel)')
+    if ($chosen -notmatch '^\d+$') { throw 'No valid API PID selected. No process terminated.' }
+    $picked = @($candidateProcesses | Where-Object { $_.Id -eq [int]$chosen })
+    if ($picked.Count -ne 1) {
+        throw ('PID ' + $chosen + ' is not one of the verified NutriFlow candidates.')
+    }
+    return $picked[0]
 }
 function IsTrustedLaunch($entry) {
     if ($null -eq $entry) { return $false }
@@ -245,7 +271,7 @@ function AdoptLegacy([int]$port,[string]$role) {
     if (-not $hasListeners -and -not $hasHttp) { return $null }
     $process = VerifiedServiceProcess $port $role
     if (-not $process -and $role -eq 'api') {
-        $process = FindLocalApiProcess $port
+        $process = FindLocalApiProcess $port $true
     }
     if (-not $process) {
         $owners = @(Listener $port | Select-Object -ExpandProperty OwningProcess -Unique)
