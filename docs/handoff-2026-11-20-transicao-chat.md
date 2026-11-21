@@ -174,3 +174,13 @@ O utilizador enviou uma captura da **v2.0.83** e confirmou que a altura das linh
 **Correção estrutural** em `WeeklyProposalPreview.tsx`: um `ResizeObserver` do hero e navegação, evento `resize` e `requestAnimationFrame` medem as 5 linhas de `.weekly-day-grid` e a distância real entre a grelha e o fundo da janela. Quando o modo Semana simples está no desktop entre 560–960 CSS px, usa esse espaço para aumentar as quatro linhas de refeição até **12 CSS px por linha**, deixando 16px de folga. Escreve a variável `--week-compact-row` **diretamente no elemento de grelha**, garantindo precedência sobre as regras de media query herdadas; recalcula quando o conteúdo do hero/nav ou viewport mudar. Fora deste contexto remove a variável e conserva o layout responsivo anterior. Não altera largura de colunas, fontes, hero, botões ou estilos das restantes páginas.
 
 O teste E2E `week-responsive-visual.spec.ts` confirma agora que em 1229×610 CSS px existe um valor inline de `--week-compact-row`, além de manter o requisito das quatro refeições dentro do viewport e os testes a 1440×760 e 1440×900. Continua a ser necessária revisão visual do utilizador para a semana real, com receitas preenchidas. PR #76 draft; sem alterações em dados reais, API ou backend local.
+
+## v2.0.85 — reposicionamento dos dois blocos inferiores da sidebar (21/11/2026)
+
+O utilizador aprovou a altura, largura e densidade da **Semana v2.0.84** e assinalou, na captura com anotação verde, os dois blocos «Inteligência à mesa» e «Família Loureiro», pedindo para os colocar **mais abaixo no menu lateral**, perto do fundo da janela. Estes dois elementos já eram vizinhos no DOM e estão presentes em todas as rotas do shell.
+
+Causa: uma regra tardia de `shell-prototype.css` aplicava `.side-nav__ai { margin-top:0 }`, anulando o espaçamento flex automático definido originalmente no shell e deixando o conjunto a meio da sidebar. Correção v2.0.85: regra final desktop `.side-nav .side-nav__ai { margin-top:auto; flex-shrink:0 }`, com o rodapé familiar imediatamente a seguir e `margin-top:0`. Mantido `overflow-y:auto` da sidebar para janelas curtas. Não se alteram tamanhos, cores, fontes, dimensões, ações nem calendário.
+
+O teste E2E `shell-visual-parity.spec.ts` valida agora também que o rodapé fica até 40px acima do fundo do viewport de 1280×900 e que o espaço entre o cartão IA e a família não excede 32px, em ambos os temas; conserva as verificações de geometria e paridade entre as seis rotas.
+
+**Obrigatório antes de aprovação técnica:** Web CI, API CI e UX E2E sintético no mesmo SHA; o utilizador fará a aprovação visual no seu Chrome a 100%. PR #76 mantém-se draft, sem alterações de API, DB real ou processos locais.
