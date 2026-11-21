@@ -57,8 +57,8 @@ test("weekly map remains usable from desktop through 200% equivalent narrow view
 
   // At normal desktop heights the whole 7×4 map, including the last dinner
   // row, should remain above the browser bottom without document scrolling.
-  for (const height of [900, 760]) {
-    await page.setViewportSize({width:1440,height});
+  for (const {width,height} of [{width:1440,height:900},{width:1440,height:760},{width:1229,height:610}]) {
+    await page.setViewportSize({width,height});
     await page.locator(".nf-appearance").selectOption("dark");
     await expect(page.locator(".nf-week-map-final .weekly-day-grid")).toBeVisible();
     const fit = await page.evaluate(() => {
@@ -96,7 +96,7 @@ test("weekly map remains usable from desktop through 200% equivalent narrow view
     expect(type.day).toBeLessThanOrEqual(21);
     expect(fit.heroBottom).toBeLessThan(fit.navTop);
     expect(fit.gridBottom,`Last dinner row exceeds ${height}px viewport`).toBeLessThanOrEqual(fit.clientHeight-4);
-    await page.screenshot({path:`test-results/visual-week-fit-dark-1440x${height}.png`,fullPage:false});
+    await page.screenshot({path:`test-results/visual-week-fit-dark-${width}x${height}.png`,fullPage:false});
   }
 
 });
