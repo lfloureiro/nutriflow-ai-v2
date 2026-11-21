@@ -24,6 +24,7 @@ from app.schemas.recipe_catalogue import (
 )
 from app.services.meal_suitability import recipe_default_meal_types
 from app.services.recipe_nutrition import CALCULATION_VERSION as RECIPE_CALCULATION_VERSION
+from app.services.recipe_image_generation import existing_image_url
 from app.services.recipe_nutrition import build_recipe_composition
 
 
@@ -164,6 +165,12 @@ def _recipe_read(recipe: Recipe) -> RecipeRead:
         ingredients=[_ingredient_read(ingredient) for ingredient in recipe.ingredients],
         latest_composition=_composition_read(recipe, composition),
         nutrition_issues=_composition_issues(composition),
+        image_url=(
+            existing_image_url(
+                recipe.id, recipe.name, [ingredient.food_item.name for ingredient in recipe.ingredients]
+            ).replace("{family_id}", str(recipe.family_id))
+            if recipe.family_id else None
+        ),
         created_at=recipe.created_at,
         updated_at=recipe.updated_at,
     )
