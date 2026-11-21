@@ -866,6 +866,21 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
         <>
           <button type="button" className="button secondary" onClick={()=>copyRecipe(selected)}>{locale==="pt-PT"?"Criar cópia para a família":"Create family copy"}</button>
           <SharedRecipeViewer recipe={selected} onDone={() => setSelected(undefined)} />
+          {selected.scope === "family" && selected.is_active && (
+            <button type="button" className="button ghost"
+              onClick={async () => {
+                if (!window.confirm(copy.confirmDeactivate)) return;
+                try {
+                  await deactivateFamilyRecipe(familyId, selected.id);
+                  setSelected(undefined);
+                  setRevision(current => current + 1);
+                } catch (caught: unknown) {
+                  setError(errorText(caught));
+                }
+              }}>
+              {copy.deactivate}
+            </button>
+          )}
           <RecipeTastePanel key={selected.id} familyId={familyId} recipe={selected}/>
         </>
       ) : (
