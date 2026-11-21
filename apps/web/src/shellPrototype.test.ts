@@ -8,6 +8,7 @@ const baseShell = source("./shell.css");
 const prototypeShell = source("./shell-prototype.css");
 const screenReference = source("./screen-reference.css");
 const viewportDensity = source("./viewport-density.css");
+const compactReference = source("./compact-desktop-reference.css");
 const prototypeTokens = source("./design-tokens.css");
 const main = source("./main.tsx");
 
@@ -24,7 +25,11 @@ describe("Casa à Mesa shared visual shell", () => {
     expect(screensImport).toBeGreaterThan(shellImport);
     const densityImport = main.indexOf('import "./viewport-density.css";');
     expect(densityImport).toBeGreaterThan(screensImport);
-    expect(main.trimEnd().endsWith('import "./viewport-density.css";')).toBe(true);
+    const compactImport = main.indexOf('import "./compact-desktop-reference.css";');
+    expect(compactImport).toBeGreaterThan(densityImport);
+    expect(main.trimEnd().endsWith('import "./compact-desktop-reference.css";')).toBe(true);
+    expect(compactReference).toContain("@media (min-width:761px) and (max-width:1100px)");
+    expect(compactReference).not.toContain(".side-nav");
     expect(viewportDensity).toContain("width: 224px");
     expect(viewportDensity).toContain("min-height:40px");
     expect(screenReference).not.toContain(".side-nav");
