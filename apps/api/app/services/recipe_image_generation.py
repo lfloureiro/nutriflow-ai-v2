@@ -81,7 +81,7 @@ def generate_recipe_image(recipe_id, name, ingredient_names):
             result = json.load(response)
         encoded = result["data"][0]["b64_json"]
         binary = base64.b64decode(encoded, validate=True)
-        if not binary.startswith(b"\\x89PNG\\r\\n\\x1a\\n") or len(binary) > 15_000_000:
+        if not binary.startswith(b"\x89PNG\r\n\x1a\n") or len(binary) > 15_000_000:
             raise ValueError("Invalid image response")
         target.parent.mkdir(parents=True, exist_ok=True)
         temp = target.with_name(target.name + f".{uuid.uuid4().hex}.tmp")
