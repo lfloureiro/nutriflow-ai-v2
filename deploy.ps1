@@ -152,7 +152,7 @@ function VerifiedServiceProcess([int]$port,[string]$role) {
     } else {
         # --reload can delegate the listener to a Python child with a
         # generic command line. Verify the app's OpenAPI identity instead.
-        $valid = ($executableName -match '^(python(?:w)?|uvicorn)[.]exe) -and
+        $valid = ($executableName -match '^(python(?:w)?|uvicorn)[.]exe$') -and
             (Test-NutriFlowApi $port)
     }
     if (-not $valid) {
