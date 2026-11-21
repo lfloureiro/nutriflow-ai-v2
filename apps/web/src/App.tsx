@@ -134,7 +134,7 @@ export default function App() {
   }
 
   function openPrimaryView(nextView: View) {
-    if(!navigate({view:nextView,...(nextView==="people"?{person:undefined}:{}),...(nextView==="meals"?{mode:"week" as const,meal:undefined}:{}),...(nextView==="house"?{house:"recipes" as const}:{})}))return;
+    if(!navigate({view:nextView,...(nextView==="people"?{person:undefined}:{}),...(nextView==="meals"?{mode:"week" as const,date:undefined,meal:undefined}:{}),...(nextView==="house"?{house:"recipes" as const}:{})}))return;
     if(nextView==="people")setShowPersonSetup(false);
   }
   function openWeek(date:string){navigate({date,mode:"week",view:"meals",meal:undefined});}
