@@ -458,3 +458,56 @@
   .nf-home-reference-v4 .nf-home-actions-v3-grid {grid-template-columns:repeat(2,minmax(0,1fr));}
   .nf-home-reference-v4 .nf-home-weeks-v3-grid {grid-template-columns:1fr;}
 }
+
+/* v2.1.18: real Chrome 1280x631 screenshot + failing E2E geometry.
+   Give the bottom row sufficient space; never squeeze the week date out. */
+@media(min-width:761px){
+  .family-home.nf-home.nf-home-reference-v4 {
+    grid-template-rows:clamp(87px,15vh,150px) minmax(0,1fr) clamp(165px,22vh,190px) auto!important;
+  }
+  .nf-home.nf-home-reference-v4 .nf-home-weeks-v3-grid {
+    flex:1 1 auto;
+    min-height:78px!important;
+    align-content:stretch;
+  }
+  .nf-home.nf-home-reference-v4 .nf-home-weeks-v3-grid > button {
+    min-height:78px!important;
+    height:100%!important;
+    padding:9px 7px!important;
+    justify-content:center;
+    gap:4px!important;
+  }
+  .nf-home.nf-home-reference-v4 .nf-home-weeks-v3-grid > button strong {
+    font-size:clamp(9px,.8vw,11px);line-height:1.2;
+  }
+  .nf-home.nf-home-reference-v4 .nf-home-weeks-v3-grid > button span {
+    display:block;font-size:clamp(9px,.75vw,10px);line-height:1.2;
+    white-space:normal;
+  }
+  .nf-home.nf-home-reference-v4 .nf-home-weeks-v3 > .nf-home-week-details {
+    flex:0 0 auto;margin:0;
+  }
+  .nf-home.nf-home-reference-v4 .nf-home-weeks-v3-heading {
+    flex:0 0 auto;
+  }
+  .nf-home.nf-home-reference-v4 .nf-meal-hero-copy .nf-hero-meta {
+    grid-column:1!important;grid-row:2!important;
+    justify-self:end;align-self:center;
+    margin:0 0 0 14px!important;
+    display:flex;gap:8px;white-space:nowrap;
+    font-size:9px;line-height:1;
+    max-width:60%;
+  }
+  .nf-home.nf-home-reference-v4 .nf-meal-hero-copy .nf-home-hero-date {
+    grid-column:1!important;grid-row:2!important;
+    justify-self:start;
+  }
+}
+@media(min-width:761px) and (max-height:720px){
+  .family-home.nf-home.nf-home-reference-v4 {
+    grid-template-rows:clamp(84px,15vh,109px) minmax(0,1fr) 165px auto!important;
+  }
+  .nf-home.nf-home-reference-v4 .nf-meal-hero-copy .nf-hero-meta {
+    font-size:8px;
+  }
+}
