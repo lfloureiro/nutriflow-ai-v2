@@ -271,7 +271,11 @@ function StopManaged([int]$port,$entry) {
     catch {
         if (Get-Process -Id $process.Id -ErrorAction SilentlyContinue) { throw }
     }
-    if (@(Listener $port).Count) { throw ('Port still occupied after stop: ' + $port) }
+    if (@(Listener $port).Count -gt 0 -or
+        (Healthy ('http://127.0.0.1:' + $port + '/'))) {
+        throw ('Port ' + $port + ' still responds or is occupied after stopping PID ' +
+            $process.Id + '. Refusing to start a second server.')
+    }
 }
 function Launch([string]$exe,[string[]]$arg,[string]$cwd,[string]$name,[int]$port,[string]$url) {
     if (@(Listener $port).Count -gt 0 -or (Healthy $url)) {
@@ -439,24 +443,28 @@ $apiRunning = StateEntry $ApiPort $oldApi
 $webRunning = StateEntry $WebPort $oldWeb
 $adoptedApi = $false
 $adoptedWeb = $false
-if (-not $apiRunning -and @(Listener $ApiPort).Count -gt 0) {
+if (-not $apiRunning -and (
+    @(Listener $ApiPort).Count -gt 0 -or (Test-NutriFlowApi $ApiPort)
+)) {
     $oldApi = AdoptLegacy $ApiPort 'api'
     $adoptedApi = $true
     $apiRunning = StateEntry $ApiPort $oldApi
 }
-if (-not $webRunning -and @(Listener $WebPort).Count -gt 0) {
+if (-not $webRunning -and (
+    @(Listener $WebPort).Count -gt 0 -or (Test-NutriFlowFrontend $WebPort)
+)) {
     $oldWeb = AdoptLegacy $WebPort 'frontend'
     $adoptedWeb = $true
     $webRunning = StateEntry $WebPort $oldWeb
 }
 # A responding port is not free just because one Windows TCP query
 # reports no rows. Abort rather than starting duplicate API/Vite processes.
-if (@(Listener $ApiPort).Count -eq 0 -and
+if (-not $apiRunning -and @(Listener $ApiPort).Count -eq 0 -and
     (Healthy ('http://127.0.0.1:' + $ApiPort + '/openapi.json'))) {
     Show-PortDiagnostics $ApiPort 'api'
     throw 'API already responds but TCP owner could not be established; refusing second instance.'
 }
-if (@(Listener $WebPort).Count -eq 0 -and
+if (-not $webRunning -and @(Listener $WebPort).Count -eq 0 -and
     (Healthy ('http://127.0.0.1:' + $WebPort + '/'))) {
     Show-PortDiagnostics $WebPort 'frontend'
     throw 'Frontend already responds but TCP owner could not be established; refusing second instance.'
