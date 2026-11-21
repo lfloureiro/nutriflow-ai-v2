@@ -193,5 +193,45 @@ for (const appearance of ["dark", "light"] as const) {
       }
       await page.screenshot({path:`test-results/reference-${screen}-${appearance}-1280x631.png`,fullPage:false,animations:"disabled"});
     }
+    // Critical regression: a 150% browser zoom can expose a 1024px-wide
+    // CSS viewport in an otherwise wide Windows screenshot. The reference
+    // layout must not fall back to giant native controls at this width.
+    await page.setViewportSize({width:1024,height:505});
+    for(const [screen,route,ready] of [
+      ["inicio","#/home",".nf-home"],
+      ["receitas","#/house?tab=recipes",".recipe-catalogue"],
+      ["familia","#/people",".people-screen"],
+      ["compras","#/shopping",".shopping-screen"],
+      ["despensa","#/house?tab=pantry",".pantry-screen"],
+    ] as const){
+      await page.goto(`/${route}`);
+      await expect(page.locator(ready)).toBeVisible();
+      if(screen==="inicio"){
+        const rows=await page.locator(".nf-home-shortcut-grid > button").evaluateAll(els=>
+          new Set(els.map(el=>Math.round(el.getBoundingClientRect().top))).size);
+        expect(rows).toBe(1);
+        const weeklyRows=await page.locator(".nf-home-week-cards > button").evaluateAll(els=>
+          new Set(els.map(el=>Math.round(el.getBoundingClientRect().top))).size);
+        expect(weeklyRows).toBe(1);
+      }
+      if(screen==="receitas"){
+        const height=await page.locator(".nf-recipe-feature").evaluate(el=>el.getBoundingClientRect().height);
+        expect(height).toBeLessThanOrEqual(100);
+      }
+      if(screen==="familia"){
+        await expect(page.locator(".nf-family-comparison-table tbody tr")).toHaveCount(3);
+        const background=await page.locator(".nf-family-comparison-table thead th button").first()
+          .evaluate(el=>getComputedStyle(el).backgroundColor);
+        expect(background).toBe("rgba(0, 0, 0, 0)");
+      }
+      if(screen==="compras"||screen==="despensa"){
+        const selector=screen==="compras"?".nf-shopping-overview":".nf-pantry-summary";
+        const columns=await page.locator(selector).evaluate(el=>
+          getComputedStyle(el).gridTemplateColumns.split(" ").length);
+        expect(columns).toBe(4);
+      }
+      await page.screenshot({path:`test-results/reference-${screen}-${appearance}-1024x505.png`,
+        fullPage:false,animations:"disabled"});
+    }
   });
 }
