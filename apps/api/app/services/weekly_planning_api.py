@@ -544,6 +544,21 @@ def _planning_slot(
         context.person.id: context for context in contexts if context.person.id is not None
     }
 
+    # Apply configured exclusions before attempting to rescue a blocked recipe.
+    # Otherwise a base recipe is still seen as eligible at transformation time,
+    # and milk -> lactose-free/rice alternatives are discarded as unnecessary.
+    excluded_foods = list(
+        {
+            food.id: food
+            for food in [
+                *(excluded_foods or []),
+                *automatic_excluded_foods(
+                    session, family.id, person_ids, slot.planning_date, slot.meal_type
+                ),
+            ]
+        }.values()
+    )
+
     candidates: list[SharedWeeklyPlanningCandidate] = []
     transformation_metadata: dict[str, _WeeklyTransformationEvidence] = {}
     for evaluation in recommendation.evaluations:
@@ -559,6 +574,8 @@ def _planning_slot(
             evaluation=evaluation,
             plan_fits=tuple(plan_fits),
         )
+        if excluded_foods:
+            base_candidate = _with_requested_food_exclusions(base_candidate, excluded_foods)
         candidates.append(base_candidate)
 
         with weekly_debug_span(
@@ -579,22 +596,12 @@ def _planning_slot(
         candidates.extend(transformed_candidates)
         transformation_metadata.update(transformed_metadata)
 
-    # Reuse the effective plans compiled above rather than compiling a parallel
-    # context before the recommendation path has populated its request cache.
-    excluded_foods = list(
-        {
-            f.id: f
-            for f in [
-                *(excluded_foods or []),
-                *automatic_excluded_foods(
-                    session, family.id, person_ids, slot.planning_date, slot.meal_type
-                ),
-            ]
-        }.values()
-    )
+    # Recheck the fully transformed candidates against the same hard exclusions:
+    # replacing one ingredient never implies that other ingredients are safe.
     if excluded_foods:
         candidates = [
-            _with_requested_food_exclusions(candidate, excluded_foods) for candidate in candidates
+            _with_requested_food_exclusions(candidate, excluded_foods)
+            for candidate in candidates
         ]
     eligible_candidates = [
         candidate
