@@ -11,7 +11,8 @@ export type MealHeroImage = {
   source: string | null;
   author: string | null;
   license: string | null;
-  kind: "meal" | "proposal" | "catalog";
+  kind: "meal" | "proposal" | "catalog" | "generated";
+  fallbackSrc?: string;
 };
 
 type DirectMedia = { image_url?: string | null; hero_image_url?: string | null };
@@ -88,6 +89,20 @@ const CURATED: Record<string, CuratedPhoto> = {
   },
 };
 
+/** AI-generated reference images. Kept in a separate, optional local pack.
+ * Exact normalized recipe matches only; never use a photo for a different meal.
+ * The pack is installed under public/images/generated, without touching DB. */
+const GENERATED: Record<string,string> = {
+  "bifanas com natas":"bifanas-com-natas.webp",
+  "escalopes ao vinho madeira":"escalopes-madeira.webp",
+  "frango rapido":"frango-rapido.webp",
+  "salmao no forno com ervas":"salmao-ervas.webp",
+  "salmao no forno com ervinhas da provenca":"salmao-ervas.webp",
+  "torrada mista":"torrada-mista.webp",
+  "aveia com iogurte e banana":"aveia-iogurte-banana.webp",
+  "banana e frutos secos":"banana-frutos-secos.webp",
+};
+
 export function normalizeMealImageName(value: string | null | undefined): string {
   return (value ?? "")
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -145,5 +160,14 @@ export function resolveMealHeroImage({
     license: null,
     kind: planned ? "meal" : "proposal",
   };
+  const filename=GENERATED[normalizeMealImageName(title)];
+  if (filename) {
+    return {
+      src:`/images/generated/${filename}`,
+      alt:`Ilustração gerada por IA para ${title??"a refeição"}`,
+      source:null,author:"Imagem ilustrativa · IA",license:null,
+      kind:"generated",fallbackSrc:curated(title)?.src??"/images/shared-meal.svg",
+    };
+  }
   return curated(title);
 }
