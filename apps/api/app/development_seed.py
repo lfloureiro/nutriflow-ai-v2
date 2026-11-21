@@ -9,13 +9,13 @@ from app.development_legacy_recipe_planning_seed import (
     seed_development_legacy_recipe_planning_catalog,
 )
 from app.development_plan_fit_seed import seed_development_plan_fit
-from app.development_plant_milk_seed import seed_development_plant_milk_options
 from app.development_planning_profile_seed import (
     LOUREIRO_LEGACY_PROFILE_DEFINITIONS,
     LOUREIRO_PROFILE_SOURCE,
     LOUREIRO_PROFILE_SOURCE_REFERENCE,
     seed_development_planning_profiles,
 )
+from app.development_plant_milk_seed import seed_development_plant_milk_options
 from app.development_snack_seed import seed_development_snack_catalog
 from app.development_transformation_seed import seed_development_transformations
 from app.legacy_v1_loureiro_seed import seed_loureiro_v1_snapshot
