@@ -374,3 +374,15 @@ Na captura do Chrome, o dia **sábado 21** já está selecionado, mas o calendá
 - `week-reference.css`: painel compacto, contraste e foco visível para teclado.
 - Commits `bd7e679` e `283420b`. A alteração anterior `e67a0ac` centra o dia selecionado no picker horizontal quando existe overflow.
 - Pendente: verificar CI completo, medição visual do fit da grelha de 4 refeições no viewport real e a causa de rejeição do pequeno-almoço de domingo no motor, com dados sintéticos e sem relaxar restrições de segurança nutricional. Não considerar o planeamento automático resolvido.
+
+
+## v2.0.95 — pequeno-almoço e substituição do leite (21/11/2026)
+
+A investigação do código revelou **11 receitas** comuns de pequeno-almoço, incluindo 7 com leite meio-gordo. A fonte `development_plant_milk_seed.py` já define alternativas `plant-milk:lactose-free` e `plant-milk:rice`, com transformação automática, e alternativas aveia/arroz-coco registadas mas não automáticas. Os valores nutricionais destes substitutos são estimativas de desenvolvimento, não rótulos reais verificados nem prova clínica FODMAP.
+
+**Defeito identificado e corrigido:** em `weekly_planning_api._planning_slot`, exclusões explícitas e automáticas eram verificadas só depois de `_transformation_candidates`. A receita com leite podia parecer elegível no passo de resgate, pelo que a variante leite sem lactose/arroz era descartada por não melhorar o Plan-Fit nem as preferências; a seguir a receita base era rejeitada pela exclusão. Agora as exclusões são aplicadas à base **antes** da geração de alternativas; após a transformação, todas as exclusões voltam a ser verificadas contra os ingredientes efetivos da variante.
+
+- Código: `2e849759`.
+- Teste de regressão: `e878deb5`, com duas pessoas sintéticas, receita de cereais com leite e exclusão explícita desse ingrediente. Exige proposta de transformação válida e seleção da refeição.
+- Não altera regras clínicas, dados familiares, configurações de utilizadores, rótulos ou receitas originais. Uma receita continua por confirmar se restarem bloqueios nutricionais, ingredientes sem evidência ou restrições incompatíveis.
+- **Verificação pendente:** API CI no SHA final; versão local do catálogo; execução e diagnóstico com as regras e presenças reais do dia 22, que não estão acessíveis a partir do GitHub. Os 11 candidatos da captura não provam, por si sós, que os perfis de leite já estejam no PostgreSQL local. O `deploy.ps1` só aplica `local_db_update` quando a API precisa de atualização/reinício; validar catálogo se a carga local ainda falhar.
