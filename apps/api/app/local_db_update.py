@@ -61,9 +61,8 @@ def apply_local_updates(
         lock_connection.commit()
         try:
             migrate()
-            with session_factory() as session:
-                with session.begin():
-                    result = apply_catalogue_updates(session)
+            with session_factory() as session, session.begin():
+                result = apply_catalogue_updates(session)
             return result
         finally:
             lock_connection.execute(
