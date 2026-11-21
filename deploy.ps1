@@ -167,7 +167,7 @@ function Launch([string]$exe,[string[]]$arg,[string]$cwd,[string]$name,[int]$por
         if (-not $ready) { throw ($name + ' failed health check. See ' + $prefix + '.err.log') }
         # Verify the process that owns the listening socket, not Start-Process's
         # initial PID. On Windows Node/Vite may spawn or hand off to another PID.
-        $role = if ($name -eq 'frontend') { 'frontend' } else { 'api' }
+        $role = if ($name -like 'frontend*') { 'frontend' } else { 'api' }
         $proc = VerifiedServiceProcess $port $role
         if (-not $proc) {
             throw ($name + ' responded but its listening process is not verified as NutriFlow.')
