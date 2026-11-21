@@ -272,3 +272,73 @@
   .side-nav__ai { min-height: 128px; padding: 16px 19px; gap: 6px; }
   .side-nav__family { padding-top: 16px; padding-bottom: 6px; }
 }
+
+/* v2.0.79: family footer owns its layout. Generic
+   .side-nav__family span from shell.css must not turn its avatar
+   and copy into tiny uppercase metadata. */
+@media (min-width: 761px) {
+  .side-nav .side-nav__family {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    min-width: 0;
+    width: 100%;
+    margin-top: 0;
+    flex-shrink: 0;
+    padding: 18px 4px 10px;
+    border-top: 1px solid var(--color-border);
+  }
+  .side-nav .side-nav__family .side-nav__family-avatar {
+    display: grid;
+    place-items: center;
+    flex: 0 0 clamp(44px, 3.9vw, 60px);
+    width: clamp(44px, 3.9vw, 60px);
+    height: clamp(44px, 3.9vw, 60px);
+    padding: 0;
+    border-radius: 50%;
+    font: 700 clamp(20px, 1.56vw, 24px)/1 "Manrope", sans-serif;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+  }
+  .side-nav .side-nav__family .side-nav__family-copy {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    min-width: 0;
+    gap: 3px;
+    padding: 0;
+    text-align: left;
+    letter-spacing: normal;
+    text-transform: none;
+    white-space: normal;
+  }
+  .side-nav .side-nav__family .side-nav__family-copy strong {
+    display: block;
+    width: 100%;
+    color: var(--color-text);
+    font-size: clamp(14px, 1.3vw, 20px);
+    font-weight: 700;
+    line-height: 1.35;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .side-nav .side-nav__family .side-nav__family-copy small {
+    display: block;
+    width: 100%;
+    color: var(--color-muted);
+    font: 400 clamp(11px, 1.11vw, 17px)/1.4 "DM Sans", sans-serif;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: normal;
+    overflow-wrap: normal;
+  }
+}
