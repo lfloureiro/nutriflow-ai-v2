@@ -12,7 +12,8 @@ param(
     [string]$PythonPath = "",
     [int]$ApiPort = 8000,
     [int]$WebPort = 5173,
-    [switch]$ForceRestart
+    [switch]$ForceRestart,
+    [switch]$VerifyFrontendOnly
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -171,6 +172,22 @@ function Save($state) {
     $state | ConvertTo-Json -Depth 6 | Set-Content -Path $stateFile -Encoding UTF8
 }
 if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir | Out-Null }
+if ($VerifyFrontendOnly) {
+    # Windows CI smoke test of the actual launch/port ownership implementation.
+    # This never pulls code, touches Docker or changes a database.
+    $nodeForTest = Executable 'node'
+    $viteForTest = Join-Path $webDir 'node_modules\vite\bin\vite.js'
+    if (-not (Test-Path $viteForTest)) { throw 'Install frontend dependencies first.' }
+    $entry = Launch $nodeForTest @($viteForTest,'--host','127.0.0.1','--port',"$WebPort",'--strictPort') $webDir 'frontend-test' $WebPort ('http://127.0.0.1:' + $WebPort + '/')
+    try {
+        $verified = StateEntry $WebPort $entry
+        if (-not $verified) { throw 'The verified frontend process was not tracked.' }
+        Write-Host ('Windows Vite launch and ownership smoke test passed, PID ' + $verified.Id)
+    } finally {
+        StopManaged $WebPort $entry
+    }
+    exit 0
+}
 $git = Executable 'git'
 $node = Executable 'node'
 $docker = Executable 'docker'
