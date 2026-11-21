@@ -894,6 +894,33 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
           + {copy.newRecipe}
         </button>
       </header>
+      {filteredRecipes.length > 0 && !busy ? (() => {
+        // Only feature an actual recipe from the current, permission-filtered
+        // catalogue. This is a visual highlight, not a medical recommendation.
+        const photoRecipe = filteredRecipes.find(recipe =>
+          resolveMealHeroImage({planned:{title:recipe.name}}) !== null);
+        const featured = photoRecipe ?? filteredRecipes[0];
+        return <div className="nf-recipe-editorial-row">
+          <button type="button" className="nf-recipe-feature" onClick={() => setSelected(featured)}>
+            <RecipeCardArt name={featured.name}/>
+            <span className="nf-recipe-feature-copy">
+              <small>{locale === "pt-PT" ? "RECEITA DO CATÁLOGO" : "FROM THE CATALOGUE"}</small>
+              <strong>{featured.name}</strong>
+              <span>{featured.suitable_meal_types.map(type => copy[type]).join(" · ")} · {featured.ingredients.length} {copy.ingredients.toLowerCase()}</span>
+              <em>{locale === "pt-PT" ? "Ver receita" : "View recipe"} ›</em>
+            </span>
+          </button>
+          <aside className="nf-recipe-feature-aside">
+            <strong>{locale === "pt-PT" ? "Explorar adaptações" : "Explore adaptations"}</strong>
+            <p>{locale === "pt-PT" ?
+              "Revê ingredientes, dados nutricionais e possíveis alterações antes de confirmar." :
+              "Review ingredients, nutrition data and possible changes before confirming."}</p>
+            <button type="button" className="button ghost small" onClick={() => setSelected(featured)}>
+              {locale === "pt-PT" ? "Abrir detalhe" : "Open details"}
+            </button>
+          </aside>
+        </div>;
+      })() : null}
       <div className="recipe-toolbar nf-recipe-browse-toolbar">
         <label className="field recipe-search">
           <span>{copy.search}</span>
