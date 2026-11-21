@@ -965,6 +965,23 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
+        <div className="nf-recipe-quick-filters" aria-label={locale==="pt-PT"?"Filtros rápidos de receitas":"Quick recipe filters"}>
+          <button type="button" className={mealFilter==="all"&&originFilter==="all"&&imageFilter==="all"?"is-active":""}
+            aria-pressed={mealFilter==="all"&&originFilter==="all"&&imageFilter==="all"}
+            onClick={()=>{setMealFilter("all");setOriginFilter("all");setImageFilter("all");}}>
+            {locale==="pt-PT"?"Todas":"All"}
+          </button>
+          {(["breakfast","lunch","snack","dinner"] as const).map(type=>
+            <button type="button" key={type} className={mealFilter===type?"is-active":""}
+              aria-pressed={mealFilter===type} onClick={()=>{setMealFilter(type);setOriginFilter("all");setImageFilter("all");}}>
+              {copy[type]}
+            </button>
+          )}
+          <button type="button" className={originFilter==="adapted"?"is-active":""}
+            aria-pressed={originFilter==="adapted"} onClick={()=>{setOriginFilter(originFilter==="adapted"?"all":"adapted");setMealFilter("all");setImageFilter("all");}}>
+            {locale==="pt-PT"?"Adaptações":"Adaptations"}
+          </button>
+        </div>
       </div>
       <details className="nf-recipe-filter-tools"><summary>{locale==="pt-PT"?"Filtros e ordenação":"Filters and sorting"}{(nutritionFilter!=="all"||mealFilter!=="all"||originFilter!=="all"||imageFilter!=="all"||includeInactive)&&<span> · {locale==="pt-PT"?"ativos":"active"}</span>}</summary><div className="nf-filter-options">
         <label className="field recipe-quality-filter">
