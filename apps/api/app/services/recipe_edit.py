@@ -17,7 +17,6 @@ from app.services.recipe_variant import read_variant
 from app.services.recipe_variant_integrity import load_recipe, recipe_fingerprint
 
 
-
 def _norm_text(value):
     return " ".join(
         "".join(ch for ch in unicodedata.normalize("NFKD", value or "")
