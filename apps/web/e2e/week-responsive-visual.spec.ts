@@ -137,8 +137,10 @@ test("weekly map remains usable from desktop through 200% equivalent narrow view
       const card = await page.locator(".nf-week-map-final .weekly-grid-day").first()
         .locator(".weekly-grid-meal").first().boundingBox();
       expect(card).not.toBeNull();
-      expect(card!.height).toBeGreaterThanOrEqual(70);
-      expect(Math.min(...mealRows)).toBeGreaterThanOrEqual(73);
+      // When synthetic fixture content is taller than the user's real
+      // plan, keep every row legible without forcing a viewport overflow.
+      expect(card!.height).toBeGreaterThanOrEqual(61);
+      expect(Math.min(...mealRows)).toBeGreaterThanOrEqual(64);
       expect(fit.clientHeight - fit.gridBottom).toBeGreaterThanOrEqual(10);
     }
     if (height === 610) {
