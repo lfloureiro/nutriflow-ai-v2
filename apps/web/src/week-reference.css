@@ -409,3 +409,13 @@
     padding: 4px 5px;
   }
 }
+
+/* v2.0.83 — measured breathing room: the approved 100%-zoom screenshot has
+   unused space below dinner. Redistribute up to 10px per row at desktop
+   heights >=700 CSS px. Widths, fonts, hero and navigation do not change.
+   Below 700px keep the validated short-window fit unchanged. */
+@media (min-width: 1101px) and (min-height: 700px) and (max-height: 960px) {
+  .app-shell--meals .family-meals-screen:has(.nf-next-meal-hero) {
+    --week-compact-row: clamp(56px, calc((100dvh - 450px) / 4 + 10px), 122px);
+  }
+}
