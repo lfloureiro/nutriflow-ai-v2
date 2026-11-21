@@ -228,7 +228,9 @@ function StopManaged([int]$port,$entry) {
     if (@(Listener $port).Count) { throw ('Port still occupied after stop: ' + $port) }
 }
 function Launch([string]$exe,[string[]]$arg,[string]$cwd,[string]$name,[int]$port,[string]$url) {
-    if (@(Listener $port).Count) { throw ('Port already occupied: ' + $port) }
+    if (@(Listener $port).Count -gt 0 -or (Healthy $url)) {
+        throw ('Port ' + $port + ' already responds or has a listener. Refusing second ' + $name)
+    }
     $prefix = Join-Path $stateDir $name
     $args = @{
         FilePath = $exe; ArgumentList = $arg; WorkingDirectory = $cwd
@@ -400,6 +402,18 @@ if (-not $webRunning -and @(Listener $WebPort).Count -gt 0) {
     $oldWeb = AdoptLegacy $WebPort 'frontend'
     $adoptedWeb = $true
     $webRunning = StateEntry $WebPort $oldWeb
+}
+# A responding port is not free just because one Windows TCP query
+# reports no rows. Abort rather than starting duplicate API/Vite processes.
+if (@(Listener $ApiPort).Count -eq 0 -and
+    (Healthy ('http://127.0.0.1:' + $ApiPort + '/openapi.json'))) {
+    Show-PortDiagnostics $ApiPort 'api'
+    throw 'API already responds but TCP owner could not be established; refusing second instance.'
+}
+if (@(Listener $WebPort).Count -eq 0 -and
+    (Healthy ('http://127.0.0.1:' + $WebPort + '/'))) {
+    Show-PortDiagnostics $WebPort 'frontend'
+    throw 'Frontend already responds but TCP owner could not be established; refusing second instance.'
 }
 $before = (& $git -C $root rev-parse HEAD).Trim()
 Write-Host ('Fetching and pulling ' + $Branch)
