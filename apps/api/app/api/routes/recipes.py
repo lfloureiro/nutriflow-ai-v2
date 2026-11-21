@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.schemas.recipe_catalogue import RecipeCreate, RecipeRead, RecipeUpdate
 from app.services.family import get_family
-from app.services.recipe_image_generation import generate_recipe_image, image_path
 from app.services.recipe_catalogue import (
     RecipeCatalogueError,
     RecipeIngredientError,
@@ -20,6 +19,7 @@ from app.services.recipe_catalogue import (
     list_family_recipes,
     update_family_recipe,
 )
+from app.services.recipe_image_generation import generate_recipe_image, image_path
 
 router = APIRouter(prefix="/families/{family_id}/recipes", tags=["recipes"])
 
