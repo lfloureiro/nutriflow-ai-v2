@@ -1378,15 +1378,29 @@ export default function WeeklyProposalPreview({
         </div>
       ) : null}
       {proposal && !proposal.selected_plan ? (
-        <div className="family-meals-empty-day">
-          {proposalHasOnlySkippedSlots(proposal) ? copy.allOpenSlotsPending : copy.noPlan}
-          {proposal.skipped_slots.map(slot => (
-            <p key={slot.slot_key}>
-              <strong>{mealLabel(slot.meal_type, locale)} · {slot.planning_date}: </strong>
-              {skippedSlots[slot.slot_key] ?? copy.unavailableSlot}
-            </p>
-          ))}
-        </div>
+        simpleWeekView ? (
+          <details className="nf-week-planning-diagnostics">
+            <summary>{proposalHasOnlySkippedSlots(proposal) ? copy.allOpenSlotsPending : copy.noPlan}</summary>
+            <div className="nf-week-planning-diagnostics__details">
+              {proposal.skipped_slots.map(slot => (
+                <p key={slot.slot_key}>
+                  <strong>{mealLabel(slot.meal_type, locale)} · {slot.planning_date}: </strong>
+                  {skippedSlots[slot.slot_key] ?? copy.unavailableSlot}
+                </p>
+              ))}
+            </div>
+          </details>
+        ) : (
+          <div className="family-meals-empty-day">
+            {proposalHasOnlySkippedSlots(proposal) ? copy.allOpenSlotsPending : copy.noPlan}
+            {proposal.skipped_slots.map(slot => (
+              <p key={slot.slot_key}>
+                <strong>{mealLabel(slot.meal_type, locale)} · {slot.planning_date}: </strong>
+                {skippedSlots[slot.slot_key] ?? copy.unavailableSlot}
+              </p>
+            ))}
+          </div>
+        )
       ) : null}
 
       {!plan ? (
