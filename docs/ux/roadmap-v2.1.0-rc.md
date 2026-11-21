@@ -364,3 +364,13 @@ A versão está pronta para avaliação apenas depois de Web CI, API CI e UX E2E
 - A barra de dias passa a centrar a data selecionada quando tem overflow. A navegação manual e a seleção explícita por URL continuam prioritárias; não há foco de teclado forçado, abertura de drawer, mudança de URL nem escrita de dados.
 - Validação local em Chrome/Windows ainda pendente; Web CI, API CI, Deployment Script CI e UX E2E devem ser conferidos no SHA exato. Não declarar o erro `Cannot safely adopt process on port 5173` resolvido: a identidade/posse do processo local requer diagnóstico no Windows. Usar `./deploy.ps1 -Diagnose` (PowerShell `.\\deploy.ps1 -Diagnose`) e não terminar PID desconhecido.
 - Continuam pendentes: correspondência visual exata dos cinco ecrãs; dados de refeições passadas no gráfico com origem explícita; imagens de receitas em falta; política idempotente para receitas familiares e correção local de adoção do Vite. PR #76 continua draft e não foi feito merge.
+
+
+## v2.0.94 — Revisão da captura Windows de 21/11/2026 às 23:50
+
+Na captura do Chrome, o dia **sábado 21** já está selecionado, mas o calendário continua abaixo da dobra do viewport. A proposta automática de pequeno-almoço do dia 22/11 não encontra opção elegível comum devido a restrições/regras; esse resultado não é corrigido fabricando uma receita nem ignorando regras obrigatórias.
+
+- `WeeklyProposalPreview.tsx`: quando não há plano selecionável no modo Semana, os motivos por slot permanecem acessíveis num painel `details/summary` fechado inicialmente; no planeador completo continua a apresentação original expandida.
+- `week-reference.css`: painel compacto, contraste e foco visível para teclado.
+- Commits `bd7e679` e `283420b`. A alteração anterior `e67a0ac` centra o dia selecionado no picker horizontal quando existe overflow.
+- Pendente: verificar CI completo, medição visual do fit da grelha de 4 refeições no viewport real e a causa de rejeição do pequeno-almoço de domingo no motor, com dados sintéticos e sem relaxar restrições de segurança nutricional. Não considerar o planeamento automático resolvido.
