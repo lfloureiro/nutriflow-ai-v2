@@ -157,6 +157,44 @@ for (const appearance of ["dark", "light"] as const) {
     expect(outerShortcutDisplay,"The outer shortcut panel must not be a 2-column grid").toBe("flex");
     expect(homeContent.shortcutRows).toBe(1);
     expect(homeContent.weekRows).toBe(1);
+    const homeStyles = await page.evaluate(()=>{
+      const outer=document.querySelector<HTMLElement>(".nf-home-actions-v3")!;
+      const actions=document.querySelector<HTMLElement>(".nf-home-actions-v3-grid")!;
+      const action=actions.querySelector<HTMLElement>("button")!;
+      const weeks=document.querySelector<HTMLElement>(".nf-home-weeks-v3")!;
+      const weekGrid=document.querySelector<HTMLElement>(".nf-home-weeks-v3-grid")!;
+      const week=weekGrid.querySelector<HTMLElement>("button")!;
+      const family=document.querySelector<HTMLElement>(".nf-home-family-layout-v3")!;
+      const nutrition=document.querySelector<HTMLElement>(".nf-home-nutrition-row-v3")!;
+      return {
+        outerDisplay:getComputedStyle(outer).display,
+        actionsDisplay:getComputedStyle(actions).display,
+        actionsCols:getComputedStyle(actions).gridTemplateColumns.split(" ").length,
+        weeksDisplay:getComputedStyle(weekGrid).display,
+        weeksCols:getComputedStyle(weekGrid).gridTemplateColumns.split(" ").length,
+        actionBg:getComputedStyle(action).backgroundColor,
+        weekBg:getComputedStyle(week).backgroundColor,
+        actionHeight:action.getBoundingClientRect().height,
+        weekHeight:week.getBoundingClientRect().height,
+        actionRadius:parseFloat(getComputedStyle(action).borderTopLeftRadius),
+        weekRadius:parseFloat(getComputedStyle(week).borderTopLeftRadius),
+        outerBorder:getComputedStyle(outer).borderTopWidth,
+        weeksBorder:getComputedStyle(weeks).borderTopWidth,
+        familyDisplay:getComputedStyle(family).display,
+        nutritionDisplay:getComputedStyle(nutrition).display,
+      };
+    });
+    expect(homeStyles).toMatchObject({
+      outerDisplay:"flex",actionsDisplay:"grid",actionsCols:4,
+      weeksDisplay:"grid",weeksCols:3,outerBorder:"1px",
+      weeksBorder:"1px",familyDisplay:"grid",nutritionDisplay:"grid",
+    });
+    expect(homeStyles.actionHeight).toBeGreaterThanOrEqual(50);
+    expect(homeStyles.weekHeight).toBeGreaterThanOrEqual(50);
+    expect(homeStyles.actionRadius).toBeGreaterThanOrEqual(9);
+    expect(homeStyles.weekRadius).toBeGreaterThanOrEqual(9);
+    expect(homeStyles.actionBg).not.toBe("rgb(128, 128, 128)");
+    expect(homeStyles.weekBg).not.toBe("rgb(128, 128, 128)");
     expect(homeContent.background).not.toBe("rgb(239, 239, 239)");
     expect(homeContent.horizontalOverflow).toBe(false);
     const peopleFit = await page.evaluate(()=>{
@@ -219,6 +257,21 @@ for (const appearance of ["dark", "light"] as const) {
         const weeklyRows=await page.locator(".nf-home-weeks-v3-grid > button").evaluateAll(els=>
           new Set(els.map(el=>Math.round(el.getBoundingClientRect().top))).size);
         expect(weeklyRows).toBe(1);
+        const homeStyle=await page.evaluate(()=>{
+          const actions=document.querySelector<HTMLElement>(".nf-home-actions-v3-grid")!;
+          const weeks=document.querySelector<HTMLElement>(".nf-home-weeks-v3-grid")!;
+          const first=actions.querySelector<HTMLElement>("button")!;
+          return {
+            actionsCols:getComputedStyle(actions).gridTemplateColumns.split(" ").length,
+            weeksCols:getComputedStyle(weeks).gridTemplateColumns.split(" ").length,
+            buttonHeight:first.getBoundingClientRect().height,
+            radius:parseFloat(getComputedStyle(first).borderTopLeftRadius),
+          };
+        });
+        expect(homeStyle.actionsCols).toBe(4);
+        expect(homeStyle.weeksCols).toBe(3);
+        expect(homeStyle.buttonHeight).toBeGreaterThanOrEqual(50);
+        expect(homeStyle.radius).toBeGreaterThanOrEqual(9);
       }
       if(screen==="receitas"){
         // A newly created isolated family can have no featured recipe.
