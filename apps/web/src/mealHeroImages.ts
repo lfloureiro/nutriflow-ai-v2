@@ -93,6 +93,19 @@ const CURATED: Record<string, CuratedPhoto> = {
  * Exact normalized recipe matches only; never use a photo for a different meal.
  * The pack is installed under public/images/generated, without touching DB. */
 const GENERATED: Record<string,string> = {
+  "almondegas":"almondegas.webp",
+  "arroz de bacalhau":"arroz-de-bacalhau.webp",
+  "bacalhau com grao":"bacalhau-com-grao.webp",
+  "bacalhau com legumes":"bacalhau-com-legumes.webp",
+  "bacalhau com legumes revista robot de cozinha":"bacalhau-com-legumes.webp",
+  "bifes de peru com cogumelos":"bifes-peru-cogumelos.webp",
+  "bifes de peru com limao":"bifes-peru-limao.webp",
+  "bolonhesa":"bolonhesa.webp",
+  "cafe com leite e torrada com manteiga":"cafe-leite-torrada-manteiga.webp",
+  "carne de porco a portuguesa":"carne-porco-portuguesa.webp",
+  "carne de porco com cogumelos na actifry":"carne-porco-cogumelos.webp",
+  "carne de vaca guisada":"carne-vaca-guisada.webp",
+
   "bifanas com natas":"bifanas-com-natas.webp",
   "escalopes ao vinho madeira":"escalopes-madeira.webp",
   "frango rapido":"frango-rapido.webp",
