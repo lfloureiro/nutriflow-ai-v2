@@ -250,3 +250,9 @@ Commit `804e1e52ca225ec8eee9ed521f92c6acbecddf02`: **Web CI + API CI + UX E2E sy
 - `screen-reference.css` fixa proporções e superfícies carvão/âmbar do modelo: 1.8:0.95 na fila superior e 0.95:1.8 na inferior, cartões de pessoa em 4 colunas quando há largura, adaptação tablet/mobile e janelas mais baixas sem ocultar membros.
 - E2E exige os quatro blocos e um membro fictício no ambiente sintético, mantendo paridade do shell e workflows. Não marcar como igualdade final: conteúdo e detalhes ainda dependem de estados reais e da revisão visual.
 - PR #76 permanece draft; Semana aprovada sem alterações e dados reais intocados.
+
+### v2.0.90 — Receitas: fotografia em destaque e painel de exploração
+
+Em `RecipeCatalogue.tsx` surgiu a composição `nf-recipe-editorial-row` com **receita real do catálogo atual** à esquerda e painel «Explorar adaptações» à direita, como o desenho aprovado. Usa preferencialmente uma receita com fotografia curada (ou a primeira receita visível se nenhuma tiver fotografia) e abre o detalhe já existente; não a declara recomendada ou nutricionalmente compatível. Sem receitas disponíveis, não aparece um destaque fictício. As fotografias continuam dependentes da correspondência verificada; mantém-se o filtro e os drawers.
+
+`screen-reference.css` fixa proporções, imagem e brilho em dark/light, e compacta a altura nas janelas menores, preservando a largura e o encaixe do calendário da Semana. Ainda faltam avaliação visual com catálogo preenchido, sugestões reais via motor existente, informação nutricional real e os restantes detalhes do protótipo. PR #76 draft; validar todos os workflows no SHA final.
