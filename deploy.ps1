@@ -67,7 +67,11 @@ function VerifiedServiceProcess([int]$port,[string]$role) {
     $ownerId = [int]$owners[0]
     $info = Get-CimInstance Win32_Process -Filter ('ProcessId = ' + $ownerId)
     $proc = Get-Process -Id $ownerId -ErrorAction SilentlyContinue
-    if (-not $info -or -not $proc) { return $null }
+    if (-not $info -or -not $proc) {
+        Write-Warning ('Process identification incomplete on port ' + $port +
+            '; owner=' + $ownerId)
+        return $null
+    }
     $line = [string]$info.CommandLine
     $executableName = [IO.Path]::GetFileName([string]$info.ExecutablePath)
     if (-not $executableName) { $executableName = [string]$proc.ProcessName + '.exe' }
@@ -83,7 +87,14 @@ function VerifiedServiceProcess([int]$port,[string]$role) {
         $valid = ($executableName -match '^(python(?:w)?|uvicorn)\\.exe$') -and
             (Test-NutriFlowApi $port)
     }
-    if (-not $valid) { return $null }
+    if (-not $valid) {
+        Write-Warning ('Process verification rejected port ' + $port +
+            ', role=' + $role + ', owner=' + $ownerId +
+            ', exe=' + $executableName +
+            ', command=' + $line.Substring(0,[Math]::Min(250,$line.Length)) +
+            ', NutriFlowVite=' + (Test-NutriFlowFrontend $port))
+        return $null
+    }
     return $proc
 }
 function Test-NutriFlowApi([int]$port) {
