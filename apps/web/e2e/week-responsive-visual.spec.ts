@@ -104,6 +104,11 @@ test("weekly map remains usable from desktop through 200% equivalent narrow view
     expect(type.hero).toBeLessThanOrEqual(22);
     expect(type.meal).toBeLessThanOrEqual(12);
     expect(type.day).toBeLessThanOrEqual(21);
+    // The correction must apply the measured heights to the mounted grid,
+    // not merely update a CSS variable that can be ignored by the cascade.
+    await expect.poll(async () => page.locator(".nf-week-map-final .weekly-day-grid")
+      .evaluate(el => (el as HTMLElement).style.gridTemplateRows))
+      .toMatch(/repeat\\(4, [\\d.]+px\\)/);
     const rowHeights = fit.gridRows.split(" ").map(Number.parseFloat).filter(Number.isFinite);
     // The full-size display gets modestly taller meal cards, while 610px
     // stays in its previously validated compact regime.
