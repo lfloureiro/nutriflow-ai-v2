@@ -229,6 +229,45 @@ function FindLocalApiProcess([int]$port,[bool]$AllowSelection = $false) {
     }
     return $picked[0]
 }
+function TestLocalFrontendPid([int]$port,[int]$processId) {
+    # Require NutriFlow's live Vite signature and Node's exact Vite
+    # entrypoint from this checkout. Never adopt arbitrary Node processes.
+    if (-not (Test-NutriFlowFrontend $port)) { return $false }
+    $info = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $processId) -ErrorAction SilentlyContinue
+    if (-not $info -or -not $info.CommandLine) { return $false }
+    $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+    if (-not $process -or $process.ProcessName -ine 'node') { return $false }
+    $line = ([string]$info.CommandLine).Replace('/', '\')
+    $expectedVite = Join-Path $webDir 'node_modules\vite\bin\vite.js'
+    return $line.IndexOf($expectedVite, [StringComparison]::OrdinalIgnoreCase) -ge 0
+}
+function FindLocalFrontendProcess([int]$port) {
+    if (-not (Test-NutriFlowFrontend $port)) { return $null }
+    $candidates = @()
+    foreach ($info in @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction Stop)) {
+        if (TestLocalFrontendPid $port ([int]$info.ProcessId)) {
+            $process = Get-Process -Id ([int]$info.ProcessId) -ErrorAction SilentlyContinue
+            if ($process) { $candidates += $process }
+        }
+    }
+    if ($candidates.Count -eq 1) {
+        Write-Host ('Found matching NutriFlow Vite process PID ' + $candidates[0].Id)
+        return $candidates[0]
+    }
+    if ($candidates.Count -gt 1) {
+        # Only the actual TCP owner may be chosen without ambiguity.
+        $owners = @(Listener $port | Select-Object -ExpandProperty OwningProcess -Unique)
+        $matches = @($candidates | Where-Object { $owners -contains $_.Id })
+        if ($matches.Count -eq 1) { return $matches[0] }
+        foreach ($candidate in $candidates) {
+            Write-Host ('Vite candidate PID ' + $candidate.Id +
+                ' StartUTC=' + $candidate.StartTime.ToUniversalTime().ToString('o'))
+        }
+        throw ('Multiple NutriFlow Vite processes found on port ' + $port +
+            ' with no unique socket owner. No process terminated.')
+    }
+    return $null
+}
 function TestLocalApiPid([int]$port,[int]$processId) {
     if (-not (Test-NutriFlowApi $port)) { return $false }
     $info = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $processId) -ErrorAction SilentlyContinue
@@ -267,6 +306,10 @@ function StateEntry([int]$port,$entry) {
             (TestLocalApiPid $port $process.Id)) {
             return $process
         }
+        if ($process.ProcessName -ieq 'node' -and
+            (TestLocalFrontendPid $port $process.Id)) {
+            return $process
+        }
         # The Vite PID was recorded by this deploy script immediately after
         # starting Node on a previously free port; some Windows configurations
         # report a different TCP owner. Never apply this to adopted processes.
@@ -289,6 +332,9 @@ function AdoptLegacy([int]$port,[string]$role) {
     $process = VerifiedServiceProcess $port $role
     if (-not $process -and $role -eq 'api') {
         $process = FindLocalApiProcess $port $true
+    }
+    if (-not $process -and $role -eq 'frontend') {
+        $process = FindLocalFrontendProcess $port
     }
     if (-not $process) {
         $owners = @(Listener $port | Select-Object -ExpandProperty OwningProcess -Unique)
