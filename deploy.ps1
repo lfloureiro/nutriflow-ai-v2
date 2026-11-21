@@ -133,6 +133,14 @@ function Test-NutriFlowApi([int]$port) {
         return [string]$data.info.title -eq 'NutriFlow AI'
     } catch { return $false }
 }
+function IsTrustedLaunch($entry) {
+    if ($null -eq $entry) { return $false }
+    if ($entry -is [System.Collections.IDictionary]) {
+        return $entry.Contains('trusted_launch') -and [bool]$entry['trusted_launch']
+    }
+    $property = $entry.PSObject.Properties['trusted_launch']
+    return $null -ne $property -and [bool]$property.Value
+}
 function StateEntry([int]$port,$entry) {
     $listeners = @(Listener $port)
     if ($listeners.Count -eq 0) { return $null }
@@ -145,7 +153,14 @@ function StateEntry([int]$port,$entry) {
         return $null
     }
     if (@($listeners | Select-Object -ExpandProperty OwningProcess) -notcontains $process.Id) {
-        return $null
+        # The Vite PID was recorded by this deploy script immediately after
+        # starting Node on a previously free port; some Windows configurations
+        # report a different TCP owner. Never apply this to adopted processes.
+        if (-not (IsTrustedLaunch $entry) -or
+            $process.ProcessName -ine 'node' -or
+            -not (Test-NutriFlowFrontend $port)) {
+            return $null
+        }
     }
     return $process
 }
@@ -230,6 +245,30 @@ function Launch([string]$exe,[string[]]$arg,[string]$cwd,[string]$name,[int]$por
                 }
             }
         }
+        $trustedLaunch = $false
+        if (-not $proc -and $role -eq 'frontend') {
+            # Strong fallback: we observed a free port, launched a specific
+            # local Vite Node process and then got a healthy response. Check
+            # that exact process still exists before managing its PID.
+            $direct = Get-Process -Id $started.Id -ErrorAction SilentlyContinue
+            $knownVite = Join-Path $webDir 'node_modules\vite\bin\vite.js'
+            $knownFixture = Join-Path $root 'tools\deploy-smoke-server.cjs'
+            $expectedScript = if ($VerifyFrontendOnly -and $name -eq 'frontend-test') {
+                $knownFixture
+            } else {
+                $knownVite
+            }
+            if ($direct -and $direct.ProcessName -ieq 'node' -and
+                $exe -ieq (Executable 'node') -and
+                $arg.Count -gt 0 -and
+                [string]$arg[0] -ieq $expectedScript -and
+                (Healthy $url)) {
+                $proc = $direct
+                $trustedLaunch = $true
+                Write-Warning ('Using directly launched Node PID ' + $proc.Id +
+                    ' because Windows TCP ownership verification was inconclusive.')
+            }
+        }
         if (-not $proc) {
             Show-PortDiagnostics $port $role
             Write-Host ('Launch PID: ' + $started.Id + '; running: ' +
@@ -237,10 +276,14 @@ function Launch([string]$exe,[string[]]$arg,[string]$cwd,[string]$name,[int]$por
             Write-Host ('Launch executable: ' + $exe)
             Write-Host ('Launch first argument: ' + $(if ($arg.Count -gt 0) { $arg[0] } else { '' }))
             throw ($name + ' responded but its listening process is not verified as NutriFlow. ' +
-                'Inspect the warning above and ' + (Join-Path $stateDir ($name + '.err.log')))
+                'Inspect the diagnostics above and ' + (Join-Path $stateDir ($name + '.err.log')))
         }
-        Write-Host ($name + ' ready; listener PID ' + $proc.Id)
-        return @{ pid=$proc.Id; start_utc=$proc.StartTime.ToUniversalTime().ToString('o') }
+        Write-Host ($name + ' ready; managed PID ' + $proc.Id)
+        return @{
+            pid=$proc.Id
+            start_utc=$proc.StartTime.ToUniversalTime().ToString('o')
+            trusted_launch=$trustedLaunch
+        }
     } catch {
         Stop-Process -Id $started.Id -ErrorAction SilentlyContinue
         throw
