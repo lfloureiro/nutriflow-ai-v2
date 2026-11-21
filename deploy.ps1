@@ -64,7 +64,10 @@ function StopManaged([int]$port,$entry) {
     if ($null -eq $process) { return }
     Write-Host ('Stopping managed PID ' + $process.Id + ' on port ' + $port)
     Stop-Process -Id $process.Id
-    Wait-Process -Id $process.Id -Timeout 15 -ErrorAction Stop
+    try { Wait-Process -Id $process.Id -Timeout 15 -ErrorAction Stop }
+    catch {
+        if (Get-Process -Id $process.Id -ErrorAction SilentlyContinue) { throw }
+    }
     if (@(Listener $port).Count) { throw ('Port still occupied after stop: ' + $port) }
 }
 function Launch([string]$exe,[string[]]$arg,[string]$cwd,[string]$name,[int]$port,[string]$url) {
@@ -151,66 +154,7 @@ if ($apiChanged) {
         $state.api = $null
         Save $state
     }
-    if (@($changed | Where-Object { $_ -match '^apps/api/pyproject\.toml
-    Run $PythonPath @('-m','app.local_db_update') $apiDir
-}
-if ($webChanged) {
-    if (@($changed | Where-Object { $_ -match '^apps/web/(package(-lock)?\.json) {
-        StopManaged $WebPort $oldWeb
-        $state.web = $null
-        Save $state
-    }
-    $vite = Join-Path $webDir 'node_modules\vite\bin\vite.js'
-    if (-not (Test-Path $vite)) {
-        $npm = Executable 'npm.cmd'
-        Write-Host 'Installing missing frontend dependencies...'
-        Run $npm @('install','--no-package-lock','--ignore-scripts') $webDir
-    }
-    if (-not (Test-Path $vite)) { throw 'Vite was not installed.' }
-    $state.web = Launch $node @($vite,'--host','127.0.0.1','--port',"$WebPort",'--strictPort') $webDir 'frontend' $WebPort ('http://127.0.0.1:' + $WebPort + '/')
-    Save $state
-}
-if ($apiChanged) {
-    $state.api = Launch $PythonPath @('-m','uvicorn','app.main:app','--host','127.0.0.1','--port',"$ApiPort") $apiDir 'api' $ApiPort ('http://127.0.0.1:' + $ApiPort + '/openapi.json')
-    Save $state
-}
-if (-not (Healthy ('http://127.0.0.1:' + $ApiPort + '/openapi.json')) -or
-    -not (Healthy ('http://127.0.0.1:' + $WebPort + '/'))) {
-    throw 'Final API/web health checks failed.'
-}
-Write-Host ('Deployment successful: ' + $after)
-Write-Host ('Open http://127.0.0.1:' + $WebPort + '/')
- }).Count -gt 0) {
-        $npm = Executable 'npm.cmd'
-        Write-Host 'Refreshing frontend dependencies after package manifest changes...'
-        Run $npm @('install','--no-package-lock','--ignore-scripts') $webDir
-    }
-    if ($oldWeb) {
-        StopManaged $WebPort $oldWeb
-        $state.web = $null
-        Save $state
-    }
-    $vite = Join-Path $webDir 'node_modules\vite\bin\vite.js'
-    if (-not (Test-Path $vite)) {
-        $npm = Executable 'npm.cmd'
-        Write-Host 'Installing missing frontend dependencies...'
-        Run $npm @('install','--no-package-lock','--ignore-scripts') $webDir
-    }
-    if (-not (Test-Path $vite)) { throw 'Vite was not installed.' }
-    $state.web = Launch $node @($vite,'--host','127.0.0.1','--port',"$WebPort",'--strictPort') $webDir 'frontend' $WebPort ('http://127.0.0.1:' + $WebPort + '/')
-    Save $state
-}
-if ($apiChanged) {
-    $state.api = Launch $PythonPath @('-m','uvicorn','app.main:app','--host','127.0.0.1','--port',"$ApiPort") $apiDir 'api' $ApiPort ('http://127.0.0.1:' + $ApiPort + '/openapi.json')
-    Save $state
-}
-if (-not (Healthy ('http://127.0.0.1:' + $ApiPort + '/openapi.json')) -or
-    -not (Healthy ('http://127.0.0.1:' + $WebPort + '/'))) {
-    throw 'Final API/web health checks failed.'
-}
-Write-Host ('Deployment successful: ' + $after)
-Write-Host ('Open http://127.0.0.1:' + $WebPort + '/')
- }).Count -gt 0) {
+    if (@($changed | Where-Object { $_ -match '^apps/api/pyproject\.toml$' }).Count -gt 0) {
         Write-Host 'Refreshing API dependencies after manifest changes...'
         Run $PythonPath @('-m','pip','install','-e',(Join-Path $root 'apps/api')) $root
     }
@@ -218,42 +162,17 @@ Write-Host ('Open http://127.0.0.1:' + $WebPort + '/')
     Run $PythonPath @('-m','app.local_db_update') $apiDir
 }
 if ($webChanged) {
-    if (@($changed | Where-Object { $_ -match '^apps/web/(package(-lock)?\.json) {
-        StopManaged $WebPort $oldWeb
-        $state.web = $null
-        Save $state
-    }
-    $vite = Join-Path $webDir 'node_modules\vite\bin\vite.js'
-    if (-not (Test-Path $vite)) {
-        $npm = Executable 'npm.cmd'
-        Write-Host 'Installing missing frontend dependencies...'
-        Run $npm @('install','--no-package-lock','--ignore-scripts') $webDir
-    }
-    if (-not (Test-Path $vite)) { throw 'Vite was not installed.' }
-    $state.web = Launch $node @($vite,'--host','127.0.0.1','--port',"$WebPort",'--strictPort') $webDir 'frontend' $WebPort ('http://127.0.0.1:' + $WebPort + '/')
-    Save $state
-}
-if ($apiChanged) {
-    $state.api = Launch $PythonPath @('-m','uvicorn','app.main:app','--host','127.0.0.1','--port',"$ApiPort") $apiDir 'api' $ApiPort ('http://127.0.0.1:' + $ApiPort + '/openapi.json')
-    Save $state
-}
-if (-not (Healthy ('http://127.0.0.1:' + $ApiPort + '/openapi.json')) -or
-    -not (Healthy ('http://127.0.0.1:' + $WebPort + '/'))) {
-    throw 'Final API/web health checks failed.'
-}
-Write-Host ('Deployment successful: ' + $after)
-Write-Host ('Open http://127.0.0.1:' + $WebPort + '/')
- }).Count -gt 0) {
-        $npm = Executable 'npm.cmd'
-        Write-Host 'Refreshing frontend dependencies after package manifest changes...'
-        Run $npm @('install','--no-package-lock','--ignore-scripts') $webDir
-    }
     if ($oldWeb) {
         StopManaged $WebPort $oldWeb
         $state.web = $null
         Save $state
     }
     $vite = Join-Path $webDir 'node_modules\vite\bin\vite.js'
+    if (@($changed | Where-Object { $_ -match '^apps/web/package(-lock)?\.json$' }).Count -gt 0) {
+        $npm = Executable 'npm.cmd'
+        Write-Host 'Refreshing frontend dependencies after manifest changes...'
+        Run $npm @('install','--no-package-lock','--ignore-scripts') $webDir
+    }
     if (-not (Test-Path $vite)) {
         $npm = Executable 'npm.cmd'
         Write-Host 'Installing missing frontend dependencies...'
