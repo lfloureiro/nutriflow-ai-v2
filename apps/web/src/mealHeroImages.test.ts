@@ -20,32 +20,32 @@ describe("next-meal image follows the same planned meal or proposal", () => {
   it("normalizes the family suffix but never guesses from generic food words", () => {
     expect(normalizeMealImageName("Frango rápido · família")).toBe("frango rapido");
     expect(normalizeMealImageName("Escalopes ao vinho Madeira - família")).toBe("escalopes ao vinho madeira");
-    expect(resolveMealHeroImage({planned:{title:"Frango rápido · família"}})?.src).toContain("Roasted_chicken".replace(/_/g,"%20").slice(0,7));
+    expect(resolveMealHeroImage({planned:{title:"Frango rápido · família"}})?.src).toBe("/images/generated/frango-rapido.webp");
     expect(resolveMealHeroImage({planned:{title:"Escalopes ao vinho Madeira · família"}})?.alt).toContain("Madeira");
-    expect(resolveMealHeroImage({planned:{title:"Bifanas com natas"}})).toBeNull();
+    expect(resolveMealHeroImage({planned:{title:"Bifanas com natas"}})?.kind).toBe("generated");
   });
-  it("maps existing salmon, banana, cheese and tomato dishes by exact culinary name", () => {
+  it("maps known generated recipe media by exact title, labeled as illustrative and with safe fallback", () => {
     for(const title of [
-      "Salmão no forno com ervinhas da provença",
-      "Banana e frutos secos",
-      "Torrada com queijo",
-      "Pão, queijo e tomate",
-      "Torrada mista",
-      "Omelete de espinafres",
-      "Escalopes ao vinho Madeira · família",
+      "Salmão no forno com ervinhas da provença", "Banana e frutos secos",
+      "Torrada mista", "Escalopes ao vinho Madeira · família",
+      "Bifanas com natas", "Frango rápido · família",
     ]) {
       const photo=resolveMealHeroImage({planned:{recipe_name:title}});
-      expect(photo?.kind).toBe("catalog");
-      expect(photo?.source).toContain("commons.wikimedia.org");
-      expect(photo?.license).toBeTruthy();
-      expect(photo?.author).toBeTruthy();
+      expect(photo?.kind).toBe("generated");
+      expect(photo?.src).toMatch(/^\/images\/generated\/[a-z0-9-]+\.webp$/);
+      expect(photo?.author).toContain("IA");
+      expect(photo?.fallbackSrc).toBeTruthy();
+      expect(photo?.source).toBeNull();
     }
+    const original=resolveMealHeroImage({planned:{title:"Omelete de espinafres"}});
+    expect(original?.kind).toBe("catalog");
+    expect(original?.source).toContain("commons.wikimedia.org");
   });
-  it("never substitutes a planned meal's photo with a proposal's photo", () => {
+  it("never substitutes a planned meal's photo with an unrelated proposal image", () => {
     expect(resolveMealHeroImage({
       planned:{recipe_name:"Bifanas com natas"},
       proposal:{candidate_name:"Torrada com queijo",image_url:"https://cdn.example.org/toast.jpg"},
-    })).toBeNull();
+    })?.src).toBe("/images/generated/bifanas-com-natas.webp");
   });
   it("rejects unsafe URLs for optional API-supplied media", () => {
     expect(resolveMealHeroImage({planned:{title:"Receita privada",image_url:"javascript:alert(1)"}})).toBeNull();
