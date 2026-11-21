@@ -92,6 +92,31 @@ for (const theme of ["light", "dark"] as const) {
     await expect(page.locator("html")).toHaveAttribute("data-theme",theme);
     await page.evaluate(() => document.fonts.ready);
     const baseline = await shellSnapshot(page);
+    const footerGeometry = await page.evaluate(() => {
+      const footer = document.querySelector<HTMLElement>(".side-nav__family");
+      const avatar = footer?.querySelector<HTMLElement>(".side-nav__family-avatar");
+      const copy = footer?.querySelector<HTMLElement>(".side-nav__family-copy");
+      const title = copy?.querySelector<HTMLElement>("strong");
+      const subtitle = copy?.querySelector<HTMLElement>("small");
+      if (!footer || !avatar || !copy || !title || !subtitle) throw new Error("Missing family footer pieces");
+      const f=footer.getBoundingClientRect(),a=avatar.getBoundingClientRect(),
+        c=copy.getBoundingClientRect(),t=title.getBoundingClientRect(),s=subtitle.getBoundingClientRect();
+      return {
+        aligned: a.right+6 <= c.left,
+        vertical: t.bottom <= s.top,
+        contained: a.left >= f.left-1 && s.right <= f.right+1 && s.bottom <= f.bottom+1,
+        visible: f.bottom <= window.innerHeight+1 && f.top >= 0,
+        avatarFont: getComputedStyle(avatar).fontSize,
+        subtitleFont: getComputedStyle(subtitle).fontSize,
+        subtitleCase: getComputedStyle(subtitle).textTransform,
+      };
+    });
+    expect(footerGeometry.aligned).toBe(true);
+    expect(footerGeometry.vertical).toBe(true);
+    expect(footerGeometry.contained).toBe(true);
+    expect(footerGeometry.visible).toBe(true);
+    expect(footerGeometry.subtitleCase).toBe("none");
+
     // Viewport 1280 CSS px must activate the full-size shell even with Windows display scaling.
     expect(baseline.sidebar.width).toBeGreaterThan(250);
     expect(baseline.sidebar.width).toBeLessThan(280);
