@@ -283,6 +283,12 @@ export default function App() {
                   <h1>{t("people.title")}</h1>
                   <p>{t("people.help")}</p>
                 </div>
+                <div className="nf-people-hero-avatars" aria-hidden="true">
+                  {dashboard?.members.slice(0,4).map(member=><PersonAvatar key={member.person_id}
+                    identity={member.person_id} name={memberDisplayName(member)}
+                    familyIdentity={activeFamilyId} age={member.age_years}
+                    sex={member.sex_for_energy_calculation} appearance={member.avatar_appearance} decorative/>)}
+                </div>
                 <button
                   className="button primary"
                   onClick={() => {if(requestNavigation())setShowPersonSetup((current) => !current);}}
@@ -314,7 +320,9 @@ export default function App() {
                     <PersonAvatar identity={member.person_id} name={memberDisplayName(member)} familyIdentity={activeFamilyId} age={member.age_years} sex={member.sex_for_energy_calculation} appearance={member.avatar_appearance} decorative />
                     <span>
                       <strong>{memberDisplayName(member)}</strong>
-                      <small>{member.timezone}</small>
+                      <small>{dashboard?.meals.some(meal=>meal.status!=="cancelled"&&meal.participant_person_ids.includes(member.person_id))
+                        ? (locale==="pt-PT"?"No plano de hoje":"In today's plan")
+                        : (locale==="pt-PT"?"Sem refeição no plano de hoje":"No meal in today's plan")}</small>
                     </span>
                     <span aria-hidden="true">›</span>
                   </button>
@@ -325,9 +333,12 @@ export default function App() {
                   <div className="nf-family-section-header">
                     <h2>{locale === "pt-PT" ? "Objetivos da família" : "Family goals"}</h2>
                   </div>
-                  <p>{locale === "pt-PT" ?
-                    "Os objetivos e as preferências dependem dos dados efetivamente registados nos perfis." :
-                    "Goals and preferences depend on the information actually recorded in the profiles."}</p>
+                  <div className="nf-family-goal-facts">
+                    <div><strong>{dashboard?.members.length ?? 0}</strong><span>{locale==="pt-PT"?"perfis familiares":"family profiles"}</span></div>
+                    <div><strong>{dashboard?.members.filter(member=>Number(member.nutrition?.energy_planned_kcal??0)>0).length ?? 0}</strong><span>{locale==="pt-PT"?"com energia planeada hoje":"with planned energy today"}</span></div>
+                    <div><strong>{dashboard?.members.filter(member=>Number(member.nutrition?.energy_consumed_kcal??0)>0).length ?? 0}</strong><span>{locale==="pt-PT"?"com consumo registado":"with recorded intake"}</span></div>
+                  </div>
+                  <small className="nf-family-goal-disclaimer">{locale==="pt-PT"?"Valores do plano, não metas clínicas.":"Planning data, not clinical targets."}</small>
                   <button type="button" className="button ghost small" onClick={() => setView("more")}>
                     {locale === "pt-PT" ? "Gerir o espaço" : "Manage household"}
                   </button>
@@ -338,9 +349,12 @@ export default function App() {
                   <div className="nf-family-section-header">
                     <h2>{locale === "pt-PT" ? "Resumo de preferências e restrições" : "Preferences and restrictions"}</h2>
                   </div>
-                  <p>{locale === "pt-PT" ?
-                    "Consulta os perfis individuais para rever restrições e preferências confirmadas." :
-                    "Review individual profiles to see confirmed dietary restrictions and preferences."}</p>
+                  <div className="nf-family-preference-placeholder">
+                    <Icon name="leaf"/>
+                    <p>{locale==="pt-PT"
+                      ?"Preferências e restrições são consultadas em cada perfil. Não são presumidas a partir das refeições planeadas."
+                      :"Preferences and restrictions are reviewed in each profile, never inferred from planned meals."}</p>
+                  </div>
                 </section>
                 <section className="nf-family-comparison">
                   <div className="nf-family-section-header">
