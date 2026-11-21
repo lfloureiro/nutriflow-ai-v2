@@ -56,6 +56,7 @@ export type Recipe = {
   ingredients: RecipeIngredient[];
   latest_composition: RecipeComposition | null;
   nutrition_issues: string[];
+  image_url?: string | null;
   created_at: string;
   updated_at: string;
 };
