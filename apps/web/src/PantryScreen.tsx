@@ -335,13 +335,18 @@ export default function PantryScreen({ familyId }: { familyId: string }) {
         {!busy && shown.length === 0 ? lots.length ? <p className="empty-card" role="status">{locale === "pt-PT" ? "Sem lotes para esta pesquisa ou filtro." : "No lots match this search or filter."}</p> : <EmptyState title={copy.empty} description={locale === "pt-PT" ? "Começa pelos ingredientes que já tens em casa, com quantidade, local e validade quando conhecida. O plano desconta o stock utilizável nas compras." : "Start with ingredients at home, their quantity, location and expiry when known. Shopping deducts usable stock."}><button type="button" className="button primary" onClick={startCreate}>{copy.add}</button></EmptyState> : null}
         {shown.map((lot) => (
           <article className={`pantry-row ${lot.is_available ? "" : "inactive"}`} data-stock-state={pantryState(lot,now)} key={lot.id}>
-            <div>
-              <strong>{lot.food_item_name}</strong><small className="nf-expiry-badge">{(locale === "pt-PT" ? {available:"Data registada",soon:"Data nos próximos 3 dias",expired:"Data ultrapassada · rever",undated:"Sem validade registada",inactive:"Inativo",empty:"Sem quantidade disponível"} : {available:"Date recorded",soon:"Date in the next 3 days",expired:"Past recorded date · review",undated:"No recorded expiry",inactive:"Inactive",empty:"No available quantity"})[pantryState(lot,now)]}</small>
-              <span>
-                {new Intl.NumberFormat(locale,{maximumFractionDigits:6}).format(Number(lot.quantity_available))} {lot.unit}
-                {lot.location ? ` · ${lot.location}` : ""}
-              </span>
-              {lot.expires_at ? <small>{copy.expires}: {lot.expires_at.slice(0, 10)}</small> : null}
+            <div className="nf-pantry-item-main">
+              <div className="nf-pantry-item-heading">
+                <span className="nf-pantry-item-icon"><Icon name="pantry"/></span>
+                <strong>{lot.food_item_name}</strong>
+              </div>
+              <div className="nf-pantry-item-quantity">
+                <strong>{new Intl.NumberFormat(locale,{maximumFractionDigits:6}).format(Number(lot.quantity_available))}</strong>
+                <span>{lot.unit}</span>
+              </div>
+              <small className="nf-expiry-badge">{(locale === "pt-PT" ? {available:"Data registada",soon:"Data nos próximos 3 dias",expired:"Data ultrapassada · rever",undated:"Sem validade registada",inactive:"Inativo",empty:"Sem quantidade disponível"} : {available:"Date recorded",soon:"Date in the next 3 days",expired:"Past recorded date · review",undated:"No recorded expiry",inactive:"Inactive",empty:"No available quantity"})[pantryState(lot,now)]}</small>
+              {lot.location && <small className="nf-pantry-item-location">{locale === "pt-PT" ? "Local" : "Location"}: {lot.location}</small>}
+              {lot.expires_at && <small className="nf-pantry-item-location">{copy.expires}: {lot.expires_at.slice(0, 10)}</small>}
             </div>
             <div className="row-actions">
               {!lot.is_available ? <span className="status-chip">{copy.inactive}</span> : null}
