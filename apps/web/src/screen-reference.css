@@ -142,3 +142,16 @@
   .nf-home .nf-meal-hero-art { right: -92px; opacity: .35; }
   .nf-home .nf-day-slot { min-height: 135px; }
 }
+
+/* Dark legacy .nf-meal-hero button selector was more specific than the
+   shared editorial outline. Explicit theme scope restores Week's amber action. */
+:root[data-theme="dark"] .nf-home .nf-meal-hero .button.primary {
+  background: transparent;
+  color: var(--color-action);
+  border-color: var(--color-action);
+  box-shadow: 0 0 20px #f4bc761c;
+}
+:root[data-theme="dark"] .nf-home .nf-meal-hero .button.primary:hover {
+  background: var(--color-action-soft);
+  color: var(--color-action-strong);
+}
