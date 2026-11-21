@@ -61,6 +61,13 @@ test("weekly map remains usable from desktop through 200% equivalent narrow view
     await page.setViewportSize({width,height});
     await page.locator(".nf-appearance").selectOption("dark");
     await expect(page.locator(".nf-week-map-final .weekly-day-grid")).toBeVisible();
+    if (height === 610) {
+      // The old 700px media threshold ignored the user's short CSS viewport.
+      // The grid must now detect and use the actual spare space itself.
+      await expect.poll(async () => page.locator(".nf-week-map-final .weekly-day-grid")
+        .evaluate(element => (element as HTMLElement).style.getPropertyValue("--week-compact-row")))
+        .not.toBe("");
+    }
     const fit = await page.evaluate(() => {
       const grid=document.querySelector<HTMLElement>(".nf-week-map-final .weekly-day-grid");
       const hero=document.querySelector<HTMLElement>(".nf-next-meal-hero");
