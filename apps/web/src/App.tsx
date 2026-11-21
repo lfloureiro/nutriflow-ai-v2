@@ -254,6 +254,7 @@ export default function App() {
                 dashboard={dashboard}
                 onOpenPerson={openPerson}
                 onPlanMeal={openMealPlan}
+                onAdaptPlan={()=>navigate({view:"meals",mode:"recommend",meal:undefined})}
                 onOpenWeek={openWeek}
                 weekDate={mealsDate}
               />
