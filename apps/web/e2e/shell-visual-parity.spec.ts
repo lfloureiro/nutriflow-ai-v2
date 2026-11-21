@@ -306,10 +306,17 @@ test("home fits a 1280 × 700 browser viewport with four real profile cards",asy
       viewport:innerHeight,
       overflowingX:document.documentElement.scrollWidth>document.documentElement.clientWidth+1,
       overflowFamily:getComputedStyle(document.querySelector<HTMLElement>(".nf-family-panel")!).overflowY,
+      visibleMemberCount:(()=>{
+        const panel=document.querySelector<HTMLElement>(".nf-family-panel")!;
+        const r=panel.getBoundingClientRect();
+        return [...panel.querySelectorAll<HTMLElement>(".nf-person-line")]
+          .filter(item=>{const box=item.getBoundingClientRect();return box.top>=r.top-1 && box.bottom<=r.bottom+1;}).length;
+      })(),
     };
   });
   expect(geometry.bottom).toBeLessThanOrEqual(geometry.viewport+2);
   expect(geometry.overflowingX).toBe(false);
   expect(geometry.overflowFamily).toBe("auto");
+  expect(geometry.visibleMemberCount).toBeGreaterThanOrEqual(3);
   await page.screenshot({path:"test-results/visual-home-dark-1280x700.png",fullPage:false});
 });
