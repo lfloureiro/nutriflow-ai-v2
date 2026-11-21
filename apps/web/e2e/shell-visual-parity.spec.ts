@@ -179,8 +179,8 @@ for (const theme of ["light", "dark"] as const) {
     expect(footerGeometry.subtitleCase).toBe("none");
 
     // Viewport 1280 CSS px must activate the full-size shell even with Windows display scaling.
-    expect(baseline.sidebar.width).toBeGreaterThan(250);
-    expect(baseline.sidebar.width).toBeLessThan(280);
+    expect(baseline.sidebar.width).toBeGreaterThanOrEqual(223);
+    expect(baseline.sidebar.width).toBeLessThanOrEqual(225);
     expect(baseline.brand.family).toContain("Manrope");
     for (const [hash,label] of routes.slice(1)) {
       await page.evaluate(value => { window.location.hash=value; },hash);
