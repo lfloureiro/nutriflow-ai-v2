@@ -400,7 +400,7 @@
    at 560: 60px; at 680: clamp to 82px. */
 @media (min-width:1101px) and (min-height:560px) and (max-height:699px) {
   .app-shell--meals .nf-week-map-final .weekly-calendar-scroll .weekly-day-grid {
-    grid-template-rows:40px repeat(4,minmax(0,clamp(56px,calc(25dvh - 80px),82px))) !important;
+    grid-template-rows:40px repeat(4,minmax(0,clamp(56px,calc(25dvh - 80px),82px)));
   }
 }
 
