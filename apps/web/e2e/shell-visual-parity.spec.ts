@@ -266,3 +266,44 @@ test("weekly image never enlarges the hero and the desktop map preserves seven d
   await expect(page.locator(".nf-week-day-picker")).toBeVisible();
   await page.screenshot({path:"test-results/visual-week-light-mobile-390.png",fullPage:true});
 });
+
+test("home fits a 1280 × 700 browser viewport with four real profile cards",async({page,request})=>{
+  const response=await request.post(`${API}/families`,{data:{
+    name:"Casa Visual Compacta",timezone:"Europe/Lisbon",
+    meal_discovery_sources:["shared_recipes"],delivery_address:null,restaurant_area:null,
+  }});
+  expect(response.ok()).toBe(true);
+  const family=await response.json() as {id:string};
+  for(let i=1;i<=4;i++){
+    const person=await request.post(`${API}/families/${family.id}/persons`,{data:{
+      first_name:`Pessoa Visual ${i}`,last_name:null,birth_date:null,
+      preferred_locale:"pt-PT",timezone:"Europe/Lisbon",meal_discovery:null,
+    }});
+    expect(person.ok()).toBe(true);
+  }
+  await page.setViewportSize({width:1280,height:700});
+  await page.addInitScript(id=>{
+    localStorage.setItem("nutriflow-family-id",id);
+    localStorage.setItem("nutriflow-appearance","dark");
+    localStorage.setItem("nutriflow-locale","pt-PT");
+  },family.id);
+  await page.goto("/#/home");
+  await expect(page.locator(".nf-home .nf-day-slot")).toHaveCount(4);
+  await expect(page.locator(".nf-home .nf-person-line")).toHaveCount(4);
+  await page.evaluate(()=>document.fonts.ready);
+  const geometry=await page.evaluate(()=>{
+    const root=document.querySelector<HTMLElement>(".nf-home")!;
+    const items=[...root.querySelectorAll<HTMLElement>(".nf-home-heading,.nf-meal-hero,.nf-today-section,.nf-home-shortcuts,.nf-saved-weeks,.nf-home-note")];
+    const bottom=Math.max(...items.map(el=>el.getBoundingClientRect().bottom));
+    return {
+      bottom,
+      viewport:innerHeight,
+      overflowingX:document.documentElement.scrollWidth>document.documentElement.clientWidth+1,
+      overflowFamily:getComputedStyle(document.querySelector<HTMLElement>(".nf-family-panel")!).overflowY,
+    };
+  });
+  expect(geometry.bottom).toBeLessThanOrEqual(geometry.viewport+2);
+  expect(geometry.overflowingX).toBe(false);
+  expect(geometry.overflowFamily).toBe("auto");
+  await page.screenshot({path:"test-results/visual-home-dark-1280x700.png",fullPage:false});
+});
