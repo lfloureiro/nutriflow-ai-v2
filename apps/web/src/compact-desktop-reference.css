@@ -216,3 +216,161 @@
   .shopping-screen .nf-shopping-workspace {grid-template-columns:1fr!important}
   .people-screen .nf-family-main-grid {grid-template-columns:1fr!important}
 }
+
+/* Home desktop is ONE composition for every CSS width >=761px.
+   Previously a 1101px-specific legacy rule applied a TWO-column grid to
+   the outer shortcut panel, shrinking the inner four-button grid into half
+   the panel. Never size a child before asserting its parent layout. */
+@media (min-width:761px) {
+  .family-home.nf-home .nf-home-shortcuts {
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:stretch!important;
+    grid-template-columns:none!important;
+    gap:clamp(5px,.8vh,9px)!important;
+    min-width:0!important;
+  }
+  .family-home.nf-home .nf-home-shortcuts > .nf-panel-heading {
+    width:100%;margin:0!important;flex:0 0 auto;
+    align-self:stretch;
+  }
+  .family-home.nf-home .nf-home-shortcuts > .nf-home-shortcut-grid {
+    display:grid!important;
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    grid-auto-flow:row!important;
+    width:100%!important;
+    min-width:0!important;
+    margin:0!important;
+    gap:clamp(4px,.45vw,8px)!important;
+  }
+  .family-home.nf-home .nf-home-shortcuts .nf-home-shortcut-grid > button {
+    display:flex!important;flex-direction:column!important;
+    align-items:center!important;justify-content:center!important;
+    box-sizing:border-box!important;
+    width:100%!important;min-width:0!important;
+    height:clamp(53px,8.5vh,77px)!important;
+    min-height:0!important;
+    margin:0!important;padding:5px 3px!important;
+    gap:3px!important;white-space:normal!important;
+    appearance:none!important;
+    border:1px solid var(--color-border,#414044)!important;
+    border-radius:11px!important;
+    background:var(--color-surface-soft,#2d2c2f)!important;
+    color:var(--color-text,#f1eeea)!important;
+    box-shadow:none!important;
+    text-align:center!important;
+  }
+  .family-home.nf-home .nf-home-shortcuts .nf-home-shortcut-grid > button strong {
+    font-size:clamp(9px,.73vw,11px)!important;line-height:1.2!important;
+    color:inherit!important;white-space:normal!important;
+    overflow-wrap:anywhere!important;
+  }
+  .family-home.nf-home .nf-home-shortcuts .nf-home-shortcut-grid > button .nf-icon {
+    width:clamp(15px,1.2vw,19px)!important;
+    height:clamp(15px,1.2vw,19px)!important;
+    color:var(--color-action,#d8b28c)!important;
+  }
+  .family-home.nf-home .nf-saved-weeks {
+    display:flex!important;flex-direction:column!important;
+    align-items:stretch!important;gap:clamp(4px,.7vh,8px)!important;
+    min-width:0!important;
+  }
+  .family-home.nf-home .nf-saved-weeks > .nf-saved-weeks-heading {
+    margin:0!important;
+  }
+  .family-home.nf-home .nf-saved-weeks > .nf-home-week-cards {
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:clamp(4px,.45vw,8px)!important;
+    width:100%!important;min-width:0!important;
+  }
+  .family-home.nf-home .nf-saved-weeks .nf-home-week-card {
+    display:flex!important;flex-direction:column!important;
+    align-items:flex-start!important;justify-content:center!important;
+    min-width:0!important;
+    height:clamp(54px,8.5vh,78px)!important;min-height:0!important;
+    padding:5px 6px!important;margin:0!important;gap:2px!important;
+    background:var(--color-surface-soft,#2d2c2f)!important;
+    color:var(--color-text,#f1eeea)!important;
+    border:1px solid var(--color-border,#414044)!important;
+    border-radius:11px!important;box-shadow:none!important;
+    appearance:none!important;
+  }
+  .family-home.nf-home .nf-saved-weeks .nf-home-week-card.is-current {
+    background:var(--color-action-soft,#39312c)!important;
+    border-color:var(--color-action,#d8b28c)!important;
+  }
+  .family-home.nf-home .nf-home-week-card strong {
+    font-size:clamp(9px,.72vw,11px)!important;line-height:1.2!important;
+    overflow-wrap:anywhere;
+  }
+  .family-home.nf-home .nf-home-week-card span {
+    display:block!important;
+    font-size:clamp(8px,.65vw,10px)!important;
+    white-space:normal!important;
+    line-height:1.2!important;
+  }
+  .family-home.nf-home .nf-home-week-card .nf-icon {
+    color:var(--color-action,#d8b28c)!important;
+    width:15px!important;height:15px!important;
+  }
+  .family-home.nf-home .nf-family-nutrition-lines > .nf-nutrition-person {
+    display:grid!important;
+    grid-template-columns:minmax(0,.8fr) minmax(0,1fr)!important;
+    align-items:center!important;
+    gap:1px 5px!important;
+    padding:2px 0!important;
+    min-width:0!important;
+  }
+  .family-home.nf-home .nf-nutrition-person-name {
+    min-width:0;font-weight:650;
+    font-size:clamp(9px,.7vw,11px)!important;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .family-home.nf-home .nf-nutrition-person > strong {
+    min-width:0!important;font-size:clamp(8px,.67vw,10px)!important;
+    white-space:normal!important;text-align:right!important;
+    overflow-wrap:anywhere!important;
+    color:var(--color-muted,#b0aaa4)!important;
+  }
+  .family-home.nf-home .nf-nutrition-person > small {
+    grid-column:1/-1!important;
+    font-size:clamp(8px,.65vw,10px)!important;
+    line-height:1.2!important;
+    white-space:normal!important;
+  }
+  .family-home.nf-home .nf-family-panel-layout {
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    min-width:0!important;
+    gap:clamp(6px,.8vw,11px)!important;
+  }
+  .family-home.nf-home .nf-family-panel-nutrition {
+    min-width:0!important;
+    border-bottom:0!important;
+    border-right:1px solid var(--color-border,#414044)!important;
+    padding-right:clamp(5px,.55vw,10px)!important;
+  }
+  .family-home.nf-home .nf-family-panel-people {min-width:0!important}
+}
+@media (max-width:760px) {
+  .family-home.nf-home .nf-home-shortcuts {
+    display:flex!important;flex-direction:column!important;
+    grid-template-columns:none!important;
+  }
+  .family-home.nf-home .nf-home-shortcut-grid {
+    display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:8px!important;width:100%!important;
+  }
+  .family-home.nf-home .nf-home-week-cards {
+    display:grid!important;grid-template-columns:1fr!important;
+    gap:7px!important;width:100%!important;
+  }
+  .family-home.nf-home .nf-family-panel-layout {
+    display:grid!important;grid-template-columns:1fr!important;
+  }
+  .family-home.nf-home .nf-family-panel-nutrition {
+    border-right:0!important;
+    border-bottom:1px solid var(--color-border,#414044)!important;
+  }
+}
