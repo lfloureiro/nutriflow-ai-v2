@@ -169,8 +169,33 @@ function Launch([string]$exe,[string[]]$arg,[string]$cwd,[string]$name,[int]$por
         # initial PID. On Windows Node/Vite may spawn or hand off to another PID.
         $role = if ($name -like 'frontend*') { 'frontend' } else { 'api' }
         $proc = VerifiedServiceProcess $port $role
+        if (-not $proc -and $role -eq 'frontend') {
+            # Fresh startup had a free port, then this script launched the
+            # expected Vite executable and verified the HTTP response. Windows
+            # can report an altered Vite HTML/command-line fingerprint; in
+            # that case verify the *new* Node socket owner against launch time.
+            # Do not use this fallback when adopting an existing process.
+            $launchProc = Get-Process -Id $started.Id -ErrorAction SilentlyContinue
+            $expectedVite = Join-Path $webDir 'node_modules\vite\bin\vite.js'
+            $isViteLaunch = $exe -ieq (Executable 'node') -and
+                ($arg.Count -gt 0) -and
+                ([string]$arg[0] -ieq $expectedVite)
+            if ($launchProc -and $isViteLaunch) {
+                $candidates = @(Listener $port | Select-Object -ExpandProperty OwningProcess -Unique)
+                if ($candidates.Count -eq 1) {
+                    $socketProc = Get-Process -Id ([int]$candidates[0]) -ErrorAction SilentlyContinue
+                    if ($socketProc -and $socketProc.ProcessName -ieq 'node' -and
+                        $socketProc.StartTime -ge $started.StartTime -and (Healthy $url)) {
+                        $proc = $socketProc
+                        Write-Warning ('Accepted newly started Vite Node listener PID ' +
+                            $proc.Id + ' using launch-time ownership verification.')
+                    }
+                }
+            }
+        }
         if (-not $proc) {
-            throw ($name + ' responded but its listening process is not verified as NutriFlow.')
+            throw ($name + ' responded but its listening process is not verified as NutriFlow. ' +
+                'Inspect the warning above and ' + (Join-Path $stateDir ($name + '.err.log')))
         }
         Write-Host ($name + ' ready; listener PID ' + $proc.Id)
         return @{ pid=$proc.Id; start_utc=$proc.StartTime.ToUniversalTime().ToString('o') }
