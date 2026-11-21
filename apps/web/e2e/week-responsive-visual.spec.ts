@@ -131,7 +131,16 @@ test("weekly map remains usable from desktop through 200% equivalent narrow view
       expect(lastMeal).not.toBeNull();
       expect(lastMeal!.height).toBeGreaterThanOrEqual(height === 760 ? 89 : 118);
     }
-    if (height === 610) expect(Math.max(...mealRows)).toBeLessThanOrEqual(66);
+    if (height === 610) {
+      // The user's Windows/Chrome screenshot is ~610 CSS px high, despite
+      // ~959 physical pixels. Assert the *short* viewport gained row height.
+      expect(Math.min(...mealRows)).toBeGreaterThanOrEqual(70);
+      expect(Math.max(...mealRows)).toBeLessThanOrEqual(83);
+      const meal = await page.locator(".nf-week-map-final .weekly-grid-day").first()
+        .locator(".weekly-grid-meal").first().boundingBox();
+      expect(meal).not.toBeNull();
+      expect(meal!.height).toBeGreaterThanOrEqual(70);
+    }
     expect(fit.heroBottom).toBeLessThan(fit.navTop);
     expect(fit.gridBottom,`Last dinner row exceeds ${height}px viewport`).toBeLessThanOrEqual(fit.clientHeight-4);
     await page.screenshot({path:`test-results/visual-week-fit-dark-${width}x${height}.png`,fullPage:false});
