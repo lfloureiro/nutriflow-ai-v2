@@ -71,6 +71,21 @@ for (const appearance of ["dark", "light"] as const) {
       expect(bounds.sidebarWidth).toBeGreaterThanOrEqual(223);
       expect(bounds.sidebarWidth).toBeLessThanOrEqual(225);
 
+      if (destination.id === "familia") {
+        await expect(page.locator(".nf-family-comparison-table tbody tr")).toHaveCount(3);
+        await expect(page.locator(".nf-family-comparison-table thead th")).toHaveCount(5);
+        await expect(page.locator(".nf-family-goal-facts > div")).toHaveCount(3);
+      }
+      if (destination.id === "receitas") {
+        await expect(page.locator(".nf-recipe-browse-toolbar")).toBeVisible();
+      }
+      if (destination.id === "compras") {
+        await expect(page.locator(".nf-shopping-workspace")).toBeVisible();
+      }
+      if (destination.id === "despensa") {
+        await expect(page.locator(".nf-pantry-columns")).toBeVisible();
+      }
+
       if (destination.id === "inicio") {
         const layout = await page.locator(".nf-home").evaluate((root) => {
           const content = [...root.querySelectorAll<HTMLElement>(
