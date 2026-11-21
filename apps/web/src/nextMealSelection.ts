@@ -59,3 +59,35 @@ export function nextMealSlot(plan: FamilyMealPlan, now: number): NextMealSlot | 
   }
   return upcoming.sort((a, b) => a.at - b.at)[0] ?? null;
 }
+
+/** Explain why automatic selection could not confirm a common meal.
+ * Do not turn a rejected recipe into a recommendation or expose raw constraint keys. */
+export function mealProposalUnavailableReason(
+  mealType: MealType,
+  candidateCount: number | null,
+  exclusionReasons: string[],
+  locale: "pt-PT" | "en",
+): string {
+  const pt=locale==="pt-PT";
+  const meal=mealType==="breakfast"?(pt?"pequeno-almoço":"breakfast"):
+    mealType==="snack"?(pt?"lanche":"snack"):
+    mealType==="lunch"?(pt?"almoço":"lunch"):(pt?"jantar":"dinner");
+  if(candidateCount===0)return pt
+    ? `Não há receitas de ${meal} disponíveis para recomendação automática no catálogo. Verifica as receitas e a classificação do tipo de refeição.`
+    : `No ${meal} recipes are available for automatic recommendations in the catalogue. Check the recipes and their meal-type classification.`;
+  const hasRestrictions=exclusionReasons.some(reason=>/exclu|restrict|constraint|safety|reaction|food_item/.test(reason));
+  const hasPlanFit=exclusionReasons.some(reason=>/plan_fit|rule:|guideline:|conflict:/.test(reason));
+  const count=candidateCount!==null?(pt?`${candidateCount} receitas analisadas. `:`${candidateCount} recipes checked. `):"";
+  if(hasRestrictions&&hasPlanFit)return count+(pt
+    ? "Restrições alimentares e regras do plano impediram confirmar uma opção comum para todas as pessoas."
+    : "Food restrictions and plan rules prevented confirming an option for everyone.");
+  if(hasRestrictions)return count+(pt
+    ? "As restrições alimentares impediram confirmar uma opção comum para todos. Revê os ingredientes e as adaptações."
+    : "Food restrictions prevented a common option. Review ingredients and adaptations.");
+  if(hasPlanFit)return count+(pt
+    ? "As regras do plano nutricional impediram confirmar uma opção comum. Revê os requisitos de cada pessoa."
+    : "Nutrition plan rules prevented confirming a common option. Review each person's requirements.");
+  return count+(pt
+    ? "Nenhuma opção ficou elegível para todos. Revê os participantes, as restrições e a informação nutricional."
+    : "No option was eligible for everyone. Review attendance, restrictions and nutrition evidence.");
+}
