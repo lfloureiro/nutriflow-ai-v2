@@ -5,8 +5,8 @@ from app.development_breakfast_seed import seed_development_breakfast_catalog
 from app.local_db_update import apply_catalogue_updates
 from app.models.family import Family
 from app.models.food_catalog import FoodItem, Recipe
-from app.models.meal_candidate_planning_profile import MealCandidatePlanningProfile
 from app.models.food_transformation_profile import FoodTransformationProfile
+from app.models.meal_candidate_planning_profile import MealCandidatePlanningProfile
 
 
 def test_local_catalogue_update_never_creates_a_family_or_breakfast(
