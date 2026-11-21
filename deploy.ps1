@@ -170,6 +170,33 @@ function Test-NutriFlowApi([int]$port) {
         return [string]$data.info.title -eq 'NutriFlow AI'
     } catch { return $false }
 }
+function FindLocalApiProcess([int]$port) {
+    # The original user API may respond while Windows exposes no TCP LISTEN
+    # row in a particular query. Search the exact Python/Uvicorn command
+    # belonging to this checkout as a second independent identification.
+    if (-not (Test-NutriFlowApi $port)) { return $null }
+    $expectedEnvironment = Join-Path $root '.venv\Scripts\python.exe'
+    $matches = @()
+    foreach ($candidate in @(Get-CimInstance Win32_Process -ErrorAction Stop)) {
+        $command = [string]$candidate.CommandLine
+        if (-not $command) { continue }
+        $normalized = $command.Replace('/', '\')
+        if ($normalized.IndexOf($expectedEnvironment,
+                [StringComparison]::OrdinalIgnoreCase) -lt 0) { continue }
+        if ($normalized -notmatch 'uvicorn\s+app\.main:app') { continue }
+        if ($normalized -notmatch ('--port\s+' + $port + '(?:\s|$)')) { continue }
+        $process = Get-Process -Id ([int]$candidate.ProcessId) -ErrorAction SilentlyContinue
+        if ($process -and $process.ProcessName -match '^python') {
+            $matches += $process
+        }
+    }
+    if ($matches.Count -eq 1) { return $matches[0] }
+    if ($matches.Count -gt 1) {
+        throw ('Multiple NutriFlow Uvicorn candidates found for port ' + $port +
+            '; refusing to choose a process automatically.')
+    }
+    return $null
+}
 function IsTrustedLaunch($entry) {
     if ($null -eq $entry) { return $false }
     if ($entry -is [System.Collections.IDictionary]) {
@@ -180,7 +207,6 @@ function IsTrustedLaunch($entry) {
 }
 function StateEntry([int]$port,$entry) {
     $listeners = @(Listener $port)
-    if ($listeners.Count -eq 0) { return $null }
     if ($null -eq $entry -or -not $entry.pid) {
         return $null
     }
@@ -190,6 +216,14 @@ function StateEntry([int]$port,$entry) {
         return $null
     }
     if (@($listeners | Select-Object -ExpandProperty OwningProcess) -notcontains $process.Id) {
+        # Legacy API: accept the exact saved PID only if the matching local
+        # Uvicorn command and NutriFlow OpenAPI response still agree.
+        if ($process.ProcessName -match '^python' -and (Test-NutriFlowApi $port)) {
+            $localApi = FindLocalApiProcess $port
+            if ($localApi -and $localApi.Id -eq $process.Id) {
+                return $process
+            }
+        }
         # The Vite PID was recorded by this deploy script immediately after
         # starting Node on a previously free port; some Windows configurations
         # report a different TCP owner. Never apply this to adopted processes.
@@ -202,8 +236,17 @@ function StateEntry([int]$port,$entry) {
     return $process
 }
 function AdoptLegacy([int]$port,[string]$role) {
-    if (@(Listener $port).Count -eq 0) { return $null }
+    $hasListeners = @(Listener $port).Count -gt 0
+    $hasHttp = if ($role -eq 'api') {
+        Test-NutriFlowApi $port
+    } else {
+        Test-NutriFlowFrontend $port
+    }
+    if (-not $hasListeners -and -not $hasHttp) { return $null }
     $process = VerifiedServiceProcess $port $role
+    if (-not $process -and $role -eq 'api') {
+        $process = FindLocalApiProcess $port
+    }
     if (-not $process) {
         $owners = @(Listener $port | Select-Object -ExpandProperty OwningProcess -Unique)
         foreach ($ownerId in $owners) {
