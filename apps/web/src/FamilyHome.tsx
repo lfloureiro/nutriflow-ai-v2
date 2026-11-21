@@ -87,10 +87,13 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
     member,...displayedNutrition(member,dashboard.dashboard_date,localToday),
   }));
   const intakeRecordedPercent = dashboard.members.length ? Math.round(nutritionRows.filter(row=>row.hasConfirmedConsumption).length*100/dashboard.members.length) : 0;
+  const scheduleProgress = plannedMealProgress(dashboard.meals,now);
+  const hasRecordedIntake = nutritionRows.some(row=>row.hasConfirmedConsumption);
+  const progressMode = historicalPreview ? "historical-demo" : hasRecordedIntake ? "recorded" : "schedule";
   const shownRatio = historicalPreview
     ? Math.round(presentedRows.reduce((total,row)=>total+(row.ratio??0),0)/Math.max(1,presentedRows.filter(row=>row.ratio!==null).length))
-    : intakeRecordedPercent;
-  const scheduleProgress = plannedMealProgress(dashboard.meals,now);
+    : hasRecordedIntake ? intakeRecordedPercent
+    : scheduleProgress.total>0 ? Math.round(100*scheduleProgress.elapsed/scheduleProgress.total) : 0;
   const energyNumber = new Intl.NumberFormat(locale,{maximumFractionDigits:0});
   const plannedMeals = dashboard.meals.filter(meal=>meal.status!=="cancelled").length;
   const kinds = ["breakfast", "lunch", "snack", "dinner"];
@@ -132,13 +135,19 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
             <div className="nf-home-progress-ring" role="img"
               aria-label={historicalPreview
                 ? (pt?`${shownRatio}% da energia planeada, demonstração simulada`:`${shownRatio}% of planned energy, simulated preview`)
-                : (pt?`${shownRatio}% dos membros com consumo confirmado`:`${shownRatio}% of family with confirmed intake`)}
+                : progressMode==="schedule"
+                  ? (pt?`${shownRatio}% das refeições planeadas cujo horário já passou, sem confirmação de consumo`
+                      : `${shownRatio}% of scheduled meal times elapsed, consumption not recorded`)
+                  : (pt?`${shownRatio}% dos membros com consumo confirmado`:`${shownRatio}% of family with confirmed intake`)}
               style={{background:`conic-gradient(var(--color-action,#d8b28c) ${shownRatio}%, var(--color-surface-soft,#302d2e) 0)`}}>
-              <span><strong>{shownRatio}%</strong><small>{historicalPreview ? (pt?"simulado":"sample") : (pt?"com registo":"recorded")}</small></span>
+              <span><strong>{shownRatio}%</strong><small>{progressMode==="historical-demo" ? (pt?"simulado":"sample")
+                  : progressMode==="schedule" ? (pt?"do horário":"schedule") : (pt?"com registo":"recorded")}</small></span>
             </div>
             <small>{historicalPreview ? (pt?"Pré-visualização histórica":"Historical preview")
-              : (pt?`${scheduleProgress.elapsed}/${scheduleProgress.total} refeições na agenda até agora`
-                : `${scheduleProgress.elapsed}/${scheduleProgress.total} scheduled meals elapsed`)}</small>
+              : progressMode==="schedule"
+                ? (pt?`${scheduleProgress.elapsed}/${scheduleProgress.total} horários já decorridos · sem consumo confirmado`
+                  : `${scheduleProgress.elapsed}/${scheduleProgress.total} meal times elapsed · no confirmed intake`)
+                : (pt?"Pessoas com consumo registado":"Members with recorded intake")}</small>
           </div>
           <div className="nf-home-progress-measures">
             {presentedRows.map(({member,consumed,planned,source,ratio})=>
@@ -187,7 +196,7 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
       <div className="nf-day-slots">{kinds.map(kind=>{
         const meals=dashboard.meals.filter(meal=>meal.meal_type===kind&&meal.status!=="cancelled");
         const meal=meals[0];
-        return <button className={`nf-day-slot ${meal ? "" : "nf-day-slot-empty"}`} key={kind} type="button" onClick={openToday}>
+        return <button className={`nf-day-slot ${meal ? "" : "nf-day-slot-empty"} ${meal?.id===next?.id ? "nf-day-slot-next" : ""}`} key={kind} type="button" onClick={openToday}>
           {meal ? <TodayMealPhoto title={meal.title}/> : <span className="nf-today-photo-fallback nf-today-photo-empty"><Icon name="coffee"/></span>}
           <span className="nf-day-slot-content">
             <span className="nf-day-slot-kind"><Icon name={kind==="breakfast"?"coffee":kind==="lunch"?"utensils":kind==="snack"?"apple":"cloche"}/>{labels[kind]}</span>
