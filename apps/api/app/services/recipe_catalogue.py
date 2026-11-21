@@ -5,6 +5,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.family import Family
+from app.models.recipe_variant import FamilyRecipeVariant
 from app.models.food_catalog import (
     FoodCompositionSnapshot,
     FoodItem,
@@ -386,7 +387,17 @@ def deactivate_family_recipe(
     recipe_id: uuid.UUID,
 ) -> None:
     recipe = get_family_recipe_model(db, family_id, recipe_id)
-    if recipe.source == "family_variant":
-        raise RecipeCatalogueError("Retire the variant through its versioned workflow")
+    if recipe.source in ("family_variant", "family_adaptation"):
+        # Removing a family variant must also retire its active revision.
+        # Keep the Recipe row and historical meal references intact.
+        for variant in db.scalars(
+            select(FamilyRecipeVariant).where(
+                FamilyRecipeVariant.family_id == family_id,
+                FamilyRecipeVariant.recipe_id == recipe_id,
+                FamilyRecipeVariant.status == "active",
+            ).with_for_update()
+        ):
+            variant.status = "retired"
+            variant.version += 1
     recipe.is_active = False
     db.commit()
