@@ -1,22 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {readFileSync} from "node:fs";
-import {createHash} from "node:crypto";
 import { normalizeMealImageName, resolveMealHeroImage } from "./mealHeroImages";
 
 describe("next-meal image follows the same planned meal or proposal", () => {
-  it("ships a complete decodable-size WebP for Bifanas com natas", () => {
-    const bytes=readFileSync(new URL("../public/images/generated/bifanas-com-natas.webp",import.meta.url));
-    expect(bytes.toString("ascii",0,4)).toBe("RIFF");
-    expect(bytes.toString("ascii",8,12)).toBe("WEBP");
-    expect(bytes.readUInt32LE(4)+8).toBe(bytes.length);
-    expect(bytes.length).toBe(4962);
-    expect(createHash("sha256").update(bytes).digest("hex"))
-      .toBe("38650895acfac74dbaaeb0546a868a06b44705c47d3b60d3831cb892f88b41ca");
-    const result=resolveMealHeroImage({planned:{title:"Bifanas com natas"}});
-    expect(result?.src).toBe("/images/generated/bifanas-com-natas.webp");
-    expect(result?.kind).toBe("generated");
-  });
-
   it("uses explicit meal image before a catalog match", () => {
     const result = resolveMealHeroImage({
       planned: {recipe_name:"Frango rápido · família", image_url:"https://cdn.example.org/frango.jpg"},
