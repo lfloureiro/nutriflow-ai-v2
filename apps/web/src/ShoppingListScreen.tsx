@@ -387,7 +387,14 @@ export default function ShoppingListScreen({ familyId, initialStartDate, onOpenP
             {alternativesError && <p role="status">{locale==="pt-PT"?"Não foi possível carregar as alternativas deste plano.":"Alternatives for this plan could not be loaded."}</p>}
             {data.items.some(i=>i.status==="needed"&&foodAlternativeNames(planRecipes,i.food_item_id).length>0)&&<p className="journey-context">{locale==="pt-PT"?"As trocas marcadas «por aplicar» são propostas. As quantidades abaixo ainda pertencem à receita original; aplica uma variante validada no plano para atualizar as compras.":"Changes marked not applied are proposals. Quantities still belong to the original recipe; apply a validated variant in the plan to update shopping."}</p>}
             {data.items.length === 0 ? <div className="empty-card">{copy.empty}</div> : null}
-            {visibleItems.map((item) => (
+            {(["automatic","manual"] as const).map(source => {
+              const group=visibleItems.filter(item=>item.item_source===source);
+              return group.length ? <section className="nf-shopping-item-group" key={source}>
+                <h3><Icon name={source==="automatic"?"calendar":"bag"}/>{source==="automatic"
+                  ? (locale==="pt-PT"?"Ingredientes do plano":"Plan ingredients")
+                  : (locale==="pt-PT"?"Artigos acrescentados":"Added items")}
+                  <span>{group.length}</span></h3>
+                {group.map((item) => (
               <article className={`shopping-item ${item.status === "purchased" ? "purchased" : ""}`} key={item.id}>
                 <label className="shopping-check">
                   <input
@@ -410,7 +417,8 @@ export default function ShoppingListScreen({ familyId, initialStartDate, onOpenP
                 <ShoppingProductPanel familyId={familyId} item={item} products={retail} onChanged={setData} disabled={busy}/>
                 {item.food_item_id && item.status === "needed" && relatedRetailAlternatives(retail,item.food_item_id,item.product_selection?.product_url).length>0 ? <details className="shopping-retail"><summary>{locale === "pt-PT" ? "Comparar lojas e rever rótulos" : "Compare stores and review labels"}</summary><RetailAlternativeCards familyId={familyId} onConfirmed={()=>{void listRetailAlternatives(familyId).then(setRetail).catch(e=>setRetailError(String(e)));}} products={relatedRetailAlternatives(retail,item.food_item_id,item.product_selection?.product_url)}/></details> : null}
               </article>
-            ))}
+                ))}</section> : null;
+            })}
           </section>
 
           {editing ? (
