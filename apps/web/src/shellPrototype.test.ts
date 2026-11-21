@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 const source = (name: string) => readFileSync(new URL(name, import.meta.url), "utf8");
 const baseShell = source("./shell.css");
 const prototypeShell = source("./shell-prototype.css");
+const screenReference = source("./screen-reference.css");
 const prototypeTokens = source("./design-tokens.css");
 const main = source("./main.tsx");
 
@@ -16,7 +17,14 @@ describe("Casa à Mesa shared visual shell", () => {
   });
 
   it("loads the same final shell for every route", () => {
-    expect(main.trimEnd().endsWith('import "./shell-prototype.css";')).toBe(true);
+    const shellImport = main.indexOf('import "./shell-prototype.css";');
+    const screensImport = main.indexOf('import "./screen-reference.css";');
+    expect(shellImport).toBeGreaterThan(-1);
+    expect(screensImport).toBeGreaterThan(shellImport);
+    expect(main.trimEnd().endsWith('import "./screen-reference.css";')).toBe(true);
+    expect(screenReference).not.toContain(".side-nav");
+    expect(screenReference).not.toContain(".primary-nav");
+    expect(screenReference).not.toContain(".nf-week-map-final");
     for (const selector of [".side-nav", ".primary-nav .nav-item", ".side-nav__ai", ".side-nav__family", ".shell-topbar"]) {
       expect(prototypeShell).toContain(selector);
     }
