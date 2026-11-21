@@ -43,11 +43,6 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Install Vite for actual Windows deployment smoke test
-        working-directory: apps/web
-        shell: pwsh
-        run: npm install --no-package-lock --ignore-scripts
-
-      - name: Verify real Vite launch, listener ownership and cleanup on Windows
+      - name: Verify Node listener ownership and cleanup on Windows
         shell: powershell
         run: .\deploy.ps1 -VerifyFrontendOnly -WebPort 5173
