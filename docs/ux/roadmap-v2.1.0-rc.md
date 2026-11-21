@@ -303,3 +303,16 @@ O utilizador aprovou visualmente a Semana v2.0.86 no Chrome com fotografia de fr
 6. **Idiomas, estabilidade, privacidade e lançamento:** PT/EN, offline/erro rede, concorrência, no data leakage, revisão dos casos da checklist `docs/ux/aceitacao-manual-v2.1.0.md`; apenas depois marcar RC 2.1.0 pronta e solicitar autorização para merge.
 
 PR #76 mantém-se draft, branch existente; sem intervenções na API, DB real, serviços Windows, processos locais ou main.
+
+## v2.0.88 — cinco imagens de referência aprovadas, preservadas e início da implementação fiel (21/11/2026)
+
+O utilizador aprovou **sem alterações** as cinco imagens high-fidelity geradas nesta conversa para Início, Receitas, Família, Compras e Despensa. A decisão é mais forte do que uma direção estética: **o objetivo é reproduzir a estrutura, hierarquia, fotografias, cores, fontes, proporções, cartões, sombras, brilhos e densidade desses cinco PNG**, com toda a página principal visível no viewport desktop sempre que a quantidade real de dados o permita. Não substituir essas imagens por novas propostas ou por um layout aproximado.
+
+As **cinco imagens PNG originais** (1672 × 941 px) foram preservadas em 21/11/2026 numa pasta persistente da Biblioteca do utilizador: `NutriFlow AI v2 / UX References`, ficheiros `inicio.png`, `receitas.png`, `familia.png`, `compras.png`, `despensa.png`. Foi gerado o pacote integral `nutriflow_ux_references_v1.zip` na conversa, contendo a estrutura `docs/ux/references/*.png` e manifesto de SHA-256. No GitHub, `docs/ux/references/manifest.json` e `README.md` fixam os hashes e critérios de aceitação. **Limitação técnica explícita:** o conector GitHub disponível aqui escreve texto UTF-8 mas não aceita os ficheiros PNG binários como fonte; estes ainda não constam do Git. O ZIP permite inseri-los no checkout mantendo os hashes idênticos. Não afirmar que os PNG já foram comitados enquanto isso não acontecer.
+
+Implementação desta ronda:
+- `FamilyHome.tsx`: fotografia do próximo prato real via `resolveMealHeroImage` (o mesmo catálogo verificado que alimenta a Semana); fallback neutro quando não existe imagem segura. As decisões da próxima refeição e os dados familiares não mudaram.
+- `RecipeCatalogue.tsx`: fotografias curadas por nome de receita dentro de cartões, com `onError` e fallback para icon, sem dar aparência de composição nutricional verificada.
+- `screen-reference.css`: compactação do Início com hierarquia editorial e sem reduzir funcionalidades. Layout de catálogo de Receitas em 4 colunas no desktop, 3 no tablet, 2 no mobile; fotografias com `object-fit:cover`, cartões alinhados e informação real de ingredientes. Compras e Despensa com espaçamentos de listas e resumos refinados. Mantida a Semana aprovada sem alterações.
+- A equivalência visual exata do Início, Receitas, Família, Compras e Despensa **ainda não está demonstrada nem concluída**: continuar por lotes com screenshot em dark, light, 100% e 200%, sem scroll desnecessário e sem ocultar dados para falsificar o fit.
+- PR #76 mantém-se draft; CI em todos os lotes, sem alterações de API, base de dados real ou processos Windows.
