@@ -89,3 +89,21 @@ O utilizador mediu o browser real por DevTools desacoplado: `innerWidth=1280`, `
 **Correção:** para altura menor de 700px, o teto de crescimento passou de 8 para **22px**, mantendo distribuição pela folga real e reserva de 12px sob o calendário; a altura das linhas é definida no elemento concreto `.weekly-day-grid`. O limite de altura curta passa a 100px (evita crescimento excessivo em monitores maiores); o limite de alturas normais mantém-se. O teste E2E cobre agora explicitamente 1280×631, verifica linhas >=73px, cartão >=70px e margem >=10px. O teste do 610px e os de 760/900 continuam aplicáveis.
 
 **Critério de aceitação:** exigir CI Web/API/UX E2E no mesmo SHA e screenshot real a demonstrar utilização de espaço. A correção não altera menu, largura, dados, API ou drawers. Não voltar a adivinhar o viewport a partir das dimensões físicas da imagem.
+
+## v2.1.3–2.1.4 — retoma do roadmap visual após confirmação do Semanal (21/11/2026)
+
+O utilizador confirmou por captura real em v2.1.2 que a Semana finalmente aproveita o espaço vertical e autorizou regressar às páginas pendentes. Não alterar de novo o sizing de `WeeklyProposalPreview.tsx` e `viewport-density.css` relativo à Semana sem regressão comprovada; viewport real medido: **1280×631 CSS px**, DPR=1.5.
+
+### Compras — primeira correção de estrutura do mockup aprovado
+- `ShoppingListScreen.tsx` ganhou `nf-shopping-workspace`: lista, filtros, artigos e formulários da versão anterior preservados à esquerda; sidebar à direita, com indicadores de compras/receções e ligação ao plano/despensa, todos derivados da lista/requirements/planning_issues reais, sem inventar custo, lojas ou número de refeições.
+- A lista visível está organizada em grupos **Ingredientes do plano** (`item_source="automatic"`) e **Artigos acrescentados** (`item_source="manual"`). É uma categorização fiel aos dados existentes, não a categorização alimentar do mockup (frutas, proteínas, cereais), que requer informação científica estruturada e permanece pendente.
+- `viewport-density.css` fornece CSS scoped de duas colunas no desktop e uma coluna com sidebar adaptável em tablet/mobile, evitando novos tamanhos globais.
+- `shell-visual-parity.spec.ts` exige workspace e duas áreas laterais no ambiente CI sintético; não semeia artigos fictícios.
+- Continua a faltar: hero fotográfico de compras do mockup, grupos por categorias alimentares verificadas, fontes reais de preços comparáveis e painel de lojas baseado em evidência. **Não aprovar paridade visual**.
+- As operações de checkbox, edição em drawer, receção para despensa, seleção de produtos, pesquisa, filtros e listas manuais permanecem no componente original.
+- PR #76 mantém-se draft, sem alteração da API ou da base de dados real.
+
+### Próximos lotes
+1. Confirmar Web, API e UX E2E no mesmo SHA deste lote. Se o E2E falhar, corrigir antes da revisão manual.
+2. Inspecionar Compras com itens reais representativos, incluindo automática/manual, recebido/parcial e sem preço.
+3. Regressar ao Início e depois Despensa, Receitas e Família, medindo em 1280×631 e 1672×941 e comparando contra os cinco PNG aprovados.
