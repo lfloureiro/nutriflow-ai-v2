@@ -397,7 +397,9 @@
    Previous changes only targeted >=700 CSS px and never ran there.
    These rows are the PARENT grid tracks, inherited by day subgrids.
    At 610 CSS px: 25dvh - 80px = 72.5 CSS px per meal;
-   at 560: 60px; at 680: clamp to 82px. */
+   at 560: 60px; at 680: clamp to 82px.
+   This is a fallback: the mounted React grid sets measured inline tracks,
+   which must win when synthetic content exceeds the usable viewport. */
 @media (min-width:1101px) and (min-height:560px) and (max-height:699px) {
   .app-shell--meals .nf-week-map-final .weekly-calendar-scroll .weekly-day-grid {
     grid-template-rows:40px repeat(4,minmax(0,clamp(56px,calc(25dvh - 80px),82px)));
