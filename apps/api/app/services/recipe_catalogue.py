@@ -143,6 +143,17 @@ def _ingredient_read(ingredient: RecipeIngredient) -> RecipeIngredientRead:
     )
 
 
+
+def _family_recipe_image_url(recipe: Recipe) -> str | None:
+    if recipe.family_id is None:
+        return None
+    image_url = existing_image_url(
+        recipe.id, recipe.name,
+        [ingredient.food_item.name for ingredient in recipe.ingredients],
+    )
+    return image_url.replace("{family_id}", str(recipe.family_id)) if image_url else None
+
+
 def _recipe_read(recipe: Recipe) -> RecipeRead:
     composition = _latest_composition(recipe)
     is_shared = recipe.family_id is None
@@ -165,12 +176,7 @@ def _recipe_read(recipe: Recipe) -> RecipeRead:
         ingredients=[_ingredient_read(ingredient) for ingredient in recipe.ingredients],
         latest_composition=_composition_read(recipe, composition),
         nutrition_issues=_composition_issues(composition),
-        image_url=(
-            existing_image_url(
-                recipe.id, recipe.name, [ingredient.food_item.name for ingredient in recipe.ingredients]
-            ).replace("{family_id}", str(recipe.family_id))
-            if recipe.family_id else None
-        ),
+        image_url=_family_recipe_image_url(recipe),
         created_at=recipe.created_at,
         updated_at=recipe.updated_at,
     )
