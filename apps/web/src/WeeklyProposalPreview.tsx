@@ -958,7 +958,7 @@ export default function WeeklyProposalPreview({
       .find(element => element.dataset.planningDate === selectedDate);
     if (!container || !day || container.scrollWidth <= container.clientWidth) return;
     const left = Math.max(0, day.offsetLeft - (container.clientWidth - day.offsetWidth) / 2);
-    container.scrollTo({left, behavior:"instant"});
+    container.scrollTo({left, behavior:"auto"});
   }, [selectedDate, simpleWeekView, weekDates]);
   const selectedEntry =
     plan && selectedDate && selectedMealType
