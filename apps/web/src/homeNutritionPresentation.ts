@@ -37,7 +37,7 @@ export function displayedNutrition(member: FamilyDashboardMember, date: string, 
 }
 export function plannedMealProgress(scheduled: Array<{id?:string;scheduled_at:string;status:string}>,now:number,activeMealId?:string): {elapsed:number;total:number} {
   const valid=scheduled.filter(m=>m.status!=="cancelled"&&Number.isFinite(Date.parse(m.scheduled_at)));
-  return {total:valid.length,elapsed:valid.filter(m=>(m.status==="completed"||m.status==="served")||(m.id!==activeMealId&&Date.parse(m.scheduled_at)<=now)).length};
+  return {total:valid.length,elapsed:valid.filter(m=>(m.status==="completed"||m.status==="served")||((!activeMealId||m.id!==activeMealId)&&Date.parse(m.scheduled_at)<=now)).length};
 }
 
 /** Assumed intake for elapsed planned meals only; never persisted or labelled recorded.
@@ -57,7 +57,7 @@ export function scheduledMemberNutrition(
     meal.participant_person_ids.includes(member.person_id) &&
     Number.isFinite(Date.parse(meal.scheduled_at)));
   if(!eligible.length)return recorded;
-  const elapsed=eligible.filter(meal=>(meal.status==="completed"||meal.status==="served")||(meal.id!==activeMealId&&Date.parse(meal.scheduled_at)<=now)).length;
+  const elapsed=eligible.filter(meal=>(meal.status==="completed"||meal.status==="served")||((!activeMealId||meal.id!==activeMealId)&&Date.parse(meal.scheduled_at)<=now)).length;
   const ratio=Math.round(100*elapsed/eligible.length);
   const planned=parseEnergy(member.nutrition?.energy_planned_kcal);
   return {consumed:planned!==null&&planned>0?Math.round(planned*elapsed/eligible.length):null,
