@@ -360,13 +360,31 @@ export default function App() {
                   <div className="nf-family-section-header">
                     <h2>{locale === "pt-PT" ? "Perfis da família" : "Family profiles"}</h2>
                   </div>
-                  <div className="nf-family-comparison-list">
-                    {dashboard?.members.map((member) => <button key={member.person_id} type="button"
-                      onClick={() => openPerson(member.person_id)}>
-                      <strong>{memberDisplayName(member)}</strong>
-                      <span>{locale === "pt-PT" ? "Ver preferências e necessidades" : "View preferences and needs"}</span>
-                      <Icon name="arrow"/>
-                    </button>)}
+                  <div className="nf-family-comparison-table-wrap">
+                    <table className="nf-family-comparison-table">
+                      <thead><tr>
+                        <th scope="col">{locale==="pt-PT"?"Indicador":"Indicator"}</th>
+                        {dashboard?.members.map(member=><th scope="col" key={member.person_id}>
+                          <button type="button" onClick={()=>openPerson(member.person_id)}>{memberDisplayName(member)}</button>
+                        </th>)}
+                      </tr></thead>
+                      <tbody>
+                        <tr><th scope="row">{locale==="pt-PT"?"Energia planeada":"Planned energy"}</th>
+                          {dashboard?.members.map(member=><td key={member.person_id}>{Number(member.nutrition?.energy_planned_kcal??0)>0
+                            ? `${Math.round(Number(member.nutrition?.energy_planned_kcal)).toLocaleString(locale)} kcal`
+                            : (locale==="pt-PT"?"Sem dados":"No data")}</td>)}
+                        </tr>
+                        <tr><th scope="row">{locale==="pt-PT"?"Consumo registado":"Recorded intake"}</th>
+                          {dashboard?.members.map(member=><td key={member.person_id}>{Number(member.nutrition?.energy_consumed_kcal??0)>0
+                            ? `${Math.round(Number(member.nutrition?.energy_consumed_kcal)).toLocaleString(locale)} kcal`
+                            : (locale==="pt-PT"?"Sem registo":"Not recorded")}</td>)}
+                        </tr>
+                        <tr><th scope="row">{locale==="pt-PT"?"No plano de hoje":"In today's plan"}</th>
+                          {dashboard?.members.map(member=><td key={member.person_id}>{dashboard.meals.some(meal=>meal.status!=="cancelled"&&meal.participant_person_ids.includes(member.person_id))
+                            ? (locale==="pt-PT"?"Sim":"Yes") : (locale==="pt-PT"?"Não":"No")}</td>)}
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </section>
               </div>
