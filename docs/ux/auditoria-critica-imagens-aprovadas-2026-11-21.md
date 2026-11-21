@@ -128,3 +128,24 @@ O primeiro E2E de Compras apenas verificava lista vazia. Acrescentado `apps/web/
 - A Semana v2.1.2 mantém a altura aprovada, sem alterações de código nos últimos lotes.
 - Compras v2.1.4 e Despensa v2.1.5 permanecem em avaliação CI; em especial a captação de Compras preenchidas usa dados isolados e sintéticos, não representa a lista da família.
 - **Próximo trabalho de paridade:** voltar ao Início com dados representativos, e depois Receitas e Família, sempre contra os PNG originais e em 1280×631. Não aprovar por inspeção apenas de CSS.
+
+## v2.1.7 — auditoria das seis capturas reais (21/11/2026, 15h26–15h27)
+
+O utilizador enviou seis screenshots em Windows/Chrome (DPR=1,5; viewport CSS de referência 1280×631). São imagens do Início, Semana, Receitas, Família, Compras e Despensa. **A Semana permanece visualmente aceitável e não deve ser reajustada**.
+
+Problemas reproduzíveis na imagem:
+- **Início:** quatro atalhos aparecem como blocos cinzentos de estilo nativo, em duas linhas apesar de haver área larga; três cartões das semanas também cinzentos e quebrados; texto «DiogoSem consumo registadoPlaneado: 2076 kcal» e análogos sem separação; avatares ficam parcialmente cortados por painel de altura fixa.
+- **Receitas:** destaque «Banana e frutos secos» ocupa praticamente toda a altura útil; filtros e catálogo ficam fora do primeiro viewport; a referência exige destaque mais baixo e receitas visíveis.
+- **Compras:** seletor de data e período alto; os quatro indicadores ocupam duas linhas (3+1), impedindo a listagem de surgir acima da dobra; a lista gerada mostra 24 artigos e cinco questões de planeamento.
+- **Despensa:** quatro indicadores surgem como quatro linhas de texto sem cartões/spacing, e os filtros ficam no rodapé; com 0 lotes reais, o estado vazio deve manter proporções e controlo de pesquisa visíveis.
+- **Família:** quatro cartões de membros e blocos complementares já cabem, mas os campos têm muita informação genérica por falta de dados efetivamente registados; não fabricar restrições ou objetivos.
+- **Semana:** preservar a altura dos quatro momentos de refeição e os sete dias, sem regressões.
+
+**Lote implementado** (CSS late-loaded `viewport-density.css`):
+1. Selectores scoped de Início com fundos válidos `var(--surface-soft, ...)`, `var(--text, ...)`, `var(--accent, ...)`, contornando valores que podem não existir como `--color-surface-soft`; quatro atalhos e três semanas em grelhas horizontais e sem botões UA cinzentos.
+2. Linhas nutricionais explicitamente em grid de duas colunas, com unidade, consumo e planeado visualmente separados e com quebra possível; sem alterar os valores devolvidos pela API.
+3. Compras e Despensa: quatro cartões numa única linha acima de 1100 CSS px, inputs compactos, indicadores legíveis; duas colunas a 1100px e abaixo.
+4. Receitas: altura limitada do destaque e da foto no viewport desktop curto; toolbar e filtros com margens reduzidas; sem remover listas, classificação nutricional ou drawers.
+5. O teste `approved-reference-viewport.spec.ts` cobre 1280×631 dark/light, grelha de 4+3 cartões, estilos de fundos dos atalhos, indicadores Compras/Despensa e novas capturas de Início, Receitas, Compras e Despensa.
+
+**Gates:** Web CI, API CI, UX E2E no mesmo SHA e inspeção visual das capturas Chromium. Sem essa inspeção não afirmar que ficou idêntico às referências. Corrigir falhas E2E antes de voltar a pedir teste manual; usar apenas dados sintéticos no CI.
