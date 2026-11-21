@@ -193,6 +193,12 @@ for (const theme of ["light", "dark"] as const) {
         await expect(page.locator(".nf-family-preferences")).toBeVisible();
         await expect(page.locator(".nf-family-comparison")).toBeVisible();
       }
+      if (hash.includes("shopping")) {
+        await expect(page.locator(".nf-shopping-overview > div")).toHaveCount(4);
+      }
+      if (hash.includes("pantry")) {
+        await expect(page.locator(".nf-pantry-summary > div")).toHaveCount(4);
+      }
       if (!hash.includes("meals")) {
         await expect(page.locator(".home-base, .shopping-screen, .people-screen").first()).toBeVisible();
         await expect(page.locator(".shell-main .shell-loading")).toHaveCount(0);
