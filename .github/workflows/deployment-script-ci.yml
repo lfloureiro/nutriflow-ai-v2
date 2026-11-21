@@ -45,4 +45,4 @@ jobs:
 
       - name: Verify Node listener ownership and cleanup on Windows
         shell: powershell
-        run: .\deploy.ps1 -VerifyFrontendOnly -WebPort 5173
+        run: .\deploy.ps1 -VerifyFrontendOnly -VerifyNetstatOnly -WebPort 5173
