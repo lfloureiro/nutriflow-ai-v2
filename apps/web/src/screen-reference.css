@@ -691,3 +691,15 @@
   .nf-home .nf-home-shortcuts .nf-panel-heading{margin-bottom:4px}
   .nf-home .nf-home-note{font-size:9px}
 }
+
+.nf-home .nf-home-photo-credit {
+  position:absolute;z-index:3;left:8px;bottom:6px;max-width:calc(30% - 14px);
+  display:block;padding:2px 5px;border-radius:5px;
+  font:500 8px/1.2 "Manrope",sans-serif;
+  color:#fff9ed;background:#181619b8;text-decoration:none;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.nf-home .nf-home-photo-credit:focus-visible {outline:2px solid var(--nf-ref-amber)}
+@media(max-width:1100px){
+  .nf-home .nf-home-photo-credit {left:auto;right:5px;max-width:34%}
+}
