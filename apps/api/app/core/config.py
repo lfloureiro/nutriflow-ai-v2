@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     app_name: str = "NutriFlow AI"
     app_env: str = "development"
     app_debug: bool = True
+    # Development-only: apply Alembic + additive catalogue patches when API starts.
+    # Never runs in test or production, even when explicitly enabled.
+    nutriflow_auto_update_local_db: bool = True
 
     database_url: str = "postgresql+psycopg://nutriflow:nutriflow_dev@localhost:5432/nutriflow"
 
