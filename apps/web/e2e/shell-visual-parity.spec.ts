@@ -125,6 +125,25 @@ for (const theme of ["light", "dark"] as const) {
     expect(density.meals).toBe(4);
     expect(density.cardHeight).toBeLessThanOrEqual(180);
     expect(density.heroHeight).toBeLessThanOrEqual(260);
+    const arrangement=await page.evaluate(() => {
+      const root=document.querySelector<HTMLElement>(".nf-home");
+      const hero=document.querySelector<HTMLElement>(".nf-meal-hero");
+      const day=document.querySelector<HTMLElement>(".nf-today-section");
+      const family=document.querySelector<HTMLElement>(".nf-family-panel");
+      if(!root || !hero || !day || !family)throw new Error("Missing Home reference sections");
+      return {
+        template:getComputedStyle(root).gridTemplateAreas,
+        heroWidth:hero.getBoundingClientRect().width,
+        rootWidth:root.getBoundingClientRect().width,
+        dayTop:day.getBoundingClientRect().top,
+        familyTop:family.getBoundingClientRect().top,
+        heroBottom:hero.getBoundingClientRect().bottom
+      };
+    });
+    expect(arrangement.template).toContain("hero hero");
+    expect(arrangement.heroWidth).toBeGreaterThan(arrangement.rootWidth-2);
+    expect(arrangement.dayTop).toBeGreaterThanOrEqual(arrangement.heroBottom);
+    expect(Math.abs(arrangement.dayTop-arrangement.familyTop)).toBeLessThanOrEqual(4);
     await page.screenshot({path:`test-results/visual-home-${theme}-1280.png`,fullPage:true});
 
     const footerGeometry = await page.evaluate(() => {
