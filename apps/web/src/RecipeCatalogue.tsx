@@ -25,8 +25,8 @@ import type {
 } from "./api/recipeTypes";
 import { useI18n, type Locale } from "./i18n";
 
-function RecipeCardArt({name}: {name:string}) {
-  const resolved = resolveMealHeroImage({planned:{title:name}});
+function RecipeCardArt({name,imageUrl}: {name:string;imageUrl?:string|null}) {
+  const resolved = resolveMealHeroImage({planned:{title:name},recipeImageUrl:imageUrl});
   const [failedSrc,setFailedSrc] = useState<string[]>([]);
   const image = resolved && !failedSrc.includes(resolved.src)
     ? {...resolved,src:resolved.src}
@@ -907,7 +907,7 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
         const featured = photoRecipe ?? filteredRecipes[0]!;
         return <div className="nf-recipe-editorial-row">
           <button type="button" className="nf-recipe-feature" onClick={() => setSelected(featured)}>
-            <RecipeCardArt name={featured.name}/>
+            <RecipeCardArt name={featured.name} imageUrl={featured.image_url}/>
             <span className="nf-recipe-feature-copy">
               <small>{locale === "pt-PT" ? "RECEITA DO CATÁLOGO" : "FROM THE CATALOGUE"}</small>
               <strong>{featured.name}</strong>
@@ -982,7 +982,7 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
                 onClick={() => setSelected(recipe)}
                 type="button"
               >
-                <RecipeCardArt name={recipe.name}/>
+                <RecipeCardArt name={recipe.name} imageUrl={recipe.image_url}/>
                 <span className="ingredient-row__main">
                   <strong>{recipe.name}</strong>
                   <small>
