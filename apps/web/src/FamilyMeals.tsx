@@ -572,11 +572,11 @@ export default function FamilyMealsScreen({
   const [error, setError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
   const [browsingDate, setBrowsingDate] = useState(
-    initialDate ?? referenceDate ?? localDateValue(),
+    initialDate ?? localDateValue(),
   );
 
   useEffect(() => {
-    setBrowsingDate(initialDate ?? referenceDate ?? localDateValue());
+    setBrowsingDate(initialDate ?? localDateValue());
   }, [familyId, initialDate]);
   useEffect(() => {
     setEditing(null);
