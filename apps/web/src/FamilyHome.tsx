@@ -109,7 +109,7 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
         </a>}
       </section>
       <Panel className="nf-family-panel" label={pt ? "Pessoas da família" : "Family members"}>
-        <div className="nf-family-panel-layout"><section className="nf-family-panel-nutrition">
+        <div className="nf-home-family-layout-v3"><section className="nf-home-family-nutrition-v3">
         <div className="nf-family-progress-heading"><Icon name="leaf"/><strong>{pt?"Acompanhamento nutricional":"Nutrition overview"}</strong></div>
         <p className="nf-family-progress-sub">{pt?"Consumo registado e energia planeada — não são metas clínicas":"Recorded intake and planned energy — not clinical targets"}</p>
         <div className="nf-family-record-meter">
@@ -120,9 +120,9 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
           </span>
           <small>{pt?"Membros com registo hoje":"Members with intake recorded today"}</small>
         </div>
-        <div className="nf-family-nutrition-lines">
-          {nutritionWithData.map(({member,consumed,planned,hasConfirmedConsumption,ratio})=><div className="nf-nutrition-person" key={member.person_id}>
-            <span className="nf-nutrition-person-name">{memberDisplayName(member)}</span>
+        <div className="nf-home-nutrition-lines-v3">
+          {nutritionWithData.map(({member,consumed,planned,hasConfirmedConsumption,ratio})=><div className="nf-home-nutrition-row-v3" key={member.person_id}>
+            <span className="nf-home-nutrition-name-v3">{memberDisplayName(member)}</span>
             <strong>{hasConfirmedConsumption ? `${energyNumber.format(consumed!)} kcal` : (pt?"Sem registo":"Not recorded")}</strong>
             {planned !== null && planned > 0 && <small>{pt?"Planeado":"Planned"}: {energyNumber.format(planned)} kcal</small>}
             {ratio !== null && <span className="nf-nutrition-meter" role="progressbar"
@@ -137,7 +137,7 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
           <span><Icon name="people"/>{dashboard.members.length} {pt?"perfis":"profiles"}</span>
           <span><Icon name="calendar"/>{plannedMeals} {pt?"refeições no dia":"meals today"}</span>
         </div>
-        </section><section className="nf-family-panel-people">
+        </section><section className="nf-home-family-people-v3">
         <div className="nf-panel-heading"><h2>{pt ? "Quem se senta à mesa" : "Who is at the table"}</h2><span className="nf-count">{dashboard.members.length}</span></div>
         {dashboard.members.map(member=><button className="nf-person-line" type="button" key={member.person_id} onClick={()=>onOpenPerson(member.person_id)}>
           <PersonAvatar identity={member.person_id} name={memberDisplayName(member)} familyIdentity={dashboard.family_id} age={member.age_years} sex={member.sex_for_energy_calculation} appearance={member.avatar_appearance} decorative/>
