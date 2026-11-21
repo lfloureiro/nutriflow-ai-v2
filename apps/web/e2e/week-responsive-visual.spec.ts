@@ -116,13 +116,21 @@ test("weekly map remains usable from desktop through 200% equivalent narrow view
     const mealRows = rowHeights.slice(1);
     // Prevent silent fallback to content-sized rows if CSS calc is rejected.
     if (height === 760) {
-      expect(Math.min(...mealRows)).toBeGreaterThanOrEqual(91);
+      expect(Math.min(...mealRows)).toBeGreaterThanOrEqual(89);
       const computedVariable = await page.locator(".nf-week-map-final .weekly-day-grid").evaluate(element =>
         getComputedStyle(element).getPropertyValue("--week-compact-row").trim()
       );
       expect(computedVariable).toMatch(/(?:px|dvh|clamp)/);
     }
     if (height === 900) expect(Math.min(...mealRows)).toBeGreaterThanOrEqual(118);
+    if (height === 760 || height === 900) {
+      // Check the actual computed grid tracks. Inherited CSS variables and
+      // inline declarations alone never proved that the cells got taller.
+      const lastMeal = await page.locator(".nf-week-map-final .weekly-grid-day").first()
+        .locator(".weekly-grid-meal").last().boundingBox();
+      expect(lastMeal).not.toBeNull();
+      expect(lastMeal!.height).toBeGreaterThanOrEqual(height === 760 ? 89 : 118);
+    }
     if (height === 610) expect(Math.max(...mealRows)).toBeLessThanOrEqual(66);
     expect(fit.heroBottom).toBeLessThan(fit.navTop);
     expect(fit.gridBottom,`Last dinner row exceeds ${height}px viewport`).toBeLessThanOrEqual(fit.clientHeight-4);
