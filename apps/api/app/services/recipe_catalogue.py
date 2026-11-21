@@ -5,7 +5,6 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.family import Family
-from app.models.recipe_variant import FamilyRecipeVariant
 from app.models.food_catalog import (
     FoodCompositionSnapshot,
     FoodItem,
@@ -13,6 +12,7 @@ from app.models.food_catalog import (
     RecipeCompositionSnapshot,
     RecipeIngredient,
 )
+from app.models.recipe_variant import FamilyRecipeVariant
 from app.schemas.recipe_catalogue import (
     RecipeCompositionRead,
     RecipeCreate,
