@@ -154,6 +154,7 @@ for (const theme of ["light", "dark"] as const) {
       await expect(page.locator(".primary-nav .nav-item.active")).toHaveText(label);
       expect(await shellSnapshot(page), `Visual shell differs in ${theme} on ${hash}`).toEqual(baseline);
       if (hash.includes("house") || hash.includes("shopping") || hash.includes("people")) {
+        await expect(page.locator(".home-base, .shopping-screen, .people-screen").first()).toBeVisible();
         const surface = await page.evaluate(() => {
           const root=document.querySelector<HTMLElement>(".home-base, .shopping-screen, .people-screen");
           if(!root) throw new Error("Missing secondary route root");
