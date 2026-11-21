@@ -785,7 +785,7 @@ export default function WeeklyProposalPreview({
     void listRetailAlternatives(familyId).then(r=>{if(!cancelled)setLoadedRetail(r);}).catch(()=>{});
     return()=>{cancelled=true;};
   },[familyId,recipeReviews,reviewRevision]);
-  const autoStarted = useRef(false);
+  const autoStarted = useRef<string | null>(null);
   const [loadedPlan, setLoadedPlan] = useState<FamilyMealPlan | null>(null);
   const [refreshedPlan, setRefreshedPlan] = useState<FamilyMealPlan | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -1013,8 +1013,13 @@ export default function WeeklyProposalPreview({
       if (!firstPerson) throw new Error(copy.noPeople);
 
       const targets = weekDates.flatMap((planningDate) =>
-        ALL_MEAL_TYPES.filter(mealType => !autoBreakfastOnly ||
-          (mealType === "breakfast" && planningDate >= familyLocalDate(Date.now(), plan.timezone)))
+        ALL_MEAL_TYPES.filter(mealType => !autoBreakfastOnly || (
+          mealType === "breakfast" && (
+            planningDate > familyLocalDate(Date.now(), plan.timezone) ||
+            (planningDate === familyLocalDate(Date.now(), plan.timezone) &&
+              new Intl.DateTimeFormat("en-GB", {timeZone:plan.timezone,hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(Date.now()) < "08:30")
+          )
+        ))
           .filter(mealType=>!planningOptions || planningOptions.mealTypes.includes(mealType) || slotSources[slotKey(planningDate,mealType)]).flatMap((mealType) =>
           mealEntryFor(plan, planningDate, mealType) === null &&
           (planningOptions?.attendance?.find(a=>a.planning_date===planningDate && a.meal_type===mealType)?.person_ids.length ?? people.length) >= 2 &&
@@ -1246,11 +1251,13 @@ export default function WeeklyProposalPreview({
   }
 
   useEffect(() => {
-    if (autoGenerate && plan && people.length >= 2 && !autoStarted.current) {
-      autoStarted.current = true;
-      void generateProposal();
-    }
-  }, [autoGenerate, autoBreakfastOnly, plan, people]);
+    if (!autoGenerate || !plan || people.length < 2) return;
+    if (effectiveWeekStart && plan.start_date !== effectiveWeekStart) return;
+    const generationKey = `${familyId}:${plan.start_date}:${autoBreakfastOnly}`;
+    if (autoStarted.current === generationKey) return;
+    autoStarted.current = generationKey;
+    void generateProposal();
+  }, [autoGenerate, autoBreakfastOnly, plan, people, familyId, effectiveWeekStart]);
 
   return (
     <section className={`meal-plan-editor weekly-proposal-preview ${simpleWeekView ? "nf-week-map-final" : ""}`}>
