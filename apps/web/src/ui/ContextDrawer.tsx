@@ -51,10 +51,8 @@ export default function ContextDrawer({
     // Reassert the first focus once after paint, without interfering with
     // subsequent user keyboard navigation.
     const firstFocusFrame = window.requestAnimationFrame(() => {
-      if (panelRef.current?.isConnected && closeRef.current &&
-          (document.activeElement === document.body ||
-           !panelRef.current.contains(document.activeElement))) {
-        closeRef.current.focus({ preventScroll: true });
+      if (panelRef.current?.isConnected) {
+        closeRef.current?.focus({ preventScroll: true });
       }
     });
 
