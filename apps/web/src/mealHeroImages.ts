@@ -165,14 +165,19 @@ export function resolveMealHeroImage({
   const direct = safeImageURL(item.hero_image_url) ?? safeImageURL(item.image_url) ??
     safeImageURL(recipeImageUrl);
   const title = planned ? (planned.recipe_name ?? planned.title ?? null) : (proposal?.candidate_name ?? null);
-  if (direct) return {
-    src: direct,
-    alt: title ?? "Fotografia da refeição",
-    source: null,
-    author: null,
-    license: null,
-    kind: planned ? "meal" : "proposal",
-  };
+  if (direct) {
+    const generatedFromApi = direct === recipeImageUrl &&
+      /^\/api\/families\/[^/]+\/recipes\/[^/]+\/image$/.test(direct);
+    return {
+      src: direct,
+      alt: generatedFromApi ? `Ilustração gerada por IA para ${title??"a refeição"}`
+        : title ?? "Fotografia da refeição",
+      source: null,
+      author: generatedFromApi ? "Imagem ilustrativa · IA" : null,
+      license: null,
+      kind: generatedFromApi ? "generated" : planned ? "meal" : "proposal",
+    };
+  }
   const filename=GENERATED[normalizeMealImageName(title)];
   if (filename) {
     return {
