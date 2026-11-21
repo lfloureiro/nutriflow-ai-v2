@@ -80,3 +80,12 @@ Implementação: adicionar à folha CSS carregada por último (`viewport-density
 A 610px CSS esta expressão produz aproximadamente 72,5px por refeição, sem alterar largura das 7 colunas, cabeçalho, menu ou drawers. No E2E, a 610px, exigir cada linha >=70px e <=83px e manter a última linha no viewport. A regra de >=700px e as demais rotas ficam separadas. Não voltar a tentar corrigir o caso do utilizador apenas alterando CSS >=700px.
 
 **Estado:** alteração em branch/PR draft; Web/API/UX E2E no SHA final ainda por confirmar. A captura real é o gate final, não a versão numerada.
+
+## v2.1.2 — medição real do Chrome (21/11/2026, 15h)
+O utilizador mediu o browser real por DevTools desacoplado: `innerWidth=1280`, `innerHeight=631`, `devicePixelRatio=1.5`, `gridTemplateRows="40px 64px 64px 64px 64px"`, `inlineRows="40px repeat(4, 64px)"`, `gridBottom=564.479`, `cardHeight=61` e `freeSpace=66.52`. A primeira medição com DevTools acoplado deu apenas 331px de altura e não era representativa. A hipótese anterior de 610px era uma aproximação, agora substituída pelos dados de 631px.
+
+**Causa real confirmada:** o `useEffect` de `WeeklyProposalPreview.tsx` atuava no elemento correto, mas impunha `Math.min(shortWindow ? 8 : 18, floor(spare/4))`, limitando o aumento a 8px por linha apesar de 66.5px livres. Não era necessário continuar a criar regras CSS nas media queries, dado que `inlineRows` confirmava a execução do código em React.
+
+**Correção:** para altura menor de 700px, o teto de crescimento passou de 8 para **22px**, mantendo distribuição pela folga real e reserva de 12px sob o calendário; a altura das linhas é definida no elemento concreto `.weekly-day-grid`. O limite de altura curta passa a 100px (evita crescimento excessivo em monitores maiores); o limite de alturas normais mantém-se. O teste E2E cobre agora explicitamente 1280×631, verifica linhas >=73px, cartão >=70px e margem >=10px. O teste do 610px e os de 760/900 continuam aplicáveis.
+
+**Critério de aceitação:** exigir CI Web/API/UX E2E no mesmo SHA e screenshot real a demonstrar utilização de espaço. A correção não altera menu, largura, dados, API ou drawers. Não voltar a adivinhar o viewport a partir das dimensões físicas da imagem.
