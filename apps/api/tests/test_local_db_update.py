@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 from app.development_breakfast_seed import seed_development_breakfast_catalog
 from app.local_db_update import apply_catalogue_updates
 from app.models.family import Family
-from app.models.food_catalog import FoodItem
+from app.models.food_catalog import FoodItem, Recipe
+from app.models.meal_candidate_planning_profile import MealCandidatePlanningProfile
 from app.models.food_transformation_profile import FoodTransformationProfile
 
 
@@ -45,11 +46,30 @@ def test_local_catalogue_update_adds_only_missing_reference_data_and_is_idempote
     ) == before_recipes
 
 
-def test_local_catalogue_update_skips_family_without_breakfast_ingredient(
+def test_local_catalogue_update_bootstraps_breakfast_for_existing_family(
     db_session: Session,
 ) -> None:
     family = Family(name="Família sem catálogo", timezone="Europe/Lisbon")
     db_session.add(family)
     db_session.flush()
-    assert apply_catalogue_updates(db_session) == (0, 0)
-    assert db_session.scalar(select(func.count()).select_from(FoodTransformationProfile)) == 0
+    first = apply_catalogue_updates(db_session)
+    assert first == (5, 2)
+    assert db_session.scalar(
+        select(func.count()).select_from(Recipe).where(
+            Recipe.source == "development-breakfast"
+        )
+    ) == 11
+    assert db_session.scalar(
+        select(func.count()).select_from(MealCandidatePlanningProfile).where(
+            MealCandidatePlanningProfile.family_id == family.id,
+            MealCandidatePlanningProfile.source == "development-breakfast",
+        )
+    ) == 11
+    assert db_session.scalar(select(func.count()).select_from(FoodTransformationProfile)) == 5
+    assert apply_catalogue_updates(db_session) == (5, 2)
+    assert db_session.scalar(
+        select(func.count()).select_from(Recipe).where(
+            Recipe.source == "development-breakfast"
+        )
+    ) == 11
+    assert db_session.scalar(select(func.count()).select_from(Family)) == 1
