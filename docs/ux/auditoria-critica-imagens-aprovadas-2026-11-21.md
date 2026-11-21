@@ -115,3 +115,8 @@ O utilizador confirmou por captura real em v2.1.2 que a Semana finalmente aprove
 - O agrupamento da lista de Compras permanece por origem **automática/manual**, sustentada pelos metadados reais; o mockup com categorias alimentares e preços permanece pendente. Evitar apresentar origem como taxonomia nutricional.
 - A Semana v2.1.2 foi aprovada visualmente pelo utilizador, com altura dos cartões corrigida, e **não foi alterada** nestes lotes.
 - Validação necessária: Web CI, API CI e UX E2E do SHA final; comparar os ecrãs com dados preenchidos com os PNG originais. A aprovação do layout global não resulta apenas de passar compilação.
+
+## Verificação adicional de conteúdo: Compras preenchidas
+O primeiro E2E de Compras apenas verificava lista vazia. Acrescentado `apps/web/e2e/shopping-content-visual.spec.ts`, que cria uma família sintética e um artigo manual via API na base isolada do CI, abre Compras em **1280×631** e **1672×941**, confirma dois painéis laterais, agrupamento «Artigos acrescentados», texto do artigo e ausência de overflow horizontal; as capturas `shopping-live-synthetic-*.png` são arquivadas em `.github/workflows/ux-e2e.yml`. Não representa dados reais e não prova paridade com o mockup com categorias alimentares, fotografias ou preços.
+
+**Estado do lote v2.1.5:** aguardar resultado Web/API/UX E2E do SHA final. Continuar a auditoria das restantes rotas, especialmente Início e Receitas, depois da confirmação destes testes. A Semana aprovada permanece imutável.
