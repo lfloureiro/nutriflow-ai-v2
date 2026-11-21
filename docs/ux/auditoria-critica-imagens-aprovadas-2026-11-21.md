@@ -43,3 +43,13 @@ O anterior passe genérico de v2.0.87–2.0.92 e a existência de testes de view
 - Correção: `viewport-density.css` é carregado por último para impor menu 224px (205px em tablet), itens de navegação 40px (34px em janelas curtas), topbar 60px (52px curta), logótipo 38px, fonte nav 13px, paddings e cartões compactos, independentemente do zoom físico. Navegação mobile e funcionalidades permanecem intocadas.
 - Atualizadas expectativas E2E do tamanho do shell para não regredir ao anterior menu gigantesco. É um patch emergencial e **não demonstra fidelidade pixel a pixel**.
 - Revalidar 1229×610, 1280×700 e 1672×941 em dark/light. Exigir screenshots de Chromium e CI Web/API/UX no SHA final. Não pedir ao utilizador novas imagens enquanto a app não estiver legível.
+
+## v2.0.96 — 21/11/2026, conteúdo real e densidade após screenshots locais
+O utilizador forneceu capturas reais do Início e Semana a 1536 × 959 pixels, com Chrome e taskbar visíveis, confirmando o fit geral da 2.0.95 e pedindo cards semanais ligeiramente mais altos. O screenshot do Início mostrava ainda quatro valores `0.00 kcal` sem separadores, ações rápidas cinzentas e cartões de semanas com quebra incorreta.
+
+- `WeeklyProposalPreview.tsx`: calculador de espaço livre da grelha passa a distribuir até 18px por linha (em vez de 12px) e elevar o limite de altura 122→130px **apenas com altura real disponível**. Em janelas menores que 700px os limites anteriores mantêm-se, conservando a segurança do mapa semanal de 610px. O cálculo permanece condicionado a caber no viewport.
+- `FamilyHome.tsx`: linhas de nutrição separadas por pessoa, consumo em kcal arredondado e estado «Sem consumo registado» quando zero, explicitando energia planeada quando disponível. Barras usam consumo ÷ energia **planeada**, apenas com números válidos e ambos positivos; não representam uma meta clínica. Um resumo mostra número verdadeiro de membros e de refeições do dia. Continua disponível acesso a cada perfil.
+- `viewport-density.css`: quatro atalhos numa grelha horizontal consistente, superfícies do tema (não botões cinzentos de browser), os três planos adjacentes em colunas reais com quebra de texto adequada, e estilos compactos para janelas de pouca altura. Mobile mantém grelha adaptativa.
+- `FamilyHome.test.ts`: cenários com consumo zero, valores reais planeados e ausência de denominador válido.
+
+**Ainda não está certificada equivalência ao mockup.** A semana tem de preservar todas as linhas e cenas reais. Validar Web/API/E2E **no mesmo SHA final**, inspeção de PNG sintéticos e, antes de qualquer pedido de aceitação visual, confronto com a referência aprovada.
