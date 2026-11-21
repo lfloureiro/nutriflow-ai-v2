@@ -15,6 +15,7 @@ param(
     [switch]$ForceRestart,
     [switch]$VerifyFrontendOnly,
     [switch]$VerifyNetstatOnly,
+    [switch]$VerifyApiCandidateOnly,
     [switch]$Diagnose
 )
 Set-StrictMode -Version Latest
@@ -170,6 +171,11 @@ function Test-NutriFlowApi([int]$port) {
         return [string]$data.info.title -eq 'NutriFlow AI'
     } catch { return $false }
 }
+function SelectSocketApiCandidate([object[]]$candidateProcesses,[int[]]$owners) {
+    $socketMatches = @($candidateProcesses | Where-Object { $owners -contains $_.Id })
+    if ($socketMatches.Count -eq 1) { return $socketMatches[0] }
+    return $null
+}
 function FindLocalApiProcess([int]$port,[bool]$AllowSelection = $false) {
     # Never infer the active API from process count alone: old deployments
     # can leave several Uvicorn processes with identical command lines.
@@ -194,11 +200,11 @@ function FindLocalApiProcess([int]$port,[bool]$AllowSelection = $false) {
     # The TCP socket owner takes precedence only when exactly one matching
     # candidate owns the port. Never select by process age or list order.
     $owners = @(Listener $port | Select-Object -ExpandProperty OwningProcess -Unique)
-    $socketMatches = @($candidateProcesses | Where-Object { $owners -contains $_.Id })
-    if ($socketMatches.Count -eq 1) {
+    $socketOwner = SelectSocketApiCandidate $candidateProcesses $owners
+    if ($socketOwner) {
         Write-Host ('Verified Uvicorn socket owner on port ' + $port +
-            ': PID ' + $socketMatches[0].Id)
-        return $socketMatches[0]
+            ': PID ' + $socketOwner.Id)
+        return $socketOwner
     }
 
     if ($candidateProcesses.Count -eq 1) { return $candidateProcesses[0] }
@@ -416,6 +422,28 @@ function Save($state) {
     $state | ConvertTo-Json -Depth 6 | Set-Content -Path $stateFile -Encoding UTF8
 }
 if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir | Out-Null }
+if ($VerifyApiCandidateOnly) {
+    # No processes are started or stopped. Simulate duplicate Uvicorn
+    # candidates and verify that the TCP owner wins, never the older PID.
+    $candidates = @(
+        [pscustomobject]@{ Id=101 },
+        [pscustomobject]@{ Id=202 }
+    )
+    $winner = SelectSocketApiCandidate $candidates @([int]202)
+    if (-not $winner -or $winner.Id -ne 202) {
+        throw 'Failed to select the sole TCP-owning Uvicorn process.'
+    }
+    $ambiguous = SelectSocketApiCandidate $candidates @()
+    if ($null -ne $ambiguous) {
+        throw 'Ambiguous API candidates must not be selected automatically.'
+    }
+    $multiple = SelectSocketApiCandidate $candidates @([int]101,[int]202)
+    if ($null -ne $multiple) {
+        throw 'Multiple socket owners must not select a process automatically.'
+    }
+    Write-Host 'Windows duplicate-Uvicorn candidate selection tests passed.'
+    exit 0
+}
 if ($Diagnose) {
     Show-PortDiagnostics $ApiPort 'api'
     Show-PortDiagnostics $WebPort 'frontend'
