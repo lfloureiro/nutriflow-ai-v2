@@ -46,3 +46,7 @@ jobs:
       - name: Verify Node listener ownership and cleanup on Windows
         shell: powershell
         run: .\deploy.ps1 -VerifyFrontendOnly -VerifyNetstatOnly -WebPort 5173
+
+      - name: Verify duplicate Uvicorn process selection without touching services
+        shell: powershell
+        run: .\deploy.ps1 -VerifyApiCandidateOnly
