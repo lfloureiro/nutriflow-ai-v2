@@ -345,7 +345,7 @@
 
 /* v2.0.81 — uniform typography density for the shared desktop shell.
    The 80% browser screenshot is reproduced at 100% without zooming the UI. */
-@media (min-width: 1101px) and (min-height: 680px) and (max-height: 960px) {
+@media (min-width: 1101px) and (min-height: 560px) and (max-height: 960px) {
   .side-nav {
     gap: 18px;
     padding: 22px 20px 14px;
