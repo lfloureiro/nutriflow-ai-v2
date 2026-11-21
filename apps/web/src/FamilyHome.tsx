@@ -77,6 +77,10 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
           src={shownHomeImage.src} alt={shownHomeImage.alt} loading="eager" referrerPolicy="no-referrer"
           onError={() => setFailedHomeImage(shownHomeImage.src)} /> :
           <img className="nf-meal-hero-art" src="/images/shared-meal.svg" alt="" aria-hidden="true"/>}
+        {shownHomeImage?.source && <a className="nf-home-photo-credit" href={shownHomeImage.source}
+          target="_blank" rel="noopener noreferrer">
+          {shownHomeImage.author} · {shownHomeImage.license}
+        </a>}
       </section>
       <Panel className="nf-family-panel" label={pt ? "Pessoas da família" : "Family members"}>
         <div className="nf-family-progress-heading"><Icon name="leaf"/><strong>{pt?"Acompanhamento nutricional":"Nutrition overview"}</strong></div>
