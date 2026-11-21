@@ -230,3 +230,15 @@ Implementação desta ronda:
 - `screen-reference.css`: compactação do Início com hierarquia editorial e sem reduzir funcionalidades. Layout de catálogo de Receitas em 4 colunas no desktop, 3 no tablet, 2 no mobile; fotografias com `object-fit:cover`, cartões alinhados e informação real de ingredientes. Compras e Despensa com espaçamentos de listas e resumos refinados. Mantida a Semana aprovada sem alterações.
 - A equivalência visual exata do Início, Receitas, Família, Compras e Despensa **ainda não está demonstrada nem concluída**: continuar por lotes com screenshot em dark, light, 100% e 200%, sem scroll desnecessário e sem ocultar dados para falsificar o fit.
 - PR #76 mantém-se draft; CI em todos os lotes, sem alterações de API, base de dados real ou processos Windows.
+
+### Inspeção visual das capturas Chromium v2.0.88 — 21/11/2026
+
+Commit `804e1e52ca225ec8eee9ed521f92c6acbecddf02`: **Web CI + API CI + UX E2E synthetic 3/3 success**. Artefacto de 16 capturas `screen-visual-ef000a5a4c28cedfc973489694de1670bc1a621c` descarregado e comparado com as cinco referências aprovadas.
+
+- **Início:** refatorado para hero full-width com imagem à esquerda, cartões do dia à esquerda, painel familiar à direita, atalhos e semanas guardadas em baixo; CSS com medição por viewport. A nova composição aproxima-se da referência mas ainda tem diferenças importantes: falta o painel de progresso nutricional real, a densidade/imagem dos quatro pratos e atalhos em quatro mosaicos. Não mostrar os 72% ou valores inventados do mock.
+- **Receitas:** cartões com fotografias curadas e grelha 4/3/2 colunas implementados, mas o conjunto sintético E2E não contém receitas, por isso o PNG mostra o estado vazio. Ainda faltam um bloco de receita em destaque e painel de sugestões com dados reais.
+- **Família:** grelha compacta de cartões de membros em vez das antigas linhas e preservação dos drawers. Falta a área comparativa de restrições/preferências baseada em dados reais.
+- **Compras e Despensa:** hierarquia de superfícies e densidade refinadas. Capturas E2E sintéticas vazias não validam a fidelidade dos estados preenchidos nem as informações de stock. Continuam a faltar as secções laterais e resumos específicos dos desenhos, baseados em dados reais.
+- O shell comum e a **Semana aprovada** passaram a regressão. Próximos lotes devem ser guiados pelos PNG originais e não por analogias visuais. Critério de fit: página principal inteira no viewport desktop se o conteúdo permitir, scroll próprio em listas extensas. A equivalência pixel a pixel **não está aprovada**.
+
+**Estado dos ficheiros de referência:** as cinco imagens PNG e o ZIP original estão persistidos na Biblioteca do utilizador, `NutriFlow AI v2 / UX References`; no GitHub estão os hashes/manifesto e instruções de importação binária. Não esquecer que os PNG não estão ainda dentro da árvore Git até importação explícita do ZIP pelo utilizador ou disponibilização de escrita binária.
