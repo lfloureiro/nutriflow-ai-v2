@@ -940,10 +940,24 @@ export default function WeeklyProposalPreview({
         : [],
     [effectiveWeekStart],
   );
-  useEffect(()=>{
-    const today=plan ? new Intl.DateTimeFormat("en-CA",{timeZone:plan.timezone,year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()) : "";
-    setSelectedDate(current=>current && weekDates.includes(current) ? current : weekDates.includes(today) ? today : weekDates[0] ?? null);
-  },[weekDates,plan?.timezone]);
+  useEffect(() => {
+    const today = plan ? familyLocalDate(Date.now(), plan.timezone) : "";
+    setSelectedDate(current =>
+      current && weekDates.includes(current) ? current :
+      weekDates.includes(today) ? today : weekDates[0] ?? null
+    );
+  }, [weekDates, plan?.timezone]);
+  // On narrow layouts the current/selected day must also be visible,
+  // not merely marked as selected off-screen to the right.
+  useEffect(() => {
+    if (!selectedDate || !simpleWeekView) return;
+    const container = weekGridRef.current?.parentElement;
+    const day = Array.from(weekGridRef.current?.querySelectorAll<HTMLElement>(".weekly-grid-day") ?? [])
+      .find(element => element.dataset.planningDate === selectedDate);
+    if (!container || !day || container.scrollWidth <= container.clientWidth) return;
+    const left = Math.max(0, day.offsetLeft - (container.clientWidth - day.offsetWidth) / 2);
+    container.scrollTo({left, behavior:"instant"});
+  }, [selectedDate, simpleWeekView, weekDates]);
   const selectedEntry =
     plan && selectedDate && selectedMealType
       ? mealEntryFor(plan, selectedDate, selectedMealType)
@@ -1376,6 +1390,7 @@ export default function WeeklyProposalPreview({
                 return (
                   <article
                     className={`weekly-grid-day ${selectedDate === planningDate ? "selected is-mobile-day" : ""}`}
+                    data-planning-date={planningDate}
                     key={planningDate}
                   >
                     <button
