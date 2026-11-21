@@ -217,10 +217,11 @@ def test_variant_family_scope_duplicates_missing_evidence_and_immutability(
         ).status_code
         == 422
     )
-    assert (
-        client.delete(f"/api/families/{family.id}/recipes/{variant['recipe_id']}").status_code
-        == 422
-    )
+    assert client.delete(
+        f"/api/families/{family.id}/recipes/{variant['recipe_id']}"
+    ).status_code == 204
+    assert not db_session.get(Recipe, variant["recipe_id"]).is_active
+    assert next(item for item in client.get(path).json() if item["id"] == variant["id"])["status"] == "retired"
     assert db_session.get(Recipe, base.id).is_active
 
 
