@@ -6,7 +6,7 @@ export type PresentedNutrition = {
   consumed: number | null;
   planned: number | null;
   ratio: number | null;
-  source: "recorded" | "simulated" | "missing";
+  source: "recorded" | "simulated" | "scheduled" | "missing";
 };
 export function isPastDashboardDate(date: string, today: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(date) && date < today;
@@ -38,4 +38,27 @@ export function displayedNutrition(member: FamilyDashboardMember, date: string, 
 export function plannedMealProgress(scheduled: Array<{scheduled_at:string;status:string}>,now:number): {elapsed:number;total:number} {
   const valid=scheduled.filter(m=>m.status!=="cancelled"&&Number.isFinite(Date.parse(m.scheduled_at)));
   return {total:valid.length,elapsed:valid.filter(m=>Date.parse(m.scheduled_at)<=now).length};
+}
+
+/** Assumed intake for elapsed planned meals only; never persisted or labelled recorded.
+ * Participants are respected and cancellations excluded. Use a day-level planned
+ * calorie budget only when supplied by the backend. */
+export function scheduledMemberNutrition(
+  member: FamilyDashboardMember,
+  date: string,
+  today: string,
+  meals: Array<{scheduled_at:string;status:string;participant_person_ids:string[]}>,
+  now: number,
+): PresentedNutrition {
+  const recorded=displayedNutrition(member,date,today);
+  if(recorded.source!=="missing" || date!==today)return recorded;
+  const eligible=meals.filter(meal=>meal.status!=="cancelled" &&
+    meal.participant_person_ids.includes(member.person_id) &&
+    Number.isFinite(Date.parse(meal.scheduled_at)));
+  if(!eligible.length)return recorded;
+  const elapsed=eligible.filter(meal=>Date.parse(meal.scheduled_at)<=now).length;
+  const ratio=Math.round(100*elapsed/eligible.length);
+  const planned=parseEnergy(member.nutrition?.energy_planned_kcal);
+  return {consumed:planned!==null&&planned>0?Math.round(planned*elapsed/eligible.length):null,
+    planned,ratio,source:"scheduled"};
 }
