@@ -419,3 +419,37 @@
     --week-compact-row: clamp(56px, calc(25dvh - 96.5px), 128px);
   }
 }
+
+
+/* v2.0.94 — a failed automatic proposal must not push the weekly map
+   below the fold. Keep the reason readable; expand for per-slot diagnostics.
+   Scope to simple Week only, leaving the full planner unchanged. */
+.app-shell--meals .nf-week-map-final .nf-week-planning-diagnostics {
+  min-width: 0;
+  padding: 9px 13px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.app-shell--meals .nf-week-map-final .nf-week-planning-diagnostics > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.app-shell--meals .nf-week-map-final .nf-week-planning-diagnostics > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+.app-shell--meals .nf-week-map-final .nf-week-planning-diagnostics__details {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.app-shell--meals .nf-week-map-final .nf-week-planning-diagnostics__details p {
+  margin: 0 0 6px;
+}
