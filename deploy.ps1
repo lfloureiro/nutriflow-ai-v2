@@ -179,7 +179,13 @@ Write-Host ('Fetching and pulling ' + $Branch)
 Run $git @('-C',$root,'fetch','origin',$Branch)
 Run $git @('-C',$root,'pull','--ff-only','origin',$Branch)
 $after = (& $git -C $root rev-parse HEAD).Trim()
-$changed = if ($before -ne $after) { @(& $git -C $root diff --name-only $before $after) } else { @() }
+# Keep this as an actual array even when no files changed.
+# PowerShell's expression assignment collapses an empty @() to $null.
+$changed = @()
+if ($before -ne $after) {
+    $changed = @(& $git -C $root diff --name-only $before $after)
+    if ($LASTEXITCODE -ne 0) { throw 'git diff failed after updating the repository.' }
+}
 $apiChanged = $ForceRestart -or $adoptedApi -or -not $apiRunning -or
     @($changed | Where-Object { $_ -match '^(apps/api/|database/|alembic\.ini$|compose\.yml$|deploy\.ps1$)' }).Count -gt 0
 $webChanged = $ForceRestart -or $adoptedWeb -or -not $webRunning -or
