@@ -8,6 +8,7 @@ import {resolveMealHeroImage} from "./mealHeroImages";
 import PersonAvatar from "./ui/PersonAvatar";
 import {EmptyState, Panel} from "./ui/primitives";
 import "./planning-journey.css";
+import "./home-v3.css";
 
 export function memberDisplayName(member: FamilyDashboardMember): string {
   return [member.first_name, member.last_name].filter(Boolean).join(" ");
