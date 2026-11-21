@@ -71,6 +71,9 @@ test("weekly map remains usable from desktop through 200% equivalent narrow view
         heroBottom:hero.getBoundingClientRect().bottom,
         navTop:nav.getBoundingClientRect().top,
         clientHeight:document.documentElement.clientHeight,
+        gridTop:grid.getBoundingClientRect().top,
+        gridRows:getComputedStyle(grid).gridTemplateRows,
+        heroHeight:hero.getBoundingClientRect().height,
       };
     });
     // At 100% Chrome zoom text density must match the approved 80%-zoom
