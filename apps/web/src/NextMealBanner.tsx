@@ -8,7 +8,7 @@ import type {
 } from "./api/weeklyPlanningTypes";
 import type { Person } from "./api/types";
 import { useI18n } from "./i18n";
-import { familyLocalDate, nextMealSlot } from "./nextMealSelection";
+import { familyLocalDate, nextMealSlot, mealProposalUnavailableReason } from "./nextMealSelection";
 import {
   recommendationCandidates,
 } from "./recommendationPlanning";
@@ -22,7 +22,7 @@ export type HeroSuggestedMeal = {
   proposal: SharedWeeklyPlanProposal;
 };
 
-type LoadState = { slot: string; proposal: SharedWeeklyPlanProposal; request: SharedWeeklyPlanProposalRequest } | null;
+type LoadState = { slot: string; proposal: SharedWeeklyPlanProposal; request: SharedWeeklyPlanProposalRequest; candidateCount: number } | null;
 const LABELS = {
   "pt-PT": { title: "PRÓXIMA REFEIÇÃO", planned: "Planeada para a família", proposed: "PROPOSTA NUTRIFLOW",
     review: "Rever e adaptar", open: "Ver refeição", retry: "Outra sugestão",
@@ -68,6 +68,7 @@ export default function NextMealHero({
   const [suggestion, setSuggestion] = useState<LoadState>(null);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [failedKey, setFailedKey] = useState<string | null>(null);
+  const [emptyCatalogKey, setEmptyCatalogKey] = useState<string | null>(null);
   const [rejected, setRejected] = useState<string[]>([]);
 
   useEffect(() => {
@@ -104,6 +105,7 @@ export default function NextMealHero({
     setSuggestion(null);
     setPendingKey(identity);
     setFailedKey(null);
+    setEmptyCatalogKey(null);
     const first = people[0];
     if (!first) return;
     const rejectedKeys = new Set(rejected);
@@ -113,7 +115,7 @@ export default function NextMealHero({
       const candidates = recommendationCandidates(
         bootstrap.candidates.filter(candidate => !rejectedKeys.has(candidate.catalog_key)), ["cooked"], slot.mealType,
       );
-      if (!candidates.length) return null;
+      if (!candidates.length) return {empty: true as const};
       const request: SharedWeeklyPlanProposalRequest = {
         person_ids: people.map(person => person.id),
         slots: [{
@@ -133,9 +135,12 @@ export default function NextMealHero({
         }],
         max_combinations: 128,
       };
-      return {request, proposal: await requestSharedWeeklyPlanProposal(familyId, request)};
+      return {request, proposal: await requestSharedWeeklyPlanProposal(familyId, request), candidateCount:candidates.length};
     })().then(result => {
-      if (!cancelled && result) setSuggestion({slot: identity, ...result});
+      if (!cancelled && result) {
+        if ("empty" in result) setEmptyCatalogKey(identity);
+        else setSuggestion({slot: identity, ...result});
+      }
     }).catch(() => {
       if (!cancelled) setFailedKey(identity);
     }).finally(() => {
@@ -148,6 +153,10 @@ export default function NextMealHero({
   const currentSuggestion = suggestion?.slot === identity ? suggestion : null;
   const choice = currentSuggestion?.proposal.selected_plan?.choices[0] ?? null;
   const name = slot?.entry?.recipe_name ?? slot?.entry?.title ?? choice?.candidate_name ?? null;
+  const noProposalDetails = slot && !slot.entry && !choice && (emptyCatalogKey===identity || currentSuggestion)
+    ? mealProposalUnavailableReason(slot.mealType, emptyCatalogKey===identity ? 0 : currentSuggestion?.candidateCount ?? null,
+      currentSuggestion?.proposal.skipped_slots.flatMap(item=>item.exclusion_reasons) ?? [],locale)
+    : null;
   const photo = resolveMealHeroImage({planned:slot?.entry, proposal:slot?.entry ? null : choice});
   const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
   const showingPhoto = photo && photo.src !== failedPhoto ? photo : null;
@@ -164,7 +173,7 @@ export default function NextMealHero({
   const heading = name ?? (busy ? copy.pending : failedKey === identity || loadError ? copy.unavailable :
     people.length < 2 ? copy.needPeople : copy.noSuggestion);
   const secondary = ready ? copy.planned : choice ? copy.disclaimer :
-    busy ? copy.emptyHelp : people.length < 2 ? copy.emptyHelp : copy.noSuggestionHelp;
+    busy ? copy.emptyHelp : people.length < 2 ? copy.emptyHelp : noProposalDetails ?? copy.noSuggestionHelp;
 
   return (
     <section className="nf-next-meal-hero" aria-label={copy.title}>
