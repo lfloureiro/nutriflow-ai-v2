@@ -73,3 +73,38 @@ def test_local_catalogue_update_bootstraps_breakfast_for_existing_family(
         )
     ) == 11
     assert db_session.scalar(select(func.count()).select_from(Family)) == 1
+
+def test_catalogue_completion_preserves_existing_family_breakfast_preferences(
+    db_session: Session,
+) -> None:
+    family = Family(name="Família com escolhas guardadas", timezone="Europe/Lisbon")
+    db_session.add(family)
+    db_session.flush()
+    seed_development_breakfast_catalog(db_session, families=(family,))
+    profile = db_session.scalar(
+        select(MealCandidatePlanningProfile).where(
+            MealCandidatePlanningProfile.family_id == family.id,
+            MealCandidatePlanningProfile.source == "development-breakfast",
+        )
+    )
+    assert profile is not None
+    profile.auto_plan_enabled = False
+    # Simulate one missing profile from a partial catalogue import.
+    other = db_session.scalar(
+        select(MealCandidatePlanningProfile).where(
+            MealCandidatePlanningProfile.family_id == family.id,
+            MealCandidatePlanningProfile.id != profile.id,
+            MealCandidatePlanningProfile.source == "development-breakfast",
+        )
+    )
+    assert other is not None
+    db_session.delete(other)
+    db_session.flush()
+    assert apply_catalogue_updates(db_session) == (5, 2)
+    assert db_session.get(MealCandidatePlanningProfile, profile.id).auto_plan_enabled is False
+    assert db_session.scalar(
+        select(func.count()).select_from(MealCandidatePlanningProfile).where(
+            MealCandidatePlanningProfile.family_id == family.id,
+            MealCandidatePlanningProfile.source == "development-breakfast",
+        )
+    ) == 11
