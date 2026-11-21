@@ -205,7 +205,6 @@
   .nf-home .nf-meal-hero { min-height: 142px; }
   .nf-home .nf-meal-hero-copy { padding: 9px 13px; }
   .nf-home .nf-meal-hero p { margin-bottom: 5px; }
-  .nf-home .nf-family-panel .nf-person-line:nth-of-type(n+4) { display:none; }
   .nf-home .nf-today-section { margin-top: 9px; }
   .nf-home .nf-day-slot { min-height: 91px; }
   .nf-home .nf-home-shortcuts { margin-top: 9px; }
