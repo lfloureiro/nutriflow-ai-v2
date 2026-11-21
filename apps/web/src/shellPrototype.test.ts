@@ -7,6 +7,7 @@ const source = (name: string) => readFileSync(new URL(name, import.meta.url), "u
 const baseShell = source("./shell.css");
 const prototypeShell = source("./shell-prototype.css");
 const screenReference = source("./screen-reference.css");
+const viewportDensity = source("./viewport-density.css");
 const prototypeTokens = source("./design-tokens.css");
 const main = source("./main.tsx");
 
@@ -21,7 +22,11 @@ describe("Casa à Mesa shared visual shell", () => {
     const screensImport = main.indexOf('import "./screen-reference.css";');
     expect(shellImport).toBeGreaterThan(-1);
     expect(screensImport).toBeGreaterThan(shellImport);
-    expect(main.trimEnd().endsWith('import "./screen-reference.css";')).toBe(true);
+    const densityImport = main.indexOf('import "./viewport-density.css";');
+    expect(densityImport).toBeGreaterThan(screensImport);
+    expect(main.trimEnd().endsWith('import "./viewport-density.css";')).toBe(true);
+    expect(viewportDensity).toContain("width: 224px");
+    expect(viewportDensity).toContain("min-height:40px");
     expect(screenReference).not.toContain(".side-nav");
     expect(screenReference).not.toContain(".primary-nav");
     expect(screenReference).not.toContain(".nf-week-map-final");
