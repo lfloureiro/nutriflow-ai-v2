@@ -8,8 +8,8 @@ from app.development_breakfast_seed import seed_development_breakfast_catalog
 from app.development_legacy_recipe_planning_seed import (
     seed_development_legacy_recipe_planning_catalog,
 )
-from app.development_plant_milk_seed import seed_development_plant_milk_options
 from app.development_plan_fit_seed import seed_development_plan_fit
+from app.development_plant_milk_seed import seed_development_plant_milk_options
 from app.development_planning_profile_seed import (
     LOUREIRO_LEGACY_PROFILE_DEFINITIONS,
     LOUREIRO_PROFILE_SOURCE,
