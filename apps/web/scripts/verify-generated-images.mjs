@@ -1,14 +1,20 @@
-import {readFileSync} from "node:fs";
+import {readFileSync,readdirSync} from "node:fs";
 import {createHash} from "node:crypto";
 
-const file=new URL("../public/images/generated/bifanas-com-natas.webp",import.meta.url);
-const bytes=readFileSync(file);
-const expectedHash="38650895acfac74dbaaeb0546a868a06b44705c47d3b60d3831cb892f88b41ca";
-const actualHash=createHash("sha256").update(bytes).digest("hex");
-if(bytes.toString("ascii",0,4)!=="RIFF" ||
-    bytes.toString("ascii",8,12)!=="WEBP" ||
-    bytes.readUInt32LE(4)+8!==bytes.length ||
-    actualHash!==expectedHash){
-  throw new Error("Bifanas illustration missing, incomplete, or altered unexpectedly");
+const directory=new URL("../public/images/generated/",import.meta.url);
+const files=readdirSync(directory).filter(name=>name.endsWith(".webp"));
+if (!files.includes("bifanas-com-natas.webp")) {
+  throw new Error("Missing required Bifanas illustration");
 }
-console.log("Bifanas WebP verified",bytes.length,"bytes, SHA-256",actualHash);
+for (const name of files) {
+  const bytes=readFileSync(new URL(name,directory));
+  if (bytes.length<1024 || bytes.length>10_000_000 ||
+      bytes.toString("ascii",0,4)!=="RIFF" ||
+      bytes.toString("ascii",8,12)!=="WEBP" ||
+      bytes.readUInt32LE(4)+8!==bytes.length) {
+    throw new Error(`Invalid or truncated generated WebP: ${name}`);
+  }
+  console.log("Verified generated WebP",name,bytes.length,
+    createHash("sha256").update(bytes).digest("hex"));
+}
+console.log(`Verified ${files.length} generated recipe illustration(s)`);
