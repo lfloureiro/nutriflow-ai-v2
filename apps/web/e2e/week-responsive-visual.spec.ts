@@ -85,7 +85,7 @@ test("weekly map remains usable from desktop through 200% equivalent narrow view
         navigation: px(".primary-nav .nav-item:not(.active)"),
         brand: px(".nf-brand-name"),
         hero: px(".nf-next-meal-hero h2"),
-        meal: px(".nf-week-map-final .weekly-grid-meal > strong"),
+        meal: px(".nf-week-map-final .nf-week-empty-action"),
         day: px(".nf-week-map-final .weekly-grid-day__date-button small"),
       };
     });
