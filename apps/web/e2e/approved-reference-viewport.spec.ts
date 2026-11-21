@@ -89,7 +89,7 @@ for (const appearance of ["dark", "light"] as const) {
       if (destination.id === "inicio") {
         const layout = await page.locator(".nf-home").evaluate((root) => {
           const content = [...root.querySelectorAll<HTMLElement>(
-            ".nf-home-heading,.nf-meal-hero,.nf-today-section,.nf-family-panel,.nf-home-shortcuts,.nf-saved-weeks,.nf-home-note"
+            ".nf-home-heading,.nf-meal-hero,.nf-today-section,.nf-family-panel,.nf-home-actions-v3,.nf-home-weeks-v3,.nf-home-note"
           )];
           return {
             bottom: Math.max(...content.map((element) => element.getBoundingClientRect().bottom)),
@@ -120,7 +120,7 @@ for (const appearance of ["dark", "light"] as const) {
       const hero=document.querySelector<HTMLElement>(".nf-home .nf-meal-hero")!;
       const today=document.querySelector<HTMLElement>(".nf-home .nf-today-section")!;
       const members=document.querySelector<HTMLElement>(".nf-home .nf-family-panel")!;
-      const weeks=document.querySelector<HTMLElement>(".nf-home .nf-saved-weeks")!;
+      const weeks=document.querySelector<HTMLElement>(".nf-home .nf-home-weeks-v3")!;
       return {
         fullWidth:document.documentElement.scrollWidth,
         windowWidth:document.documentElement.clientWidth,
@@ -140,11 +140,11 @@ for (const appearance of ["dark", "light"] as const) {
     // controls/three week cards no longer fall back to grey UA buttons.
     await page.setViewportSize({width:1280,height:631});
     await page.goto("/#/home");
-    await expect(page.locator(".nf-home-shortcut-grid > button")).toHaveCount(4);
-    await expect(page.locator(".nf-home-week-cards > button")).toHaveCount(3);
+    await expect(page.locator(".nf-home-actions-v3-grid > button")).toHaveCount(4);
+    await expect(page.locator(".nf-home-weeks-v3-grid > button")).toHaveCount(3);
     const homeContent = await page.evaluate(() => {
-      const shortcut = [...document.querySelectorAll<HTMLElement>(".nf-home-shortcut-grid > button")];
-      const weeks = [...document.querySelectorAll<HTMLElement>(".nf-home-week-cards > button")];
+      const shortcut = [...document.querySelectorAll<HTMLElement>(".nf-home-actions-v3-grid > button")];
+      const weeks = [...document.querySelectorAll<HTMLElement>(".nf-home-weeks-v3-grid > button")];
       return {
         shortcutRows: new Set(shortcut.map(el=>Math.round(el.getBoundingClientRect().top))).size,
         weekRows: new Set(weeks.map(el=>Math.round(el.getBoundingClientRect().top))).size,
@@ -152,7 +152,7 @@ for (const appearance of ["dark", "light"] as const) {
         horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
       };
     });
-    const outerShortcutDisplay = await page.locator(".nf-home .nf-home-shortcuts")
+    const outerShortcutDisplay = await page.locator(".nf-home .nf-home-actions-v3")
       .evaluate(el=>getComputedStyle(el).display);
     expect(outerShortcutDisplay,"The outer shortcut panel must not be a 2-column grid").toBe("flex");
     expect(homeContent.shortcutRows).toBe(1);
@@ -210,13 +210,13 @@ for (const appearance of ["dark", "light"] as const) {
       await page.goto(`/${route}`);
       await expect(page.locator(ready)).toBeVisible();
       if(screen==="inicio"){
-        const rows=await page.locator(".nf-home-shortcut-grid > button").evaluateAll(els=>
+        const rows=await page.locator(".nf-home-actions-v3-grid > button").evaluateAll(els=>
           new Set(els.map(el=>Math.round(el.getBoundingClientRect().top))).size);
-        const containerDisplay=await page.locator(".nf-home .nf-home-shortcuts")
+        const containerDisplay=await page.locator(".nf-home .nf-home-actions-v3")
           .evaluate(el=>getComputedStyle(el).display);
         expect(containerDisplay).toBe("flex");
         expect(rows).toBe(1);
-        const weeklyRows=await page.locator(".nf-home-week-cards > button").evaluateAll(els=>
+        const weeklyRows=await page.locator(".nf-home-weeks-v3-grid > button").evaluateAll(els=>
           new Set(els.map(el=>Math.round(el.getBoundingClientRect().top))).size);
         expect(weeklyRows).toBe(1);
       }
