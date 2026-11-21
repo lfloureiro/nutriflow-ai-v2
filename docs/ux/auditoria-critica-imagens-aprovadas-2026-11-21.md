@@ -36,3 +36,10 @@ O anterior passe genérico de v2.0.87–2.0.92 e a existência de testes de view
 - `screen-reference.css`: lotes exibidos como cartões numa grelha responsiva (3 colunas desktop, 2 em tablet, 1 em mobile) e painéis laterais. Estados, edição, ativação/inativação, quantidades e API preservados.
 - `shell-visual-parity.spec.ts`: assertivas para a estrutura em duas áreas e os dois painéis laterais.
 - **Limite:** ainda não há fotografias verificadas para cada produto nem sistema comprovado de limiares de reposição; não gerar recomendações falsas. A comparação visual exata com `despensa.png` continua pendente. O último commit ainda requer resultado Web/API/E2E.
+
+## Incidente de escala e contenção v2.0.95
+- Reportado pelo utilizador: interface geral demasiado grande para conseguir recolher screenshots. Prioridade visual anteriormente mal definida; a geometria de shell e a altura dos componentes devem ser corrigidas antes de novas propostas de layout.
+- Causa identificada por inspeção: `shell-prototype.css` aplicava sidebar até 320 CSS px, nav 66px, marca até 60px, cartão IA até 166px e topbar 92px, sobretudo com viewport >= 1101px, combinando-se com overrides por altura em outras folhas. A soma produzia densidade inadequada no viewport real do Chrome.
+- Correção: `viewport-density.css` é carregado por último para impor menu 224px (205px em tablet), itens de navegação 40px (34px em janelas curtas), topbar 60px (52px curta), logótipo 38px, fonte nav 13px, paddings e cartões compactos, independentemente do zoom físico. Navegação mobile e funcionalidades permanecem intocadas.
+- Atualizadas expectativas E2E do tamanho do shell para não regredir ao anterior menu gigantesco. É um patch emergencial e **não demonstra fidelidade pixel a pixel**.
+- Revalidar 1229×610, 1280×700 e 1672×941 em dark/light. Exigir screenshots de Chromium e CI Web/API/UX no SHA final. Não pedir ao utilizador novas imagens enquanto a app não estiver legível.
