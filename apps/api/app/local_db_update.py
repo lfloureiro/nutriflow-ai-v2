@@ -8,14 +8,16 @@ from collections.abc import Callable
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import PROJECT_ROOT, settings
 from app.db.session import SessionLocal, engine
+from app.development_breakfast_seed import RECIPES, seed_development_breakfast_catalog
 from app.development_plant_milk_seed import seed_development_plant_milk_options
 from app.models.family import Family
-from app.models.food_catalog import FoodItem
+from app.models.food_catalog import FoodItem, Recipe
+from app.models.meal_candidate_planning_profile import MealCandidatePlanningProfile
 
 # Stable lock key: protects database schema migration across local API workers.
 _LOCK_ID = 516831042096
@@ -24,17 +26,34 @@ _LOCK_ID = 516831042096
 def apply_catalogue_updates(session: Session) -> tuple[int, int]:
     """Apply non-destructive reference data to existing families only.
 
-    Existing breakfast milk is a prerequisite. Do not seed example households,
-    recipes, people or health records on an existing user database.
+    Do not seed example households, people, plans or health records. Reference
+    breakfast recipes are shared and their stable keys prevent duplicates.
+    They are inserted only if the catalogue or a family's planning profiles
+    are incomplete, so normal restarts do not rewrite existing recipes.
     """
-    milk_exists = session.scalar(
-        select(FoodItem.id).where(FoodItem.catalog_key == "breakfast:ingredient:milk")
-    )
-    if milk_exists is None:
-        return (0, 0)
     families = tuple(session.scalars(select(Family).order_by(Family.id)).all())
     if not families:
         return (0, 0)
+
+    recipe_keys = [f"breakfast:recipe:{definition.key}" for definition in RECIPES]
+    existing_keys = set(
+        session.scalars(
+            select(Recipe.recipe_key).where(Recipe.recipe_key.in_(recipe_keys))
+        ).all()
+    )
+    missing_profiles = any(
+        session.scalar(
+            select(func.count(MealCandidatePlanningProfile.id)).where(
+                MealCandidatePlanningProfile.family_id == family.id,
+                MealCandidatePlanningProfile.source == "development-breakfast",
+            )
+        ) < len(RECIPES)
+        for family in families
+    )
+    if len(existing_keys) != len(RECIPES) or missing_profiles:
+        seed_development_breakfast_catalog(session, families=families)
+        session.flush()
+
     return seed_development_plant_milk_options(session, families=families)
 
 
