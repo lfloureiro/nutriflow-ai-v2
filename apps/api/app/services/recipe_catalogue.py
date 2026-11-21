@@ -394,7 +394,7 @@ def deactivate_family_recipe(
             select(FamilyRecipeVariant).where(
                 FamilyRecipeVariant.family_id == family_id,
                 FamilyRecipeVariant.recipe_id == recipe_id,
-                FamilyRecipeVariant.status == "active",
+                FamilyRecipeVariant.status.in_(("active", "draft")),
             ).with_for_update()
         ):
             variant.status = "retired"
