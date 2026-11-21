@@ -120,3 +120,11 @@ O utilizador confirmou por captura real em v2.1.2 que a Semana finalmente aprove
 O primeiro E2E de Compras apenas verificava lista vazia. Acrescentado `apps/web/e2e/shopping-content-visual.spec.ts`, que cria uma família sintética e um artigo manual via API na base isolada do CI, abre Compras em **1280×631** e **1672×941**, confirma dois painéis laterais, agrupamento «Artigos acrescentados», texto do artigo e ausência de overflow horizontal; as capturas `shopping-live-synthetic-*.png` são arquivadas em `.github/workflows/ux-e2e.yml`. Não representa dados reais e não prova paridade com o mockup com categorias alimentares, fotografias ou preços.
 
 **Estado do lote v2.1.5:** aguardar resultado Web/API/UX E2E do SHA final. Continuar a auditoria das restantes rotas, especialmente Início e Receitas, depois da confirmação destes testes. A Semana aprovada permanece imutável.
+
+## v2.1.6 — Início: informação nutricional sem redundância (21/11/2026)
+
+- Quando a API devolve zero consumo e zero planeado para cada pessoa, `FamilyHome.tsx` deixa de imprimir quatro linhas repetidas «Sem consumo registado». Mostra uma só mensagem de ausência de dados no bloco nutricional, permitindo deixar os quatro perfis mais visíveis. Se houver consumo ou plano de energia real para uma pessoa, a respetiva linha continua com consumo registado, energia planeada e barra proporcional quando verificável.
+- `viewport-density.css` fixa a apresentação discreta do estado vazio para ecrãs normais e janelas de pouca altura. Não há valores médicos ou percentagens fabricados.
+- A Semana v2.1.2 mantém a altura aprovada, sem alterações de código nos últimos lotes.
+- Compras v2.1.4 e Despensa v2.1.5 permanecem em avaliação CI; em especial a captação de Compras preenchidas usa dados isolados e sintéticos, não representa a lista da família.
+- **Próximo trabalho de paridade:** voltar ao Início com dados representativos, e depois Receitas e Família, sempre contra os PNG originais e em 1280×631. Não aprovar por inspeção apenas de CSS.
