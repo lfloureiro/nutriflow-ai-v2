@@ -97,6 +97,14 @@ test("weekly map remains usable from desktop through 200% equivalent narrow view
     expect(type.hero).toBeLessThanOrEqual(22);
     expect(type.meal).toBeLessThanOrEqual(12);
     expect(type.day).toBeLessThanOrEqual(21);
+    const rowHeights = fit.gridRows.split(" ").map(Number.parseFloat).filter(Number.isFinite);
+    // The full-size display gets modestly taller meal cards, while 610px
+    // stays in its previously validated compact regime.
+    expect(rowHeights.length).toBe(5);
+    const mealRows = rowHeights.slice(1);
+    if (height === 760) expect(Math.min(...mealRows)).toBeGreaterThanOrEqual(85);
+    if (height === 900) expect(Math.min(...mealRows)).toBeGreaterThanOrEqual(118);
+    if (height === 610) expect(Math.max(...mealRows)).toBeLessThanOrEqual(66);
     expect(fit.heroBottom).toBeLessThan(fit.navTop);
     expect(fit.gridBottom,`Last dinner row exceeds ${height}px viewport`).toBeLessThanOrEqual(fit.clientHeight-4);
     await page.screenshot({path:`test-results/visual-week-fit-dark-${width}x${height}.png`,fullPage:false});
