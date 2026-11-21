@@ -324,7 +324,7 @@ test("home fits a 1280 × 700 browser viewport with four real profile cards",asy
   },family.id);
   await page.goto("/#/home");
   await expect(page.locator(".nf-home .nf-day-slot")).toHaveCount(4);
-  await expect(page.locator(".nf-home .nf-person-line")).toHaveCount(4);
+  await expect(page.locator(".nf-home .nf-home-family-chip")).toHaveCount(4);
   await page.evaluate(()=>document.fonts.ready);
   const geometry=await page.evaluate(()=>{
     const root=document.querySelector<HTMLElement>(".nf-home")!;
@@ -338,14 +338,14 @@ test("home fits a 1280 × 700 browser viewport with four real profile cards",asy
       visibleMemberCount:(()=>{
         const panel=document.querySelector<HTMLElement>(".nf-family-panel")!;
         const r=panel.getBoundingClientRect();
-        return [...panel.querySelectorAll<HTMLElement>(".nf-person-line")]
+        return [...panel.querySelectorAll<HTMLElement>(".nf-home-family-chip")]
           .filter(item=>{const box=item.getBoundingClientRect();return box.top>=r.top-1 && box.bottom<=r.bottom+1;}).length;
       })(),
     };
   });
   expect(geometry.bottom).toBeLessThanOrEqual(geometry.viewport+2);
   expect(geometry.overflowingX).toBe(false);
-  expect(geometry.overflowFamily).toBe("auto");
+  expect(geometry.overflowFamily).toBe("hidden");
   expect(geometry.visibleMemberCount).toBeGreaterThanOrEqual(3);
   await page.screenshot({path:"test-results/visual-home-dark-1280x700.png",fullPage:false});
 });
