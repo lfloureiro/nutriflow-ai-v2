@@ -88,7 +88,7 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
   const statusLabels: Record<string,string> = pt ? {planned:"Planeada",prepared:"Preparada",served:"Servida",completed:"Concluída"} : {planned:"Planned",prepared:"Prepared",served:"Served",completed:"Completed"};
   const openToday = () => onOpenWeek ? onOpenWeek(dashboard.dashboard_date) : onPlanMeal();
   const day = new Intl.DateTimeFormat(locale, {weekday:"long",day:"numeric",month:"long",timeZone:"UTC"}).format(new Date(dashboard.dashboard_date+"T12:00:00Z"));
-  return <div className="family-home nf-home">
+  return <div className="family-home nf-home nf-home-reference-v4">
     <header className="screen-header nf-home-heading">
       <div><span className="eyebrow">{pt ? "O NOSSO DIA À MESA" : "OUR DAY AT THE TABLE"}</span><h1>{pt ? "Mais tempo juntos." : "More time together."}</h1><p>{pt ? "Uma refeição em comum. O cuidado certo para cada pessoa." : "One shared meal. The right care for each person."}</p></div>
       <button className="button primary" onClick={onPlanMeal} type="button"><Icon name="calendar"/>{pt ? "Planear a semana" : "Plan our week"}</button>
