@@ -4,6 +4,7 @@ import {browseRecipes,defaultRecipeBrowse,readRecipeBrowse,storeRecipeBrowse,sea
 import RecipeTastePanel from "./ui/RecipeTastePanel";
 import Icon from "./ui/Icon";
 import {resolveMealHeroImage} from "./mealHeroImages";
+import {listDuplicateFamilyAdaptations, type DuplicateFamilyAdaptationGroup} from "./api/recipeVariantClient";
 import ContextDrawer from "./ui/ContextDrawer";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
@@ -808,6 +809,7 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
   function copyRecipe(recipe:Recipe){if(!requestNavigation())return;setSeedRecipe(recipe);setSelected(null);}
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [duplicateGroups,setDuplicateGroups]=useState<DuplicateFamilyAdaptationGroup[]>([]);
   const [selected, setSelected] = useState<Recipe | null | undefined>(undefined);
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(true);
@@ -844,6 +846,15 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
       window.clearTimeout(timer);
     };
   }, [familyId, includeInactive, query, revision]);
+
+  useEffect(()=>{
+    let cancelled=false;
+    setDuplicateGroups([]);
+    void listDuplicateFamilyAdaptations(familyId)
+      .then(groups=>{if(!cancelled)setDuplicateGroups(groups);})
+      .catch(()=>{/* Optional audit: never block recipe catalogue if unavailable. */});
+    return()=>{cancelled=true;};
+  },[familyId,revision]);
 
   const hasSearch = useMemo(() => query.trim().length > 0 || nutritionFilter !== "all"||mealFilter!=="all"||originFilter!=="all"||imageFilter!=="all"||includeInactive, [query, nutritionFilter,mealFilter,originFilter,imageFilter,includeInactive]);
   const filteredRecipes = useMemo(
@@ -985,6 +996,17 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
           <span>{error}</span>
         </div>
       ) : null}
+      {duplicateGroups.length>0 && <details className="nf-recipe-filter-tools nf-duplicate-review">
+        <summary>{locale==="pt-PT"?"Adaptações possivelmente duplicadas":"Potentially duplicated adaptations"} · {duplicateGroups.reduce((total,group)=>total+group.count,0)} {locale==="pt-PT"?"receitas":"recipes"}</summary>
+        <p>{locale==="pt-PT"?"As receitas abaixo têm a mesma receita-base e composição. Revê os vínculos e o histórico antes de apagar uma das versões. Nenhuma receita é apagada automaticamente.":"These recipes share a base and composition. Review links and history before deleting a version. No recipe is removed automatically."}</p>
+        <div className="nf-filter-options">
+          {duplicateGroups.flatMap(group=>group.recipes.map(item=><button
+            type="button" className="button ghost small" key={item.variant_id}
+            onClick={()=>{const match=recipes.find(recipe=>recipe.id===item.recipe_id);if(match)setSelected(match);else{setQuery(item.name);setOriginFilter("adapted");setIncludeInactive(false);}}}>
+            {item.name} · {item.recipe_id.slice(0,8)}
+          </button>))}
+        </div>
+      </details>}
       {busy && recipes.length === 0 ? (
         <div className="shell-loading" role="status">{copy.loading}</div>
       ) : filteredRecipes.length === 0 && !busy ? (
