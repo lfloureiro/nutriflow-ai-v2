@@ -21,7 +21,7 @@ describe("next-meal image follows the same planned meal or proposal", () => {
     expect(normalizeMealImageName("Frango rápido · família")).toBe("frango rapido");
     expect(normalizeMealImageName("Escalopes ao vinho Madeira - família")).toBe("escalopes ao vinho madeira");
     expect(resolveMealHeroImage({planned:{title:"Frango rápido · família"}})?.src).toContain("Roasted_chicken".replace(/_/g,"%20").slice(0,7));
-    expect(resolveMealHeroImage({planned:{title:"Escalopes ao vinho Madeira · família"}})).toBeNull();
+    expect(resolveMealHeroImage({planned:{title:"Escalopes ao vinho Madeira · família"}})?.alt).toContain("Madeira");
     expect(resolveMealHeroImage({planned:{title:"Bifanas com natas"}})).toBeNull();
   });
   it("maps existing salmon, banana, cheese and tomato dishes by exact culinary name", () => {
@@ -32,6 +32,7 @@ describe("next-meal image follows the same planned meal or proposal", () => {
       "Pão, queijo e tomate",
       "Torrada mista",
       "Omelete de espinafres",
+      "Escalopes ao vinho Madeira · família",
     ]) {
       const photo=resolveMealHeroImage({planned:{recipe_name:title}});
       expect(photo?.kind).toBe("catalog");
