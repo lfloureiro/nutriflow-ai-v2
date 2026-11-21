@@ -52,34 +52,44 @@ function VerifiedServiceProcess([int]$port,[string]$role) {
     $ownerId = [int]$owners[0]
     $info = Get-CimInstance Win32_Process -Filter ('ProcessId = ' + $ownerId)
     if (-not $info -or -not $info.CommandLine) { return $null }
-    $commandLine = [string]$info.CommandLine
+    $line = [string]$info.CommandLine
     $executableName = [IO.Path]::GetFileName([string]$info.ExecutablePath)
     if ($role -eq 'frontend') {
-        # The listener PID may differ from Start-Process's PID on Windows.
-        # Require the actual node executable and the exact installed Vite entrypoint.
         $vitePath = Join-Path $webDir 'node_modules\vite\bin\vite.js'
-        $valid = $executableName -ieq 'node.exe' -and
-            $commandLine.IndexOf($vitePath,[StringComparison]::OrdinalIgnoreCase) -ge 0
+        $valid = $executableName -ieq 'node.exe' -and (
+            $line.IndexOf($vitePath,[StringComparison]::OrdinalIgnoreCase) -ge 0 -or
+            ($line -match 'vite(?:\.js)?(?:\s|["'']|$)' -and
+             (Test-Path $vitePath) -and (Healthy ('http://127.0.0.1:' + $port + '/')))
+        )
     } else {
-        $valid = ($executableName -match '^python(?:w)?\.exe$') -and
-            ($commandLine -match 'uvicorn') -and ($commandLine -match 'app\.main:app')
+        $valid = (
+            ($executableName -match '^(python(?:w)?|uvicorn)\.exe$') -and
+            ($line -match 'uvicorn|app\.main:app') -and
+            (Test-NutriFlowApi $port)
+        )
     }
     if (-not $valid) { return $null }
     return Get-Process -Id $ownerId -ErrorAction Stop
 }
+function Test-NutriFlowApi([int]$port) {
+    try {
+        $data = Invoke-RestMethod -Uri ('http://127.0.0.1:' + $port + '/openapi.json') -TimeoutSec 3
+        return [string]$data.info.title -eq 'NutriFlow AI'
+    } catch { return $false }
+}
 function StateEntry([int]$port,$entry) {
     $listeners = @(Listener $port)
-    if (-not $listeners.Count) { return $null }
+    if ($listeners.Count -eq 0) { return $null }
     if ($null -eq $entry -or -not $entry.pid) {
-        throw ('Port ' + $port + ' occupied by an unmanaged process. Stop it once and rerun deployment.')
+        return $null
     }
     $process = Get-Process -Id ([int]$entry.pid) -ErrorAction SilentlyContinue
-    if (-not $process) { throw ('Tracked PID absent but port ' + $port + ' is occupied.') }
+    if (-not $process) { return $null }
     if ($process.StartTime.ToUniversalTime().ToString('o') -ne [string]$entry.start_utc) {
-        throw ('Tracked PID reused on port ' + $port + '; refusing to stop unrelated process.')
+        return $null
     }
     if (@($listeners | Select-Object -ExpandProperty OwningProcess) -notcontains $process.Id) {
-        throw ('Unexpected process on port ' + $port + '; refusing to stop it.')
+        return $null
     }
     return $process
 }
@@ -87,7 +97,14 @@ function AdoptLegacy([int]$port,[string]$role) {
     if (@(Listener $port).Count -eq 0) { return $null }
     $process = VerifiedServiceProcess $port $role
     if (-not $process) {
-        throw ('Port ' + $port + ' is held by an unidentified process. Refusing takeover.')
+        $owners = @(Listener $port | Select-Object -ExpandProperty OwningProcess -Unique)
+        foreach ($ownerId in $owners) {
+            $info = Get-CimInstance Win32_Process -Filter ('ProcessId = ' + $ownerId)
+            Write-Warning ('Port ' + $port + ' PID ' + $ownerId +
+                ' is not verified as NutriFlow; executable=' + $info.ExecutablePath +
+                '; command=' + $info.CommandLine)
+        }
+        throw ('Cannot safely adopt process on port ' + $port + '. No process was terminated.')
     }
     Write-Host ('Found NutriFlow ' + $role + ' listener PID ' + $process.Id)
     $answer = Read-Host 'Authorize taking over this service? Type SIM'
@@ -170,20 +187,21 @@ if (Test-Path $stateFile) { $previous = Get-Content $stateFile -Raw | ConvertFro
 if ($previous -and [string]$previous.root -ne $root) { throw 'State belongs to a different checkout.' }
 $oldApi = if ($previous) { $previous.api } else { $null }
 $oldWeb = if ($previous) { $previous.web } else { $null }
-# Initial one-time handoff of the existing manually started servers.
-$adoptedApi = $false
-$adoptedWeb = $false
-if (-not $oldApi) {
-    $oldApi = AdoptLegacy $ApiPort 'api'
-    $adoptedApi = $null -ne $oldApi
-}
-if (-not $oldWeb) {
-    $oldWeb = AdoptLegacy $WebPort 'frontend'
-    $adoptedWeb = $null -ne $oldWeb
-}
-# Preflight ownership before fetch, database updates, or process stops.
+# Verify saved PIDs first. A stale PID must not stop another process.
 $apiRunning = StateEntry $ApiPort $oldApi
 $webRunning = StateEntry $WebPort $oldWeb
+$adoptedApi = $false
+$adoptedWeb = $false
+if (-not $apiRunning -and @(Listener $ApiPort).Count -gt 0) {
+    $oldApi = AdoptLegacy $ApiPort 'api'
+    $adoptedApi = $true
+    $apiRunning = StateEntry $ApiPort $oldApi
+}
+if (-not $webRunning -and @(Listener $WebPort).Count -gt 0) {
+    $oldWeb = AdoptLegacy $WebPort 'frontend'
+    $adoptedWeb = $true
+    $webRunning = StateEntry $WebPort $oldWeb
+}
 $before = (& $git -C $root rev-parse HEAD).Trim()
 Write-Host ('Fetching and pulling ' + $Branch)
 Run $git @('-C',$root,'fetch','origin',$Branch)
