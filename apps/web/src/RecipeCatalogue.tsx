@@ -800,10 +800,11 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
   const [nutritionFilter, setNutritionFilter] = useState<NutritionFilter>(savedBrowse.nutrition);
   const [mealFilter,setMealFilter]=useState<RecipeBrowse["meal"]>(savedBrowse.meal);
   const [originFilter,setOriginFilter]=useState<RecipeBrowse["origin"]>(savedBrowse.origin);
+  const [imageFilter,setImageFilter]=useState<RecipeBrowse["image"]>(savedBrowse.image);
   const [sortOrder,setSortOrder]=useState<RecipeBrowse["sort"]>(savedBrowse.sort);
   const [seedRecipe,setSeedRecipe]=useState<Recipe|undefined>();
-  useEffect(()=>{storeRecipeBrowse(familyId,{query,includeInactive,nutrition:nutritionFilter,meal:mealFilter,origin:originFilter,sort:sortOrder});},[familyId,query,includeInactive,nutritionFilter,mealFilter,originFilter,sortOrder]);
-  function clearFilters(){setQuery("");setIncludeInactive(false);setNutritionFilter("all");setMealFilter("all");setOriginFilter("all");setSortOrder(defaultRecipeBrowse.sort);}
+  useEffect(()=>{storeRecipeBrowse(familyId,{query,includeInactive,nutrition:nutritionFilter,meal:mealFilter,origin:originFilter,image:imageFilter,sort:sortOrder});},[familyId,query,includeInactive,nutritionFilter,mealFilter,originFilter,imageFilter,sortOrder]);
+  function clearFilters(){setQuery("");setIncludeInactive(false);setNutritionFilter("all");setMealFilter("all");setOriginFilter("all");setImageFilter("all");setSortOrder(defaultRecipeBrowse.sort);}
   function copyRecipe(recipe:Recipe){if(!requestNavigation())return;setSeedRecipe(recipe);setSelected(null);}
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
@@ -844,10 +845,10 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
     };
   }, [familyId, includeInactive, query, revision]);
 
-  const hasSearch = useMemo(() => query.trim().length > 0 || nutritionFilter !== "all"||mealFilter!=="all"||originFilter!=="all"||includeInactive, [query, nutritionFilter,mealFilter,originFilter,includeInactive]);
+  const hasSearch = useMemo(() => query.trim().length > 0 || nutritionFilter !== "all"||mealFilter!=="all"||originFilter!=="all"||imageFilter!=="all"||includeInactive, [query, nutritionFilter,mealFilter,originFilter,imageFilter,includeInactive]);
   const filteredRecipes = useMemo(
-    () => browseRecipes(recipes.filter(recipe=>matchesNutritionFilter(recipe,nutritionFilter)),{query,includeInactive,nutrition:nutritionFilter,meal:mealFilter,origin:originFilter,sort:sortOrder},locale),
-    [recipes,nutritionFilter,mealFilter,originFilter,sortOrder,locale],
+    () => browseRecipes(recipes.filter(recipe=>matchesNutritionFilter(recipe,nutritionFilter)),{query,includeInactive,nutrition:nutritionFilter,meal:mealFilter,origin:originFilter,image:imageFilter,sort:sortOrder},locale),
+    [recipes,nutritionFilter,mealFilter,originFilter,imageFilter,sortOrder,locale],
   );
 
   const editorPanel = selected !== undefined ? (
@@ -952,7 +953,7 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
           />
         </label>
       </div>
-      <details className="nf-recipe-filter-tools"><summary>{locale==="pt-PT"?"Filtros e ordenação":"Filters and sorting"}{(nutritionFilter!=="all"||mealFilter!=="all"||originFilter!=="all"||includeInactive)&&<span> · {locale==="pt-PT"?"ativos":"active"}</span>}</summary><div className="nf-filter-options">
+      <details className="nf-recipe-filter-tools"><summary>{locale==="pt-PT"?"Filtros e ordenação":"Filters and sorting"}{(nutritionFilter!=="all"||mealFilter!=="all"||originFilter!=="all"||imageFilter!=="all"||includeInactive)&&<span> · {locale==="pt-PT"?"ativos":"active"}</span>}</summary><div className="nf-filter-options">
         <label className="field recipe-quality-filter">
           <span>{copy.nutritionFilter}</span>
           <select
@@ -973,7 +974,7 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
           />
           <span>{copy.showInactive}</span>
         </label>
-      <div className="nf-catalogue-context"><label className="field"><span>{locale==="pt-PT"?"Tempo de refeição":"Meal type"}</span><select value={mealFilter} onChange={e=>setMealFilter(e.target.value as RecipeBrowse["meal"])}><option value="all">{copy.filterAll}</option>{MEAL_TYPES.map(type=><option key={type} value={type}>{copy[type]}</option>)}</select></label><label className="field"><span>{locale==="pt-PT"?"Origem da receita":"Recipe origin"}</span><select value={originFilter} onChange={e=>setOriginFilter(e.target.value as RecipeBrowse["origin"])}><option value="all">{copy.filterAll}</option><option value="shared">{copy.shared}</option><option value="family">{locale==="pt-PT"?"Próprias da família":"Family originals"}</option><option value="adapted">{locale==="pt-PT"?"Adaptações":"Adaptations"}</option></select></label><label className="field"><span>{locale==="pt-PT"?"Ordenar por":"Sort by"}</span><select value={sortOrder} onChange={e=>setSortOrder(e.target.value as RecipeBrowse["sort"])}><option value="name">{locale==="pt-PT"?"Nome A–Z":"Name A–Z"}</option><option value="updated">{locale==="pt-PT"?"Atualizadas recentemente":"Recently updated"}</option><option value="ingredients">{locale==="pt-PT"?"Menos ingredientes":"Fewer ingredients"}</option></select></label></div>
+      <div className="nf-catalogue-context"><label className="field"><span>{locale==="pt-PT"?"Imagem da receita":"Recipe image"}</span><select value={imageFilter} onChange={e=>setImageFilter(e.target.value as RecipeBrowse["image"])}><option value="all">{copy.filterAll}</option><option value="with">{locale==="pt-PT"?"Com imagem":"With image"}</option><option value="without">{locale==="pt-PT"?"Sem imagem":"Missing image"}</option></select></label><label className="field"><span>{locale==="pt-PT"?"Tempo de refeição":"Meal type"}</span><select value={mealFilter} onChange={e=>setMealFilter(e.target.value as RecipeBrowse["meal"])}><option value="all">{copy.filterAll}</option>{MEAL_TYPES.map(type=><option key={type} value={type}>{copy[type]}</option>)}</select></label><label className="field"><span>{locale==="pt-PT"?"Origem da receita":"Recipe origin"}</span><select value={originFilter} onChange={e=>setOriginFilter(e.target.value as RecipeBrowse["origin"])}><option value="all">{copy.filterAll}</option><option value="shared">{copy.shared}</option><option value="family">{locale==="pt-PT"?"Próprias da família":"Family originals"}</option><option value="adapted">{locale==="pt-PT"?"Adaptações":"Adaptations"}</option></select></label><label className="field"><span>{locale==="pt-PT"?"Ordenar por":"Sort by"}</span><select value={sortOrder} onChange={e=>setSortOrder(e.target.value as RecipeBrowse["sort"])}><option value="name">{locale==="pt-PT"?"Nome A–Z":"Name A–Z"}</option><option value="updated">{locale==="pt-PT"?"Atualizadas recentemente":"Recently updated"}</option><option value="ingredients">{locale==="pt-PT"?"Menos ingredientes":"Fewer ingredients"}</option></select></label></div>
       </div></details>
       <div className="nf-catalogue-results"><p role="status">{busy?copy.loading:`${filteredRecipes.length} ${locale==="pt-PT"?"receitas encontradas":"recipes found"}`}</p>{hasSearch&&<button className="button ghost small" type="button" onClick={clearFilters}>{locale==="pt-PT"?"Limpar filtros":"Clear filters"}</button>}</div>
       {error ? (
