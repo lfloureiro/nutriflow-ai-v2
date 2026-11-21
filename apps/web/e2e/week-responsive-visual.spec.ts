@@ -109,7 +109,7 @@ test("weekly map remains usable from desktop through 200% equivalent narrow view
     // stays in its previously validated compact regime.
     expect(rowHeights.length).toBe(5);
     const mealRows = rowHeights.slice(1);
-    if (height === 760) expect(Math.min(...mealRows)).toBeGreaterThanOrEqual(85);
+    if (height === 760) expect(Math.min(...mealRows)).toBeGreaterThanOrEqual(91);
     if (height === 900) expect(Math.min(...mealRows)).toBeGreaterThanOrEqual(118);
     if (height === 610) expect(Math.max(...mealRows)).toBeLessThanOrEqual(66);
     expect(fit.heroBottom).toBeLessThan(fit.navTop);
