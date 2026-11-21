@@ -242,3 +242,11 @@ Commit `804e1e52ca225ec8eee9ed521f92c6acbecddf02`: **Web CI + API CI + UX E2E sy
 - O shell comum e a **Semana aprovada** passaram a regressão. Próximos lotes devem ser guiados pelos PNG originais e não por analogias visuais. Critério de fit: página principal inteira no viewport desktop se o conteúdo permitir, scroll próprio em listas extensas. A equivalência pixel a pixel **não está aprovada**.
 
 **Estado dos ficheiros de referência:** as cinco imagens PNG e o ZIP original estão persistidos na Biblioteca do utilizador, `NutriFlow AI v2 / UX References`; no GitHub estão os hashes/manifesto e instruções de importação binária. Não esquecer que os PNG não estão ainda dentro da árvore Git até importação explícita do ZIP pelo utilizador ou disponibilização de escrita binária.
+
+### v2.0.89 — Família alinhada com os blocos do desenho aprovado
+
+- `App.tsx` introduz na vista Família a estrutura visual do PNG alvo: área «Membros da família», painel lateral «Objetivos da família», segunda linha «Resumo de preferências e restrições» e «Perfis da família», além dos drawers existentes para criar e consultar pessoas.
+- As novas secções usam **somente os membros reais disponíveis** e links para perfis ou gestão do espaço. Não se fabricam objetivos, diagnósticos, restrições nem contagens de condições específicas do mockup. Os locais de conteúdo ainda incompleto apresentam texto honesto; a comparação tabular completa dependerá dos perfis efetivamente disponíveis.
+- `screen-reference.css` fixa proporções e superfícies carvão/âmbar do modelo: 1.8:0.95 na fila superior e 0.95:1.8 na inferior, cartões de pessoa em 4 colunas quando há largura, adaptação tablet/mobile e janelas mais baixas sem ocultar membros.
+- E2E exige os quatro blocos e um membro fictício no ambiente sintético, mantendo paridade do shell e workflows. Não marcar como igualdade final: conteúdo e detalhes ainda dependem de estados reais e da revisão visual.
+- PR #76 permanece draft; Semana aprovada sem alterações e dados reais intocados.
