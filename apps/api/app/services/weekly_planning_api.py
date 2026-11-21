@@ -320,8 +320,9 @@ def _transformation_candidates(
             meal_type=meal_type,
             recipe_id=recipe.id,
             participants=participants,
-            max_proposals=3,
+            max_proposals=8,
         ),
+        rescue_blocked=not evaluation.eligible,
         baseline_fits_by_person={
             participant.person.id: participant.plan_fit
             for participant in evaluation.participant_evaluations
