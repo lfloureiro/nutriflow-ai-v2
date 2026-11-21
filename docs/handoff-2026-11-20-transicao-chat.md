@@ -117,3 +117,11 @@
 - **Pronto para o utilizador fazer a comparação visual manual da Semana**, não significa que a igualdade ótica absoluta ou a aceitação humana estejam confirmadas. É necessário confrontar a aplicação real Windows com a imagem de composição aprovada à mesma escala. O conjunto sintético tem só uma pessoa e células vazias; não prova os estados de cartões preenchidos nem as imagens de todas as receitas.
 - O PR #76 permanece **draft**. Não fazer merge, não mexer na DB nem nos serviços locais; após aceite manual da Semana, seguir para Início → Receitas → Família → Compras → Despensa.
 - Este checkpoint documental origina novo SHA: **verificar os três gates novamente no head final** antes de anunciar a prontidão.
+
+## Diagnóstico com captura real — v2.0.79, 21/11/2026
+
+O utilizador enviou uma captura da app local v2.0.78 às 08:52. Foi confirmado visualmente que o rodapé da sidebar «Família Loureiro / Gerir o nosso espaço» apresentava conteúdo sobreposto e avatar deslocado, apesar de a v2.0.78 ter 3/3 CI verdes. A causa CSS identificada é a regra antiga genérica `.side-nav__family span` e regras herdadas de `.side-nav__family strong`, que interferem nos novos filhos `.side-nav__family-avatar` e `.side-nav__family-copy`; a ausência de teste de geometria dos filhos permitiu a regressão.
+
+Correção v2.0.79 em `shell-prototype.css`: contrato explícito de `flex-direction:row`, avatar circular não comprimível, coluna de texto independente, seletores específicos que anulam `text-transform: uppercase`, letter-spacing e dimensões herdadas; título e legenda dentro da largura real da sidebar. Teste E2E `shell-visual-parity.spec.ts` reforçado para medir os rects de avatar/título/legenda, garantindo ausência de sobreposição e posicionamento vertical e horizontal. O contrato vale nas seis rotas desktop, light e dark. Não se alterou a DB, API, lógica de planeamento nem drawers. PR #76 permanece draft.
+
+**O screenshot real v2.0.78 não está aprovado**. O aspeto óptico e escala face ao mockup só podem ser aprovados pelo utilizador após novo screenshot da v2.0.79. Confirmar 3/3 workflows no SHA final antes de pedir teste.
