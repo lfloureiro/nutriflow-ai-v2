@@ -156,6 +156,17 @@ for (const appearance of ["dark", "light"] as const) {
     expect(homeContent.weekRows).toBe(1);
     expect(homeContent.background).not.toBe("rgb(239, 239, 239)");
     expect(homeContent.horizontalOverflow).toBe(false);
+    const peopleFit = await page.evaluate(()=>{
+      const panel=document.querySelector<HTMLElement>(".nf-home .nf-family-panel");
+      const people=[...document.querySelectorAll<HTMLElement>(".nf-home .nf-person-line")];
+      return !!panel && people.length===4 && people.every(item=>{
+        const rect=item.getBoundingClientRect();
+        return rect.bottom <= panel.getBoundingClientRect().bottom+2 &&
+          rect.top >= panel.getBoundingClientRect().top-2;
+      });
+    });
+    expect(peopleFit,"All four family rows must be visible without internal scrolling at 1280x631").toBe(true);
+
     await page.screenshot({path:`test-results/reference-inicio-${appearance}-1280x631.png`,fullPage:false,animations:"disabled"});
     for (const [screen,route,selector] of [
       ["receitas","#/house?tab=recipes",".recipe-catalogue"],
@@ -166,11 +177,17 @@ for (const appearance of ["dark", "light"] as const) {
       await expect(page.locator(selector)).toBeVisible();
       if(screen==="compras") {
         await expect(page.locator(".nf-shopping-overview > div")).toHaveCount(4);
+        const listTop=await page.locator(".shopping-list-section").evaluate(el=>el.getBoundingClientRect().top);
+        expect(listTop).toBeLessThan(631);
+
         const cols=await page.locator(".nf-shopping-overview").evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(" ").length);
         expect(cols).toBe(4);
       }
       if(screen==="despensa") {
         await expect(page.locator(".nf-pantry-summary > div")).toHaveCount(4);
+        const searchTop=await page.locator(".pantry-screen .nf-list-controls").evaluate(el=>el.getBoundingClientRect().top);
+        expect(searchTop).toBeLessThan(631);
+
         const cols=await page.locator(".nf-pantry-summary").evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(" ").length);
         expect(cols).toBe(4);
       }
