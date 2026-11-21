@@ -42,5 +42,8 @@ jobs:
       - name: Run web tests
         run: npm run test
 
+      - name: Verify generated recipe image assets
+        run: node scripts/verify-generated-images.mjs
+
       - name: Type-check and build web app
         run: npm run build
