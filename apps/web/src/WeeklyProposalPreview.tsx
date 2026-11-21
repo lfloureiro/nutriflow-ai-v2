@@ -810,6 +810,52 @@ export default function WeeklyProposalPreview({
     useState<SharedMealTransformationResult | null>(null);
   const [adaptationError, setAdaptationError] = useState<string | null>(null);
   const plan = refreshedPlan ?? suppliedPlan ?? loadedPlan;
+
+  // Let the simple week use genuinely free browser space instead of guessing
+  // a CSS viewport breakpoint. Never squeeze the four meal rows to achieve fit.
+  const weekGridRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const grid = weekGridRef.current;
+    if (!simpleWeekView || !grid) return;
+    let frame = 0;
+    let disposed = false;
+    const recalculate = () => {
+      if (disposed || !grid.isConnected) return;
+      grid.style.removeProperty("--week-compact-row");
+      if (!window.matchMedia("(min-width: 1101px) and (min-height: 560px) and (max-height: 960px)").matches) return;
+      const style = window.getComputedStyle(grid);
+      const rows = style.gridTemplateRows.split(/\\s+/).map(value => Number.parseFloat(value)).filter(Number.isFinite);
+      if (rows.length !== 5) return;
+      const currentRow = Math.max(...rows.slice(1));
+      const available = window.innerHeight - grid.getBoundingClientRect().bottom - 16;
+      // At most 12 CSS px extra per meal, preserving room under the panel.
+      const increase = Math.min(12, Math.max(0, Math.floor(available / 4)));
+      if (increase > 0) {
+        grid.style.setProperty("--week-compact-row", `${Math.min(122, currentRow + increase)}px`);
+      }
+    };
+    const schedule = () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => { frame = 0; recalculate(); });
+    };
+    window.addEventListener("resize", schedule);
+    const observer = new ResizeObserver(schedule);
+    const screen = grid.closest(".family-meals-screen");
+    const hero = screen?.querySelector(".nf-next-meal-hero");
+    const navigation = screen?.querySelector(".family-meals-date-nav");
+    if (hero) observer.observe(hero);
+    if (navigation) observer.observe(navigation);
+    void document.fonts.ready.then(() => { if (!disposed) schedule(); });
+    schedule();
+    return () => {
+      disposed = true;
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", schedule);
+      observer.disconnect();
+      grid.style.removeProperty("--week-compact-row");
+    };
+  }, [simpleWeekView, suppliedPlan, refreshedPlan, loadedPlan]);
+
   const effectiveWeekStart = refreshedPlan?.start_date ?? suppliedPlan?.start_date ?? weekStart;
   const scopeKey=`${familyId}:${weekStart??suppliedPlan?.start_date??""}`;
   const currentScope=useRef<string|null>(scopeKey);
@@ -1288,7 +1334,7 @@ export default function WeeklyProposalPreview({
           {!simpleWeekView ? <WeekOverview plan={plan} proposed={weekDates.reduce((sum,date)=>sum+ALL_MEAL_TYPES.filter(kind=>!mealEntryFor(plan,date,kind)&&choiceFor(grouped,date,kind)).length,0)}/> : null}
           <nav className="nf-week-day-picker" aria-label={locale === "pt-PT" ? "Escolher dia da semana" : "Choose a weekday"}>{weekDates.map(date=>{const day=formatGridDay(date,locale);return <button type="button" key={date} aria-pressed={selectedDate===date} className={selectedDate===date?"selected":""} onClick={()=>selectDay(date)}><span>{day.weekday}</span><b>{day.date}</b></button>;})}</nav>
           <div className="weekly-calendar-scroll">
-            <div className="weekly-day-grid" role="group" aria-label={copy.title}>
+            <div className="weekly-day-grid" ref={weekGridRef} role="group" aria-label={copy.title}>
               <div className="nf-week-row-labels" aria-hidden="true">
                 <span />
                 {ALL_MEAL_TYPES.map(mealType => <span key={mealType}><Icon name={mealType === "breakfast" ? "coffee" : mealType === "lunch" ? "utensils" : mealType === "snack" ? "apple" : "cloche"}/>{mealLabel(mealType, locale)}</span>)}
