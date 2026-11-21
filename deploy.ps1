@@ -174,11 +174,12 @@ function Save($state) {
 if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir | Out-Null }
 if ($VerifyFrontendOnly) {
     # Windows CI smoke test of the actual launch/port ownership implementation.
+    # Uses a zero-dependency HTTP signature fixture; Web CI tests real Vite.
     # This never pulls code, touches Docker or changes a database.
     $nodeForTest = Executable 'node'
-    $viteForTest = Join-Path $webDir 'node_modules\vite\bin\vite.js'
-    if (-not (Test-Path $viteForTest)) { throw 'Install frontend dependencies first.' }
-    $entry = Launch $nodeForTest @($viteForTest,'--host','127.0.0.1','--port',"$WebPort",'--strictPort') $webDir 'frontend-test' $WebPort ('http://127.0.0.1:' + $WebPort + '/')
+    $fixtureForTest = Join-Path $root 'tools\deploy-smoke-server.cjs'
+    if (-not (Test-Path $fixtureForTest)) { throw 'Missing Windows HTTP smoke fixture.' }
+    $entry = Launch $nodeForTest @($fixtureForTest,"$WebPort") $root 'frontend-test' $WebPort ('http://127.0.0.1:' + $WebPort + '/')
     try {
         $verified = StateEntry $WebPort $entry
         if (-not $verified) { throw 'The verified frontend process was not tracked.' }
