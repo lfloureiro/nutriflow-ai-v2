@@ -221,6 +221,7 @@ for (const theme of ["light", "dark"] as const) {
         await expect(page.locator(".nf-shopping-overview > div")).toHaveCount(4);
         await expect(page.locator(".nf-shopping-workspace")).toBeVisible();
         await expect(page.locator(".nf-shopping-workspace-aside .nf-shopping-aside-card")).toHaveCount(2);
+        await expect(page.locator(".nf-shopping-item-group")).toHaveCount(0); // No invented items in empty CI fixture
       }
       if (hash.includes("pantry")) {
         await expect(page.locator(".nf-pantry-summary > div")).toHaveCount(4);
