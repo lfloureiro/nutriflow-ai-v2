@@ -43,6 +43,20 @@ function Healthy([string]$url) {
         return ([int]$r.StatusCode -ge 200 -and [int]$r.StatusCode -lt 400)
     } catch { return $false }
 }
+function Test-NutriFlowFrontend([int]$port) {
+    try {
+        $baseUrl = 'http://127.0.0.1:' + $port
+        $page = Invoke-WebRequest -Uri ($baseUrl + '/') -UseBasicParsing -TimeoutSec 3
+        if ([int]$page.StatusCode -ne 200 -or
+            [string]$page.Content -notmatch '<title>NutriFlow AI</title>') {
+            return $false
+        }
+        # A regular website with the same title is not proof of a Vite dev server.
+        $client = Invoke-WebRequest -Uri ($baseUrl + '/@vite/client') -UseBasicParsing -TimeoutSec 3
+        return [int]$client.StatusCode -eq 200 -and
+            [string]$client.Content -match 'vite'
+    } catch { return $false }
+}
 function VerifiedServiceProcess([int]$port,[string]$role) {
     $owners = @(Listener $port | Select-Object -ExpandProperty OwningProcess -Unique)
     if ($owners.Count -eq 0) { return $null }
@@ -51,25 +65,25 @@ function VerifiedServiceProcess([int]$port,[string]$role) {
     }
     $ownerId = [int]$owners[0]
     $info = Get-CimInstance Win32_Process -Filter ('ProcessId = ' + $ownerId)
-    if (-not $info -or -not $info.CommandLine) { return $null }
+    $proc = Get-Process -Id $ownerId -ErrorAction SilentlyContinue
+    if (-not $info -or -not $proc) { return $null }
     $line = [string]$info.CommandLine
     $executableName = [IO.Path]::GetFileName([string]$info.ExecutablePath)
+    if (-not $executableName) { $executableName = [string]$proc.ProcessName + '.exe' }
     if ($role -eq 'frontend') {
-        $vitePath = Join-Path $webDir 'node_modules\vite\bin\vite.js'
-        $valid = $executableName -ieq 'node.exe' -and (
-            $line.IndexOf($vitePath,[StringComparison]::OrdinalIgnoreCase) -ge 0 -or
-            ($line -match 'vite(?:\.js)?(?:\s|["'']|$)' -and
-             (Test-Path $vitePath) -and (Healthy ('http://127.0.0.1:' + $port + '/')))
-        )
+        # Node/Vite may spawn another process, use a relative entrypoint, or
+        # hide its command line in Windows CIM. The listening process must
+        # actually be Node and respond with the NutriFlow Vite signature.
+        $valid = $executableName -ieq 'node.exe' -and
+            (Test-NutriFlowFrontend $port)
     } else {
-        # Uvicorn --reload can delegate the listener to a Python child.
-        # Verify the Python executable and NutriFlow's OpenAPI title.
-        # First-time takeover always requires explicit confirmation.
-        $valid = ($executableName -match '^(python(?:w)?|uvicorn)\.exe$') -and
+        # --reload can delegate the listener to a Python child with a
+        # generic command line. Verify the app's OpenAPI identity instead.
+        $valid = ($executableName -match '^(python(?:w)?|uvicorn)\\.exe$') -and
             (Test-NutriFlowApi $port)
     }
     if (-not $valid) { return $null }
-    return Get-Process -Id $ownerId -ErrorAction Stop
+    return $proc
 }
 function Test-NutriFlowApi([int]$port) {
     try {
