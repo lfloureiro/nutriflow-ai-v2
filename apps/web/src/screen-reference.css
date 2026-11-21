@@ -605,3 +605,35 @@
   .nf-home .nf-home-shortcut-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
   .nf-home .nf-today-photo {height:55px}
 }
+
+/* Pantry/Shopping reference summaries: all figures are computed from the
+   corresponding API's actual items/lots. Never invent product costs. */
+.shopping-screen .nf-shopping-overview {grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.shopping-screen .nf-shopping-overview>div {min-width:0;gap:10px}
+.shopping-screen .nf-shopping-overview>div .nf-icon {color:var(--nf-ref-amber)}
+.pantry-screen .nf-pantry-summary {
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;
+}
+.pantry-screen .nf-pantry-summary>div {
+  display:grid;align-content:center;justify-items:start;gap:6px;min-width:0;
+  padding:13px 15px;border:1px solid var(--nf-screen-card-border);
+  border-radius:15px;background:var(--nf-screen-card-surface);
+  color:var(--color-text);box-shadow:var(--nf-screen-card-shadow);
+}
+.pantry-screen .nf-pantry-summary .nf-icon {color:var(--nf-ref-amber);width:20px;height:20px}
+.pantry-screen .nf-pantry-summary small {color:var(--color-muted);font-size:10px;line-height:1.35}
+.pantry-screen .nf-pantry-summary strong {font:700 23px/1.1 "Manrope",sans-serif}
+.pantry-screen .nf-pantry-overview {margin:0;padding:9px 13px}
+.pantry-screen .nf-pantry-overview strong {font-size:12px}
+.pantry-screen .nf-pantry-overview p {font-size:10px}
+@media(min-width:1101px) and (max-height:760px){
+  .shopping-screen .nf-shopping-overview>div {padding:8px 11px;min-height:62px}
+  .pantry-screen .nf-pantry-summary>div {padding:9px 12px;gap:4px}
+  .pantry-screen .nf-pantry-summary strong {font-size:20px}
+  .shopping-screen .shopping-list-section>.shopping-item,.pantry-screen .pantry-row {padding:8px 10px}
+}
+@media(max-width:900px){
+  .shopping-screen .nf-shopping-overview,.pantry-screen .nf-pantry-summary {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
