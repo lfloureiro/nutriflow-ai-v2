@@ -356,3 +356,11 @@ Correção em `screen-reference.css`: a grelha principal passa a utilizar `heigh
 O hero do Início exibe atribuição discreta sobre a fotografia licenciada (autor/licença/link) sem aumentar a altura. Não se alteraram a Semana aprovada, o backend ou a base de dados real.
 
 A versão está pronta para avaliação apenas depois de Web CI, API CI e UX E2E no **mesmo SHA final**, com captura da nova geometria. Continuam pendentes equivalência visual exata dos cinco PNG e estados preenchidos dos restantes ecrãs.
+
+
+## Continuidade — 21/11/2026, navegação de dia na Semana (commit e67a0ac64159)
+
+- Corrigida a visibilidade do dia selecionado na barra horizontal de escolha de dia em `WeeklyProposalPreview.tsx`. O mapa já tinha seleção de hoje quando a semana contém a data local da família e não existe seleção explícita; o efeito anterior deslocava apenas a grelha compacta, deixando o seletor horizontal na posição inicial.
+- A barra de dias passa a centrar a data selecionada quando tem overflow. A navegação manual e a seleção explícita por URL continuam prioritárias; não há foco de teclado forçado, abertura de drawer, mudança de URL nem escrita de dados.
+- Validação local em Chrome/Windows ainda pendente; Web CI, API CI, Deployment Script CI e UX E2E devem ser conferidos no SHA exato. Não declarar o erro `Cannot safely adopt process on port 5173` resolvido: a identidade/posse do processo local requer diagnóstico no Windows. Usar `./deploy.ps1 -Diagnose` (PowerShell `.\\deploy.ps1 -Diagnose`) e não terminar PID desconhecido.
+- Continuam pendentes: correspondência visual exata dos cinco ecrãs; dados de refeições passadas no gráfico com origem explícita; imagens de receitas em falta; política idempotente para receitas familiares e correção local de adoção do Vite. PR #76 continua draft e não foi feito merge.
