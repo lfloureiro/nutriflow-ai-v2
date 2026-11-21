@@ -835,8 +835,12 @@ export default function WeeklyProposalPreview({
       const shortWindow = window.innerHeight < 700;
       const reserve = shortWindow ? 12 : 17;
       const spare = Math.max(0, window.innerHeight - grid.getBoundingClientRect().bottom - reserve);
-      const growth = Math.min(shortWindow ? 8 : 18, Math.floor(spare / 4));
-      const rowHeight = Math.min(shortWindow ? 122 : 138, base + growth);
+      // At 1280×631 CSS px the real browser measured 64px tracks and
+      // 66.5px of unused space. The former 8px cap artificially prevented
+      // the four rows from using that space. Share available room while
+      // retaining a 12px footer margin, rather than imposing a tiny cap.
+      const growth = Math.min(shortWindow ? 22 : 18, Math.floor(spare / 4));
+      const rowHeight = Math.min(shortWindow ? 100 : 138, base + growth);
       // Keep the compact-row variable for CSS consumers and E2E inspection,
       // but enforce the computed height on the actual grid element.
       grid.style.setProperty("--week-compact-row", `${rowHeight}px`);
