@@ -1,10 +1,11 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.services.recipe_image_generation import generate_recipe_image
 from app.schemas.recipe_variant import (
     RecipeEditCreate,
     VariantCreate,
@@ -57,7 +58,17 @@ def retire_endpoint(
 
 
 @router.post("/recipe-edit", response_model=VariantRead, status_code=201)
-def create_recipe_edit_endpoint(family_id: uuid.UUID, data: RecipeEditCreate, db: DB):
+def create_recipe_edit_endpoint(
+    family_id: uuid.UUID, data: RecipeEditCreate, background_tasks: BackgroundTasks, db: DB
+):
     from app.services.recipe_edit import create_recipe_edit
+    from app.services.recipe_variant_integrity import load_recipe
 
-    return create_recipe_edit(db, family_id, data)
+    result = create_recipe_edit(db, family_id, data)
+    recipe = load_recipe(db, result.recipe_id)
+    if recipe is not None:
+        background_tasks.add_task(
+            generate_recipe_image, recipe.id, recipe.name,
+            [ingredient.food_item.name for ingredient in recipe.ingredients],
+        )
+    return result
