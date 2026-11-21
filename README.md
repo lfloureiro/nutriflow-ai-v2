@@ -130,13 +130,13 @@ The web still uses a development Family UUID entrypoint because authentication a
 ### Deploy local — único comando Windows
 
 A partir de agora, o procedimento recomendado para o checkout de desenvolvimento
-no Windows é executar **um único script**, a partir de qualquer diretório:
+no Windows é executar **um único comando**, a partir de qualquer diretório:
 
 ```powershell
-D:\Python\nutriflow-ai-v2\deploy.ps1
+D:\Python\nutriflow-ai-v2\deploy.cmd
 ```
 
-Em alternativa, estando na pasta do projeto: ` .\deploy.ps1 `.
+Em alternativa, estando na pasta do projeto: `.\deploy.cmd`. O `deploy.cmd` invoca `deploy.ps1` com uma política de execução válida apenas para o processo atual, sem alterar definições permanentes.
 
 O `deploy.ps1` valida a branch e o estado limpo do Git, executa
 `git fetch` e `git pull --ff-only`, assegura que o serviço PostgreSQL
@@ -168,7 +168,7 @@ A opção `-ForceRestart` reinicia ambos os serviços quando necessário.
 `-PythonPath` permite selecionar explicitamente o interpretador correto
 numa instalação que use conda fora das pastas locais habituais.
 
-O `deploy.ps1` deve passar a ser o único comando habitual para receber
+O `deploy.cmd` deve passar a ser o único comando habitual para receber
 versões novas. As instruções manuais seguintes ficam reservadas para
 diagnóstico, recuperação e configuração inicial.
 
