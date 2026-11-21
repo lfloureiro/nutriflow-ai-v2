@@ -32,6 +32,16 @@ export function nextFamilyMeal(meals: FamilyDashboardMeal[], now = Date.now(), t
   const current = pending.filter(meal => meal.meal_type === kind && Date.parse(meal.scheduled_at) <= now && localClock(Date.parse(meal.scheduled_at),timezone).date === today).at(-1);
   return current ?? pending.find(meal => Date.parse(meal.scheduled_at) >= now);
 }
+/** A photographed card is only shown when the actual meal name has a verified match. */
+function TodayMealPhoto({title}:{title:string|null}) {
+  const match=title ? resolveMealHeroImage({planned:{title}}) : null;
+  const [failed,setFailed]=useState<string|null>(null);
+  return match && match.src!==failed ?
+    <img className="nf-today-photo" src={match.src} alt="" loading="lazy"
+      referrerPolicy="no-referrer" onError={()=>setFailed(match.src)} /> :
+    <span className="nf-today-photo-fallback" aria-hidden="true"><Icon name="book"/></span>;
+}
+
 export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenWeek, weekDate, onOpenRecipes, onOpenShopping}: {
   dashboard: FamilyDashboard; onPlanMeal: () => void; onOpenPerson: (personId: string) => void;
   onOpenWeek?: (date: string) => void; weekDate?: string; onOpenRecipes?:()=>void;onOpenShopping?:()=>void;
@@ -69,6 +79,15 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
           <img className="nf-meal-hero-art" src="/images/shared-meal.svg" alt="" aria-hidden="true"/>}
       </section>
       <Panel className="nf-family-panel" label={pt ? "Pessoas da família" : "Family members"}>
+        <div className="nf-family-progress-heading"><Icon name="leaf"/><strong>{pt?"Acompanhamento nutricional":"Nutrition overview"}</strong></div>
+        <p className="nf-family-progress-sub">{pt?"Dados disponíveis dos perfis da família":"Available data from family profiles"}</p>
+        <div className="nf-family-nutrition-lines">
+          {dashboard.members.filter(person=>person.nutrition).map(person=><div key={person.person_id}>
+            <span>{memberDisplayName(person)}</span>
+            <strong>{person.nutrition?.energy_consumed_kcal ?? "—"} kcal</strong>
+          </div>)}
+          {!dashboard.members.some(person=>person.nutrition) && <small>{pt?"Ainda não existem dados nutricionais confirmados para hoje.":"No confirmed nutrition data for today."}</small>}
+        </div>
         <div className="nf-panel-heading"><h2>{pt ? "Quem se senta à mesa" : "Who is at the table"}</h2><span className="nf-count">{dashboard.members.length}</span></div>
         {dashboard.members.map(member=><button className="nf-person-line" type="button" key={member.person_id} onClick={()=>onOpenPerson(member.person_id)}>
           <PersonAvatar identity={member.person_id} name={memberDisplayName(member)} familyIdentity={dashboard.family_id} age={member.age_years} sex={member.sex_for_energy_calculation} appearance={member.avatar_appearance} decorative/>
@@ -84,6 +103,7 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
         const meals=dashboard.meals.filter(meal=>meal.meal_type===kind&&meal.status!=="cancelled");
         const meal=meals[0];
         return <button className={`nf-day-slot ${meal ? "" : "nf-day-slot-empty"}`} key={kind} type="button" onClick={openToday}>
+          {meal && <TodayMealPhoto title={meal.title}/>}
           <span className="eyebrow">{labels[kind]}</span><span className="nf-slot-icon"><Icon name={kind === "breakfast" || kind === "snack" ? "leaf" : "book"}/></span>
           <strong>{meal?.title ?? (meal ? labels[kind] : pt ? "Por planear" : "To plan")}</strong>
           <span className="nf-slot-status">{meal ? statusLabels[meal.status]??meal.status : pt ? "Escolher refeição" : "Choose a meal"}</span>
@@ -91,7 +111,15 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
         </button>;
       })}</div>
     </section>
-    <div className="nf-home-shortcuts">{onOpenShopping && <button type="button" onClick={onOpenShopping}><Icon name="bag"/><span><strong>{pt ? "Da semana para as compras" : "From week to shopping"}</strong><small>{pt ? "Rever a despensa. Comprar apenas o que falta." : "Check the pantry. Buy only what is missing."}</small></span><Icon name="arrow"/></button>}{onOpenRecipes && <button type="button" onClick={onOpenRecipes}><Icon name="book"/><span><strong>{pt ? "As receitas que nos juntam" : "Recipes that bring us together"}</strong><small>{pt ? "Ingredientes, gostos e alternativas para a família." : "Ingredients, tastes and alternatives for the family."}</small></span><Icon name="arrow"/></button>}</div>
+    <section className="nf-home-shortcuts" aria-label={pt ? "Ações rápidas" : "Quick actions"}>
+      <div className="nf-panel-heading"><h2>{pt ? "Ações rápidas" : "Quick actions"}</h2></div>
+      <div className="nf-home-shortcut-grid">
+        <button type="button" onClick={onPlanMeal}><Icon name="calendar"/><strong>{pt?"Planear semana":"Plan week"}</strong></button>
+        {onOpenRecipes && <button type="button" onClick={onOpenRecipes}><Icon name="book"/><strong>{pt?"Ver receitas":"View recipes"}</strong></button>}
+        {onOpenShopping && <button type="button" onClick={onOpenShopping}><Icon name="bag"/><strong>{pt?"Criar lista de compras":"Shopping list"}</strong></button>}
+        <button type="button" onClick={openToday}><Icon name="spark"/><strong>{pt?"Adaptar plano":"Adapt plan"}</strong></button>
+      </div>
+    </section>
     {onOpenWeek && <details className="nf-saved-weeks"><summary><span><Icon name="calendar"/>{pt ? "Consultar as nossas semanas guardadas" : "Browse our saved weeks"}</span><span>{pt ? "Ver semanas" : "View weeks"}</span></summary><ScheduledWeeks initialWeek={weekDate} familyId={dashboard.family_id} referenceDate={dashboard.dashboard_date} onOpenWeek={onOpenWeek}/></details>}
     <p className="nf-home-note">{t("home.familyHelp")}</p>
   </div>;
