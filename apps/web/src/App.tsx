@@ -296,7 +296,13 @@ export default function App() {
                       : "+ Add person"}
                 </button>
               </header>
-              <div className="people-list">
+              <div className="nf-family-main-grid">
+                <section className="nf-family-member-section">
+                  <div className="nf-family-section-header">
+                    <h2>{locale === "pt-PT" ? "Membros da família" : "Family members"}</h2>
+                    <small>{dashboard?.members.length ?? 0} {locale === "pt-PT" ? "membros" : "members"}</small>
+                  </div>
+                  <div className="people-list">
                 {dashboard?.members.map((member) => (
                   <button
                     className="person-row"
@@ -312,6 +318,42 @@ export default function App() {
                     <span aria-hidden="true">›</span>
                   </button>
                 ))}
+                  </div>
+                </section>
+                <aside className="nf-family-objectives">
+                  <div className="nf-family-section-header">
+                    <h2>{locale === "pt-PT" ? "Objetivos da família" : "Family goals"}</h2>
+                  </div>
+                  <p>{locale === "pt-PT" ?
+                    "Os objetivos e as preferências dependem dos dados efetivamente registados nos perfis." :
+                    "Goals and preferences depend on the information actually recorded in the profiles."}</p>
+                  <button type="button" className="button ghost small" onClick={() => setView("more")}>
+                    {locale === "pt-PT" ? "Gerir o espaço" : "Manage household"}
+                  </button>
+                </aside>
+              </div>
+              <div className="nf-family-insights">
+                <section className="nf-family-preferences">
+                  <div className="nf-family-section-header">
+                    <h2>{locale === "pt-PT" ? "Resumo de preferências e restrições" : "Preferences and restrictions"}</h2>
+                  </div>
+                  <p>{locale === "pt-PT" ?
+                    "Consulta os perfis individuais para rever restrições e preferências confirmadas." :
+                    "Review individual profiles to see confirmed dietary restrictions and preferences."}</p>
+                </section>
+                <section className="nf-family-comparison">
+                  <div className="nf-family-section-header">
+                    <h2>{locale === "pt-PT" ? "Perfis da família" : "Family profiles"}</h2>
+                  </div>
+                  <div className="nf-family-comparison-list">
+                    {dashboard?.members.map((member) => <button key={member.person_id} type="button"
+                      onClick={() => openPerson(member.person_id)}>
+                      <strong>{memberDisplayName(member)}</strong>
+                      <span>{locale === "pt-PT" ? "Ver preferências e necessidades" : "View preferences and needs"}</span>
+                      <Icon name="arrow"/>
+                    </button>)}
+                  </div>
+                </section>
               </div>
               {showPersonSetup && dashboard ? (
                 <ContextDrawer
