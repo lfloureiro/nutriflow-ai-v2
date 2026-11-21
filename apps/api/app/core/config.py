@@ -17,6 +17,11 @@ class Settings(BaseSettings):
 
     openai_api_key: str | None = None
     openai_base_url: str = "https://api.openai.com/v1"
+    # Auto-generate for newly created family recipes if an API key is configured.
+    # Images may incur usage costs; disable through NUTRIFLOW_RECIPE_IMAGE_GENERATION_ENABLED=false.
+    nutriflow_recipe_image_generation_enabled: bool = True
+    nutriflow_recipe_image_model: str = "gpt-image-2"
+    nutriflow_recipe_image_directory: Path | None = None
     nutriflow_nutrition_plan_ai_model: str = "gpt-5.6-luna"
 
     restaurant_discovery_enabled: bool = True
