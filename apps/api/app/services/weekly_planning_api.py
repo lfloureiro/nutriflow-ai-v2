@@ -724,7 +724,18 @@ def _compute_shared_weekly_plan_uncached(
                 {
                     reason
                     for candidate in planning_slot.candidates
-                    for reason in candidate.evaluation.exclusion_reasons
+                    for reason in (
+                        *candidate.evaluation.exclusion_reasons,
+                        *(
+                            blocker
+                            for fit in candidate.plan_fits
+                            if not fit.eligible
+                            for blocker in (
+                                _plan_fit_blocker_labels(fit)
+                                or [f"plan_fit:{fit.status}"]
+                            )
+                        ),
+                    )
                 }
             )
             skipped_slots.append(
