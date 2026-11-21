@@ -77,6 +77,7 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
   const shownHomeImage = nextImage && failedHomeImage !== nextImage.src ? nextImage : null;
   const focusKind = next?.meal_type ?? currentMealKind(now,dashboard.timezone);
   const nutritionRows = familyNutritionSummary(dashboard.members);
+  const nutritionWithData = nutritionRows.filter(row => row.hasConfirmedConsumption || (row.planned !== null && row.planned > 0));
   const energyNumber = new Intl.NumberFormat(locale,{maximumFractionDigits:0});
   const plannedMeals = dashboard.meals.filter(meal=>meal.status!=="cancelled").length;
   const kinds = ["breakfast", "lunch", "snack", "dinner"];
@@ -110,7 +111,7 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
         <div className="nf-family-progress-heading"><Icon name="leaf"/><strong>{pt?"Acompanhamento nutricional":"Nutrition overview"}</strong></div>
         <p className="nf-family-progress-sub">{pt?"Consumo registado e energia planeada — não são metas clínicas":"Recorded intake and planned energy — not clinical targets"}</p>
         <div className="nf-family-nutrition-lines">
-          {nutritionRows.map(({member,consumed,planned,hasConfirmedConsumption,ratio})=><div className="nf-nutrition-person" key={member.person_id}>
+          {nutritionWithData.map(({member,consumed,planned,hasConfirmedConsumption,ratio})=><div className="nf-nutrition-person" key={member.person_id}>
             <span className="nf-nutrition-person-name">{memberDisplayName(member)}</span>
             <strong>{hasConfirmedConsumption ? `${energyNumber.format(consumed!)} kcal` : (pt?"Sem consumo registado":"No intake recorded")}</strong>
             {planned !== null && planned > 0 && <small>{pt?"Planeado":"Planned"}: {energyNumber.format(planned)} kcal</small>}
@@ -120,7 +121,7 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
               <span style={{width:`${ratio}%`}} />
             </span>}
           </div>)}
-          {!nutritionRows.length && <small>{pt?"Adiciona membros para consultar o acompanhamento.":"Add members to view their nutrition overview."}</small>}
+          {!nutritionWithData.length && <small className="nf-nutrition-empty">{dashboard.members.length ? (pt?"Ainda não há consumo ou energia planeada registados para hoje. Consulta os perfis abaixo.":"No intake or planned energy recorded today. See the family profiles below.") : (pt?"Adiciona membros para consultar o acompanhamento.":"Add members to view their nutrition overview.")}</small>}
         </div>
         <div className="nf-family-at-a-glance">
           <span><Icon name="people"/>{dashboard.members.length} {pt?"perfis":"profiles"}</span>
