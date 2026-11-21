@@ -416,3 +416,18 @@
   .shell-topbar strong { font-size: 13px; }
   .shell-topbar__label { font-size: 10px; }
 }
+
+/* Short CSS viewport (e.g. Windows scaling with Chrome at 100%):
+   keep the same shared menu but reserve space for its footer. */
+@media (min-width: 1101px) and (min-height: 560px) and (max-height: 679px) {
+  .side-nav { gap: 9px; padding-top: 15px; padding-bottom: 10px; }
+  .nf-brand-mark { width: 43px; height: 43px; }
+  .nf-brand-name { font-size: 19px; }
+  .nf-brand-name small { font-size: 11px; }
+  .primary-nav { gap: 0; }
+  .primary-nav .nav-item { min-height: 41px; padding-top: 7px; padding-bottom: 7px; font-size: 14px; }
+  .side-nav__ai { min-height: 82px; padding: 11px 13px; gap: 3px; }
+  .side-nav__ai-heading { font-size: 14px; }
+  .side-nav__ai > span:last-child { font-size: 11px; line-height: 1.35; }
+  .side-nav .side-nav__family { padding-top: 8px; padding-bottom: 4px; }
+}
