@@ -52,3 +52,22 @@ Em Família, Compras e Despensa, as referências foram agora verificadas, mas ai
 
 ## Política de execução
 Trabalhar em commits pequenos no PR #76, com testes e documentação por lote. Não declarar «pronto a testar» enquanto existir CI vermelho ou divergência visual conhecida. Atualizar este documento quando um item mudar de estado; não apagar histórico dos handoffs anteriores.
+
+## Substituição automática de leite — lote de 21/11/2026
+
+**Pedido:** não descartar uma receita familiar de pequeno-almoço por conter leite meio-gordo se existe uma substituição viável; pesquisar bebidas alternativas, adicioná-las ao catálogo de ingredientes e propor a adaptação na Semana com ingrediente e substituto claramente identificados. Reutilizar o fluxo existente de transformação de refeições; não gerar outra receita familiar duplicada.
+
+**Pesquisa externa (catálogos oficiais em 21/11/2026):**
+- Continente: [bebida vegetal de arroz sem adição de açúcar](https://www.continente.pt/supermercado/laticinios-e-ovos/bebidas-vegetais-e-vegegurtes/bebida-arroz/), [aveia sem açúcar Alpro](https://www.continente.pt/produto/bebida-vegetal-de-aveia-sem-acucar-alpro-8152828.html).
+- Auchan: [arroz com coco sem adição de açúcares](https://www.auchan.pt/pt/alimentacao/produtos-lacteos/bebidas-vegetais/arroz/bebida-arroz-coco-auchan-sem-adicao-de-acucares-sem-gluten-1l/3656235.html), [catálogo geral](https://www.auchan.pt/pt/alimentacao/produtos-lacteos/bebidas-vegetais/).
+- Monash University: [alternativas ao leite](https://monashfodmap.com/blog/dairy-alternatives-beverage-and-yoghurt-low-fodmap-options/): leite de arroz é opção possível, mas bebida de aveia pode ser low FODMAP só numa porção menor; o rótulo «sem lactose» não demonstra adequação global. Não tratar a pesquisa como confirmação individual de alergias, FODMAP ou nutrientes.
+
+**Implementação:**
+- `development_plant_milk_seed.py` adiciona **ingredientes genéricos, não produtos comerciais certificados**: bebida de arroz, bebida de aveia, bebida de arroz/coco e leite sem lactose. Reutiliza `breakfast:ingredient:milk` da receita original, sem criar um segundo ingrediente «leite».
+- Regista `FoodTransformationProfile` por família sob `milk-for-breakfast` e composições **ilustrativas/provisórias** para viabilizar apenas testes de desenvolvimento. As estimativas por 100 ml não vêm de rótulos verificados e devem ser substituídas por composições reais antes de recomendações nutricionais em produção.
+- Bebida de arroz e leite sem lactose entram como candidatos automáticos **ainda sujeitos à avaliação completa por pessoa**. Aveia e arroz/coco são alternativas registadas mas com `auto_transform_enabled=false` até confirmação de composição, porção e restantes restrições.
+- `development_seed.py` chama o novo seed idempotente para as famílias de desenvolvimento e inclui os perfis no fluxo existente. **Só aparece na instalação depois de voltar a executar explicitamente o seed de desenvolvimento ou aplicar estes dados por outro processo apropriado; um git pull sozinho não modifica a BD.** Não executar sobre dados reais sem ordem do utilizador.
+- `shared_meal_transformation.py` reconhece agora a recuperação de elegibilidade como motivo de proposta, mesmo que não haja melhoria da pontuação de preferência. `weekly_planning_api.py` volta a considerar variantes para receitas inicialmente rejeitadas, aumentando o limite por receita de 3 para 8 e reavaliando segurança/nutrição dos participantes. `NextMealBanner.tsx` mostra «Adaptação proposta — ingrediente a trocar: leite → bebida ...» e o fluxo de confirmação mantém o `MealTransformationApplication` do calendário (sem criar nova receita).
+- Teste de catálogo valida idempotência e duas variantes automáticas sem ativar aveia/coco como universalmente seguras.
+
+**Limitações importantes:** o motor usa alternativas presentes no catálogo verificado/persistido, não executa uma pesquisa web em tempo real dentro de cada recomendação. Uma pesquisa na loja deve alimentar um catálogo de ingredientes e composições verificadas; não associar automaticamente SKU a estimativas genéricas. O almoço/jantar/lanche já usam o mesmo algoritmo de substituições, condicionado à existência de perfis e evidência suficiente. Uma só substituição pode ser insuficiente quando vários ingredientes estão bloqueados; múltiplas operações simultâneas precisam de desenvolvimento adicional. Não prometer uma proposta elegível antes de validar com os dados familiares.
