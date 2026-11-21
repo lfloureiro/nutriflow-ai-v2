@@ -42,9 +42,9 @@ function TodayMealPhoto({title}:{title:string|null}) {
     <span className="nf-today-photo-fallback" aria-hidden="true"><Icon name="book"/></span>;
 }
 
-export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenWeek, weekDate, onOpenRecipes, onOpenShopping}: {
+export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenWeek, weekDate, onOpenRecipes, onOpenShopping, onAdaptPlan}: {
   dashboard: FamilyDashboard; onPlanMeal: () => void; onOpenPerson: (personId: string) => void;
-  onOpenWeek?: (date: string) => void; weekDate?: string; onOpenRecipes?:()=>void;onOpenShopping?:()=>void;
+  onOpenWeek?: (date: string) => void; weekDate?: string; onOpenRecipes?:()=>void;onOpenShopping?:()=>void; onAdaptPlan?:()=>void;
 }) {
   const {locale, t} = useI18n();
   const pt = locale === "pt-PT";
@@ -117,7 +117,7 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
         <button type="button" onClick={onPlanMeal}><Icon name="calendar"/><strong>{pt?"Planear semana":"Plan week"}</strong></button>
         {onOpenRecipes && <button type="button" onClick={onOpenRecipes}><Icon name="book"/><strong>{pt?"Ver receitas":"View recipes"}</strong></button>}
         {onOpenShopping && <button type="button" onClick={onOpenShopping}><Icon name="bag"/><strong>{pt?"Criar lista de compras":"Shopping list"}</strong></button>}
-        <button type="button" onClick={openToday}><Icon name="spark"/><strong>{pt?"Adaptar plano":"Adapt plan"}</strong></button>
+        <button type="button" onClick={onAdaptPlan ?? onPlanMeal}><Icon name="spark"/><strong>{pt?"Adaptar plano":"Adapt plan"}</strong></button>
       </div>
     </section>
     {onOpenWeek && <details className="nf-saved-weeks"><summary><span><Icon name="calendar"/>{pt ? "Consultar as nossas semanas guardadas" : "Browse our saved weeks"}</span><span>{pt ? "Ver semanas" : "View weeks"}</span></summary><ScheduledWeeks initialWeek={weekDate} familyId={dashboard.family_id} referenceDate={dashboard.dashboard_date} onOpenWeek={onOpenWeek}/></details>}
