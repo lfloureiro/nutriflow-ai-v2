@@ -27,12 +27,17 @@ import { useI18n, type Locale } from "./i18n";
 
 function RecipeCardArt({name}: {name:string}) {
   const resolved = resolveMealHeroImage({planned:{title:name}});
-  const [failedSrc,setFailedSrc] = useState<string|null>(null);
-  const image = resolved && resolved.src !== failedSrc ? resolved : null;
+  const [failedSrc,setFailedSrc] = useState<string[]>([]);
+  const image = resolved && !failedSrc.includes(resolved.src)
+    ? {...resolved,src:resolved.src}
+    : resolved?.fallbackSrc && !failedSrc.includes(resolved.fallbackSrc)
+      ? {...resolved,src:resolved.fallbackSrc}
+      : null;
   return <span className="nf-recipe-art" aria-label={image?.alt ?? name}>
     {image ?
       <img src={image.src} alt="" loading="lazy" referrerPolicy="no-referrer"
-        onError={() => setFailedSrc(image.src)} /> :
+        title={resolved?.kind==="generated"?"Imagem ilustrativa gerada por IA":undefined}
+        onError={() => setFailedSrc(previous=>[...previous,image.src])} /> :
       <Icon name="book" />}
   </span>;
 }
