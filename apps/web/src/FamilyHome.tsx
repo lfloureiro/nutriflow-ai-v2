@@ -5,7 +5,7 @@ import type {FamilyDashboard, FamilyDashboardMeal, FamilyDashboardMember} from "
 import {useI18n, type Locale} from "./i18n";
 import Icon from "./ui/Icon";
 import {resolveMealHeroImage} from "./mealHeroImages";
-import {displayedNutrition, isPastDashboardDate, plannedMealProgress} from "./homeNutritionPresentation";
+import {scheduledMemberNutrition, isPastDashboardDate, plannedMealProgress} from "./homeNutritionPresentation";
 import PersonAvatar from "./ui/PersonAvatar";
 import {EmptyState, Panel} from "./ui/primitives";
 import "./planning-journey.css";
@@ -89,7 +89,7 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
   const localToday = localClock(now,dashboard.timezone).date;
   const historicalPreview = isPastDashboardDate(dashboard.dashboard_date,localToday);
   const presentedRows = dashboard.members.slice(0,4).map(member=>({
-    member,...displayedNutrition(member,dashboard.dashboard_date,localToday),
+    member,...scheduledMemberNutrition(member,dashboard.dashboard_date,localToday,dashboard.meals,now),
   }));
   const intakeRecordedPercent = dashboard.members.length ? Math.round(nutritionRows.filter(row=>row.hasConfirmedConsumption).length*100/dashboard.members.length) : 0;
   const scheduleProgress = plannedMealProgress(dashboard.meals,now);
@@ -98,7 +98,9 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
   const shownRatio = historicalPreview
     ? Math.round(presentedRows.reduce((total,row)=>total+(row.ratio??0),0)/Math.max(1,presentedRows.filter(row=>row.ratio!==null).length))
     : hasRecordedIntake ? intakeRecordedPercent
-    : scheduleProgress.total>0 ? Math.round(100*scheduleProgress.elapsed/scheduleProgress.total) : 0;
+    : presentedRows.some(row=>row.ratio!==null)
+      ? Math.round(presentedRows.reduce((total,row)=>total+(row.ratio??0),0)/Math.max(1,presentedRows.filter(row=>row.ratio!==null).length))
+      : scheduleProgress.total>0 ? Math.round(100*scheduleProgress.elapsed/scheduleProgress.total) : 0;
   const energyNumber = new Intl.NumberFormat(locale,{maximumFractionDigits:0});
   const plannedMeals = dashboard.meals.filter(meal=>meal.status!=="cancelled").length;
   const kinds = ["breakfast", "lunch", "snack", "dinner"];
@@ -135,7 +137,7 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
           <div><h2><Icon name="leaf"/>{pt ? "Progresso nutricional da família" : "Family nutrition progress"}</h2>
             <p>{historicalPreview
               ? (pt ? "Demonstração de consumo passado · valores simulados" : "Past consumption preview · simulated values")
-              : (pt ? "Consumo confirmado e energia planeada · não são metas clínicas" : "Recorded intake and planned energy · not clinical targets")}</p></div>
+              : (pt ? "Consumo confirmado ou estimativa pelo horário · não são metas clínicas" : "Recorded intake or schedule estimate · not clinical targets")}</p></div>
         </div>
         <div className="nf-home-progress-body">
           <div className="nf-home-progress-gauge">
@@ -161,12 +163,12 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
               <div className="nf-home-progress-measure" key={member.person_id}>
                 <div className="nf-home-progress-measure-title"><strong>{memberDisplayName(member)}</strong>
                   <span>{source!=="missing"&&consumed!==null
-                    ? `${energyNumber.format(consumed)} kcal ${source==="simulated"?"(sim.)":""}`
-                    : (pt ? "Sem registo" : "Not recorded")}</span></div>
+                    ? `${energyNumber.format(consumed)} kcal ${source==="simulated"?"(sim.)":source==="scheduled"?"(est.)":""}`
+                    : source==="scheduled" ? (pt?"Refeições previstas decorridas":"Elapsed scheduled meals") : (pt ? "Sem registo" : "Not recorded")}</span></div>
                 <div className="nf-home-progress-track" role={ratio!==null ? "progressbar" : undefined}
                   aria-valuenow={ratio??undefined} aria-valuemin={ratio!==null?0:undefined} aria-valuemax={ratio!==null?100:undefined}
-                  aria-label={pt?`Energia de ${memberDisplayName(member)} face ao plano ${source==="simulated"?"(simulada)":""}`
-                    : `${memberDisplayName(member)} energy vs plan ${source==="simulated"?"(simulated)":""}`}>
+                  aria-label={pt?`Energia de ${memberDisplayName(member)} face ao plano ${source==="simulated"?"(simulada)":source==="scheduled"?"(estimada por horário)":""}`
+                    : `${memberDisplayName(member)} energy vs plan ${source==="simulated"?"(simulated)":source==="scheduled"?"(estimated from schedule)":""}`}>
                   <span style={{width:`${ratio??0}%`}} />
                 </div>
                 <small>{planned!==null&&planned>0
