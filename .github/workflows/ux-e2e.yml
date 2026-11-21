@@ -81,6 +81,7 @@ jobs:
             apps/web/test-results/visual-week-*.png
             apps/web/test-results/visual-home-*.png
             apps/web/test-results/visual-screen-*.png
+            apps/web/test-results/reference-*.png
           if-no-files-found: ignore
           retention-days: 5
       - name: Upload failing traces and service logs
