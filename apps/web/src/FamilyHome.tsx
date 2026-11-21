@@ -113,7 +113,7 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
         <div className="nf-family-nutrition-lines">
           {nutritionWithData.map(({member,consumed,planned,hasConfirmedConsumption,ratio})=><div className="nf-nutrition-person" key={member.person_id}>
             <span className="nf-nutrition-person-name">{memberDisplayName(member)}</span>
-            <strong>{hasConfirmedConsumption ? `${energyNumber.format(consumed!)} kcal` : (pt?"Sem consumo registado":"No intake recorded")}</strong>
+            <strong>{hasConfirmedConsumption ? `${energyNumber.format(consumed!)} kcal` : (pt?"Sem registo":"Not recorded")}</strong>
             {planned !== null && planned > 0 && <small>{pt?"Planeado":"Planned"}: {energyNumber.format(planned)} kcal</small>}
             {ratio !== null && <span className="nf-nutrition-meter" role="progressbar"
               aria-valuenow={ratio} aria-valuemin={0} aria-valuemax={100}
