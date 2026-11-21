@@ -740,6 +740,7 @@ export default function WeeklyProposalPreview({
   onPlanChanged,
   planningOptions,
   autoGenerate = false,
+  autoBreakfastOnly = false,
   onApplied,
   recipeAdaptations,
   recipeAdaptationsForParticipants,
@@ -767,6 +768,8 @@ export default function WeeklyProposalPreview({
   onPlanChanged?: () => void;
   planningOptions?: {mealSources?: Partial<Record<MealType,"home"|"delivery"|"restaurant">>; mealTypes: MealType[]; excludedFoodItemIds: string[]; attendance?: {planning_date: string; meal_type: MealType; person_ids: string[]}[]; guestNotices?: {planning_date:string;meal_type:MealType;guest_count:number}[]; attendanceDecisions?: {planning_date:string;meal_type:MealType;people:{person_id:string;decision:"present"|"absent"|"unconfirmed"}[]}[]};
   autoGenerate?: boolean;
+  /** Generate read-only previews for upcoming empty breakfasts only. */
+  autoBreakfastOnly?: boolean;
   onApplied?: (shoppingUpdated: boolean) => void;
   recipeAdaptations?: Record<string,string[]>;
   recipeAdaptationsForParticipants?: (day: string, meal: MealType, attendees: string[]) => Record<string,string[]>;
@@ -1009,7 +1012,9 @@ export default function WeeklyProposalPreview({
       if (!firstPerson) throw new Error(copy.noPeople);
 
       const targets = weekDates.flatMap((planningDate) =>
-        ALL_MEAL_TYPES.filter(mealType=>!planningOptions || planningOptions.mealTypes.includes(mealType) || slotSources[slotKey(planningDate,mealType)]).flatMap((mealType) =>
+        ALL_MEAL_TYPES.filter(mealType => !autoBreakfastOnly ||
+          (mealType === "breakfast" && planningDate >= new Date().toLocaleDateString("en-CA", { timeZone: plan.timezone })))
+          .filter(mealType=>!planningOptions || planningOptions.mealTypes.includes(mealType) || slotSources[slotKey(planningDate,mealType)]).flatMap((mealType) =>
           mealEntryFor(plan, planningDate, mealType) === null &&
           (planningOptions?.attendance?.find(a=>a.planning_date===planningDate && a.meal_type===mealType)?.person_ids.length ?? people.length) >= 2 &&
           (planningOptions?.attendance?.find(a=>a.planning_date===planningDate && a.meal_type===mealType)?.person_ids.length ?? people.length) >= 2
@@ -1244,7 +1249,7 @@ export default function WeeklyProposalPreview({
       autoStarted.current = true;
       void generateProposal();
     }
-  }, [autoGenerate, plan, people]);
+  }, [autoGenerate, autoBreakfastOnly, plan, people]);
 
   return (
     <section className={`meal-plan-editor weekly-proposal-preview ${simpleWeekView ? "nf-week-map-final" : ""}`}>
