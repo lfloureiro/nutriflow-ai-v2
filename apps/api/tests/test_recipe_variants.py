@@ -643,6 +643,40 @@ def test_recipe_edit_reuses_user_named_replacements_without_duplicate_foods(clie
     assert db_session.scalar(select(func.count()).select_from(FoodItem)) == before
 
 
+
+def test_duplicate_family_adaptations_are_reported_without_deleting_history(
+    client, db_session, pilot, monkeypatch
+):
+    from app.services import recipe_edit as edits
+
+    family, _, _, _, base, payload, _ = pilot
+    url = f"/api/families/{family.id}/recipe-variants/recipe-edit"
+    body = {"base_recipe_id": str(base.id), "name": "Frango rápido · família",
+            "operations": payload["operations"]}
+    first = client.post(url, json=body)
+    assert first.status_code == 201, first.text
+
+    # Simulate the legacy code path that always materialized a new recipe.
+    with monkeypatch.context() as patch:
+        patch.setattr(edits, "_find_existing_edit", lambda *args: None)
+        second = client.post(url, json=body)
+    assert second.status_code == 201, second.text
+    assert second.json()["recipe_id"] != first.json()["recipe_id"]
+
+    audit = client.get(f"/api/families/{family.id}/recipe-variants/duplicates")
+    assert audit.status_code == 200, audit.text
+    groups = audit.json()
+    assert len(groups) == 1
+    assert groups[0]["count"] == 2
+    assert groups[0]["action"] == "manual_review_required"
+    assert {row["recipe_id"] for row in groups[0]["recipes"]} == {
+        first.json()["recipe_id"], second.json()["recipe_id"]
+    }
+    # Audit is read-only and the historical recipe IDs remain available.
+    assert db_session.get(Recipe, first.json()["recipe_id"]) is not None
+    assert db_session.get(Recipe, second.json()["recipe_id"]) is not None
+
+
 def test_recipe_edit_scope_invalid_operation_and_missing_description(client, pilot):
     import uuid
 
