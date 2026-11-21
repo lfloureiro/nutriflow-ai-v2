@@ -61,7 +61,7 @@ function TodayMealPhoto({title}:{title:string|null}) {
   return match && match.src!==failed ?
     <img className="nf-today-photo" src={match.src} alt="" loading="lazy"
       referrerPolicy="no-referrer" onError={()=>setFailed(match.src)} /> :
-    <span className="nf-today-photo-fallback" aria-hidden="true"><Icon name="book"/></span>;
+    <span className="nf-today-photo-fallback" aria-hidden="true"><Icon name="cloche"/></span>;
 }
 
 export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenWeek, weekDate, onOpenRecipes, onOpenShopping, onAdaptPlan}: {
