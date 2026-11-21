@@ -2,13 +2,12 @@
 
 Approval records recipe choices, never a nutrition or restriction certification.
 """
-import uuid
 import unicodedata
+import uuid
 from decimal import Decimal
 
-from sqlalchemy import select
-
 from fastapi import HTTPException
+from sqlalchemy import select
 
 from app.models.food_catalog import FoodItem, Recipe, RecipeIngredient
 from app.models.recipe_variant import FamilyRecipeVariant
@@ -32,7 +31,6 @@ def _norm_number(value):
 
 def _edit_signature(data, base):
     """Compare the effective recipe, not generated IDs or display names."""
-    by_id = {ingredient.id: ingredient for ingredient in base.ingredients}
     operations = {operation.recipe_ingredient_id: operation for operation in data.operations}
     rows = []
     for ingredient in sorted(base.ingredients, key=lambda row: (row.sort_order, str(row.id))):
