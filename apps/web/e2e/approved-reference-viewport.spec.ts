@@ -152,6 +152,9 @@ for (const appearance of ["dark", "light"] as const) {
         horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
       };
     });
+    const outerShortcutDisplay = await page.locator(".nf-home .nf-home-shortcuts")
+      .evaluate(el=>getComputedStyle(el).display);
+    expect(outerShortcutDisplay,"The outer shortcut panel must not be a 2-column grid").toBe("flex");
     expect(homeContent.shortcutRows).toBe(1);
     expect(homeContent.weekRows).toBe(1);
     expect(homeContent.background).not.toBe("rgb(239, 239, 239)");
@@ -209,6 +212,9 @@ for (const appearance of ["dark", "light"] as const) {
       if(screen==="inicio"){
         const rows=await page.locator(".nf-home-shortcut-grid > button").evaluateAll(els=>
           new Set(els.map(el=>Math.round(el.getBoundingClientRect().top))).size);
+        const containerDisplay=await page.locator(".nf-home .nf-home-shortcuts")
+          .evaluate(el=>getComputedStyle(el).display);
+        expect(containerDisplay).toBe("flex");
         expect(rows).toBe(1);
         const weeklyRows=await page.locator(".nf-home-week-cards > button").evaluateAll(els=>
           new Set(els.map(el=>Math.round(el.getBoundingClientRect().top))).size);
