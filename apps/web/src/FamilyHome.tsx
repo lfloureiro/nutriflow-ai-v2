@@ -3,6 +3,7 @@ import ScheduledWeeks from "./ScheduledWeeks";
 import type {FamilyDashboard, FamilyDashboardMeal, FamilyDashboardMember} from "./api/types";
 import {useI18n, type Locale} from "./i18n";
 import Icon from "./ui/Icon";
+import {resolveMealHeroImage} from "./mealHeroImages";
 import PersonAvatar from "./ui/PersonAvatar";
 import {EmptyState, Panel} from "./ui/primitives";
 import "./planning-journey.css";
@@ -40,6 +41,9 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
   const [now,setNow] = useState(()=>Date.now());
   useEffect(()=>{const timer=window.setInterval(()=>setNow(Date.now()),30_000);return ()=>window.clearInterval(timer);},[]);
   const next = nextFamilyMeal(dashboard.meals,now,dashboard.timezone);
+  const nextImage = next ? resolveMealHeroImage({planned: {title: next.title}}) : null;
+  const [failedHomeImage,setFailedHomeImage] = useState<string | null>(null);
+  const shownHomeImage = nextImage && failedHomeImage !== nextImage.src ? nextImage : null;
   const focusKind = next?.meal_type ?? currentMealKind(now,dashboard.timezone);
   const kinds = ["breakfast", "lunch", "snack", "dinner"];
   const labels: Record<string,string> = pt ? {breakfast:"Pequeno-almoço",lunch:"Almoço",snack:"Lanche",dinner:"Jantar"} : {breakfast:"Breakfast",lunch:"Lunch",snack:"Snack",dinner:"Dinner"};
@@ -59,7 +63,10 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
           <button className="button primary" onClick={openToday} type="button">{next ? (pt ? "Ver refeições e porções" : "View meals & portions") : (pt ? "Escolher uma refeição" : "Choose a meal")}<Icon name="arrow"/></button>
           <div className="nf-hero-meta">{next && <span><Icon name="clock"/>{formatMealTime(next.scheduled_at,dashboard.timezone,locale)}</span>}<span><Icon name="people"/>{next?.participant_person_ids.length ?? dashboard.members.length} {pt ? "pessoas" : "people"}</span></div>
         </div>
-        <img className="nf-meal-hero-art" src="/images/shared-meal.svg" alt="" aria-hidden="true"/>
+        {shownHomeImage ? <img key={shownHomeImage.src} className="nf-meal-hero-art nf-meal-hero-photo"
+          src={shownHomeImage.src} alt={shownHomeImage.alt} loading="eager" referrerPolicy="no-referrer"
+          onError={() => setFailedHomeImage(shownHomeImage.src)} /> :
+          <img className="nf-meal-hero-art" src="/images/shared-meal.svg" alt="" aria-hidden="true"/>}
       </section>
       <Panel className="nf-family-panel" label={pt ? "Pessoas da família" : "Family members"}>
         <div className="nf-panel-heading"><h2>{pt ? "Quem se senta à mesa" : "Who is at the table"}</h2><span className="nf-count">{dashboard.members.length}</span></div>
