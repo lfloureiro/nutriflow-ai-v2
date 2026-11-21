@@ -1,5 +1,6 @@
 import {useEffect, useState} from "react";
 import ScheduledWeeks from "./ScheduledWeeks";
+import {calendarDateOffset,calendarMonday} from "./mealAlternatives";
 import type {FamilyDashboard, FamilyDashboardMeal, FamilyDashboardMember} from "./api/types";
 import {useI18n, type Locale} from "./i18n";
 import Icon from "./ui/Icon";
@@ -124,7 +125,19 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
         <button type="button" onClick={onAdaptPlan ?? onPlanMeal}><Icon name="spark"/><strong>{pt?"Adaptar plano":"Adapt plan"}</strong></button>
       </div>
     </section>
-    {onOpenWeek && <details className="nf-saved-weeks"><summary><span><Icon name="calendar"/>{pt ? "Consultar as nossas semanas guardadas" : "Browse our saved weeks"}</span><span>{pt ? "Ver semanas" : "View weeks"}</span></summary><ScheduledWeeks initialWeek={weekDate} familyId={dashboard.family_id} referenceDate={dashboard.dashboard_date} onOpenWeek={onOpenWeek}/></details>}
+    {onOpenWeek && <section className="nf-saved-weeks" aria-label={pt ? "Planos da semana" : "Weekly plans"}>
+      <div className="nf-panel-heading nf-saved-weeks-heading"><div><h2><Icon name="calendar"/>{pt ? "Planos da semana" : "Weekly plans"}</h2><small>{pt ? "Consultar a agenda da família" : "Browse the family calendar"}</small></div><button className="button ghost small" onClick={()=>onOpenWeek(calendarMonday(dashboard.dashboard_date))} type="button">{pt ? "Ver todos" : "View all"}<Icon name="arrow"/></button></div>
+      <div className="nf-home-week-cards">{([-7,0,7] as const).map(offset=>{
+        const monday=calendarDateOffset(calendarMonday(weekDate??dashboard.dashboard_date),offset);
+        const end=calendarDateOffset(monday,6);
+        const dateLabel=(date:string)=>new Intl.DateTimeFormat(locale,{day:"numeric",month:"short",timeZone:"UTC"}).format(new Date(date+"T12:00:00Z"));
+        return <button type="button" className={`nf-home-week-card ${offset===0?"is-current":""}`} key={monday} onClick={()=>onOpenWeek(monday)}>
+          <Icon name="calendar"/><strong>{offset===0?(pt?"Semana atual":"Current week"):offset<0?(pt?"Semana anterior":"Previous week"):(pt?"Próxima semana":"Next week")}</strong>
+          <span>{dateLabel(monday)} – {dateLabel(end)}</span>{offset===0&&<small>{pt?"Esta semana":"This week"}</small>}
+        </button>;
+      })}</div>
+      <details className="nf-home-week-details"><summary>{pt ? "Explorar refeições e alternativas guardadas" : "Explore saved meals and alternatives"}</summary><ScheduledWeeks initialWeek={weekDate} familyId={dashboard.family_id} referenceDate={dashboard.dashboard_date} onOpenWeek={onOpenWeek}/></details>
+    </section>}
     <p className="nf-home-note">{t("home.familyHelp")}</p>
   </div>;
 }
