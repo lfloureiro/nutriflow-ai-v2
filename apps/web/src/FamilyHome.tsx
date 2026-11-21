@@ -57,7 +57,7 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
     </header>
     <div className="nf-home-grid">
       <section className="nf-meal-hero" aria-label={pt ? "Próxima refeição" : "Next meal"}>
-        <div className="nf-meal-hero-copy"><span className="eyebrow">{day}</span>
+        <div className="nf-meal-hero-copy"><span className="eyebrow">{pt ? "PRÓXIMA REFEIÇÃO" : "NEXT MEAL"}</span><small className="nf-home-hero-date">{day}</small>
           <h2>{next?.title ?? (next ? labels[next.meal_type] ?? next.meal_type : pt ? `O próximo ${(labels[focusKind] ?? "jantar").toLocaleLowerCase(locale)} começa aqui.` : `Your next ${(labels[focusKind] ?? "dinner").toLowerCase()} starts here.`)}</h2>
           <p>{pt ? "Escolhas partilhadas, com espaço para as necessidades de todos." : "Shared choices, with room for everyone’s needs."}</p>
           <button className="button primary" onClick={openToday} type="button">{next ? (pt ? "Ver refeições e porções" : "View meals & portions") : (pt ? "Escolher uma refeição" : "Choose a meal")}<Icon name="arrow"/></button>
