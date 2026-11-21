@@ -70,3 +70,6 @@ recipe_nutrition_export.json
 # Generated installation metadata and private rendered documents
 output/
 *.egg-info/
+
+# Managed local deployment PIDs and logs (never commit these)
+.nutriflow-local/
