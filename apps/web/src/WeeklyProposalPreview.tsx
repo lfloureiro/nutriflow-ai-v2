@@ -827,11 +827,16 @@ export default function WeeklyProposalPreview({
       const rows = style.gridTemplateRows.trim().split(/\s+/).map(value => Number.parseFloat(value)).filter(Number.isFinite);
       if (rows.length !== 5) return;
       const currentRow = Math.max(...rows.slice(1));
-      const available = window.innerHeight - grid.getBoundingClientRect().bottom - 16;
-      // At most 12 CSS px extra per meal, preserving room under the panel.
-      const increase = Math.min(12, Math.max(0, Math.floor(available / 4)));
+      const shortWindow = window.innerHeight < 700;
+      // Keep at least 12 CSS px below the final row, and never force a
+      // taller grid in 610px windows. At regular heights use the genuinely
+      // spare space for up to 6px additional breathing room per meal.
+      const available = window.innerHeight - grid.getBoundingClientRect().bottom - 12;
+      const limit = shortWindow ? 12 : 18;
+      const cap = shortWindow ? 122 : 130;
+      const increase = Math.min(limit, Math.max(0, Math.floor(available / 4)));
       if (increase > 0) {
-        grid.style.setProperty("--week-compact-row", `${Math.min(122, currentRow + increase)}px`);
+        grid.style.setProperty("--week-compact-row", `${Math.min(cap, currentRow + increase)}px`);
       }
     };
     const schedule = () => {
