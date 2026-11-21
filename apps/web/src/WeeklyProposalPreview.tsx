@@ -821,23 +821,26 @@ export default function WeeklyProposalPreview({
     let disposed = false;
     const recalculate = () => {
       if (disposed || !grid.isConnected) return;
+      // The desktop grid is a five-track CSS subgrid. Previous patches
+      // changed only --week-compact-row, leaving the rendered tracks at their
+      // intrinsic heights in some browser layouts. Set the actual grid
+      // tracks on this mounted element instead.
+      grid.style.removeProperty("grid-template-rows");
       grid.style.removeProperty("--week-compact-row");
       if (!window.matchMedia("(min-width: 1101px) and (min-height: 560px) and (max-height: 960px)").matches) return;
-      const style = window.getComputedStyle(grid);
-      const rows = style.gridTemplateRows.trim().split(/\s+/).map(value => Number.parseFloat(value)).filter(Number.isFinite);
+      const rows = window.getComputedStyle(grid).gridTemplateRows.trim().split(/\s+/)
+        .map(value => Number.parseFloat(value)).filter(Number.isFinite);
       if (rows.length !== 5) return;
-      const currentRow = Math.max(...rows.slice(1));
+      const base = Math.max(...rows.slice(1));
       const shortWindow = window.innerHeight < 700;
-      // Keep at least 12 CSS px below the final row, and never force a
-      // taller grid in 610px windows. At regular heights use the genuinely
-      // spare space for up to 6px additional breathing room per meal.
-      const available = window.innerHeight - grid.getBoundingClientRect().bottom - 12;
-      const limit = shortWindow ? 12 : 18;
-      const cap = shortWindow ? 122 : 130;
-      const increase = Math.min(limit, Math.max(0, Math.floor(available / 4)));
-      if (increase > 0) {
-        grid.style.setProperty("--week-compact-row", `${Math.min(cap, currentRow + increase)}px`);
-      }
+      const reserve = shortWindow ? 12 : 17;
+      const spare = Math.max(0, window.innerHeight - grid.getBoundingClientRect().bottom - reserve);
+      const growth = Math.min(shortWindow ? 8 : 18, Math.floor(spare / 4));
+      const rowHeight = Math.min(shortWindow ? 122 : 138, base + growth);
+      // Keep the compact-row variable for CSS consumers and E2E inspection,
+      // but enforce the computed height on the actual grid element.
+      grid.style.setProperty("--week-compact-row", `${rowHeight}px`);
+      grid.style.setProperty("grid-template-rows", `${rows[0]}px repeat(4, ${rowHeight}px)`);
     };
     const schedule = () => {
       if (frame) window.cancelAnimationFrame(frame);
@@ -858,6 +861,7 @@ export default function WeeklyProposalPreview({
       window.removeEventListener("resize", schedule);
       observer.disconnect();
       grid.style.removeProperty("--week-compact-row");
+      grid.style.removeProperty("grid-template-rows");
     };
   }, [simpleWeekView, suppliedPlan, refreshedPlan, loadedPlan]);
 
