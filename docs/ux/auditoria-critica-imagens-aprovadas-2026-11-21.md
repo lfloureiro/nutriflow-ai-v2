@@ -53,3 +53,7 @@ O utilizador forneceu capturas reais do Início e Semana a 1536 × 959 pixels, c
 - `FamilyHome.test.ts`: cenários com consumo zero, valores reais planeados e ausência de denominador válido.
 
 **Ainda não está certificada equivalência ao mockup.** A semana tem de preservar todas as linhas e cenas reais. Validar Web/API/E2E **no mesmo SHA final**, inspeção de PNG sintéticos e, antes de qualquer pedido de aceitação visual, confronto com a referência aprovada.
+
+## v2.0.97 — correção após captura do Semanal às 14:27, 21/11/2026
+A captura real do utilizador demonstrou que a v2.0.96 mantinha aproximadamente a altura anterior das células. O ajuste via ResizeObserver só aumentava alturas após medir folga e não alterava o valor base. Corrigido diretamente `week-reference.css` para elevar **6 CSS px por linha de refeição** na fórmula do mapa semanal de 700–960 CSS px de altura: `+10px` → `+16px`, limite 122→128px. O ajuste dinâmico continua a usar apenas a folga disponível; para alturas inferiores a 700px mantém-se a regra compacta, sem ampliar a grelha. Atualizado o teste E2E 760px para exigir pelo menos 91px por linha e manter o teste 610px.
+Corrigido também o erro TypeScript TS2532 em `FamilyHome.test.ts` (o CI Web de v2.0.96 tinha 243 testes vitest a passar, mas falhava no typecheck por indexação de array potencialmente indefinida). A alteração não mexe nos dados familiares nem nos drawers. Validar o novo SHA no CI antes de concluir.
