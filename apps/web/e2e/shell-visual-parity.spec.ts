@@ -107,10 +107,24 @@ for (const theme of ["light", "dark"] as const) {
         viewportWidth: document.documentElement.clientWidth,
       };
     });
-    expect(home.radius).toBe("20px");
-    expect(home.minHeight).toBeLessThanOrEqual(230);
+    expect(home.radius).toBe("17px");
+    expect(home.minHeight).toBeLessThanOrEqual(165);
     expect(home.fontFamily).toContain("Manrope");
     expect(home.screenWidth).toBeLessThanOrEqual(home.viewportWidth + 1);
+    const density = await page.evaluate(() => {
+      const tiles = document.querySelectorAll<HTMLElement>(".nf-home .nf-day-slot");
+      const hero = document.querySelector<HTMLElement>(".nf-home .nf-meal-hero");
+      const screen = document.querySelector<HTMLElement>(".nf-home");
+      return {
+        meals: tiles.length,
+        cardHeight: tiles[0]?.getBoundingClientRect().height ?? 0,
+        heroHeight: hero?.getBoundingClientRect().height ?? 0,
+        screenWidth: screen?.getBoundingClientRect().width ?? 0,
+      };
+    });
+    expect(density.meals).toBe(4);
+    expect(density.cardHeight).toBeLessThanOrEqual(180);
+    expect(density.heroHeight).toBeLessThanOrEqual(260);
     await page.screenshot({path:`test-results/visual-home-${theme}-1280.png`,fullPage:true});
 
     const footerGeometry = await page.evaluate(() => {
