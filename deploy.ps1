@@ -423,6 +423,14 @@ function Save($state) {
 }
 if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir | Out-Null }
 if ($VerifyApiCandidateOnly) {
+    # Verify executable identity using the same regex as the runtime path.
+    $apiExePattern = '^(python(?:w)?|uvicorn)[.]exe$'
+    if ('python.exe' -notmatch $apiExePattern -or
+        'pythonw.exe' -notmatch $apiExePattern -or
+        'uvicorn.exe' -notmatch $apiExePattern -or
+        'node.exe' -match $apiExePattern) {
+        throw 'PowerShell Python executable identity regression.'
+    }
     # No processes are started or stopped. Simulate duplicate Uvicorn
     # candidates and verify that the TCP owner wins, never the older PID.
     $candidates = @(
