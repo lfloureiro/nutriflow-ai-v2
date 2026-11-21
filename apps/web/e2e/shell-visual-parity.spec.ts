@@ -219,6 +219,8 @@ for (const theme of ["light", "dark"] as const) {
       }
       if (hash.includes("shopping")) {
         await expect(page.locator(".nf-shopping-overview > div")).toHaveCount(4);
+        await expect(page.locator(".nf-shopping-workspace")).toBeVisible();
+        await expect(page.locator(".nf-shopping-workspace-aside .nf-shopping-aside-card")).toHaveCount(2);
       }
       if (hash.includes("pantry")) {
         await expect(page.locator(".nf-pantry-summary > div")).toHaveCount(4);
