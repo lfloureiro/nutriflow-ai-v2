@@ -600,3 +600,13 @@
     max-height:80px!important;
   }
 }
+
+/* Always identify the NEXT MEAL hero as the editorial focal card, even when
+   the local optional illustration has not yet been installed. */
+.nf-home-reference-v4 .nf-meal-hero {
+  border-color:rgba(222,166,97,.68)!important;
+  box-shadow:inset 0 0 0 1px rgba(222,166,97,.10),0 0 23px rgba(185,118,55,.10)!important;
+}
+.nf-home-reference-v4 .nf-meal-hero .eyebrow {
+  color:var(--home-gold,#d8b28c)!important;
+}
