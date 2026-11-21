@@ -257,8 +257,8 @@ function FindLocalFrontendProcess([int]$port) {
     if ($candidates.Count -gt 1) {
         # Only the actual TCP owner may be chosen without ambiguity.
         $owners = @(Listener $port | Select-Object -ExpandProperty OwningProcess -Unique)
-        $matches = @($candidates | Where-Object { $owners -contains $_.Id })
-        if ($matches.Count -eq 1) { return $matches[0] }
+        $socketMatches = @($candidates | Where-Object { $owners -contains $_.Id })
+        if ($socketMatches.Count -eq 1) { return $socketMatches[0] }
         foreach ($candidate in $candidates) {
             Write-Host ('Vite candidate PID ' + $candidate.Id +
                 ' StartUTC=' + $candidate.StartTime.ToUniversalTime().ToString('o'))
