@@ -36,6 +36,7 @@ import type { MealDeliveryProviderKey } from "./api/mealDeliveryTypes";
 import type { Person } from "./api/types";
 import { useI18n, type Locale } from "./i18n";
 import { scheduledIso } from "./planning";
+import { familyLocalDate } from "./nextMealSelection";
 import {
   recommendationCandidates,
   recommendationDeliveryProviderKeys,
@@ -1013,7 +1014,7 @@ export default function WeeklyProposalPreview({
 
       const targets = weekDates.flatMap((planningDate) =>
         ALL_MEAL_TYPES.filter(mealType => !autoBreakfastOnly ||
-          (mealType === "breakfast" && planningDate >= new Date().toLocaleDateString("en-CA", { timeZone: plan.timezone })))
+          (mealType === "breakfast" && planningDate >= familyLocalDate(Date.now(), plan.timezone)))
           .filter(mealType=>!planningOptions || planningOptions.mealTypes.includes(mealType) || slotSources[slotKey(planningDate,mealType)]).flatMap((mealType) =>
           mealEntryFor(plan, planningDate, mealType) === null &&
           (planningOptions?.attendance?.find(a=>a.planning_date===planningDate && a.meal_type===mealType)?.person_ids.length ?? people.length) >= 2 &&
