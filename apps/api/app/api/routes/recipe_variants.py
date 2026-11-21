@@ -5,6 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.services.recipe_duplicate_audit import duplicate_family_adaptations
 from app.services.recipe_image_generation import generate_recipe_image
 from app.schemas.recipe_variant import (
     RecipeEditCreate,
@@ -24,6 +25,11 @@ from app.services.recipe_variant import (
 
 router = APIRouter(prefix="/families/{family_id}/recipe-variants", tags=["recipe variants"])
 DB = Annotated[Session, Depends(get_db)]
+
+
+@router.get("/duplicates")
+def duplicate_family_adaptations_endpoint(family_id: uuid.UUID, db: DB):
+    return duplicate_family_adaptations(db, family_id)
 
 
 @router.get("", response_model=list[VariantRead])
