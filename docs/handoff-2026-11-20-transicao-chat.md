@@ -197,3 +197,23 @@ O teste E2E `shell-visual-parity.spec.ts` valida agora também que o rodapé fic
 ### Catálogo fotográfico ampliado
 
 Além das correspondências inicialmente registadas, foi incluído `Escalopes ao vinho Madeira · família` com a imagem `Escalope à piamontese (2025-01-28) 01.jpg`, de Avelludo, Wikimedia Commons, CC BY-SA 4.0. O título da fotografia refere uma composição com arroz e batatas, mas o prato fotografado inclui efetivamente escalope com molho Madeira. O UI indica que a fotografia é ilustrativa; não afirma correspondência exata de ingredientes. `Bifanas com natas` permanece sem fotografia curada.\n
+
+## v2.0.87 — primeiro lote de uniformização após aprovação da Semana (21/11/2026)
+
+O utilizador aprovou visualmente a Semana v2.0.86 no Chrome com fotografia de frango no hero e autorizou avançar para os **outros menus/ecrãs**, recuperando depois a lista de pendentes do roadmap. A Semana aprovada passa a servir de referência de **densidade e acabamentos**, sem alterar os seus cartões nem os seus dados.
+
+- Criado `apps/web/src/screen-reference.css` carregado depois do CSS legado: tokens e tipografia partilhados de cabeçalhos, cartões e superfícies, com estilos aplicados a `nf-home`, `people-screen`, `home-base`, `shopping-screen` e `settings-screen` para reduzir divergências entre rotas.
+- **Início (primeiro ecrã a uniformizar)**: hero com superfície editorial carvão/âmbar em dark e superfície suave em light, dimensão mais compacta, títulos DM Sans/Manrope, botões com contorno de ação, cartões dos quatro momentos menos altos; mantém a ilustração/funções originais e não inventa recomendações. Painéis familiares e atalhos permanecem no DOM com as mesmas ações. **Não foi declarada igualdade pixel a pixel** nem concluída revisão manual do Início.
+- **Restantes menus**: primeiro passe transversal de tipografia, raio, cor de borda e sombra dos cartões em Receitas, Família, Compras e Despensa sem alterar formularios, filtros, lógica, navegação ou drawers. Uma revisão ecrã a ecrã da composição específica **continua pendente**, na ordem Início → Receitas → Família → Compras → Despensa.
+- `shell-visual-parity.spec.ts`: adicionada captura de Início em light e dark numa base sintética, assertivas de estilo e existência de contentores para outras rotas. Web/API/E2E devem passar no SHA final; comparar os novos screenshots antes de pedir revisão humana.
+
+### Pendentes funcionais recuperados do roadmap (sem os marcar como concluídos)
+
+1. **UX visual/acessibilidade:** comparação lado a lado com o protótipo dos restantes 5 ecrãs, light/dark, larguras 1440/1024/768/390, zoom 200%, navegação por teclado, foco e drawers.
+2. **Presenças:** padrões por dia/slot, exceções e convidados; não equiparar «por confirmar» a «ausente»; revalidar elegibilidade quando participantes mudam.
+3. **Refeição/receitas/adaptações:** fluxo completo de rever receita adaptada no drawer, reabrir rascunhos, confirmação explícita, não modificar originais ou compras antes de aceitar; avaliações familiares 1–5 separadas de segurança nutricional.
+4. **Nutrição:** comparar porção real à orientação profissional ativa com fonte/validade, manter incógnitas explícitas, demonstrar FODMAP sem validação clínica indevida e tratamento de respostas API fora de contexto.
+5. **Despensa/compras:** consistência de stock, validade e unidades; diferenciação comprado/recebido, recebimentos parciais, regeneração e eliminação de necessidades após adaptações.
+6. **Idiomas, estabilidade, privacidade e lançamento:** PT/EN, offline/erro rede, concorrência, no data leakage, revisão dos casos da checklist `docs/ux/aceitacao-manual-v2.1.0.md`; apenas depois marcar RC 2.1.0 pronta e solicitar autorização para merge.
+
+PR #76 mantém-se draft, branch existente; sem intervenções na API, DB real, serviços Windows, processos locais ou main.
