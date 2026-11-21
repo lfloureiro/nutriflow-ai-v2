@@ -59,9 +59,11 @@ export function nextFamilyMeal(meals: FamilyDashboardMeal[], now = Date.now(), t
 function TodayMealPhoto({title}:{title:string|null}) {
   const match=title ? resolveMealHeroImage({planned:{title}}) : null;
   const [failed,setFailed]=useState<string|null>(null);
-  return match && match.src!==failed ?
-    <img className="nf-today-photo" src={match.src} alt="" loading="lazy"
-      referrerPolicy="no-referrer" onError={()=>setFailed(match.src)} /> :
+  const src=match?.src===failed ? match.fallbackSrc : match?.src;
+  return src && src!==failed ?
+    <img className="nf-today-photo" src={src} alt="" loading="lazy"
+      title={match?.kind==="generated"?"Ilustração da receita gerada por IA":undefined}
+      referrerPolicy="no-referrer" onError={()=>setFailed(src)} /> :
     <span className="nf-today-photo-fallback" aria-hidden="true"><Icon name="cloche"/></span>;
 }
 
@@ -76,7 +78,11 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
   const next = nextFamilyMeal(dashboard.meals,now,dashboard.timezone);
   const nextImage = next ? resolveMealHeroImage({planned: {title: next.title}}) : null;
   const [failedHomeImage,setFailedHomeImage] = useState<string | null>(null);
-  const shownHomeImage = nextImage && failedHomeImage !== nextImage.src ? nextImage : null;
+  const shownHomeImage = nextImage && failedHomeImage !== nextImage.src
+    ? nextImage
+    : nextImage?.fallbackSrc && failedHomeImage!==nextImage.fallbackSrc
+      ? {...nextImage,src:nextImage.fallbackSrc,source:null,author:null,license:null}
+      : null;
   const focusKind = next?.meal_type ?? currentMealKind(now,dashboard.timezone);
   const nutritionRows = familyNutritionSummary(dashboard.members);
   const nutritionWithData = nutritionRows.filter(row => row.hasConfirmedConsumption || (row.planned !== null && row.planned > 0));
@@ -118,6 +124,8 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
           src={shownHomeImage.src} alt={shownHomeImage.alt} loading="eager" referrerPolicy="no-referrer"
           onError={() => setFailedHomeImage(shownHomeImage.src)} /> :
           <img className="nf-meal-hero-art" src="/images/shared-meal.svg" alt="" aria-hidden="true"/>}
+        {shownHomeImage?.kind==="generated" && shownHomeImage.src===nextImage?.src &&
+          <span className="nf-home-generated-credit">Imagem ilustrativa · IA</span>}
         {shownHomeImage?.source && <a className="nf-home-photo-credit" href={shownHomeImage.source}
           target="_blank" rel="noopener noreferrer">
           {shownHomeImage.author} · {shownHomeImage.license}
