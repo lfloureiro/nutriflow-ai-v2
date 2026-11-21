@@ -380,7 +380,7 @@ export default function App() {
                             : (locale==="pt-PT"?"Sem registo":"Not recorded")}</td>)}
                         </tr>
                         <tr><th scope="row">{locale==="pt-PT"?"No plano de hoje":"In today's plan"}</th>
-                          {dashboard?.members.map(member=><td key={member.person_id}>{dashboard.meals.some(meal=>meal.status!=="cancelled"&&meal.participant_person_ids.includes(member.person_id))
+                          {dashboard?.members.map(member=><td key={member.person_id}>{dashboard?.meals.some(meal=>meal.status!=="cancelled"&&meal.participant_person_ids.includes(member.person_id))
                             ? (locale==="pt-PT"?"Sim":"Yes") : (locale==="pt-PT"?"Não":"No")}</td>)}
                         </tr>
                       </tbody>
