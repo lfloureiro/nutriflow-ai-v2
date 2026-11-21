@@ -5,6 +5,7 @@ import type {FamilyDashboard, FamilyDashboardMeal, FamilyDashboardMember} from "
 import {useI18n, type Locale} from "./i18n";
 import Icon from "./ui/Icon";
 import {resolveMealHeroImage} from "./mealHeroImages";
+import {displayedNutrition, isPastDashboardDate, plannedMealProgress} from "./homeNutritionPresentation";
 import PersonAvatar from "./ui/PersonAvatar";
 import {EmptyState, Panel} from "./ui/primitives";
 import "./planning-journey.css";
@@ -80,7 +81,16 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
   const nutritionRows = familyNutritionSummary(dashboard.members);
   const nutritionWithData = nutritionRows.filter(row => row.hasConfirmedConsumption || (row.planned !== null && row.planned > 0));
   const nutritionOverviewRows = nutritionWithData.slice(0, 4);
+  const localToday = localClock(now,dashboard.timezone).date;
+  const historicalPreview = isPastDashboardDate(dashboard.dashboard_date,localToday);
+  const presentedRows = dashboard.members.slice(0,4).map(member=>({
+    member,...displayedNutrition(member,dashboard.dashboard_date,localToday),
+  }));
   const intakeRecordedPercent = dashboard.members.length ? Math.round(nutritionRows.filter(row=>row.hasConfirmedConsumption).length*100/dashboard.members.length) : 0;
+  const shownRatio = historicalPreview
+    ? Math.round(presentedRows.reduce((total,row)=>total+(row.ratio??0),0)/Math.max(1,presentedRows.filter(row=>row.ratio!==null).length))
+    : intakeRecordedPercent;
+  const scheduleProgress = plannedMealProgress(dashboard.meals,now);
   const energyNumber = new Intl.NumberFormat(locale,{maximumFractionDigits:0});
   const plannedMeals = dashboard.meals.filter(meal=>meal.status!=="cancelled").length;
   const kinds = ["breakfast", "lunch", "snack", "dinner"];
@@ -113,34 +123,47 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
       <Panel className="nf-family-panel nf-family-nutrition-card" label={pt ? "Progresso nutricional da família" : "Family nutrition progress"}>
         <div className="nf-home-progress-head">
           <div><h2><Icon name="leaf"/>{pt ? "Progresso nutricional da família" : "Family nutrition progress"}</h2>
-            <p>{pt ? "Registos do dia · energia planeada, não metas clínicas" : "Today's records · planned energy, not clinical targets"}</p></div>
+            <p>{historicalPreview
+              ? (pt ? "Demonstração de consumo passado · valores simulados" : "Past consumption preview · simulated values")
+              : (pt ? "Consumo confirmado e energia planeada · não são metas clínicas" : "Recorded intake and planned energy · not clinical targets")}</p></div>
         </div>
         <div className="nf-home-progress-body">
           <div className="nf-home-progress-gauge">
             <div className="nf-home-progress-ring" role="img"
-              aria-label={pt ? `${intakeRecordedPercent}% dos membros com consumo registado hoje` : `${intakeRecordedPercent}% of members with recorded intake today`}
-              style={{background:`conic-gradient(var(--color-action,#d8b28c) ${intakeRecordedPercent}%, var(--color-surface-soft,#302d2e) 0)`}}>
-              <span><strong>{intakeRecordedPercent}%</strong><small>{pt ? "com registo" : "recorded"}</small></span>
+              aria-label={historicalPreview
+                ? (pt?`${shownRatio}% da energia planeada, demonstração simulada`:`${shownRatio}% of planned energy, simulated preview`)
+                : (pt?`${shownRatio}% dos membros com consumo confirmado`:`${shownRatio}% of family with confirmed intake`)}
+              style={{background:`conic-gradient(var(--color-action,#d8b28c) ${shownRatio}%, var(--color-surface-soft,#302d2e) 0)`}}>
+              <span><strong>{shownRatio}%</strong><small>{historicalPreview ? (pt?"simulado":"sample") : (pt?"com registo":"recorded")}</small></span>
             </div>
-            <small>{pt ? "Consumo registado" : "Recorded intake"}</small>
+            <small>{historicalPreview ? (pt?"Pré-visualização histórica":"Historical preview")
+              : (pt?`${scheduleProgress.elapsed}/${scheduleProgress.total} refeições na agenda até agora`
+                : `${scheduleProgress.elapsed}/${scheduleProgress.total} scheduled meals elapsed`)}</small>
           </div>
           <div className="nf-home-progress-measures">
-            {nutritionOverviewRows.map(({member,consumed,planned,hasConfirmedConsumption,ratio})=>
+            {presentedRows.map(({member,consumed,planned,source,ratio})=>
               <div className="nf-home-progress-measure" key={member.person_id}>
                 <div className="nf-home-progress-measure-title"><strong>{memberDisplayName(member)}</strong>
-                  <span>{hasConfirmedConsumption ? `${energyNumber.format(consumed!)} kcal` : (pt ? "Sem registo" : "Not recorded")}</span></div>
+                  <span>{source!=="missing"&&consumed!==null
+                    ? `${energyNumber.format(consumed)} kcal ${source==="simulated"?"(sim.)":""}`
+                    : (pt ? "Sem registo" : "Not recorded")}</span></div>
                 <div className="nf-home-progress-track" role={ratio!==null ? "progressbar" : undefined}
                   aria-valuenow={ratio??undefined} aria-valuemin={ratio!==null?0:undefined} aria-valuemax={ratio!==null?100:undefined}
-                  aria-label={pt?`Consumo de ${memberDisplayName(member)} face à energia planeada`:`${memberDisplayName(member)} intake versus planned energy`}>
+                  aria-label={pt?`Energia de ${memberDisplayName(member)} face ao plano ${source==="simulated"?"(simulada)":""}`
+                    : `${memberDisplayName(member)} energy vs plan ${source==="simulated"?"(simulated)":""}`}>
                   <span style={{width:`${ratio??0}%`}} />
                 </div>
                 <small>{planned!==null&&planned>0
                   ? (pt?`Planeado: ${energyNumber.format(planned)} kcal`:`Planned: ${energyNumber.format(planned)} kcal`)
                   : (pt?"Sem energia planeada":"No planned energy")}</small>
               </div>)}
-            {!nutritionOverviewRows.length && <p className="nf-home-progress-empty">{pt?"Ainda não existem dados nutricionais registados hoje.":"No nutrition records available today."}</p>}
+            {!presentedRows.length && <p className="nf-home-progress-empty">{pt?"Ainda não existem perfis familiares.":"No family profiles yet."}</p>}
           </div>
         </div>
+        {historicalPreview && <p className="nf-home-simulated-warning" role="note">
+          {pt?"Valores de demonstração calculados para datas anteriores. Não são refeições consumidas ou registos clínicos."
+            :"Demonstration values for past dates; not actual food consumption or clinical records."}
+        </p>}
         <div className="nf-home-family-strip">
           <span>{pt ? "À mesa" : "At the table"}</span>
           <div className="nf-home-family-strip-members">
