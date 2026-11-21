@@ -162,22 +162,22 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
         </button>;
       })}</div>
     </section>
-    <section className="nf-home-shortcuts" aria-label={pt ? "Ações rápidas" : "Quick actions"}>
+    <section className="nf-home-actions-v3" aria-label={pt ? "Ações rápidas" : "Quick actions"}>
       <div className="nf-panel-heading"><h2>{pt ? "Ações rápidas" : "Quick actions"}</h2></div>
-      <div className="nf-home-shortcut-grid">
+      <div className="nf-home-actions-v3-grid">
         <button type="button" onClick={onPlanMeal}><Icon name="calendar"/><strong>{pt?"Planear semana":"Plan week"}</strong></button>
         {onOpenRecipes && <button type="button" onClick={onOpenRecipes}><Icon name="book"/><strong>{pt?"Ver receitas":"View recipes"}</strong></button>}
         {onOpenShopping && <button type="button" onClick={onOpenShopping}><Icon name="bag"/><strong>{pt?"Criar lista de compras":"Shopping list"}</strong></button>}
         <button type="button" onClick={onAdaptPlan ?? onPlanMeal}><Icon name="spark"/><strong>{pt?"Adaptar plano":"Adapt plan"}</strong></button>
       </div>
     </section>
-    {onOpenWeek && <section className="nf-saved-weeks" aria-label={pt ? "Planos da semana" : "Weekly plans"}>
-      <div className="nf-panel-heading nf-saved-weeks-heading"><div><h2><Icon name="calendar"/>{pt ? "Planos da semana" : "Weekly plans"}</h2><small>{pt ? "Consultar a agenda da família" : "Browse the family calendar"}</small></div><button className="button ghost small" onClick={()=>onOpenWeek(calendarMonday(dashboard.dashboard_date))} type="button">{pt ? "Ver todos" : "View all"}<Icon name="arrow"/></button></div>
-      <div className="nf-home-week-cards">{([-7,0,7] as const).map(offset=>{
+    {onOpenWeek && <section className="nf-home-weeks-v3" aria-label={pt ? "Planos da semana" : "Weekly plans"}>
+      <div className="nf-panel-heading nf-home-weeks-v3-heading"><div><h2><Icon name="calendar"/>{pt ? "Planos da semana" : "Weekly plans"}</h2><small>{pt ? "Consultar a agenda da família" : "Browse the family calendar"}</small></div><button className="button ghost small" onClick={()=>onOpenWeek(calendarMonday(dashboard.dashboard_date))} type="button">{pt ? "Ver todos" : "View all"}<Icon name="arrow"/></button></div>
+      <div className="nf-home-weeks-v3-grid">{([-7,0,7] as const).map(offset=>{
         const monday=calendarDateOffset(calendarMonday(weekDate??dashboard.dashboard_date),offset);
         const end=calendarDateOffset(monday,6);
         const dateLabel=(date:string)=>new Intl.DateTimeFormat(locale,{day:"numeric",month:"short",timeZone:"UTC"}).format(new Date(date+"T12:00:00Z"));
-        return <button type="button" className={`nf-home-week-card ${offset===0?"is-current":""}`} key={monday} onClick={()=>onOpenWeek(monday)}>
+        return <button type="button" className={`nf-home-weeks-v3-card ${offset===0?"is-current":""}`} key={monday} onClick={()=>onOpenWeek(monday)}>
           <Icon name="calendar"/><strong>{offset===0?(pt?"Semana atual":"Current week"):offset<0?(pt?"Semana anterior":"Previous week"):(pt?"Próxima semana":"Next week")}</strong>
           <span>{dateLabel(monday)} – {dateLabel(end)}</span>{offset===0&&<small>{pt?"Esta semana":"This week"}</small>}
         </button>;
