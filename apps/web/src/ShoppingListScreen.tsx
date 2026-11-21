@@ -379,6 +379,7 @@ export default function ShoppingListScreen({ familyId, initialStartDate, onOpenP
             ))}
           </details>
 
+          <div className="nf-shopping-workspace"><div className="nf-shopping-workspace-main">
           <section className="shopping-list-section">
             <h2>{copy.list}</h2>
             <div className="nf-list-controls"><label className="field"><span>{locale === "pt-PT" ? "Procurar na lista" : "Search this list"}</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder={locale === "pt-PT" ? "Ingrediente ou artigo…" : "Ingredient or item…"}/></label><nav className="nf-filter-tabs" aria-label={locale === "pt-PT" ? "Estado das compras" : "Shopping status"}>{(["needed","purchased","received","all"] as const).map(value=><button key={value} type="button" aria-pressed={view===value} onClick={()=>setView(value)}>{(locale === "pt-PT" ? {needed:"A comprar",purchased:"Comprados",received:"Recebidos",all:"Todos"} : {needed:"To buy",purchased:"Purchased",received:"Received",all:"All"})[value]} <span>{summary[value]}</span></button>)}</nav></div>
@@ -450,6 +451,34 @@ export default function ShoppingListScreen({ familyId, initialStartDate, onOpenP
             <input aria-label={copy.unit} placeholder={copy.unit} value={manualUnit} onChange={(event) => setManualUnit(event.target.value)} />
             <button className="button primary" disabled={busy} type="submit">{copy.add}</button>
           </form></details>
+          </div>
+          <aside className="nf-shopping-workspace-aside" aria-label={locale === "pt-PT" ? "Resumo e apoio às compras" : "Shopping guidance"}>
+            <section className="nf-shopping-aside-card">
+              <h2><Icon name="bag"/>{locale === "pt-PT" ? "Estado da lista" : "List status"}</h2>
+              <p>{locale === "pt-PT" ? "Acompanhe os artigos conforme são comprados e recebidos." : "Follow items as they are purchased and received."}</p>
+              <dl>
+                <div><dt>{locale === "pt-PT" ? "Por comprar" : "To buy"}</dt><dd>{summary.needed}</dd></div>
+                <div><dt>{locale === "pt-PT" ? "Comprados" : "Purchased"}</dt><dd>{summary.purchased}</dd></div>
+                <div><dt>{locale === "pt-PT" ? "Recebidos" : "Received"}</dt><dd>{summary.received}</dd></div>
+              </dl>
+              <div className="nf-shopping-aside-meter" role="progressbar"
+                aria-label={locale === "pt-PT" ? "Artigos comprados ou recebidos" : "Purchased or received items"}
+                aria-valuemin={0} aria-valuemax={100}
+                aria-valuenow={data.items.length ? Math.round((summary.purchased+summary.received)/data.items.length*100) : 0}>
+                <span style={{width:`${data.items.length ? Math.round((summary.purchased+summary.received)/data.items.length*100) : 0}%`}} />
+              </div>
+            </section>
+            <section className="nf-shopping-aside-card">
+              <h2><Icon name="pantry"/>{locale === "pt-PT" ? "Plano e despensa" : "Plan and pantry"}</h2>
+              <p>{locale === "pt-PT" ? "As necessidades são calculadas com as quantidades utilizáveis registadas. Uma compra só entra no stock após a receção." : "Needs account for recorded usable stock. Purchases enter stock only upon receipt."}</p>
+              <dl>
+                <div><dt>{locale === "pt-PT" ? "Ingredientes do plano" : "Plan ingredients"}</dt><dd>{data.requirements.length}</dd></div>
+                <div><dt>{locale === "pt-PT" ? "Questões a rever" : "Issues to review"}</dt><dd>{data.planning_issues.length}</dd></div>
+                <div><dt>{locale === "pt-PT" ? "Receções parciais" : "Partial receipts"}</dt><dd>{summary.partial}</dd></div>
+              </dl>
+              {onOpenPantry&&<button type="button" className="button ghost small" onClick={onOpenPantry}><Icon name="pantry"/>{locale === "pt-PT" ? "Consultar despensa" : "View pantry"}</button>}
+            </section>
+          </aside></div>
         </>
       ) : null}
     </div>
