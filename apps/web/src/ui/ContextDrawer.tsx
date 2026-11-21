@@ -47,6 +47,16 @@ export default function ContextDrawer({
     if (appRoot) appRoot.inert = true;
     document.body.style.overflow = "hidden";
     closeRef.current?.focus();
+    // A portal can mount while the originating route is still committing.
+    // Reassert the first focus once after paint, without interfering with
+    // subsequent user keyboard navigation.
+    const firstFocusFrame = window.requestAnimationFrame(() => {
+      if (panelRef.current?.isConnected && closeRef.current &&
+          (document.activeElement === document.body ||
+           !panelRef.current.contains(document.activeElement))) {
+        closeRef.current.focus({ preventScroll: true });
+      }
+    });
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -92,6 +102,7 @@ export default function ContextDrawer({
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("focusin", onFocusIn);
     return () => {
+      window.cancelAnimationFrame(firstFocusFrame);
       document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
