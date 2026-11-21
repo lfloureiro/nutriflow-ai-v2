@@ -109,7 +109,14 @@ test("weekly map remains usable from desktop through 200% equivalent narrow view
     // stays in its previously validated compact regime.
     expect(rowHeights.length).toBe(5);
     const mealRows = rowHeights.slice(1);
-    if (height === 760) expect(Math.min(...mealRows)).toBeGreaterThanOrEqual(91);
+    // Prevent silent fallback to content-sized rows if CSS calc is rejected.
+    if (height === 760) {
+      expect(Math.min(...mealRows)).toBeGreaterThanOrEqual(91);
+      const computedVariable = await page.locator(".nf-week-map-final .weekly-day-grid").evaluate(element =>
+        getComputedStyle(element).getPropertyValue("--week-compact-row").trim()
+      );
+      expect(computedVariable).toMatch(/(?:px|dvh|clamp)/);
+    }
     if (height === 900) expect(Math.min(...mealRows)).toBeGreaterThanOrEqual(118);
     if (height === 610) expect(Math.max(...mealRows)).toBeLessThanOrEqual(66);
     expect(fit.heroBottom).toBeLessThan(fit.navTop);
