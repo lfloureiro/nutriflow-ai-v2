@@ -43,6 +43,30 @@ function Healthy([string]$url) {
         return ([int]$r.StatusCode -ge 200 -and [int]$r.StatusCode -lt 400)
     } catch { return $false }
 }
+function VerifiedServiceProcess([int]$port,[string]$role) {
+    $owners = @(Listener $port | Select-Object -ExpandProperty OwningProcess -Unique)
+    if ($owners.Count -eq 0) { return $null }
+    if ($owners.Count -ne 1) {
+        throw ('Port ' + $port + ' has multiple owners; inspect before restarting.')
+    }
+    $ownerId = [int]$owners[0]
+    $info = Get-CimInstance Win32_Process -Filter ('ProcessId = ' + $ownerId)
+    if (-not $info -or -not $info.CommandLine) { return $null }
+    $commandLine = [string]$info.CommandLine
+    $executableName = [IO.Path]::GetFileName([string]$info.ExecutablePath)
+    if ($role -eq 'frontend') {
+        # The listener PID may differ from Start-Process's PID on Windows.
+        # Require the actual node executable and the exact installed Vite entrypoint.
+        $vitePath = Join-Path $webDir 'node_modules\vite\bin\vite.js'
+        $valid = $executableName -ieq 'node.exe' -and
+            $commandLine.IndexOf($vitePath,[StringComparison]::OrdinalIgnoreCase) -ge 0
+    } else {
+        $valid = ($executableName -match '^python(?:w)?\.exe$') -and
+            ($commandLine -match 'uvicorn') -and ($commandLine -match 'app\.main:app')
+    }
+    if (-not $valid) { return $null }
+    return Get-Process -Id $ownerId -ErrorAction Stop
+}
 function StateEntry([int]$port,$entry) {
     $listeners = @(Listener $port)
     if (-not $listeners.Count) { return $null }
@@ -60,32 +84,15 @@ function StateEntry([int]$port,$entry) {
     return $process
 }
 function AdoptLegacy([int]$port,[string]$role) {
-    $listeners = @(Listener $port)
-    if (-not $listeners.Count) { return $null }
-    $owners = @($listeners | Select-Object -ExpandProperty OwningProcess -Unique)
-    if ($owners.Count -ne 1) {
-        throw ('Port ' + $port + ' has multiple owners. Inspect the services before deploying.')
+    if (@(Listener $port).Count -eq 0) { return $null }
+    $process = VerifiedServiceProcess $port $role
+    if (-not $process) {
+        throw ('Port ' + $port + ' is held by an unidentified process. Refusing takeover.')
     }
-    $owner = [int]$owners[0]
-    $info = Get-CimInstance Win32_Process -Filter ('ProcessId = ' + $owner)
-    if (-not $info -or -not $info.CommandLine) {
-        throw ('Cannot identify the existing process on port ' + $port)
-    }
-    $cmdline = [string]$info.CommandLine
-    $isKnown = if ($role -eq 'api') {
-        $cmdline -match 'uvicorn' -and $cmdline -match 'app\.main:app'
-    } else {
-        $cmdline -match 'vite' -and $cmdline.Contains((Split-Path $root -Leaf))
-    }
-    if (-not $isKnown) {
-        throw ('Port ' + $port + ' is held by a service that is not identifiable as NutriFlow. Refusing takeover.')
-    }
-    Write-Host ('Found legacy ' + $role + ' process on port ' + $port + ': PID ' + $owner)
-    Write-Host ('Command: ' + $cmdline.Substring(0, [Math]::Min(240,$cmdline.Length)))
+    Write-Host ('Found NutriFlow ' + $role + ' listener PID ' + $process.Id)
     $answer = Read-Host 'Authorize taking over this service? Type SIM'
     if ($answer -cne 'SIM') { throw ('Takeover of ' + $role + ' not authorized.') }
-    $process = Get-Process -Id $owner -ErrorAction Stop
-    return @{ pid=$owner; start_utc=$process.StartTime.ToUniversalTime().ToString('o') }
+    return @{ pid=$process.Id; start_utc=$process.StartTime.ToUniversalTime().ToString('o') }
 }
 function StopManaged([int]$port,$entry) {
     $process = StateEntry $port $entry
@@ -115,11 +122,14 @@ function Launch([string]$exe,[string[]]$arg,[string]$cwd,[string]$name,[int]$por
             Start-Sleep -Milliseconds 400
         }
         if (-not $ready) { throw ($name + ' failed health check. See ' + $prefix + '.err.log') }
-        $proc = Get-Process -Id $started.Id -ErrorAction Stop
-        if (@(Listener $port | Select-Object -ExpandProperty OwningProcess) -notcontains $proc.Id) {
-            throw ($name + ' is not owned by the launched process.')
+        # Verify the process that owns the listening socket, not Start-Process's
+        # initial PID. On Windows Node/Vite may spawn or hand off to another PID.
+        $role = if ($name -eq 'frontend') { 'frontend' } else { 'api' }
+        $proc = VerifiedServiceProcess $port $role
+        if (-not $proc) {
+            throw ($name + ' responded but its listening process is not verified as NutriFlow.')
         }
-        Write-Host ($name + ' ready; PID ' + $proc.Id)
+        Write-Host ($name + ' ready; listener PID ' + $proc.Id)
         return @{ pid=$proc.Id; start_utc=$proc.StartTime.ToUniversalTime().ToString('o') }
     } catch {
         Stop-Process -Id $started.Id -ErrorAction SilentlyContinue
