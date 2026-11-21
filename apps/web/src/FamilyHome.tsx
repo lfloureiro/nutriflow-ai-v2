@@ -12,6 +12,26 @@ import "./planning-journey.css";
 export function memberDisplayName(member: FamilyDashboardMember): string {
   return [member.first_name, member.last_name].filter(Boolean).join(" ");
 }
+/** A dashboard reports consumption and planned energy, not a medical target.
+ * Never equate zero consumption or a planning estimate to an achieved goal. */
+export function familyNutritionSummary(members: FamilyDashboardMember[]) {
+  const valid = (value: string | null | undefined) => {
+    if (value == null || value.trim() === "") return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  };
+  return members.map(member => {
+    const consumed = valid(member.nutrition?.energy_consumed_kcal);
+    const planned = valid(member.nutrition?.energy_planned_kcal);
+    const hasConfirmedConsumption = consumed !== null && consumed > 0;
+    return {
+      member, consumed, planned,
+      hasConfirmedConsumption,
+      ratio: hasConfirmedConsumption && planned !== null && planned > 0
+        ? Math.min(100, Math.round(100 * consumed / planned)) : null,
+    };
+  });
+}
 export function formatMealTime(scheduledAt: string, timezone: string, locale: Locale): string {
   return new Intl.DateTimeFormat(locale, {hour: "2-digit", minute: "2-digit", timeZone: timezone}).format(new Date(scheduledAt));
 }
@@ -56,6 +76,9 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
   const [failedHomeImage,setFailedHomeImage] = useState<string | null>(null);
   const shownHomeImage = nextImage && failedHomeImage !== nextImage.src ? nextImage : null;
   const focusKind = next?.meal_type ?? currentMealKind(now,dashboard.timezone);
+  const nutritionRows = familyNutritionSummary(dashboard.members);
+  const energyNumber = new Intl.NumberFormat(locale,{maximumFractionDigits:0});
+  const plannedMeals = dashboard.meals.filter(meal=>meal.status!=="cancelled").length;
   const kinds = ["breakfast", "lunch", "snack", "dinner"];
   const labels: Record<string,string> = pt ? {breakfast:"Pequeno-almoço",lunch:"Almoço",snack:"Lanche",dinner:"Jantar"} : {breakfast:"Breakfast",lunch:"Lunch",snack:"Snack",dinner:"Dinner"};
   const statusLabels: Record<string,string> = pt ? {planned:"Planeada",prepared:"Preparada",served:"Servida",completed:"Concluída"} : {planned:"Planned",prepared:"Prepared",served:"Served",completed:"Completed"};
@@ -85,13 +108,23 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
       </section>
       <Panel className="nf-family-panel" label={pt ? "Pessoas da família" : "Family members"}>
         <div className="nf-family-progress-heading"><Icon name="leaf"/><strong>{pt?"Acompanhamento nutricional":"Nutrition overview"}</strong></div>
-        <p className="nf-family-progress-sub">{pt?"Dados disponíveis dos perfis da família":"Available data from family profiles"}</p>
+        <p className="nf-family-progress-sub">{pt?"Consumo registado e energia planeada — não são metas clínicas":"Recorded intake and planned energy — not clinical targets"}</p>
         <div className="nf-family-nutrition-lines">
-          {dashboard.members.filter(person=>person.nutrition).map(person=><div key={person.person_id}>
-            <span>{memberDisplayName(person)}</span>
-            <strong>{person.nutrition?.energy_consumed_kcal ?? "—"} kcal</strong>
+          {nutritionRows.map(({member,consumed,planned,hasConfirmedConsumption,ratio})=><div className="nf-nutrition-person" key={member.person_id}>
+            <span className="nf-nutrition-person-name">{memberDisplayName(member)}</span>
+            <strong>{hasConfirmedConsumption ? `${energyNumber.format(consumed!)} kcal` : (pt?"Sem consumo registado":"No intake recorded")}</strong>
+            {planned !== null && planned > 0 && <small>{pt?"Planeado":"Planned"}: {energyNumber.format(planned)} kcal</small>}
+            {ratio !== null && <span className="nf-nutrition-meter" role="progressbar"
+              aria-valuenow={ratio} aria-valuemin={0} aria-valuemax={100}
+              aria-label={`${memberDisplayName(member)}: ${pt?"consumo face ao planeado":"intake compared with plan"}`}>
+              <span style={{width:`${ratio}%`}} />
+            </span>}
           </div>)}
-          {!dashboard.members.some(person=>person.nutrition) && <small>{pt?"Ainda não existem dados nutricionais confirmados para hoje.":"No confirmed nutrition data for today."}</small>}
+          {!nutritionRows.length && <small>{pt?"Adiciona membros para consultar o acompanhamento.":"Add members to view their nutrition overview."}</small>}
+        </div>
+        <div className="nf-family-at-a-glance">
+          <span><Icon name="people"/>{dashboard.members.length} {pt?"perfis":"profiles"}</span>
+          <span><Icon name="calendar"/>{plannedMeals} {pt?"refeições no dia":"meals today"}</span>
         </div>
         <div className="nf-panel-heading"><h2>{pt ? "Quem se senta à mesa" : "Who is at the table"}</h2><span className="nf-count">{dashboard.members.length}</span></div>
         {dashboard.members.map(member=><button className="nf-person-line" type="button" key={member.person_id} onClick={()=>onOpenPerson(member.person_id)}>
