@@ -3,7 +3,7 @@ name: UX E2E (synthetic database)
 on:
   push:
     branches:
-      - codex/ux-drawer-next-batch-20261119
+      - main
   pull_request:
     branches:
       - main
@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ux-e2e-${{ github.ref }}
+  group: ux-e2e-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
