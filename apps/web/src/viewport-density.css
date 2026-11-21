@@ -113,3 +113,19 @@
      content; do not make dense controls too small for touch. */
   .shell-main {min-width:0;max-width:100%}
 }
+
+/* Four real profiles must not be reduced to only two visible rows in
+   a 1280x700 viewport. Compact the summary, never hide the people. */
+@media(min-width:1101px) and (max-height:750px) {
+  .nf-home .nf-family-panel {padding:8px 10px}
+  .nf-home .nf-family-progress-heading {gap:4px}
+  .nf-home .nf-family-progress-heading strong {font-size:11px}
+  .nf-home .nf-family-progress-sub {margin:1px 0 3px;font-size:9px}
+  .nf-home .nf-family-nutrition-lines {gap:2px;margin-bottom:3px}
+  .nf-home .nf-panel-heading {margin-bottom:4px}
+  .nf-home .nf-person-line {padding:2px 3px;min-height:32px;gap:7px}
+  .nf-home .nf-person-line .nf-avatar {width:29px;height:29px;flex-basis:29px}
+  .nf-home .nf-person-copy strong {font-size:10px;line-height:1.2}
+  .nf-home .nf-person-copy small {font-size:9px;line-height:1.2}
+  .nf-home .nf-panel-footnote {margin:3px 0 0;font-size:9px}
+}
