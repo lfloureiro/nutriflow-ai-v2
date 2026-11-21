@@ -26,6 +26,12 @@ type CuratedPhoto = {
 };
 
 const CURATED: Record<string, CuratedPhoto> = {
+  "escalopes ao vinho madeira": {
+    filename: "Escalope à piamontese (2025-01-28) 01.jpg",
+    subject: "Escalope servido com molho Madeira (fotografia ilustrativa)",
+    author: "Avelludo",
+    license: "CC BY-SA 4.0",
+  },
   "frango rapido": {
     filename: "Liat Portal for Foodie Disorder - Roasted chicken with vegetables and white rice.jpg",
     subject: "Frango cozinhado com legumes e arroz (fotografia ilustrativa)",
