@@ -384,7 +384,8 @@
   .nf-home .nf-day-slot {min-height:135px}
   .nf-home .nf-today-section .nf-panel-heading {margin-bottom:8px}
   .nf-home .nf-family-panel {min-height:180px;max-height:215px;overflow:auto}
-  .nf-home .nf-home-shortcuts {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .nf-home .nf-home-shortcuts {display:flex;flex-direction:column;align-items:stretch;gap:9px}
+  .nf-home .nf-home-shortcuts > .nf-home-shortcut-grid {width:100%;grid-template-columns:repeat(4,minmax(0,1fr))}
   .nf-home .nf-home-shortcuts button {min-width:0;min-height:76px}
   .nf-home .nf-home-shortcuts button small {overflow-wrap:anywhere}
   .nf-home .nf-saved-weeks {min-height:76px}
