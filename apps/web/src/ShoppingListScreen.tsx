@@ -437,7 +437,6 @@ export default function ShoppingListScreen({ familyId, initialStartDate, onOpenP
             <input aria-label={copy.unit} placeholder={copy.unit} value={manualUnit} onChange={(event) => setManualUnit(event.target.value)} />
             <button className="button primary" disabled={busy} type="submit">{copy.add}</button>
           </form></details>
-          </div>
           <div className="nf-shopping-supporting-details" aria-label={locale === "pt-PT" ? "Verificação detalhada das compras" : "Detailed shopping checks"}>
           {data.planning_issues.length > 0 ? (
             <details className="shopping-issues nf-shopping-issues">
@@ -461,6 +460,7 @@ export default function ShoppingListScreen({ familyId, initialStartDate, onOpenP
             ))}
           </details>
 
+          </div>
           </div>
           <aside className="nf-shopping-workspace-aside" aria-label={locale === "pt-PT" ? "Resumo e apoio às compras" : "Shopping guidance"}>
             <section className="nf-shopping-aside-card">
