@@ -130,7 +130,7 @@ export function resolveMealHeroImage({
   if (!item) return null;
   const direct = safeImageURL(item.hero_image_url) ?? safeImageURL(item.image_url) ??
     safeImageURL(recipeImageUrl);
-  const title = planned ? (planned.recipe_name ?? planned.title) : (proposal?.candidate_name ?? null);
+  const title = planned ? (planned.recipe_name ?? planned.title ?? null) : (proposal?.candidate_name ?? null);
   if (direct) return {
     src: direct,
     alt: title ?? "Fotografia da refeição",
