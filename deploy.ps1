@@ -59,6 +59,34 @@ function StateEntry([int]$port,$entry) {
     }
     return $process
 }
+function AdoptLegacy([int]$port,[string]$role) {
+    $listeners = @(Listener $port)
+    if (-not $listeners.Count) { return $null }
+    $owners = @($listeners | Select-Object -ExpandProperty OwningProcess -Unique)
+    if ($owners.Count -ne 1) {
+        throw ('Port ' + $port + ' has multiple owners. Inspect the services before deploying.')
+    }
+    $owner = [int]$owners[0]
+    $info = Get-CimInstance Win32_Process -Filter ('ProcessId = ' + $owner)
+    if (-not $info -or -not $info.CommandLine) {
+        throw ('Cannot identify the existing process on port ' + $port)
+    }
+    $cmdline = [string]$info.CommandLine
+    $isKnown = if ($role -eq 'api') {
+        $cmdline -match 'uvicorn' -and $cmdline -match 'app\.main:app'
+    } else {
+        $cmdline -match 'vite' -and $cmdline.Contains((Split-Path $root -Leaf))
+    }
+    if (-not $isKnown) {
+        throw ('Port ' + $port + ' is held by a service that is not identifiable as NutriFlow. Refusing takeover.')
+    }
+    Write-Host ('Found legacy ' + $role + ' process on port ' + $port + ': PID ' + $owner)
+    Write-Host ('Command: ' + $cmdline.Substring(0, [Math]::Min(240,$cmdline.Length)))
+    $answer = Read-Host 'Authorize taking over this service? Type SIM'
+    if ($answer -cne 'SIM') { throw ('Takeover of ' + $role + ' not authorized.') }
+    $process = Get-Process -Id $owner -ErrorAction Stop
+    return @{ pid=$owner; start_utc=$process.StartTime.ToUniversalTime().ToString('o') }
+}
 function StopManaged([int]$port,$entry) {
     $process = StateEntry $port $entry
     if ($null -eq $process) { return }
@@ -132,6 +160,17 @@ if (Test-Path $stateFile) { $previous = Get-Content $stateFile -Raw | ConvertFro
 if ($previous -and [string]$previous.root -ne $root) { throw 'State belongs to a different checkout.' }
 $oldApi = if ($previous) { $previous.api } else { $null }
 $oldWeb = if ($previous) { $previous.web } else { $null }
+# Initial one-time handoff of the existing manually started servers.
+$adoptedApi = $false
+$adoptedWeb = $false
+if (-not $oldApi) {
+    $oldApi = AdoptLegacy $ApiPort 'api'
+    $adoptedApi = $null -ne $oldApi
+}
+if (-not $oldWeb) {
+    $oldWeb = AdoptLegacy $WebPort 'frontend'
+    $adoptedWeb = $null -ne $oldWeb
+}
 # Preflight ownership before fetch, database updates, or process stops.
 $apiRunning = StateEntry $ApiPort $oldApi
 $webRunning = StateEntry $WebPort $oldWeb
@@ -141,9 +180,9 @@ Run $git @('-C',$root,'fetch','origin',$Branch)
 Run $git @('-C',$root,'pull','--ff-only','origin',$Branch)
 $after = (& $git -C $root rev-parse HEAD).Trim()
 $changed = if ($before -ne $after) { @(& $git -C $root diff --name-only $before $after) } else { @() }
-$apiChanged = $ForceRestart -or -not $apiRunning -or
+$apiChanged = $ForceRestart -or $adoptedApi -or -not $apiRunning -or
     @($changed | Where-Object { $_ -match '^(apps/api/|database/|alembic\.ini$|compose\.yml$|deploy\.ps1$)' }).Count -gt 0
-$webChanged = $ForceRestart -or -not $webRunning -or
+$webChanged = $ForceRestart -or $adoptedWeb -or -not $webRunning -or
     @($changed | Where-Object { $_ -match '^(apps/web/|packages/|deploy\.ps1$)' }).Count -gt 0
 Write-Host ('Updated to ' + $after + '; files changed: ' + $changed.Count)
 $state = @{ root=$root; revision=$after; api=$oldApi; web=$oldWeb }
