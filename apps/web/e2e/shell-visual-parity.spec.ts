@@ -154,6 +154,9 @@ for (const theme of ["light", "dark"] as const) {
       await expect(page.locator(".primary-nav .nav-item.active")).toHaveText(label);
       expect(await shellSnapshot(page), `Visual shell differs in ${theme} on ${hash}`).toEqual(baseline);
       if (!hash.includes("meals")) {
+        await expect(page.locator(".home-base, .shopping-screen, .people-screen").first()).toBeVisible();
+        await expect(page.locator(".shell-main .shell-loading")).toHaveCount(0);
+        await expect(page.locator(".shell-main")).not.toContainText("A carregar o dia da família");
         const screenId=hash.includes("shopping") ? "shopping" : hash.includes("people") ? "family" :
           hash.includes("pantry") ? "pantry" : "recipes";
         await page.screenshot({path:`test-results/visual-screen-${screenId}-${theme}-1280.png`,fullPage:true});
