@@ -58,12 +58,13 @@ export function nextFamilyMeal(meals: FamilyDashboardMeal[], now = Date.now(), t
 /** A photographed card is only shown when the actual meal name has a verified match. */
 function TodayMealPhoto({title}:{title:string|null}) {
   const match=title ? resolveMealHeroImage({planned:{title}}) : null;
-  const [failed,setFailed]=useState<string|null>(null);
-  const src=match?.src===failed ? match.fallbackSrc : match?.src;
-  return src && src!==failed ?
+  const [failed,setFailed]=useState<string[]>([]);
+  const src=match && !failed.includes(match.src) ? match.src
+    : match?.fallbackSrc && !failed.includes(match.fallbackSrc) ? match.fallbackSrc : null;
+  return src ?
     <img className="nf-today-photo" src={src} alt="" loading="lazy"
       title={match?.kind==="generated"?"Ilustração da receita gerada por IA":undefined}
-      referrerPolicy="no-referrer" onError={()=>setFailed(src)} /> :
+      referrerPolicy="no-referrer" onError={()=>setFailed(previous=>[...previous,src])} /> :
     <span className="nf-today-photo-fallback" aria-hidden="true"><Icon name="cloche"/></span>;
 }
 
@@ -77,16 +78,14 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
   useEffect(()=>{const timer=window.setInterval(()=>setNow(Date.now()),30_000);return ()=>window.clearInterval(timer);},[]);
   const next = nextFamilyMeal(dashboard.meals,now,dashboard.timezone);
   const nextImage = next ? resolveMealHeroImage({planned: {title: next.title}}) : null;
-  const [failedHomeImage,setFailedHomeImage] = useState<string | null>(null);
-  const shownHomeImage = nextImage && failedHomeImage !== nextImage.src
+  const [failedHomeImages,setFailedHomeImages] = useState<string[]>([]);
+  const shownHomeImage = nextImage && !failedHomeImages.includes(nextImage.src)
     ? nextImage
-    : nextImage?.fallbackSrc && failedHomeImage!==nextImage.fallbackSrc
+    : nextImage?.fallbackSrc && !failedHomeImages.includes(nextImage.fallbackSrc)
       ? {...nextImage,src:nextImage.fallbackSrc,source:null,author:null,license:null}
       : null;
   const focusKind = next?.meal_type ?? currentMealKind(now,dashboard.timezone);
   const nutritionRows = familyNutritionSummary(dashboard.members);
-  const nutritionWithData = nutritionRows.filter(row => row.hasConfirmedConsumption || (row.planned !== null && row.planned > 0));
-  const nutritionOverviewRows = nutritionWithData.slice(0, 4);
   const localToday = localClock(now,dashboard.timezone).date;
   const historicalPreview = isPastDashboardDate(dashboard.dashboard_date,localToday);
   const presentedRows = dashboard.members.slice(0,4).map(member=>({
@@ -122,7 +121,7 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
         </div>
         {shownHomeImage ? <img key={shownHomeImage.src} className="nf-meal-hero-art nf-meal-hero-photo"
           src={shownHomeImage.src} alt={shownHomeImage.alt} loading="eager" referrerPolicy="no-referrer"
-          onError={() => setFailedHomeImage(shownHomeImage.src)} /> :
+          onError={() => setFailedHomeImages(previous=>[...previous,shownHomeImage.src])} /> :
           <img className="nf-meal-hero-art" src="/images/shared-meal.svg" alt="" aria-hidden="true"/>}
         {shownHomeImage?.kind==="generated" && shownHomeImage.src===nextImage?.src &&
           <span className="nf-home-generated-credit">Imagem ilustrativa · IA</span>}
