@@ -517,8 +517,13 @@ def propose_shared_meal_transformations(
 
         if any_eligibility_recovered or (rescue_blocked and all(result.after_fit.eligible for result in participant_results)) or any_plan_improvement:
             kind = "plan_adapted"
-            explanation = (["family_eligibility_recovered_with_safe_ingredient_substitution"]
-                if any_eligibility_recovered or rescue_blocked else ["plan_backed_family_improvement"])
+            explanation = (
+                ["plan_backed_family_improvement"] if any_plan_improvement else []
+            )
+            if any_eligibility_recovered or rescue_blocked:
+                explanation.append(
+                    "family_eligibility_recovered_with_safe_ingredient_substitution"
+                )
         elif minimum_preference_delta >= ZERO and average_preference_delta > ZERO:
             kind = "preference_variant"
             explanation = ["family_preference_improved_without_plan_claim"]
