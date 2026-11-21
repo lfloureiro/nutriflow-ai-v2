@@ -179,3 +179,282 @@
     padding-bottom:7px;border-bottom:1px solid var(--nf-screen-card-border,#454146);
   }
 }
+
+/* Home v4 editorial composition, 21 Nov 2026.
+   The 1672x941 reference is an illustrative visual target. Never synthesize
+   meals or nutritional targets. This stylesheet is owned by FamilyHome.
+   Exactly two layout modes: desktop >=761 CSS px, mobile below. */
+.nf-home-reference-v4 {
+  --home-gold: var(--color-action,#d8b28c);
+  --home-card: var(--nf-screen-card-surface,#242326);
+  --home-border: var(--nf-screen-card-border,#454146);
+  --home-muted: var(--color-muted,#bcb3b0);
+  --home-gap: clamp(7px,.8vw,11px);
+}
+.nf-home-reference-v4 .nf-today-editorial-heading h2 {
+  display:flex;align-items:center;gap:8px;
+  margin:0;font:750 clamp(14px,1.15vw,19px)/1.2 "Manrope",sans-serif;
+}
+.nf-home-reference-v4 .nf-today-editorial-heading h2 .nf-icon {
+  width:19px;height:19px;color:var(--home-gold);
+}
+.nf-home-reference-v4 .nf-today-editorial-heading p {
+  margin:2px 0 0;color:var(--home-muted);font-size:clamp(9px,.8vw,11px);
+}
+.nf-home-reference-v4 .nf-family-nutrition-card {
+  background:var(--home-card);border:1px solid var(--home-border);
+  border-radius:17px;
+}
+.nf-home-reference-v4 .nf-home-progress-head h2 {
+  display:flex;align-items:center;gap:7px;
+  font:750 clamp(13px,1.08vw,17px)/1.25 "Manrope",sans-serif;
+  margin:0;
+}
+.nf-home-reference-v4 .nf-home-progress-head h2 .nf-icon {
+  width:19px;height:19px;color:var(--home-gold);
+}
+.nf-home-reference-v4 .nf-home-progress-head p {
+  font-size:clamp(9px,.72vw,11px);color:var(--home-muted);
+  line-height:1.35;margin:3px 0 0;
+}
+.nf-home-reference-v4 .nf-home-progress-body {
+  display:grid;grid-template-columns:minmax(90px,.8fr) minmax(0,1.25fr);
+  gap:clamp(9px,1.2vw,20px);align-items:center;min-height:0;
+}
+.nf-home-reference-v4 .nf-home-progress-gauge {
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:5px;min-width:0;
+}
+.nf-home-reference-v4 .nf-home-progress-ring {
+  width:clamp(78px,11vw,154px);aspect-ratio:1;border-radius:50%;
+  display:grid;place-items:center;position:relative;
+  box-shadow:0 0 24px #dca35b18;
+}
+.nf-home-reference-v4 .nf-home-progress-ring::before {
+  content:"";position:absolute;inset:clamp(8px,1.3vw,16px);
+  border-radius:50%;background:var(--home-card);
+}
+.nf-home-reference-v4 .nf-home-progress-ring > span {
+  position:relative;display:flex;flex-direction:column;
+  align-items:center;line-height:1.2;text-align:center;
+}
+.nf-home-reference-v4 .nf-home-progress-ring strong {
+  font:800 clamp(18px,2.1vw,30px)/1.1 "Manrope",sans-serif;
+}
+.nf-home-reference-v4 .nf-home-progress-ring small {
+  font-size:clamp(9px,.7vw,11px);color:var(--home-muted);
+}
+.nf-home-reference-v4 .nf-home-progress-gauge > small {
+  font-size:clamp(9px,.7vw,10px);color:var(--home-muted);text-align:center;
+}
+.nf-home-reference-v4 .nf-home-progress-measures {
+  display:grid;gap:clamp(4px,.75vh,9px);min-width:0;
+}
+.nf-home-reference-v4 .nf-home-progress-measure {min-width:0;display:grid;gap:2px;}
+.nf-home-reference-v4 .nf-home-progress-measure-title {
+  display:flex;align-items:baseline;justify-content:space-between;
+  min-width:0;gap:5px;font-size:clamp(9px,.77vw,11px);
+}
+.nf-home-reference-v4 .nf-home-progress-measure-title strong {
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;
+}
+.nf-home-reference-v4 .nf-home-progress-measure-title span {
+  white-space:nowrap;font-size:clamp(8px,.68vw,10px);color:var(--home-muted);
+}
+.nf-home-reference-v4 .nf-home-progress-track {
+  height:clamp(5px,.8vh,9px);width:100%;
+  border-radius:99px;background:var(--color-surface-soft,#38363a);
+  overflow:hidden;
+}
+.nf-home-reference-v4 .nf-home-progress-track > span {
+  display:block;height:100%;border-radius:inherit;
+  background:linear-gradient(90deg,#d9a25d,var(--home-gold));
+}
+.nf-home-reference-v4 .nf-home-progress-measure > small {
+  color:var(--home-muted);font-size:clamp(8px,.65vw,10px);
+}
+.nf-home-reference-v4 .nf-home-progress-empty {
+  font-size:11px;color:var(--home-muted);
+}
+.nf-home-reference-v4 .nf-home-family-strip {
+  display:flex;align-items:center;gap:7px;min-width:0;
+  padding-top:7px;border-top:1px solid var(--home-border);
+}
+.nf-home-reference-v4 .nf-home-family-strip > span {
+  color:var(--home-muted);white-space:nowrap;font-size:9px;
+}
+.nf-home-reference-v4 .nf-home-family-strip-members {
+  display:flex;align-items:center;gap:4px;
+  flex:1 1 auto;min-width:0;
+}
+.nf-home-reference-v4 .nf-home-family-chip {
+  appearance:none;border:0;background:transparent;
+  color:var(--color-text,#f4f0ed);min-width:0;
+  display:flex;align-items:center;gap:4px;padding:2px;
+  border-radius:8px;cursor:pointer;font-size:9px;
+}
+.nf-home-reference-v4 .nf-home-family-chip:hover,
+.nf-home-reference-v4 .nf-home-family-chip:focus-visible {
+  outline:1px solid var(--home-gold);
+}
+.nf-home-reference-v4 .nf-home-family-chip .nf-avatar {
+  width:24px;height:24px;flex:0 0 24px;
+}
+.nf-home-reference-v4 .nf-home-family-chip span {overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nf-home-reference-v4 .nf-today-section {
+  background:var(--home-card);
+  border:1px solid var(--home-border);border-radius:17px;
+  padding:clamp(8px,1vw,15px);
+}
+.nf-home-reference-v4 .nf-today-section .nf-panel-heading {
+  display:flex;justify-content:space-between;align-items:center;
+  gap:8px;margin:0 0 clamp(6px,1vh,13px);
+}
+.nf-home-reference-v4 .nf-day-slots {gap:var(--home-gap);}
+.nf-home-reference-v4 .nf-day-slot {
+  box-sizing:border-box;min-width:0;min-height:0;
+  padding:0!important;
+  border-radius:13px;border:1px solid var(--home-border);
+  background:var(--home-card);
+  overflow:hidden;display:flex;flex-direction:column;
+  align-items:stretch;text-align:left;gap:0;
+  box-shadow:inset 0 1px 0 #ffffff0a;
+}
+.nf-home-reference-v4 .nf-day-slot:hover,
+.nf-home-reference-v4 .nf-day-slot:focus-visible {
+  border-color:var(--home-gold);outline-offset:2px;
+}
+.nf-home-reference-v4 .nf-day-slot .nf-today-photo,
+.nf-home-reference-v4 .nf-day-slot .nf-today-photo-fallback {
+  display:flex;width:100%;height:clamp(56px,12vh,140px);
+  flex:0 0 auto;min-height:0;object-fit:cover;
+  align-items:center;justify-content:center;
+}
+.nf-home-reference-v4 .nf-day-slot .nf-today-photo-empty {
+  background:linear-gradient(135deg,#3b3332,#262428);
+  color:var(--home-gold);
+}
+.nf-home-reference-v4 .nf-day-slot .nf-today-photo-fallback .nf-icon {
+  width:23px;height:23px;
+}
+.nf-home-reference-v4 .nf-day-slot-content {
+  display:flex;flex-direction:column;align-items:flex-start;
+  flex:1 1 auto;gap:5px;padding:8px 9px;min-width:0;
+}
+.nf-home-reference-v4 .nf-day-slot-kind {
+  display:flex;align-items:center;gap:5px;
+  font-size:clamp(9px,.75vw,11px);color:var(--home-muted);
+}
+.nf-home-reference-v4 .nf-day-slot-kind .nf-icon {width:15px;height:15px;color:var(--home-gold)}
+.nf-home-reference-v4 .nf-day-slot-content strong {
+  font:700 clamp(10px,.87vw,13px)/1.28 "Manrope",sans-serif;
+  overflow-wrap:anywhere;min-width:0;
+}
+.nf-home-reference-v4 .nf-day-slot-content .nf-slot-status {
+  display:inline-flex;align-items:center;justify-content:center;
+  margin-top:auto;padding:5px 7px;border-radius:99px;
+  font-size:clamp(9px,.7vw,10px);line-height:1.15;
+  color:var(--home-gold);background:var(--color-action-soft,#43352d);
+}
+.nf-home-reference-v4 .nf-day-slot > small {
+  font-size:clamp(8px,.7vw,10px);
+  margin:0 8px 7px;line-height:1.2;color:var(--home-muted);
+}
+@media(min-width:761px){
+  .family-home.nf-home.nf-home-reference-v4 {
+    display:grid!important;
+    grid-template-columns:minmax(0,1.58fr) minmax(310px,1fr)!important;
+    grid-template-areas:"hero hero" "today members" "quick plans" "note note"!important;
+    grid-template-rows:clamp(87px,15vh,150px) minmax(0,1fr) clamp(118px,20vh,188px) auto!important;
+    column-gap:var(--home-gap)!important;row-gap:var(--home-gap)!important;
+    height:calc(100dvh - 83px)!important;
+    min-height:0!important;align-content:stretch!important;
+  }
+  .nf-home-reference-v4 > .nf-home-heading {display:none!important;}
+  .nf-home-reference-v4 > .nf-home-grid {display:contents!important;}
+  .nf-home-reference-v4 .nf-meal-hero {
+    grid-area:hero!important;height:100%!important;
+    min-height:0!important;max-height:none!important;
+    overflow:hidden;border-radius:17px;
+  }
+  .nf-home-reference-v4 .nf-meal-hero-copy {max-height:100%;}
+  .nf-home-reference-v4 .nf-today-section {
+    grid-area:today!important;min-height:0!important;height:100%!important;
+    display:flex!important;flex-direction:column!important;margin:0!important;
+  }
+  .nf-home-reference-v4 .nf-day-slots {
+    flex:1 1 auto!important;min-height:0!important;
+    display:grid!important;
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  }
+  .nf-home-reference-v4 .nf-day-slot {
+    height:100%!important;min-height:0!important;
+  }
+  .nf-home-reference-v4 .nf-family-nutrition-card {
+    grid-area:members!important;align-self:stretch!important;
+    height:100%!important;min-height:0!important;
+    max-height:none!important;
+    overflow:hidden!important;
+    display:flex;flex-direction:column;gap:clamp(5px,.75vh,10px);
+    padding:clamp(9px,1.1vw,17px)!important;
+  }
+  .nf-home-reference-v4 .nf-home-progress-body {
+    flex:1 1 auto;min-height:0;
+  }
+  .nf-home-reference-v4 .nf-home-actions-v3 {grid-area:quick!important;}
+  .nf-home-reference-v4 .nf-home-weeks-v3 {grid-area:plans!important;}
+  .nf-home-reference-v4 > .nf-home-note {grid-area:note!important;margin:0!important;font-size:9px;}
+  .nf-home-reference-v4 .nf-home-actions-v3,
+  .nf-home-reference-v4 .nf-home-weeks-v3 {
+    height:100%;min-height:0;
+    padding:clamp(8px,1vw,15px);
+    gap:clamp(5px,.7vh,10px);
+  }
+  .nf-home-reference-v4 .nf-home-actions-v3-grid,
+  .nf-home-reference-v4 .nf-home-weeks-v3-grid {flex:1 1 auto;min-height:0;}
+  .nf-home-reference-v4 .nf-home-actions-v3-grid > button,
+  .nf-home-reference-v4 .nf-home-weeks-v3-grid > button {
+    min-height:0!important;height:100%!important;
+  }
+}
+@media(min-width:761px) and (max-height:720px){
+  .family-home.nf-home.nf-home-reference-v4 {
+    grid-template-rows:clamp(84px,15vh,109px) minmax(0,1fr) clamp(108px,19vh,138px) auto!important;
+    height:calc(100dvh - 80px)!important;
+  }
+  .nf-home-reference-v4 .nf-day-slot .nf-today-photo,
+  .nf-home-reference-v4 .nf-day-slot .nf-today-photo-fallback {
+    height:clamp(44px,9vh,70px)!important;
+  }
+  .nf-home-reference-v4 .nf-day-slot-content {
+    gap:3px;padding:6px 7px;
+  }
+  .nf-home-reference-v4 .nf-home-progress-ring {
+    width:clamp(65px,8vw,94px);
+  }
+  .nf-home-reference-v4 .nf-home-progress-ring::before {inset:8px;}
+  .nf-home-reference-v4 .nf-home-progress-measures {gap:4px;}
+  .nf-home-reference-v4 .nf-home-family-chip .nf-avatar {width:20px;height:20px;flex-basis:20px;}
+  .nf-home-reference-v4 .nf-home-family-strip-count {display:none;}
+  .nf-home-reference-v4 .nf-home-actions-v3,
+  .nf-home-reference-v4 .nf-home-weeks-v3 {padding:8px;}
+  .nf-home-reference-v4 .nf-home-actions-v3-grid > button,
+  .nf-home-reference-v4 .nf-home-weeks-v3-grid > button {padding:4px;}
+}
+@media(max-width:760px){
+  .family-home.nf-home.nf-home-reference-v4 {
+    display:flex!important;flex-direction:column!important;
+    height:auto!important;min-height:0!important;gap:10px;
+  }
+  .nf-home-reference-v4 .nf-home-grid {display:flex;flex-direction:column;gap:10px;}
+  .nf-home-reference-v4 .nf-meal-hero {min-height:175px;}
+  .nf-home-reference-v4 .nf-family-nutrition-card {max-height:none!important;overflow:visible!important;}
+  .nf-home-reference-v4 .nf-today-section {min-height:360px!important;display:flex;flex-direction:column;}
+  .nf-home-reference-v4 .nf-day-slots {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;}
+  .nf-home-reference-v4 .nf-day-slot {min-height:168px;}
+  .nf-home-reference-v4 .nf-home-progress-body {grid-template-columns:minmax(80px,.7fr) minmax(0,1.3fr);}
+  .nf-home-reference-v4 .nf-home-progress-ring {width:clamp(75px,18vw,115px);}
+  .nf-home-reference-v4 .nf-home-family-strip {flex-wrap:wrap;}
+  .nf-home-reference-v4 .nf-home-actions-v3-grid {grid-template-columns:repeat(2,minmax(0,1fr));}
+  .nf-home-reference-v4 .nf-home-weeks-v3-grid {grid-template-columns:1fr;}
+}
