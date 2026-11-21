@@ -127,6 +127,48 @@ The initial web application includes:
 
 The web still uses a development Family UUID entrypoint because authentication and household authorization context are not implemented yet. The meal-planning flow no longer requires users to type DailyNutritionState or composition snapshot UUIDs.
 
+### Automatic local database updates after `git pull`
+
+From NutriFlow v2.1.23 onward, restarting the API in `APP_ENV=development`
+runs an incremental database update **before serving HTTP requests**:
+
+1. Acquire a PostgreSQL advisory lock to prevent concurrent updates.
+2. Apply pending **Alembic schema migrations** (`upgrade head`).
+3. Apply idempotent, additive reference-catalogue updates (currently the
+   milk-replacement ingredients and family transformation profiles).
+4. Continue normal API startup. Startup fails visibly if the update fails,
+   rather than serving an incompatible schema.
+
+The update **does not reset/reseed the household**, delete meals, regenerate
+recipe IDs, or alter existing user-selected transformation preferences.
+It only registers reference data when the existing breakfast milk ingredient
+is present. It does **not** make new families or import the entire legacy dataset.
+
+**Normal workflow:** `git pull` the development branch, then restart the
+existing API process (or allow the development reloader to restart it).
+The updater is not triggered by GitHub itself: Git commits cannot directly
+change a local PostgreSQL database. The web page refresh alone is insufficient
+if the API has not restarted.
+
+To run the same update explicitly without starting the server:
+
+```powershell
+cd D:\Python\nutriflow-ai-v2\apps\api
+python -m app.local_db_update
+```
+
+Set `NUTRIFLOW_AUTO_UPDATE_LOCAL_DB=false` to opt out. Automatic updates
+never run for `APP_ENV=test` or `APP_ENV=production`: those environments
+must use an explicit deployment migration workflow and verified catalogue
+imports. Generic plant-milk nutrition in this development patch is
+**provisional**, not independently verified product-label data or medical
+clearance; substitutions still require each person's safety evaluation.
+
+For any future data change, add an **idempotent, versioned catalogue patch**
+to this updater and test repeated execution. Schema changes belong in Alembic.
+Never run `python -m app.development_seed` as a routine update of an existing
+family database because that command also imports complete sample datasets.
+
 ### Fresh local database
 
 A new local database is intentionally empty. To create a synthetic development Family, Person, current DailyNutritionState and six meal candidates:
