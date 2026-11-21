@@ -36,10 +36,10 @@ describe("Family Home presentation helpers", () => {
         adherence_score:null,confidence_score:null,computed_at:"2026-11-21T12:00:00Z",
       }},
     ]);
-    expect(rows[0].hasConfirmedConsumption).toBe(false);
-    expect(rows[0].ratio).toBe(null);
-    expect(rows[1].ratio).toBe(40);
-    expect(rows[1].planned).toBe(1800);
+    expect(rows[0]!.hasConfirmedConsumption).toBe(false);
+    expect(rows[0]!.ratio).toBe(null);
+    expect(rows[1]!.ratio).toBe(40);
+    expect(rows[1]!.planned).toBe(1800);
   });
 
   it("does not fabricate a percentage without positive planned energy", () => {
@@ -50,8 +50,8 @@ describe("Family Home presentation helpers", () => {
         adherence_score:null,confidence_score:null,computed_at:"2026-11-21T12:00:00Z",
       }},
     ]);
-    expect(rows[0].ratio).toBe(null);
-    expect(rows[0].hasConfirmedConsumption).toBe(true);
+    expect(rows[0]!.ratio).toBe(null);
+    expect(rows[0]!.hasConfirmedConsumption).toBe(true);
   });
 
   it("does not apply the browser timezone when another timezone is requested", () => {
