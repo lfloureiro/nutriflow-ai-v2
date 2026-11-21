@@ -23,8 +23,8 @@ from app.schemas.recipe_catalogue import (
     RecipeUpdate,
 )
 from app.services.meal_suitability import recipe_default_meal_types
-from app.services.recipe_nutrition import CALCULATION_VERSION as RECIPE_CALCULATION_VERSION
 from app.services.recipe_image_generation import existing_image_url
+from app.services.recipe_nutrition import CALCULATION_VERSION as RECIPE_CALCULATION_VERSION
 from app.services.recipe_nutrition import build_recipe_composition
 
 
