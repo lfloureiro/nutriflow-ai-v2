@@ -86,13 +86,16 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
       : null;
   const focusKind = next?.meal_type ?? currentMealKind(now,dashboard.timezone);
   const nutritionRows = familyNutritionSummary(dashboard.members);
+  const activeMealId = next && next.meal_type === currentMealKind(now,dashboard.timezone)
+    && localClock(Date.parse(next.scheduled_at),dashboard.timezone).date === localClock(now,dashboard.timezone).date
+    && Date.parse(next.scheduled_at) <= now && next.status !== "served" ? next.id : undefined;
   const localToday = localClock(now,dashboard.timezone).date;
   const historicalPreview = isPastDashboardDate(dashboard.dashboard_date,localToday);
   const presentedRows = dashboard.members.slice(0,4).map(member=>({
-    member,...scheduledMemberNutrition(member,dashboard.dashboard_date,localToday,dashboard.meals,now),
+    member,...scheduledMemberNutrition(member,dashboard.dashboard_date,localToday,dashboard.meals,now,activeMealId),
   }));
   const intakeRecordedPercent = dashboard.members.length ? Math.round(nutritionRows.filter(row=>row.hasConfirmedConsumption).length*100/dashboard.members.length) : 0;
-  const scheduleProgress = plannedMealProgress(dashboard.meals,now);
+  const scheduleProgress = plannedMealProgress(dashboard.meals,now,activeMealId);
   const hasRecordedIntake = nutritionRows.some(row=>row.hasConfirmedConsumption);
   const progressMode = historicalPreview ? "historical-demo" : hasRecordedIntake ? "recorded" : "schedule";
   const shownRatio = historicalPreview
