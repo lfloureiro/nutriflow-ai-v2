@@ -3,6 +3,7 @@ import {requestNavigation} from "./navigation";
 import {browseRecipes,defaultRecipeBrowse,readRecipeBrowse,storeRecipeBrowse,searchText,isAdaptedRecipe,type RecipeBrowse} from "./recipeBrowsing";
 import RecipeTastePanel from "./ui/RecipeTastePanel";
 import Icon from "./ui/Icon";
+import {resolveMealHeroImage} from "./mealHeroImages";
 import ContextDrawer from "./ui/ContextDrawer";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
@@ -23,6 +24,18 @@ import type {
   RecipeNutritionEvidence,
 } from "./api/recipeTypes";
 import { useI18n, type Locale } from "./i18n";
+
+function RecipeCardArt({name}: {name:string}) {
+  const resolved = resolveMealHeroImage({planned:{title:name}});
+  const [failedSrc,setFailedSrc] = useState<string|null>(null);
+  const image = resolved && resolved.src !== failedSrc ? resolved : null;
+  return <span className="nf-recipe-art" aria-label={image?.alt ?? name}>
+    {image ?
+      <img src={image.src} alt="" loading="lazy" referrerPolicy="no-referrer"
+        onError={() => setFailedSrc(image.src)} /> :
+      <Icon name="book" />}
+  </span>;
+}
 
 const MEAL_TYPES: RecipeMealType[] = ["breakfast", "lunch", "snack", "dinner"];
 type NutritionFilter = "all" | "ingredient_calculated" | "incomplete" | "synthetic_development";
@@ -937,7 +950,7 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
                 onClick={() => setSelected(recipe)}
                 type="button"
               >
-                <span className="nf-recipe-art" aria-hidden="true"><Icon name="book" /></span>
+                <RecipeCardArt name={recipe.name}/>
                 <span className="ingredient-row__main">
                   <strong>{recipe.name}</strong>
                   <small>
