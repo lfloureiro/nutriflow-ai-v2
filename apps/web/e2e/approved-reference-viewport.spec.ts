@@ -95,5 +95,31 @@ for (const appearance of ["dark", "light"] as const) {
         animations: "disabled",
       });
     }
+    // Real Windows/Chrome CSS viewport: a narrow, short desktop must keep
+    // the same two-column composition rather than turning into a giant feed.
+    await page.setViewportSize({width:1229,height:610});
+    await page.goto("/#/home");
+    await expect(page.locator(".nf-home .nf-day-slot")).toHaveCount(4);
+    const compact=await page.evaluate(()=>{
+      const home=document.querySelector<HTMLElement>(".nf-home")!;
+      const hero=document.querySelector<HTMLElement>(".nf-home .nf-meal-hero")!;
+      const today=document.querySelector<HTMLElement>(".nf-home .nf-today-section")!;
+      const members=document.querySelector<HTMLElement>(".nf-home .nf-family-panel")!;
+      const weeks=document.querySelector<HTMLElement>(".nf-home .nf-saved-weeks")!;
+      return {
+        fullWidth:document.documentElement.scrollWidth,
+        windowWidth:document.documentElement.clientWidth,
+        homeBottom:home.getBoundingClientRect().bottom,
+        heroHeight:hero.getBoundingClientRect().height,
+        aligned:Math.abs(today.getBoundingClientRect().top-members.getBoundingClientRect().top)<5,
+        weekVisible:weeks.getBoundingClientRect().bottom<=innerHeight+2,
+      };
+    });
+    expect(compact.fullWidth).toBeLessThanOrEqual(compact.windowWidth+1);
+    expect(compact.homeBottom).toBeLessThanOrEqual(612);
+    expect(compact.heroHeight).toBeLessThanOrEqual(110);
+    expect(compact.aligned).toBe(true);
+    expect(compact.weekVisible).toBe(true);
+    await page.screenshot({path:`test-results/reference-inicio-${appearance}-1229x610.png`,fullPage:false,animations:"disabled"});
   });
 }
