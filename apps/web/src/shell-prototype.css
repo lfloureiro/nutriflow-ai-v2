@@ -431,3 +431,18 @@
   .side-nav__ai > span:last-child { font-size: 11px; line-height: 1.35; }
   .side-nav .side-nav__family { padding-top: 8px; padding-bottom: 4px; }
 }
+
+/* v2.0.85 — keep both shared sidebar actions anchored at the bottom.
+   An older desktop override set .side-nav__ai margin-top:0 and cancelled
+   the flex spacer; restoring auto on the first action moves the pair as one.
+   On short windows, sidebar scrolling remains available. */
+@media (min-width: 761px) {
+  .side-nav .side-nav__ai {
+    margin-top: auto;
+    flex-shrink: 0;
+  }
+  .side-nav .side-nav__ai + .side-nav__family {
+    margin-top: 0;
+    flex-shrink: 0;
+  }
+}
