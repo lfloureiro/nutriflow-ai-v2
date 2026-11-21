@@ -1,6 +1,6 @@
 import {useUnsavedChanges} from "./useUnsavedChanges";
 import {requestNavigation} from "./navigation";
-import {browseRecipes,defaultRecipeBrowse,readRecipeBrowse,storeRecipeBrowse,searchText,isAdaptedRecipe,type RecipeBrowse} from "./recipeBrowsing";
+import {browseRecipes,defaultRecipeBrowse,readRecipeBrowse,storeRecipeBrowse,searchText,isAdaptedRecipe,recipeHasImage,type RecipeBrowse} from "./recipeBrowsing";
 import RecipeTastePanel from "./ui/RecipeTastePanel";
 import Icon from "./ui/Icon";
 import {resolveMealHeroImage} from "./mealHeroImages";
@@ -851,6 +851,8 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
     [recipes,nutritionFilter,mealFilter,originFilter,imageFilter,sortOrder,locale],
   );
 
+  const missingImageCount = recipes.filter(recipe=>!recipeHasImage(recipe)).length;
+
   const editorPanel = selected !== undefined ? (
     <ContextDrawer
       title={selected?.name ?? copy.newRecipe}
@@ -976,7 +978,7 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
         </label>
       <div className="nf-catalogue-context"><label className="field"><span>{locale==="pt-PT"?"Imagem da receita":"Recipe image"}</span><select value={imageFilter} onChange={e=>setImageFilter(e.target.value as RecipeBrowse["image"])}><option value="all">{copy.filterAll}</option><option value="with">{locale==="pt-PT"?"Com imagem":"With image"}</option><option value="without">{locale==="pt-PT"?"Sem imagem":"Missing image"}</option></select></label><label className="field"><span>{locale==="pt-PT"?"Tempo de refeição":"Meal type"}</span><select value={mealFilter} onChange={e=>setMealFilter(e.target.value as RecipeBrowse["meal"])}><option value="all">{copy.filterAll}</option>{MEAL_TYPES.map(type=><option key={type} value={type}>{copy[type]}</option>)}</select></label><label className="field"><span>{locale==="pt-PT"?"Origem da receita":"Recipe origin"}</span><select value={originFilter} onChange={e=>setOriginFilter(e.target.value as RecipeBrowse["origin"])}><option value="all">{copy.filterAll}</option><option value="shared">{copy.shared}</option><option value="family">{locale==="pt-PT"?"Próprias da família":"Family originals"}</option><option value="adapted">{locale==="pt-PT"?"Adaptações":"Adaptations"}</option></select></label><label className="field"><span>{locale==="pt-PT"?"Ordenar por":"Sort by"}</span><select value={sortOrder} onChange={e=>setSortOrder(e.target.value as RecipeBrowse["sort"])}><option value="name">{locale==="pt-PT"?"Nome A–Z":"Name A–Z"}</option><option value="updated">{locale==="pt-PT"?"Atualizadas recentemente":"Recently updated"}</option><option value="ingredients">{locale==="pt-PT"?"Menos ingredientes":"Fewer ingredients"}</option></select></label></div>
       </div></details>
-      <div className="nf-catalogue-results"><p role="status">{busy?copy.loading:`${filteredRecipes.length} ${locale==="pt-PT"?"receitas encontradas":"recipes found"}`}</p>{hasSearch&&<button className="button ghost small" type="button" onClick={clearFilters}>{locale==="pt-PT"?"Limpar filtros":"Clear filters"}</button>}</div>
+      <div className="nf-catalogue-results"><p role="status">{busy?copy.loading:`${filteredRecipes.length} ${locale==="pt-PT"?"receitas encontradas":"recipes found"}`}</p>{!busy&&missingImageCount>0&&<button className="button ghost small" type="button" aria-pressed={imageFilter==="without"} onClick={()=>setImageFilter(current=>current==="without"?"all":"without")}>{locale==="pt-PT"?`Sem imagem (${missingImageCount})`:`Missing images (${missingImageCount})`}</button>}{hasSearch&&<button className="button ghost small" type="button" onClick={clearFilters}>{locale==="pt-PT"?"Limpar filtros":"Clear filters"}</button>}</div>
       {error ? (
         <div className="error-banner" role="alert">
           <strong>{copy.error}</strong>
