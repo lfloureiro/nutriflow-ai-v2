@@ -328,3 +328,21 @@ Commit `804e1e52ca225ec8eee9ed521f92c6acbecddf02`: **Web CI + API CI + UX E2E sy
 - O shell comum e a **Semana aprovada** passaram a regressão. Próximos lotes devem ser guiados pelos PNG originais e não por analogias visuais. Critério de fit: página principal inteira no viewport desktop se o conteúdo permitir, scroll próprio em listas extensas. A equivalência pixel a pixel **não está aprovada**.
 
 **Estado dos ficheiros de referência:** as cinco imagens PNG e o ZIP original estão persistidos na Biblioteca do utilizador, `NutriFlow AI v2 / UX References`; no GitHub estão os hashes/manifesto e instruções de importação binária. Não esquecer que os PNG não estão ainda dentro da árvore Git até importação explícita do ZIP pelo utilizador ou disponibilização de escrita binária.
+
+## v2.0.91 — lote adicional antes de teste manual: Início fit + dados reais (21/11/2026)
+
+O utilizador voltou a indicar que o **Início ainda não cabe no ecrã do seu Chrome** e que os cinco ecrãs ainda estão longe dos desenhos de referência aprovados. Este lote responde à prioridade de caber na altura real de viewport, sem solicitar teste manual antes de estabilizar o CI.
+
+### Mudanças concretas
+
+- `FamilyHome.tsx`: cartões das quatro refeições apresentam fotografia do prato somente quando `resolveMealHeroImage` dispõe de imagem validada para o nome real, com fallback discreto. A secção inferior passa a ter **quatro ações reais**: planear semana, ver receitas, lista de compras e adaptar o plano (esta última abre o planeamento existente). Não se fabricam receitas, estados ou classificações nutricionais.
+- `FamilyHome.tsx`: o painel lateral da família passou a integrar um pequeno resumo com energia consumida por membro quando existem estados nutricionais no dashboard; caso contrário indica que faltam dados. **Não são inventadas metas diárias, percentagens de adesão, diagnósticos ou valores profissionais**. Mantêm-se todos os membros e acessos aos seus perfis.
+- `screen-reference.css`: compactação responsiva adicional para ecrãs desktop de altura curta (até 830 e até 700 CSS px), com escalonamento de hero, títulos e margens, e scroll **apenas dentro do painel familiar** quando existem muitos membros. Em mobile o layout continua a crescer naturalmente. O compromisso é não esconder ações ou membros para satisfazer fit.
+- `PantryScreen.tsx`: quatro indicadores derivados dos lotes reais — disponíveis, validade a rever, sem validade e total registado. `ShoppingListScreen.tsx`: quarta métrica, receções parciais reais, mantendo a distinção comprado/recebido e as operações existentes.
+- `e2e/shell-visual-parity.spec.ts`: novo teste sintético de 1280 × 700 px com quatro membros. Mede a posição final do conteúdo relativamente à altura da janela, verifica scroll interno da família e não-overflow horizontal. Novas assertivas de quatro cartões no resumo de compras e despensa.
+
+### Restrições ainda aplicáveis
+
+- Fotos e dados dos PNG aprovados são **mockup**, não dados a injetar na aplicação. A semana v2.0.86 mantém-se intocada; PR #76 draft; sem DB real/backend local/serviços.
+- A equivalência final com `inicio.png`, `receitas.png`, `familia.png`, `compras.png` e `despensa.png` ainda precisa de revisão visual nos estados preenchidos.
+- Critério de fit não substitui testes a 200% zoom, 390/768/1024/1440 e diferentes alturas. Em páginas com listas extensas, o scroll dentro da lista é aceitável, não a perda de dados.
