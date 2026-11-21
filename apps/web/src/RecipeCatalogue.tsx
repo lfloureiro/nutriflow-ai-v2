@@ -899,7 +899,7 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
         // catalogue. This is a visual highlight, not a medical recommendation.
         const photoRecipe = filteredRecipes.find(recipe =>
           resolveMealHeroImage({planned:{title:recipe.name}}) !== null);
-        const featured = photoRecipe ?? filteredRecipes[0];
+        const featured = photoRecipe ?? filteredRecipes[0]!;
         return <div className="nf-recipe-editorial-row">
           <button type="button" className="nf-recipe-feature" onClick={() => setSelected(featured)}>
             <RecipeCardArt name={featured.name}/>
