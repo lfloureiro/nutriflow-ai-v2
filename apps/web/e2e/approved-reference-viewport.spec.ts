@@ -121,5 +121,45 @@ for (const appearance of ["dark", "light"] as const) {
     expect(compact.aligned).toBe(true);
     expect(compact.weekVisible).toBe(true);
     await page.screenshot({path:`test-results/reference-inicio-${appearance}-1229x610.png`,fullPage:false,animations:"disabled"});
+    // Actual user environment: 1280x631 CSS px. Verify the four
+    // controls/three week cards no longer fall back to grey UA buttons.
+    await page.setViewportSize({width:1280,height:631});
+    await page.goto("/#/home");
+    await expect(page.locator(".nf-home-shortcut-grid > button")).toHaveCount(4);
+    await expect(page.locator(".nf-home-week-cards > button")).toHaveCount(3);
+    const homeContent = await page.evaluate(() => {
+      const shortcut = [...document.querySelectorAll<HTMLElement>(".nf-home-shortcut-grid > button")];
+      const weeks = [...document.querySelectorAll<HTMLElement>(".nf-home-week-cards > button")];
+      return {
+        shortcutRows: new Set(shortcut.map(el=>Math.round(el.getBoundingClientRect().top))).size,
+        weekRows: new Set(weeks.map(el=>Math.round(el.getBoundingClientRect().top))).size,
+        background: getComputedStyle(shortcut[0]!).backgroundColor,
+        horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+      };
+    });
+    expect(homeContent.shortcutRows).toBe(1);
+    expect(homeContent.weekRows).toBe(1);
+    expect(homeContent.background).not.toBe("rgb(239, 239, 239)");
+    expect(homeContent.horizontalOverflow).toBe(false);
+    await page.screenshot({path:`test-results/reference-inicio-${appearance}-1280x631.png`,fullPage:false,animations:"disabled"});
+    for (const [screen,route,selector] of [
+      ["receitas","#/house?tab=recipes",".recipe-catalogue"],
+      ["compras","#/shopping",".shopping-screen"],
+      ["despensa","#/house?tab=pantry",".pantry-screen"],
+    ] as const) {
+      await page.goto(`/${route}`);
+      await expect(page.locator(selector)).toBeVisible();
+      if(screen==="compras") {
+        await expect(page.locator(".nf-shopping-overview > div")).toHaveCount(4);
+        const cols=await page.locator(".nf-shopping-overview").evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(" ").length);
+        expect(cols).toBe(4);
+      }
+      if(screen==="despensa") {
+        await expect(page.locator(".nf-pantry-summary > div")).toHaveCount(4);
+        const cols=await page.locator(".nf-pantry-summary").evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(" ").length);
+        expect(cols).toBe(4);
+      }
+      await page.screenshot({path:`test-results/reference-${screen}-${appearance}-1280x631.png`,fullPage:false,animations:"disabled"});
+    }
   });
 }
