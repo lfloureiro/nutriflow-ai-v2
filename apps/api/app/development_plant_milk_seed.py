@@ -76,7 +76,7 @@ def seed_development_plant_milk_options(
             item = FoodItem(id=_id("food", option.key), catalog_key=option.key)
             session.add(item)
         # Do not rewrite the name or provenance of the existing milk ingredient.
-        if option.key != "breakfast:ingredient:milk":
+        if option.key != "breakfast:ingredient:milk" and item.source in (None, SOURCE):
             item.family_id = None
             item.name = option.name
             item.food_kind = "ingredient"
@@ -124,14 +124,16 @@ def seed_development_plant_milk_options(
             profile = session.get(FoodTransformationProfile, profile_id)
             if profile is None:
                 profile = FoodTransformationProfile(id=profile_id, family_id=family.id)
+                profile.family_id = family.id
+                profile.food_item_id = item.id
+                profile.substitution_group = GROUP
+                profile.typical_quantity = Decimal(200)
+                profile.typical_unit = "ml"
+                profile.auto_transform_enabled = option.auto
+                profile.source = SOURCE
+                profile.source_reference = SOURCE_REF
                 session.add(profile)
-            profile.family_id = family.id
-            profile.food_item_id = item.id
-            profile.substitution_group = GROUP
-            profile.typical_quantity = Decimal(200)
-            profile.typical_unit = "ml"
-            profile.auto_transform_enabled = option.auto
-            profile.source = SOURCE
-            profile.source_reference = SOURCE_REF
+            # Do not revert a user's later enable/disable or quantity adjustment
+            # just because the API restarted after a git pull.
     session.flush()
     return len(OPTIONS), sum(option.auto for option in OPTIONS) - 1
