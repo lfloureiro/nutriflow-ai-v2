@@ -197,6 +197,24 @@ for (const appearance of ["dark", "light"] as const) {
     expect(homeStyles.weekBg).not.toBe("rgb(128, 128, 128)");
     expect(homeContent.background).not.toBe("rgb(239, 239, 239)");
     expect(homeContent.horizontalOverflow).toBe(false);
+    const visibility = await page.evaluate(() => {
+      const hero=document.querySelector<HTMLElement>(".nf-meal-hero")!;
+      const metadata=document.querySelector<HTMLElement>(".nf-meal-hero .nf-hero-meta")!;
+      const buttons=[...document.querySelectorAll<HTMLElement>(".nf-home-weeks-v3-grid > button")];
+      const rectWithin=(inner:DOMRect,outer:DOMRect)=>inner.top>=outer.top-1 &&
+        inner.bottom<=outer.bottom+1 && inner.left>=outer.left-1 && inner.right<=outer.right+1;
+      return {
+        heroMetaVisible: rectWithin(metadata.getBoundingClientRect(),hero.getBoundingClientRect()),
+        weekDatesVisible: buttons.every(button => {
+          const label=button.querySelector<HTMLElement>("span");
+          return !!label && rectWithin(label.getBoundingClientRect(),button.getBoundingClientRect());
+        }),
+        weekCardMinHeight: Math.min(...buttons.map(x=>x.getBoundingClientRect().height)),
+      };
+    });
+    expect(visibility.heroMetaVisible,"Hero time/participant metadata must not be clipped").toBe(true);
+    expect(visibility.weekDatesVisible,"All three weekly date labels must remain inside their cards").toBe(true);
+    expect(visibility.weekCardMinHeight).toBeGreaterThanOrEqual(70);
     const peopleFit = await page.evaluate(()=>{
       const panel=document.querySelector<HTMLElement>(".nf-home .nf-family-panel");
       const people=[...document.querySelectorAll<HTMLElement>(".nf-home .nf-home-family-chip")];
