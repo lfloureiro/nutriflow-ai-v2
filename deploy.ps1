@@ -130,31 +130,124 @@ if ($previous -and [string]$previous.root -ne $root) { throw 'State belongs to a
 $oldApi = if ($previous) { $previous.api } else { $null }
 $oldWeb = if ($previous) { $previous.web } else { $null }
 # Preflight ownership before fetch, database updates, or process stops.
-$null = StateEntry $ApiPort $oldApi
-$null = StateEntry $WebPort $oldWeb
+$apiRunning = StateEntry $ApiPort $oldApi
+$webRunning = StateEntry $WebPort $oldWeb
 $before = (& $git -C $root rev-parse HEAD).Trim()
 Write-Host ('Fetching and pulling ' + $Branch)
 Run $git @('-C',$root,'fetch','origin',$Branch)
 Run $git @('-C',$root,'pull','--ff-only','origin',$Branch)
 $after = (& $git -C $root rev-parse HEAD).Trim()
 $changed = if ($before -ne $after) { @(& $git -C $root diff --name-only $before $after) } else { @() }
-$apiChanged = $ForceRestart -or -not $oldApi -or
+$apiChanged = $ForceRestart -or -not $apiRunning -or
     @($changed | Where-Object { $_ -match '^(apps/api/|database/|alembic\.ini$|compose\.yml$|deploy\.ps1$)' }).Count -gt 0
-$webChanged = $ForceRestart -or -not $oldWeb -or
+$webChanged = $ForceRestart -or -not $webRunning -or
     @($changed | Where-Object { $_ -match '^(apps/web/|packages/|deploy\.ps1$)' }).Count -gt 0
 Write-Host ('Updated to ' + $after + '; files changed: ' + $changed.Count)
 $state = @{ root=$root; revision=$after; api=$oldApi; web=$oldWeb }
 Run $docker @('compose','-f',(Join-Path $root 'compose.yml'),'up','-d','--wait','db')
-if ($apiChanged -or $changed.Count -gt 0) {
+if ($apiChanged) {
     if ($apiChanged -and $oldApi) {
         StopManaged $ApiPort $oldApi
         $state.api = $null
         Save $state
     }
+    if (@($changed | Where-Object { $_ -match '^apps/api/pyproject\.toml
+    Run $PythonPath @('-m','app.local_db_update') $apiDir
+}
+if ($webChanged) {
+    if (@($changed | Where-Object { $_ -match '^apps/web/(package(-lock)?\.json) {
+        StopManaged $WebPort $oldWeb
+        $state.web = $null
+        Save $state
+    }
+    $vite = Join-Path $webDir 'node_modules\vite\bin\vite.js'
+    if (-not (Test-Path $vite)) {
+        $npm = Executable 'npm.cmd'
+        Write-Host 'Installing missing frontend dependencies...'
+        Run $npm @('install','--no-package-lock','--ignore-scripts') $webDir
+    }
+    if (-not (Test-Path $vite)) { throw 'Vite was not installed.' }
+    $state.web = Launch $node @($vite,'--host','127.0.0.1','--port',"$WebPort",'--strictPort') $webDir 'frontend' $WebPort ('http://127.0.0.1:' + $WebPort + '/')
+    Save $state
+}
+if ($apiChanged) {
+    $state.api = Launch $PythonPath @('-m','uvicorn','app.main:app','--host','127.0.0.1','--port',"$ApiPort") $apiDir 'api' $ApiPort ('http://127.0.0.1:' + $ApiPort + '/openapi.json')
+    Save $state
+}
+if (-not (Healthy ('http://127.0.0.1:' + $ApiPort + '/openapi.json')) -or
+    -not (Healthy ('http://127.0.0.1:' + $WebPort + '/'))) {
+    throw 'Final API/web health checks failed.'
+}
+Write-Host ('Deployment successful: ' + $after)
+Write-Host ('Open http://127.0.0.1:' + $WebPort + '/')
+ }).Count -gt 0) {
+        $npm = Executable 'npm.cmd'
+        Write-Host 'Refreshing frontend dependencies after package manifest changes...'
+        Run $npm @('install','--no-package-lock','--ignore-scripts') $webDir
+    }
+    if ($oldWeb) {
+        StopManaged $WebPort $oldWeb
+        $state.web = $null
+        Save $state
+    }
+    $vite = Join-Path $webDir 'node_modules\vite\bin\vite.js'
+    if (-not (Test-Path $vite)) {
+        $npm = Executable 'npm.cmd'
+        Write-Host 'Installing missing frontend dependencies...'
+        Run $npm @('install','--no-package-lock','--ignore-scripts') $webDir
+    }
+    if (-not (Test-Path $vite)) { throw 'Vite was not installed.' }
+    $state.web = Launch $node @($vite,'--host','127.0.0.1','--port',"$WebPort",'--strictPort') $webDir 'frontend' $WebPort ('http://127.0.0.1:' + $WebPort + '/')
+    Save $state
+}
+if ($apiChanged) {
+    $state.api = Launch $PythonPath @('-m','uvicorn','app.main:app','--host','127.0.0.1','--port',"$ApiPort") $apiDir 'api' $ApiPort ('http://127.0.0.1:' + $ApiPort + '/openapi.json')
+    Save $state
+}
+if (-not (Healthy ('http://127.0.0.1:' + $ApiPort + '/openapi.json')) -or
+    -not (Healthy ('http://127.0.0.1:' + $WebPort + '/'))) {
+    throw 'Final API/web health checks failed.'
+}
+Write-Host ('Deployment successful: ' + $after)
+Write-Host ('Open http://127.0.0.1:' + $WebPort + '/')
+ }).Count -gt 0) {
+        Write-Host 'Refreshing API dependencies after manifest changes...'
+        Run $PythonPath @('-m','pip','install','-e',(Join-Path $root 'apps/api')) $root
+    }
     Write-Host 'Applying Alembic and reference catalogue updates...'
     Run $PythonPath @('-m','app.local_db_update') $apiDir
 }
 if ($webChanged) {
+    if (@($changed | Where-Object { $_ -match '^apps/web/(package(-lock)?\.json) {
+        StopManaged $WebPort $oldWeb
+        $state.web = $null
+        Save $state
+    }
+    $vite = Join-Path $webDir 'node_modules\vite\bin\vite.js'
+    if (-not (Test-Path $vite)) {
+        $npm = Executable 'npm.cmd'
+        Write-Host 'Installing missing frontend dependencies...'
+        Run $npm @('install','--no-package-lock','--ignore-scripts') $webDir
+    }
+    if (-not (Test-Path $vite)) { throw 'Vite was not installed.' }
+    $state.web = Launch $node @($vite,'--host','127.0.0.1','--port',"$WebPort",'--strictPort') $webDir 'frontend' $WebPort ('http://127.0.0.1:' + $WebPort + '/')
+    Save $state
+}
+if ($apiChanged) {
+    $state.api = Launch $PythonPath @('-m','uvicorn','app.main:app','--host','127.0.0.1','--port',"$ApiPort") $apiDir 'api' $ApiPort ('http://127.0.0.1:' + $ApiPort + '/openapi.json')
+    Save $state
+}
+if (-not (Healthy ('http://127.0.0.1:' + $ApiPort + '/openapi.json')) -or
+    -not (Healthy ('http://127.0.0.1:' + $WebPort + '/'))) {
+    throw 'Final API/web health checks failed.'
+}
+Write-Host ('Deployment successful: ' + $after)
+Write-Host ('Open http://127.0.0.1:' + $WebPort + '/')
+ }).Count -gt 0) {
+        $npm = Executable 'npm.cmd'
+        Write-Host 'Refreshing frontend dependencies after package manifest changes...'
+        Run $npm @('install','--no-package-lock','--ignore-scripts') $webDir
+    }
     if ($oldWeb) {
         StopManaged $WebPort $oldWeb
         $state.web = $null
