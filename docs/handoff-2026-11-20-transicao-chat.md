@@ -256,3 +256,21 @@ Commit `804e1e52ca225ec8eee9ed521f92c6acbecddf02`: **Web CI + API CI + UX E2E sy
 Em `RecipeCatalogue.tsx` surgiu a composição `nf-recipe-editorial-row` com **receita real do catálogo atual** à esquerda e painel «Explorar adaptações» à direita, como o desenho aprovado. Usa preferencialmente uma receita com fotografia curada (ou a primeira receita visível se nenhuma tiver fotografia) e abre o detalhe já existente; não a declara recomendada ou nutricionalmente compatível. Sem receitas disponíveis, não aparece um destaque fictício. As fotografias continuam dependentes da correspondência verificada; mantém-se o filtro e os drawers.
 
 `screen-reference.css` fixa proporções, imagem e brilho em dark/light, e compacta a altura nas janelas menores, preservando a largura e o encaixe do calendário da Semana. Ainda faltam avaliação visual com catálogo preenchido, sugestões reais via motor existente, informação nutricional real e os restantes detalhes do protótipo. PR #76 draft; validar todos os workflows no SHA final.
+
+## v2.0.91 — lote adicional antes de teste manual: Início fit + dados reais (21/11/2026)
+
+O utilizador voltou a indicar que o **Início ainda não cabe no ecrã do seu Chrome** e que os cinco ecrãs ainda estão longe dos desenhos de referência aprovados. Este lote responde à prioridade de caber na altura real de viewport, sem solicitar teste manual antes de estabilizar o CI.
+
+### Mudanças concretas
+
+- `FamilyHome.tsx`: cartões das quatro refeições apresentam fotografia do prato somente quando `resolveMealHeroImage` dispõe de imagem validada para o nome real, com fallback discreto. A secção inferior passa a ter **quatro ações reais**: planear semana, ver receitas, lista de compras e adaptar o plano (esta última abre o planeamento existente). Não se fabricam receitas, estados ou classificações nutricionais.
+- `FamilyHome.tsx`: o painel lateral da família passou a integrar um pequeno resumo com energia consumida por membro quando existem estados nutricionais no dashboard; caso contrário indica que faltam dados. **Não são inventadas metas diárias, percentagens de adesão, diagnósticos ou valores profissionais**. Mantêm-se todos os membros e acessos aos seus perfis.
+- `screen-reference.css`: compactação responsiva adicional para ecrãs desktop de altura curta (até 830 e até 700 CSS px), com escalonamento de hero, títulos e margens, e scroll **apenas dentro do painel familiar** quando existem muitos membros. Em mobile o layout continua a crescer naturalmente. O compromisso é não esconder ações ou membros para satisfazer fit.
+- `PantryScreen.tsx`: quatro indicadores derivados dos lotes reais — disponíveis, validade a rever, sem validade e total registado. `ShoppingListScreen.tsx`: quarta métrica, receções parciais reais, mantendo a distinção comprado/recebido e as operações existentes.
+- `e2e/shell-visual-parity.spec.ts`: novo teste sintético de 1280 × 700 px com quatro membros. Mede a posição final do conteúdo relativamente à altura da janela, verifica scroll interno da família e não-overflow horizontal. Novas assertivas de quatro cartões no resumo de compras e despensa.
+
+### Restrições ainda aplicáveis
+
+- Fotos e dados dos PNG aprovados são **mockup**, não dados a injetar na aplicação. A semana v2.0.86 mantém-se intocada; PR #76 draft; sem DB real/backend local/serviços.
+- A equivalência final com `inicio.png`, `receitas.png`, `familia.png`, `compras.png` e `despensa.png` ainda precisa de revisão visual nos estados preenchidos.
+- Critério de fit não substitui testes a 200% zoom, 390/768/1024/1440 e diferentes alturas. Em páginas com listas extensas, o scroll dentro da lista é aceitável, não a perda de dados.
