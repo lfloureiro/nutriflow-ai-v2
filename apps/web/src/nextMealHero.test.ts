@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FamilyMealPlan, MealPlanEntry } from "./api/mealPlanTypes";
-import { familyLocalDate, familyMealInstant, nextMealSlot } from "./nextMealSelection";
+import { familyLocalDate, familyMealInstant, nextMealSlot, mealProposalUnavailableReason } from "./nextMealSelection";
 
 const plan = (days: FamilyMealPlan["days"]): FamilyMealPlan => ({
   family_id: "family", family_name: "Família", timezone: "Europe/Lisbon",
@@ -51,6 +51,18 @@ describe("next household meal", () => {
     completed[0]!.slots[3]!.meals[0]!.status = "completed";
     const result = nextMealSlot(plan(completed), Date.parse("2026-11-20T19:00:00Z"));
     expect(result?.date).toBe("2026-11-21");
+  });
+  it("distinguishes a missing breakfast catalogue from blocked family choices",()=>{
+    expect(mealProposalUnavailableReason("breakfast",0,[],"pt-PT"))
+      .toContain("Não há receitas de pequeno-almoço");
+    expect(mealProposalUnavailableReason("breakfast",11,["requested_exclusions:milk"],"pt-PT"))
+      .toContain("restrições alimentares");
+    expect(mealProposalUnavailableReason("breakfast",11,["rule:nutrient:energy:max:daily:fail"],"pt-PT"))
+      .toContain("plano nutricional");
+    expect(mealProposalUnavailableReason("breakfast",11,["safety:ingredient","rule:nutrient:energy:max:daily:fail"],"pt-PT"))
+      .toContain("Restrições alimentares e regras do plano");
+    expect(mealProposalUnavailableReason("breakfast",11,[],"en"))
+      .toContain("11 recipes checked");
   });
   it("supports half-hour timezone offsets", () => {
     expect(familyMealInstant("2026-11-20", "breakfast", "Asia/Kolkata")).toBe("2026-11-20T03:00:00.000Z");
