@@ -180,6 +180,13 @@ function Launch([string]$exe,[string[]]$arg,[string]$cwd,[string]$name,[int]$por
             $isViteLaunch = $exe -ieq (Executable 'node') -and
                 ($arg.Count -gt 0) -and
                 ([string]$arg[0] -ieq $expectedVite)
+            # The CI fixture deliberately omits the Vite fingerprint, so the
+            # fallback is actually exercised on a real Windows TCP listener.
+            if ($VerifyFrontendOnly -and $name -eq 'frontend-test' -and
+                $arg.Count -gt 0 -and
+                ([string]$arg[0] -ieq (Join-Path $root 'tools\deploy-smoke-server.cjs'))) {
+                $isViteLaunch = $true
+            }
             if ($launchProc -and $isViteLaunch) {
                 $candidates = @(Listener $port | Select-Object -ExpandProperty OwningProcess -Unique)
                 if ($candidates.Count -eq 1) {
