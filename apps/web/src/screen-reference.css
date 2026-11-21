@@ -637,3 +637,57 @@
     grid-template-columns:repeat(2,minmax(0,1fr));
   }
 }
+
+/* v2.0.92 – use the *available* vertical space, not hardcoded tiny cards.
+   1280×700 synthetic review of 2.0.91 showed unused space below the page
+   and a scroll-limited member panel. This grid expands the middle row while
+   the actions and hero remain fully visible. */
+@media(min-width:1101px) and (min-height:680px){
+  .nf-home {
+    height:min(775px, calc(100dvh - 94px));
+    min-height:0;
+    box-sizing:border-box;
+    grid-template-rows:auto clamp(115px, 17vh, 156px) minmax(0,1fr) auto auto;
+    row-gap:clamp(7px, 1vh, 11px);
+    align-content:stretch;
+  }
+  .nf-home .nf-meal-hero {
+    height:100%;
+    min-height:0;
+  }
+  .nf-home .nf-today-section {
+    min-height:0;
+    height:100%;
+    display:flex;
+    flex-direction:column;
+  }
+  .nf-home .nf-today-section .nf-panel-heading {flex:0 0 auto}
+  .nf-home .nf-day-slots {
+    flex:1 1 auto;
+    min-height:0;
+    align-items:stretch;
+  }
+  .nf-home .nf-day-slot {
+    height:100%;
+    min-height:0;
+    gap:clamp(4px,.9vh,10px);
+  }
+  .nf-home .nf-today-photo {height:clamp(58px,10.5vh,110px)}
+  .nf-home .nf-family-panel {
+    height:100%;min-height:0;max-height:none;overflow-y:auto;overflow-x:hidden;
+    scrollbar-width:thin;
+  }
+  .nf-home .nf-home-shortcuts .nf-home-shortcut-grid>button {min-height:80px}
+  .nf-home .nf-home-note {font-size:10px;line-height:1.25}
+}
+@media(min-width:1101px) and (min-height:680px) and (max-height:830px){
+  .nf-home .nf-day-slot {min-height:0}
+  .nf-home .nf-today-photo {height:clamp(53px,9vh,80px)}
+  .nf-home .nf-home-shortcuts .nf-home-shortcut-grid>button {min-height:73px}
+  .nf-home .nf-home-heading h1 {font-size:19px}
+}
+@media(min-width:1101px) and (min-height:680px) and (max-height:720px){
+  .nf-home .nf-home-shortcuts .nf-home-shortcut-grid>button{min-height:69px}
+  .nf-home .nf-home-shortcuts .nf-panel-heading{margin-bottom:4px}
+  .nf-home .nf-home-note{font-size:9px}
+}
