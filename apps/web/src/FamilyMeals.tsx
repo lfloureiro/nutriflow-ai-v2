@@ -762,6 +762,8 @@ export default function FamilyMealsScreen({
         mode === "week" ? (
           <Suspense fallback={<div className="shell-loading" role="status">{copy.loading}</div>}><WeeklyProposalPreview
             simpleWeekView
+            autoGenerate
+            autoBreakfastOnly
             heroSuggestion={heroSuggestion}
             initialDate={initialDate ?? browsingDate}
             initialSelection={mealSelection} onSelectionChange={(selection)=>{
