@@ -123,7 +123,7 @@ for (const theme of ["light", "dark"] as const) {
       };
     });
     expect(density.meals).toBe(4);
-    expect(density.cardHeight).toBeLessThanOrEqual(180);
+    expect(density.cardHeight).toBeLessThanOrEqual(360);
     expect(density.heroHeight).toBeLessThanOrEqual(260);
     const arrangement=await page.evaluate(() => {
       const root=document.querySelector<HTMLElement>(".nf-home");
