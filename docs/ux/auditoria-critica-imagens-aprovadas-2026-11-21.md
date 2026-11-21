@@ -107,3 +107,11 @@ O utilizador confirmou por captura real em v2.1.2 que a Semana finalmente aprove
 1. Confirmar Web, API e UX E2E no mesmo SHA deste lote. Se o E2E falhar, corrigir antes da revisão manual.
 2. Inspecionar Compras com itens reais representativos, incluindo automática/manual, recebido/parcial e sem preço.
 3. Regressar ao Início e depois Despensa, Receitas e Família, medindo em 1280×631 e 1672×941 e comparando contra os cinco PNG aprovados.
+
+## v2.1.5 — Despensa: maior hierarquia por lote (21/11/2026)
+
+- `PantryScreen.tsx` mantém a API e o fluxo de drawer já implementados e reorganiza cada cartão num bloco de nome e pictograma, quantidade em evidência, unidade, estado de validade, local de arrumação e data de expiração quando existem.
+- `viewport-density.css` fixa escala/paddings de forma exclusiva à Despensa. A grelha e sidebar existentes permanecem responsivas. Não foram geradas fotografias genéricas nem dados de reposição sem limiar.
+- O agrupamento da lista de Compras permanece por origem **automática/manual**, sustentada pelos metadados reais; o mockup com categorias alimentares e preços permanece pendente. Evitar apresentar origem como taxonomia nutricional.
+- A Semana v2.1.2 foi aprovada visualmente pelo utilizador, com altura dos cartões corrigida, e **não foi alterada** nestes lotes.
+- Validação necessária: Web CI, API CI e UX E2E do SHA final; comparar os ecrãs com dados preenchidos com os PNG originais. A aprovação do layout global não resulta apenas de passar compilação.
