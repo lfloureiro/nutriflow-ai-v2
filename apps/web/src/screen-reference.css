@@ -221,3 +221,66 @@
 @media (max-width: 760px) {
   .nf-home .nf-meal-hero-art.nf-meal-hero-photo { object-fit: cover; transform:none; filter:none; opacity:.34; }
 }
+
+/* Recipes reference: four editorial food cards per desktop row; real recipe
+   metadata and nutrition evidence remain visible without synthetic ratings. */
+@media (min-width:1101px) {
+  .home-base .nf-house-nav { margin-bottom: 12px; }
+  .recipe-catalogue .recipe-header { margin-bottom: 12px; }
+  .recipe-catalogue .recipe-header h1 { font-size:clamp(20px,1.7vw,25px); }
+  .recipe-catalogue .recipe-toolbar { gap:8px; margin-bottom:10px; }
+  .recipe-catalogue .nf-catalogue-results { margin: 8px 0; font-size:11px; }
+  .recipe-catalogue .nf-recipe-grid { grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }
+  .recipe-catalogue .nf-recipe-card {
+    display:flex; flex-direction:column; gap:7px; padding:7px;
+    border-radius:14px; min-height:0;
+    background:var(--nf-screen-card-surface);
+    border-color:var(--nf-screen-card-border);
+    box-shadow:var(--nf-screen-card-shadow);
+    overflow:hidden;
+  }
+  .recipe-catalogue .nf-recipe-art {
+    width:100%; height:clamp(85px,15vh,143px);
+    border-radius:10px; overflow:hidden;
+    background:linear-gradient(135deg,#302b2a,#1e1b1d);
+  }
+  .recipe-catalogue .nf-recipe-art img { width:100%;height:100%;object-fit:cover;display:block; }
+  .recipe-catalogue .nf-recipe-card .ingredient-row__main { gap:4px;padding:0 4px; }
+  .recipe-catalogue .nf-recipe-card .ingredient-row__main strong { font:700 12px/1.3 "Manrope",sans-serif; }
+  .recipe-catalogue .nf-recipe-card .ingredient-row__main small { font-size:10px;line-height:1.35; }
+  .recipe-catalogue .nf-recipe-card .ingredient-row__end { margin-top:auto;gap:4px;padding:0 4px 3px;font-size:10px; }
+  .recipe-catalogue .nf-recipe-card .recipe-nutrition-state { font-size:9px; }
+}
+@media(min-width:761px) and (max-width:1100px){
+  .recipe-catalogue .nf-recipe-grid {grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .recipe-catalogue .nf-recipe-art {height:105px}
+  .recipe-catalogue .nf-recipe-art img{width:100%;height:100%;object-fit:cover;display:block}
+}
+@media(max-width:760px){
+  .recipe-catalogue .nf-recipe-grid {grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .recipe-catalogue .nf-recipe-art{height:110px}
+  .recipe-catalogue .nf-recipe-art img{width:100%;height:100%;object-fit:cover;display:block}
+}
+@media(max-width:440px){
+  .recipe-catalogue .nf-recipe-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .recipe-catalogue .nf-recipe-card {padding:8px;gap:7px;border-radius:12px}
+  .recipe-catalogue .nf-recipe-card .ingredient-row__main strong{font-size:12px}
+  .recipe-catalogue .nf-recipe-card .ingredient-row__main small{font-size:10px}
+  .recipe-catalogue .nf-recipe-art{height:82px}
+}
+/* Shopping and Pantry: preserve all rows and actions but give overview
+   controls and inventory a single restrained surface hierarchy. */
+@media(min-width:1101px) {
+  .shopping-screen > .screen-header, .pantry-screen > .screen-header {margin-bottom:10px}
+  .shopping-screen > .screen-header h1, .pantry-screen > .screen-header h1 {font-size:24px}
+  .shopping-screen .nf-shopping-overview {margin:10px 0;gap:9px}
+  .shopping-screen .nf-shopping-overview>div {padding:11px 14px;min-height:72px;border-radius:13px;
+    border-color:var(--nf-screen-card-border);box-shadow:var(--nf-screen-card-shadow)}
+  .shopping-screen .nf-shopping-overview b {font-size:23px}
+  .shopping-screen .nf-list-controls {margin:9px 0;gap:8px}
+  .shopping-screen .shopping-list-section {gap:7px}
+  .shopping-screen .shopping-list-section>.shopping-item {padding:10px 13px;border-radius:12px;gap:6px}
+  .pantry-screen .nf-pantry-overview {margin:10px 0;padding:13px;border-radius:14px}
+  .pantry-screen .pantry-list {gap:7px}
+  .pantry-screen .pantry-row {padding:12px 14px;border-radius:13px}
+}
