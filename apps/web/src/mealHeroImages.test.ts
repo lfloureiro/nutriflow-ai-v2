@@ -30,6 +30,8 @@ describe("next-meal image follows the same planned meal or proposal", () => {
       "Banana e frutos secos",
       "Torrada com queijo",
       "Pão, queijo e tomate",
+      "Torrada mista",
+      "Omelete de espinafres",
     ]) {
       const photo=resolveMealHeroImage({planned:{recipe_name:title}});
       expect(photo?.kind).toBe("catalog");
