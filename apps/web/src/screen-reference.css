@@ -703,3 +703,62 @@
 @media(max-width:1100px){
   .nf-home .nf-home-photo-credit {left:auto;right:5px;max-width:34%}
 }
+
+/* v2.0.93 — Home reference correction: the approved composition starts at
+   the next meal, with no second marketing header above it. Planning remains
+   accessible from the hero and the quick actions. Real adjacent weeks appear
+   as three cards, not an initially collapsed long management form. */
+.nf-home .nf-saved-weeks-heading {display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.nf-home .nf-saved-weeks-heading h2 {display:flex;align-items:center;gap:8px;font:700 16px/1.3 "Manrope",sans-serif;margin:0}
+.nf-home .nf-saved-weeks-heading h2 .nf-icon {color:var(--nf-ref-amber);height:21px;width:21px}
+.nf-home .nf-saved-weeks-heading small {font-size:11px;color:var(--color-muted)}
+.nf-home .nf-home-week-cards {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.nf-home .nf-home-week-card {
+  position:relative;display:flex;flex-direction:column;align-items:flex-start;
+  justify-content:center;gap:6px;min-width:0;min-height:110px;
+  padding:13px;border:1px solid var(--nf-screen-card-border);
+  border-radius:14px;background:var(--color-surface-soft);
+  color:var(--color-text);text-align:left;cursor:pointer;
+}
+.nf-home .nf-home-week-card .nf-icon {color:var(--nf-ref-amber);width:21px;height:21px}
+.nf-home .nf-home-week-card strong {font:700 12px/1.3 "Manrope",sans-serif}
+.nf-home .nf-home-week-card span {color:var(--color-muted);font-size:10px}
+.nf-home .nf-home-week-card small {position:absolute;top:11px;right:9px;color:var(--nf-ref-amber);font-size:9px}
+.nf-home .nf-home-week-card.is-current {
+  border-color:#c38b63;background:linear-gradient(140deg,#8c534c44,#37282a88);
+}
+.nf-home .nf-home-week-card:hover,.nf-home .nf-home-week-card:focus-visible {border-color:var(--color-action);outline-offset:2px}
+.nf-home .nf-home-week-details {margin-top:7px;font-size:10px;color:var(--color-muted)}
+.nf-home .nf-home-week-details>summary {cursor:pointer}
+.nf-home .nf-home-week-details[open] {position:relative;z-index:2}
+.nf-home .nf-home-week-details .home-scheduled-weeks {margin-top:10px}
+@media(min-width:1101px) and (min-height:680px) {
+  .nf-home {grid-template-areas:"hero hero" "today members" "quick plans" "note note";
+    grid-template-rows:clamp(115px,17vh,156px) minmax(0,1fr) auto auto}
+  .nf-home .nf-home-heading {display:none}
+  .nf-home .nf-home-shortcuts,.nf-home .nf-saved-weeks {
+    padding:13px 15px;min-width:0;border:1px solid var(--nf-screen-card-border);
+    border-radius:17px;background:var(--nf-screen-card-surface);
+    box-shadow:var(--nf-screen-card-shadow);
+  }
+  .nf-home .nf-home-shortcut-grid>button {min-height:110px}
+  .nf-home .nf-saved-weeks {margin:0;align-self:stretch}
+}
+@media(min-width:1101px) and (min-height:680px) and (max-height:830px) {
+  .nf-home .nf-home-shortcuts,.nf-home .nf-saved-weeks{padding:9px 11px}
+  .nf-home .nf-home-week-card{min-height:78px;padding:8px;gap:3px}
+  .nf-home .nf-home-week-card .nf-icon{height:16px;width:16px}
+  .nf-home .nf-home-week-card strong{font-size:10px}
+  .nf-home .nf-home-shortcut-grid>button{min-height:79px}
+  .nf-home .nf-saved-weeks-heading{margin-bottom:5px}
+}
+@media(max-width:1100px){
+  .nf-home .nf-saved-weeks {padding:12px}
+  .nf-home .nf-home-week-card {min-height:90px;padding:9px}
+}
+@media(max-width:540px){
+  .nf-home .nf-home-week-cards{grid-template-columns:1fr}
+  .nf-home .nf-home-week-card{min-height:58px;display:grid;grid-template-columns:24px 1fr;gap:3px 8px}
+  .nf-home .nf-home-week-card .nf-icon{grid-row:1/3}
+  .nf-home .nf-home-week-card small{position:static;grid-column:2}
+}
