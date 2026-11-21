@@ -153,6 +153,11 @@ for (const theme of ["light", "dark"] as const) {
       await page.evaluate(value => { window.location.hash=value; },hash);
       await expect(page.locator(".primary-nav .nav-item.active")).toHaveText(label);
       expect(await shellSnapshot(page), `Visual shell differs in ${theme} on ${hash}`).toEqual(baseline);
+      if (!hash.includes("meals")) {
+        const screenId=hash.includes("shopping") ? "shopping" : hash.includes("people") ? "family" :
+          hash.includes("pantry") ? "pantry" : "recipes";
+        await page.screenshot({path:`test-results/visual-screen-${screenId}-${theme}-1280.png`,fullPage:true});
+      }
       if (hash.includes("house") || hash.includes("shopping") || hash.includes("people")) {
         await expect(page.locator(".home-base, .shopping-screen, .people-screen").first()).toBeVisible();
         const surface = await page.evaluate(() => {
