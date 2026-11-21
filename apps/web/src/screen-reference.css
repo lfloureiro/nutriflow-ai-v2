@@ -825,3 +825,36 @@
   .pantry-screen .nf-pantry-columns .pantry-list{grid-template-columns:1fr}
   .pantry-screen .nf-pantry-insights{grid-template-columns:1fr}
 }
+
+/* v2.1.22 — Recipes: practical quick filters follow the approved browse hierarchy.
+   Only real meal types/adaptations are offered, never invented compatibility badges. */
+.recipe-catalogue .nf-recipe-browse-toolbar {
+  display:flex;align-items:end;flex-wrap:wrap;gap:8px;
+}
+.recipe-catalogue .nf-recipe-browse-toolbar .recipe-search {
+  flex:1 1 270px;min-width:min(100%,240px);
+}
+.recipe-catalogue .nf-recipe-quick-filters {
+  display:flex;gap:5px;flex-wrap:wrap;align-items:center;
+  min-width:0;padding-bottom:2px;
+}
+.recipe-catalogue .nf-recipe-quick-filters > button {
+  min-height:34px;padding:6px 11px;border:1px solid var(--nf-screen-card-border,var(--color-line,#414044));
+  border-radius:999px;background:var(--nf-screen-card-surface,var(--color-surface-soft,#222225));
+  color:var(--color-text);font:600 11px/1.2 "DM Sans",sans-serif;
+  cursor:pointer;white-space:nowrap;
+}
+.recipe-catalogue .nf-recipe-quick-filters > button.is-active {
+  background:rgba(216,178,140,.18);border-color:var(--nf-ref-amber,#d8b28c);
+  color:var(--nf-ref-amber,#d8b28c);
+}
+.recipe-catalogue .nf-recipe-quick-filters > button:focus-visible {
+  outline:2px solid var(--nf-ref-amber,#d8b28c);outline-offset:2px;
+}
+.recipe-catalogue .nf-duplicate-review {margin:8px 0;}
+.recipe-catalogue .nf-duplicate-review > p {
+  margin:8px 0;color:var(--color-muted);font-size:12px;line-height:1.45;
+}
+@media(max-width:760px) {
+  .recipe-catalogue .nf-recipe-quick-filters {width:100%;overflow-x:auto;flex-wrap:nowrap;padding-bottom:6px;}
+}
