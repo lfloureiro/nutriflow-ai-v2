@@ -3,7 +3,6 @@ from collections import defaultdict
 
 from sqlalchemy import select
 
-from app.models.food_catalog import Recipe
 from app.models.recipe_variant import FamilyRecipeVariant
 from app.services.dietary_review import require_family
 from app.services.recipe_edit import _stored_edit_signature
