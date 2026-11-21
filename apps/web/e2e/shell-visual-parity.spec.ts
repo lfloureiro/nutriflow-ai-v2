@@ -149,8 +149,8 @@ for (const theme of ["light", "dark"] as const) {
     // The four home actions and three adjacent calendar weeks must be
     // real compact grids, not grey 2x2 buttons or overflowing labels.
     const actionLayout = await page.evaluate(() => {
-      const actions = document.querySelector<HTMLElement>(".nf-home .nf-home-shortcut-grid");
-      const weeks = document.querySelector<HTMLElement>(".nf-home .nf-home-week-cards");
+      const actions = document.querySelector<HTMLElement>(".nf-home .nf-home-actions-v3-grid");
+      const weeks = document.querySelector<HTMLElement>(".nf-home .nf-home-weeks-v3-grid");
       if (!actions || !weeks) throw new Error("Missing home navigation cards");
       const actionItems = [...actions.querySelectorAll<HTMLElement>("button")];
       const weekItems = [...weeks.querySelectorAll<HTMLElement>("button")];
@@ -328,7 +328,7 @@ test("home fits a 1280 × 700 browser viewport with four real profile cards",asy
   await page.evaluate(()=>document.fonts.ready);
   const geometry=await page.evaluate(()=>{
     const root=document.querySelector<HTMLElement>(".nf-home")!;
-    const items=[...root.querySelectorAll<HTMLElement>(".nf-home-heading,.nf-meal-hero,.nf-today-section,.nf-home-shortcuts,.nf-saved-weeks,.nf-home-note")];
+    const items=[...root.querySelectorAll<HTMLElement>(".nf-home-heading,.nf-meal-hero,.nf-today-section,.nf-home-actions-v3,.nf-home-weeks-v3,.nf-home-note")];
     const bottom=Math.max(...items.map(el=>el.getBoundingClientRect().bottom));
     return {
       bottom,
