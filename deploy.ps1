@@ -223,6 +223,19 @@ function FindLocalApiProcess([int]$port,[bool]$AllowSelection = $false) {
     }
     return $picked[0]
 }
+function TestLocalApiPid([int]$port,[int]$processId) {
+    if (-not (Test-NutriFlowApi $port)) { return $false }
+    $info = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $processId) -ErrorAction SilentlyContinue
+    if (-not $info -or -not $info.CommandLine) { return $false }
+    $command = ([string]$info.CommandLine).Replace('/', '\')
+    $expectedEnvironment = Join-Path $root '.venv\Scripts\python.exe'
+    return (
+        $command.IndexOf($expectedEnvironment,
+            [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
+        $command -match 'uvicorn\s+app\.main:app' -and
+        $command -match ('--port\s+' + $port + '(?:\s|$)')
+    )
+}
 function IsTrustedLaunch($entry) {
     if ($null -eq $entry) { return $false }
     if ($entry -is [System.Collections.IDictionary]) {
@@ -244,11 +257,9 @@ function StateEntry([int]$port,$entry) {
     if (@($listeners | Select-Object -ExpandProperty OwningProcess) -notcontains $process.Id) {
         # Legacy API: accept the exact saved PID only if the matching local
         # Uvicorn command and NutriFlow OpenAPI response still agree.
-        if ($process.ProcessName -match '^python' -and (Test-NutriFlowApi $port)) {
-            $localApi = FindLocalApiProcess $port
-            if ($localApi -and $localApi.Id -eq $process.Id) {
-                return $process
-            }
+        if ($process.ProcessName -match '^python' -and
+            (TestLocalApiPid $port $process.Id)) {
+            return $process
         }
         # The Vite PID was recorded by this deploy script immediately after
         # starting Node on a previously free port; some Windows configurations
