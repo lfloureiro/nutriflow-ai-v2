@@ -92,6 +92,27 @@ for (const theme of ["light", "dark"] as const) {
     await expect(page.locator("html")).toHaveAttribute("data-theme",theme);
     await page.evaluate(() => document.fonts.ready);
     const baseline = await shellSnapshot(page);
+    // The first follow-up screen should now use the same common tokens as
+    // the remaining routes, without altering the approved weekly layout.
+    const home = await page.evaluate(() => {
+      const hero = document.querySelector<HTMLElement>(".nf-meal-hero");
+      const heading = document.querySelector<HTMLElement>(".nf-home-heading h1");
+      if (!hero || !heading) throw new Error("Missing homepage design surfaces");
+      const art = getComputedStyle(hero);
+      return {
+        radius: art.borderRadius,
+        minHeight: parseFloat(art.minHeight),
+        fontFamily: getComputedStyle(heading).fontFamily,
+        screenWidth: document.documentElement.scrollWidth,
+        viewportWidth: document.documentElement.clientWidth,
+      };
+    });
+    expect(home.radius).toBe("20px");
+    expect(home.minHeight).toBeLessThanOrEqual(230);
+    expect(home.fontFamily).toContain("Manrope");
+    expect(home.screenWidth).toBeLessThanOrEqual(home.viewportWidth + 1);
+    await page.screenshot({path:`test-results/visual-home-${theme}-1280.png`,fullPage:true});
+
     const footerGeometry = await page.evaluate(() => {
       const footer = document.querySelector<HTMLElement>(".side-nav__family");
       const ai = document.querySelector<HTMLElement>(".side-nav__ai");
@@ -132,6 +153,14 @@ for (const theme of ["light", "dark"] as const) {
       await page.evaluate(value => { window.location.hash=value; },hash);
       await expect(page.locator(".primary-nav .nav-item.active")).toHaveText(label);
       expect(await shellSnapshot(page), `Visual shell differs in ${theme} on ${hash}`).toEqual(baseline);
+      if (hash.includes("house") || hash.includes("shopping") || hash.includes("people")) {
+        const surface = await page.evaluate(() => {
+          const root=document.querySelector<HTMLElement>(".home-base, .shopping-screen, .people-screen");
+          if(!root) throw new Error("Missing secondary route root");
+          return getComputedStyle(document.documentElement).getPropertyValue("--nf-screen-card-radius").trim();
+        });
+        expect(surface).toBe("18px");
+      }
     }
     await page.getByRole("button",{name:/Gerir o espaço:/}).click();
     await expect(page).toHaveURL(/#\/more/);
