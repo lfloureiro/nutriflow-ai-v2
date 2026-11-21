@@ -196,3 +196,13 @@ Nada foi alterado nas páginas Semana, Receitas, Compras, Família ou Despensa n
 
 Princípio adotado: não encolher uniformemente fonte/alvos de toque; usar apenas dois layouts e tamanhos fluidos com limites de leitura. Manter a Semana aprovada sem mudanças.
 **Estado:** aguardam Web/API/UX E2E e confirmação visual no browser real; não declarar paridade pixel a pixel.
+
+## v2.1.15 — Início: isolar classes após falha visual da v2.1.14
+
+Screenshot real do utilizador v2.1.14 (21/11/2026, 16:58) confirma que o Início ainda apresenta atalhos 2×2, botões cinzentos, cartões semanais quebrados e linhas de energia coladas. Web/API/UX E2E no commit b8ba161f passaram, mas o sucesso sintético **não prova** a aparência da família real.
+
+**Correção real de arquitetura do Início:** `FamilyHome.tsx` deixou de usar as classes antigas `nf-home-shortcuts`, `nf-home-shortcut-grid`, `nf-saved-weeks`, `nf-home-week-cards`, `nf-home-week-card`, `nf-family-panel-layout`, `nf-family-nutrition-lines` e `nf-nutrition-person` nos componentes afetados. Estas classes acumulavam regras contraditórias espalhadas por `screen-reference.css`, `viewport-density.css` e `compact-desktop-reference.css`, incluindo declarações `!important`. Substituição por classes exclusivas `nf-home-actions-v3`, `nf-home-actions-v3-grid`, `nf-home-weeks-v3`, `nf-home-weeks-v3-grid`, `nf-home-weeks-v3-card` e `nf-home-family-layout-v3` / `nf-home-nutrition-row-v3`.
+
+O CSS novo, no final de `compact-desktop-reference.css`, estabelece diretamente a composição das novas classes: desktop >=761px com quatro ações na horizontal, três semanas, e nutrição/pessoas em duas colunas; mobile <=760px com duas ações, semanas numa coluna e painéis empilhados. Mantém `grid-area:quick` e `grid-area:plans` para preservar a composição da página, navegação, drawers e dados. Os dois ficheiros Playwright que consultavam classes antigas foram atualizados para as novas classes. O calendário semanal não sofreu alterações.
+
+**CI/CD:** histórico de falhas no GitHub inclui execução antiga 44926569323 (commit a4879565), com timeout no teste visual de receita inexistente em família sintética e uma falha intermitente do calendário. O commit b8ba161f passou Web/API/UX E2E. Os workflows foram alterados para evitar disparos duplicados por push + pull_request e reduzir notificações; futuros testes continuam obrigatórios. Ainda não há prova visual no Chrome real desta versão v2.1.15.
