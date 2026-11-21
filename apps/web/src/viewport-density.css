@@ -958,3 +958,65 @@
   .people-screen .nf-family-comparison-table th,
   .people-screen .nf-family-comparison-table td {padding:5px 4px;font-size:9px}
 }
+
+/* Home family panel: real completeness gauge, not a medical target. */
+.nf-home .nf-family-panel-layout {
+  display:grid;grid-template-columns: minmax(0,1fr) minmax(0,1.05fr);
+  gap:12px;min-height:0;
+}
+.nf-home .nf-family-panel-nutrition,
+.nf-home .nf-family-panel-people {min-width:0;min-height:0}
+.nf-home .nf-family-panel-nutrition {
+  padding-right:10px;border-right:1px solid var(--border,#534a4b);
+}
+.nf-home .nf-family-panel-nutrition .nf-family-progress-heading {margin-bottom:4px}
+.nf-home .nf-family-panel-nutrition .nf-family-progress-heading strong {font-size:11px;line-height:1.2}
+.nf-home .nf-family-panel-nutrition .nf-family-progress-sub {font-size:9px;line-height:1.25;margin:3px 0 7px}
+.nf-home .nf-family-record-meter {
+  display:flex;align-items:center;gap:8px;
+  margin:2px 0 7px;min-width:0;
+}
+.nf-home .nf-family-record-ring {
+  flex:0 0 46px;display:grid;place-items:center;
+  height:46px;width:46px;border-radius:50%;
+  position:relative;color:var(--text,#f3edef);
+}
+.nf-home .nf-family-record-ring::before {
+  content:"";position:absolute;inset:5px;border-radius:50%;
+  background:var(--surface,#262426);
+}
+.nf-home .nf-family-record-ring > span {
+  position:relative;z-index:1;font-size:12px;font-weight:700;
+}
+.nf-home .nf-family-record-meter > small {
+  color:var(--muted,#c1b3b0);font-size:9px;line-height:1.35;
+}
+.nf-home .nf-family-panel-people .nf-panel-heading {margin-bottom:5px}
+.nf-home .nf-family-panel-people .nf-panel-heading h2 {font-size:12px;line-height:1.25}
+.nf-home .nf-family-panel-people .nf-person-line {
+  min-height:34px;padding:3px 1px;gap:7px;
+  border-bottom:1px solid var(--border,#534a4b);
+}
+.nf-home .nf-family-panel-people .nf-person-line .nf-avatar {
+  flex:0 0 29px;height:29px;width:29px;
+}
+.nf-home .nf-family-panel-people .nf-person-copy {gap:0}
+.nf-home .nf-family-panel-people .nf-person-copy strong {font-size:10px;line-height:1.15}
+.nf-home .nf-family-panel-people .nf-person-copy small {font-size:9px;line-height:1.2}
+.nf-home .nf-family-panel-people .nf-panel-footnote {font-size:9px;margin:6px 0 0;line-height:1.2}
+.nf-home .nf-family-panel-nutrition .nf-family-nutrition-lines {gap:3px;margin-bottom:5px}
+.nf-home .nf-family-panel-nutrition .nf-nutrition-person {padding:2px 0}
+.nf-home .nf-family-panel-nutrition .nf-family-at-a-glance {gap:7px}
+@media(min-width:1101px) and (max-height:700px){
+  .nf-home .nf-family-panel-layout {gap:8px}
+  .nf-home .nf-family-panel-nutrition {padding-right:7px}
+  .nf-home .nf-family-record-ring {flex-basis:37px;width:37px;height:37px}
+  .nf-home .nf-family-record-ring::before {inset:4px}
+  .nf-home .nf-family-record-ring > span {font-size:10px}
+  .nf-home .nf-family-panel-people .nf-person-line {min-height:31px;padding:2px 0}
+  .nf-home .nf-family-panel-people .nf-person-line .nf-avatar {flex-basis:26px;width:26px;height:26px}
+}
+@media(max-width:1100px){
+  .nf-home .nf-family-panel-layout {grid-template-columns:1fr}
+  .nf-home .nf-family-panel-nutrition {border-right:0;border-bottom:1px solid var(--border,#534a4b);padding:0 0 8px}
+}
