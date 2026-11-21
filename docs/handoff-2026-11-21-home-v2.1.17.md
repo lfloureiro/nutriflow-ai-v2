@@ -73,3 +73,15 @@ Pedido do utilizador: manter a correção de imagens e alinhamento, usar novas i
 ## Atualização v2.1.20 — imagem bifanas integrada no PR #76
 
 A primeira imagem gerada foi incorporada diretamente na branch Git: `apps/web/public/images/generated/bifanas-com-natas.webp` (320×240, 4962 bytes, SHA-256 `38650895acfac74dbaaeb0546a868a06b44705c47d3b60d3831cb892f88b41ca`). O seletor `mealHeroImages.ts` já usa esse caminho para «Bifanas com natas», no banner e no jantar, com origem identificada como «Imagem ilustrativa · IA». Foi adicionado teste de integridade binária. Esta atualização **substitui** as indicações anteriores de que *nenhuma* fotografia fora colocada no Git. As outras 6 fotografias permanecem no pacote de instalação local e não foram comitadas. Manter a Semana aprovada sem alterações. Verificar no Chromium / screenshot do utilizador após atualizar branch; não declarar aceitação visual com base apenas no CI.
+
+## Continuação 21/11/2026 — v2.1.21 / importação de receitas e duplicados
+
+Ver o documento **`docs/ux/receitas-imagens-e-deduplicacao-2026-11-21.md`**, que é a autoridade deste lote. O utilizador entregou o PDF `NutriFlow AI.pdf`, com **69 entradas**; «Frango rápido · família» aparece duas vezes. **Não apagar sem confirmar composição e referências.**
+
+- `recipe_edit.py` agora reutiliza uma adaptação familiar ativa existente quando a composição e operações coincidem. Tem proteção transacional e testes. Não depende apenas do nome.
+- Endpoint de auditoria read-only: `GET /api/families/{family_id}/recipe-variants/duplicates`, não altera ou elimina dados.
+- `mealHeroImages.ts` aponta para **18 WebP**, equivalentes a 20 entradas do PDF. **Só bifanas-com-natas.webp está no Git**. As outras 17 estão no ZIP de instalação local entregue no chat: `nutriflow-receitas-imagens-v2.1.21.zip` (inclui instalador PowerShell + hashes; preserva o ficheiro bifanas existente). Estas fotografias são todas ilustrações IA e não provas do prato.
+- Para receitas novas/adaptadas, `recipe_image_generation.py` faz geração opcional via OpenAI API em BackgroundTasks quando existe `OPENAI_API_KEY`; ficheiros em `data/recipe-images`, endpoint por família, correspondência com receita+ingredientes. Sem chave não gera; pode acarretar custos. API e frontend tratam `image_url` e imagem de fallback. Confirmar que armazenamento permanece entre reinícios antes de produção.
+- **49 entradas sem imagem própria** ainda ficam pendentes. Não afirmar conclusão geral das imagens. A fase seguinte é gerar as restantes, sem copiar fotografias de pratos diferentes.
+- PR #76 draft, branch `codex/ux-drawer-next-batch-20261119`, versão do frontend v2.1.21. Revisar CI no último SHA, nunca assumir verde a partir de execução anterior; não alterar `main` nem a Semana aprovada.
+- As referências visuais antigas do Início e da Semana continuam válidas. A nova documentação cobre apenas receitas/media/deduplicação.
