@@ -57,7 +57,7 @@ test("weekly map remains usable from desktop through 200% equivalent narrow view
 
   // At normal desktop heights the whole 7×4 map, including the last dinner
   // row, should remain above the browser bottom without document scrolling.
-  for (const {width,height} of [{width:1440,height:900},{width:1440,height:760},{width:1229,height:610}]) {
+  for (const {width,height} of [{width:1440,height:900},{width:1440,height:760},{width:1280,height:631},{width:1229,height:610}]) {
     await page.setViewportSize({width,height});
     await page.locator(".nf-appearance").selectOption("dark");
     await expect(page.locator(".nf-week-map-final .weekly-day-grid")).toBeVisible();
@@ -130,6 +130,16 @@ test("weekly map remains usable from desktop through 200% equivalent narrow view
         .locator(".weekly-grid-meal").last().boundingBox();
       expect(lastMeal).not.toBeNull();
       expect(lastMeal!.height).toBeGreaterThanOrEqual(height === 760 ? 89 : 118);
+    }
+    if (height === 631) {
+      // Grounded in the user's own DevTools measurements at 1280x631:
+      // previously 64px tracks, 61px cards and 66.5px of wasted space.
+      const card = await page.locator(".nf-week-map-final .weekly-grid-day").first()
+        .locator(".weekly-grid-meal").first().boundingBox();
+      expect(card).not.toBeNull();
+      expect(card!.height).toBeGreaterThanOrEqual(70);
+      expect(Math.min(...mealRows)).toBeGreaterThanOrEqual(73);
+      expect(fit.clientHeight - fit.gridBottom).toBeGreaterThanOrEqual(10);
     }
     if (height === 610) {
       // The user's Windows/Chrome screenshot is ~610 CSS px high, despite
