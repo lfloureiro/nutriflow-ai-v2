@@ -127,6 +127,48 @@ The initial web application includes:
 
 The web still uses a development Family UUID entrypoint because authentication and household authorization context are not implemented yet. The meal-planning flow no longer requires users to type DailyNutritionState or composition snapshot UUIDs.
 
+### Deploy local — único comando Windows
+
+A partir de agora, o procedimento recomendado para o checkout de desenvolvimento
+no Windows é executar **um único script**, a partir de qualquer diretório:
+
+```powershell
+D:\Python\nutriflow-ai-v2\deploy.ps1
+```
+
+Em alternativa, estando na pasta do projeto: ` .\deploy.ps1 `.
+
+O `deploy.ps1` valida a branch e o estado limpo do Git, executa
+`git fetch` e `git pull --ff-only`, assegura que o serviço PostgreSQL
+definido em `compose.yml` está disponível, aplica Alembic e atualizações
+aditivas do catálogo através de `python -m app.local_db_update`, atualiza
+dependências quando os respetivos manifests mudam e reinicia apenas a API
+ou o Vite afetados. Verifica `/openapi.json` e a página Vite após o arranque.
+
+A gestão de processos usa PID, data de criação e porta, guardados em
+`.nutriflow-local/deployment.json`, ignorado pelo Git, com logs na mesma
+pasta. Não mata outros serviços por ocupar as portas 8000/5173. **Na
+primeira execução**, se já houver servidores iniciados manualmente nessas
+portas, termina-os uma única vez da forma habitual e volta a executar
+`deploy.ps1`. A partir daí são lançados e geridos pelo script. Caso
+esses serviços sejam controlados por um supervisor externo, deve utilizar-se
+um deployment próprio desse supervisor.
+
+Requer Python com as dependências do projeto, Docker Desktop/Compose,
+Node.js e npm instalados. Não reinstala a BD, não faz `docker compose down`,
+não executa `development_seed` completo e não apaga os dados familiares.
+Falhas de rede, migração ou health check interrompem o deployment de
+forma visível. O script **não é um deployment de produção**: destina-se
+ao ambiente local com `APP_ENV=development`.
+
+A opção `-ForceRestart` reinicia ambos os serviços quando necessário.
+`-PythonPath` permite selecionar explicitamente o interpretador correto
+numa instalação que use conda fora das pastas locais habituais.
+
+O `deploy.ps1` deve passar a ser o único comando habitual para receber
+versões novas. As instruções manuais seguintes ficam reservadas para
+diagnóstico, recuperação e configuração inicial.
+
 ### Automatic local database updates after `git pull`
 
 From NutriFlow v2.1.23 onward, restarting the API in `APP_ENV=development`
