@@ -5,8 +5,6 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.services.recipe_duplicate_audit import duplicate_family_adaptations
-from app.services.recipe_image_generation import generate_recipe_image
 from app.schemas.recipe_variant import (
     RecipeEditCreate,
     VariantCreate,
@@ -15,6 +13,8 @@ from app.schemas.recipe_variant import (
     VariantValidationRead,
     VariantValidationRequest,
 )
+from app.services.recipe_duplicate_audit import duplicate_family_adaptations
+from app.services.recipe_image_generation import generate_recipe_image
 from app.services.recipe_variant import (
     activate_variant,
     create_variant,
