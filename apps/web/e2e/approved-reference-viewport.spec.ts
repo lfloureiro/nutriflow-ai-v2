@@ -68,8 +68,8 @@ for (const appearance of ["dark", "light"] as const) {
       }));
       expect(bounds.documentWidth, `${destination.id} horizontal overflow`)
         .toBeLessThanOrEqual(bounds.viewportWidth + 1);
-      expect(bounds.sidebarWidth).toBeGreaterThanOrEqual(310);
-      expect(bounds.sidebarWidth).toBeLessThanOrEqual(321);
+      expect(bounds.sidebarWidth).toBeGreaterThanOrEqual(223);
+      expect(bounds.sidebarWidth).toBeLessThanOrEqual(225);
 
       if (destination.id === "inicio") {
         const layout = await page.locator(".nf-home").evaluate((root) => {
