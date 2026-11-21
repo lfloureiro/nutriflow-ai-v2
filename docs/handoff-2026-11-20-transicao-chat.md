@@ -142,3 +142,13 @@ O utilizador forneceu duas capturas da v2.0.80 da mesma Semana: Chrome a **100%*
 - `week-reference.css`: na mesma gama, hero com texto de título 17–21px, demais texto 9–11px, rótulos semanais 11px, refeições 11px, datas 11/20px, coluna de refeições 78px; margens e cores existentes mantidas. A imagem continua dimensionada independentemente do conteúdo e texto excecionalmente longo continua a poder expandir o cartão.
 - `week-responsive-visual.spec.ts`: teste Chromium passa a verificar `getComputedStyle` real dos tamanhos máximos de fontes em 1440 × 760 e 1440 × 900, além da exigência de mostrar os quatro momentos sem scroll vertical. O teste serve como guarda de regressão, mas não garante por si só pixel parity visual nem estados de receitas preenchidas.
 - Não se alterou a DB, backend, dados familiares, drawers ou conteúdo funcional. PR #76 permanece draft; antes de pedir nova captura ao utilizador, exigir Web/API/UX E2E no mesmo SHA.
+
+## v2.0.82 — diagnóstico do zoom físico vs CSS viewport (21/11/2026)
+
+O utilizador enviou uma nova captura **v2.0.81 a 100%** mostrando que a tipografia e o hero mantêm dimensões anteriores e que só a primeira linha da Semana cabe na área visível. **Diagnóstico principal:** as regras compactas foram limitadas a `min-height:680px` de **viewport CSS**, mas o Chrome em Windows pode ter viewport CSS inferior a 680px por efeito conjunto de barras do browser, barra de tarefas e escala de apresentação. O facto de o modo compactado surgir com Chrome a 80% e falhar a 100% é consistente com esse limite de altura, não prova de forma isolada o `devicePixelRatio` do utilizador.
+
+- `week-reference.css` e `shell-prototype.css`: ativação do modo compacto desktop agora em **560–960 CSS px** de altura, mantendo largura ≥1101 CSS px. Em ≤679px o menu usa densidade acrescida, preservando o rodapé e a navegação.
+- O cálculo anterior `clamp(80px,(100dvh - 420px)/4,122px)` impunha no mínimo quatro linhas de 80px mesmo em janela curta; atualizado para `clamp(58px,(100dvh - 355px)/4,115px)` para que a grelha caiba numa janela próxima de 610 CSS px sem esconder refeições. Regra abaixo de 560px: mantém scroll normal para não cortar dados.
+- `week-responsive-visual.spec.ts`: regressão adicionada para **1229 × 610 CSS px**, além dos 1440 × 760 e 1440 × 900 existentes, mantendo exigência de última linha visível e limites da fonte calculada em Chromium.
+- **Próxima ação:** CI no último SHA e captura sintética 1229×610; após validar, pedir screenshot v2.0.82 do Chrome do utilizador a 100%. Não considerar a Semana visualmente fechada sem esse teste real.
+- Sem alterações a dados reais, API, backend local ou processos. PR #76 permanece draft.
