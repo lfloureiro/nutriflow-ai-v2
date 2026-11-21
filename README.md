@@ -148,11 +148,14 @@ ou o Vite afetados. Verifica `/openapi.json` e a página Vite após o arranque.
 A gestão de processos usa PID, data de criação e porta, guardados em
 `.nutriflow-local/deployment.json`, ignorado pelo Git, com logs na mesma
 pasta. Não mata outros serviços por ocupar as portas 8000/5173. **Na
-primeira execução**, se já houver servidores iniciados manualmente nessas
-portas, termina-os uma única vez da forma habitual e volta a executar
-`deploy.ps1`. A partir daí são lançados e geridos pelo script. Caso
-esses serviços sejam controlados por um supervisor externo, deve utilizar-se
-um deployment próprio desse supervisor.
+primeira execução**, se existirem servidores iniciados manualmente nessas
+portas e o comando identificar explicitamente Uvicorn/NutriFlow e Vite
+deste checkout, apresenta os processos e pede confirmação escrevendo
+`SIM` para assumir a sua gestão, reiniciando-os em segurança. Não pede
+nova confirmação nas execuções seguintes. Se não for possível identificar
+o processo, falha sem o terminar: é necessário esclarecer manualmente a
+origem da porta antes de continuar. Serviços geridos por um supervisor
+externo devem manter um deployment próprio desse supervisor.
 
 Requer Python com as dependências do projeto, Docker Desktop/Compose,
 Node.js e npm instalados. Não reinstala a BD, não faz `docker compose down`,
