@@ -94,14 +94,14 @@ for (const appearance of ["dark", "light"] as const) {
           return {
             bottom: Math.max(...content.map((element) => element.getBoundingClientRect().bottom)),
             viewport: innerHeight,
-            memberCount: root.querySelectorAll(".nf-person-line").length,
+            memberCount: root.querySelectorAll(".nf-home-family-chip").length,
             familyScroll: getComputedStyle(root.querySelector<HTMLElement>(".nf-family-panel")!).overflowY,
           };
         });
         expect(layout.bottom, "Home primary sections must fit within reference viewport")
           .toBeLessThanOrEqual(layout.viewport + 2);
         expect(layout.memberCount).toBe(4);
-        expect(layout.familyScroll).toBe("auto");
+        expect(layout.familyScroll).toBe("hidden");
       }
 
       await page.screenshot({
@@ -164,8 +164,8 @@ for (const appearance of ["dark", "light"] as const) {
       const weeks=document.querySelector<HTMLElement>(".nf-home-weeks-v3")!;
       const weekGrid=document.querySelector<HTMLElement>(".nf-home-weeks-v3-grid")!;
       const week=weekGrid.querySelector<HTMLElement>("button")!;
-      const family=document.querySelector<HTMLElement>(".nf-home-family-layout-v3")!;
-      const nutrition=document.querySelector<HTMLElement>(".nf-home-nutrition-row-v3")!;
+      const family=document.querySelector<HTMLElement>(".nf-home-progress-body")!;
+      const nutrition=document.querySelector<HTMLElement>(".nf-home-progress-measures")!;
       return {
         outerDisplay:getComputedStyle(outer).display,
         actionsDisplay:getComputedStyle(actions).display,
@@ -199,7 +199,7 @@ for (const appearance of ["dark", "light"] as const) {
     expect(homeContent.horizontalOverflow).toBe(false);
     const peopleFit = await page.evaluate(()=>{
       const panel=document.querySelector<HTMLElement>(".nf-home .nf-family-panel");
-      const people=[...document.querySelectorAll<HTMLElement>(".nf-home .nf-person-line")];
+      const people=[...document.querySelectorAll<HTMLElement>(".nf-home .nf-home-family-chip")];
       return !!panel && people.length===4 && people.every(item=>{
         const rect=item.getBoundingClientRect();
         return rect.bottom <= panel.getBoundingClientRect().bottom+2 &&
