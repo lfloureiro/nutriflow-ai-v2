@@ -181,3 +181,18 @@ O utilizador voltou a mostrar 6 páginas do Vite local na v2.1.11. O calendário
 **Implementação:** `apps/web/src/compact-desktop-reference.css` carregado por último em `main.tsx`, com regras exclusivamente para 761–1100 px CSS. Preserva as rotas, drawers, dados, comparações por membro, fotos de receitas e Semana. Impõe 4 atalhos, 3 cartões semanais, 4 indicadores de Compras e Despensa, compacidade da faixa de Receitas, comparação da Família com tabela transparente e divisão nutricional do Início. Contrasta com os 1672×941 ilustrativos sem fabricar produtos.
 
 **Validação:** `approved-reference-viewport.spec.ts` recebe capturas dark/light para Início, Receitas, Família, Compras e Despensa em 1024×505 e asserts de grelhas/altura/fundo, além dos testes anteriores. Este lote não é paridade fotográfica automática; aceitar apenas após Web CI, API CI, UX E2E e inspeção visual real no browser do utilizador. Não modificar o calendário semanal aprovado para resolver os outros ecrãs.
+
+## v2.1.13 — Início apenas, dois modos responsivos (21/11/2026, 16:40)
+
+Pedido: corrigir uma página de cada vez e abandonar o ajuste ad hoc por tamanhos de screenshot. A captura real da v2.1.12 confirma cartões cinzentos em 2×2 dentro de Ações rápidas, 3 cartões semanais quebrados e informações nutricionais sem espaçamento.
+
+**Causa encontrada no código, e não inferida por zoom:** `screen-reference.css` mantém em `@media(min-width:1101px) and (max-height:680px)` uma regra `.nf-home .nf-home-shortcuts {display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}`. O painel contém exatamente 2 filhos: título e grelha de 4 ações. Assim a grelha interna ocupa **só metade da largura**. As alterações anteriores concentraram-se no estilo da grelha interna e dos botões, sem corrigir o pai. Isso explica o efeito 2×2 no desktop.
+
+**Solução v2.1.13:** no stylesheet final `compact-desktop-reference.css`, duas composições exclusivas:
+- Desktop CSS >= 761: painel exterior `display:flex;flex-direction:column`; grelha de ações com 4 colunas ocupando 100% do espaço; planos semanais 3 colunas reais; cartões com cores do tema e alturas via `clamp()`; apresentação do painel nutricional em duas colunas, separando nome/consumo/planeado e pessoas.
+- Mobile CSS <= 760: ações 2 colunas; cartões semanais 1 coluna; nutrição e pessoas empilhadas.
+Nada foi alterado nas páginas Semana, Receitas, Compras, Família ou Despensa neste lote; sidebar única, drawers e dados reais preservados.
+- `approved-reference-viewport.spec.ts` agora verifica a **propriedade computada do contentor exterior** `display:flex` (não só a contagem de botões nem a variável CSS) em 1024px e 1280px CSS, além de screenshots.
+
+Princípio adotado: não encolher uniformemente fonte/alvos de toque; usar apenas dois layouts e tamanhos fluidos com limites de leitura. Manter a Semana aprovada sem mudanças.
+**Estado:** aguardam Web/API/UX E2E e confirmação visual no browser real; não declarar paridade pixel a pixel.
