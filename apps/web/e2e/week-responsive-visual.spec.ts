@@ -73,6 +73,27 @@ test("weekly map remains usable from desktop through 200% equivalent narrow view
         clientHeight:document.documentElement.clientHeight,
       };
     });
+    // At 100% Chrome zoom text density must match the approved 80%-zoom
+    // comparison without shrinking the browser itself.
+    const type = await page.evaluate(() => {
+      const px = (selector: string) => {
+        const element = document.querySelector<HTMLElement>(selector);
+        if (!element) throw new Error(`Missing typography selector ${selector}`);
+        return Number.parseFloat(getComputedStyle(element).fontSize);
+      };
+      return {
+        navigation: px(".primary-nav .nav-item:not(.active)"),
+        brand: px(".nf-brand-name"),
+        hero: px(".nf-next-meal-hero h2"),
+        meal: px(".nf-week-map-final .weekly-grid-meal > strong"),
+        day: px(".nf-week-map-final .weekly-grid-day__date-button small"),
+      };
+    });
+    expect(type.navigation).toBeLessThanOrEqual(16);
+    expect(type.brand).toBeLessThanOrEqual(24);
+    expect(type.hero).toBeLessThanOrEqual(22);
+    expect(type.meal).toBeLessThanOrEqual(12);
+    expect(type.day).toBeLessThanOrEqual(21);
     expect(fit.heroBottom).toBeLessThan(fit.navTop);
     expect(fit.gridBottom,`Last dinner row exceeds ${height}px viewport`).toBeLessThanOrEqual(fit.clientHeight-4);
     await page.screenshot({path:`test-results/visual-week-fit-dark-1440x${height}.png`,fullPage:false});
