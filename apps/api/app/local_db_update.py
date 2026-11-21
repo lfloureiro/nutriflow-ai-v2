@@ -16,7 +16,7 @@ from app.db.session import SessionLocal, engine
 from app.development_breakfast_seed import RECIPES, seed_development_breakfast_catalog
 from app.development_plant_milk_seed import seed_development_plant_milk_options
 from app.models.family import Family
-from app.models.food_catalog import FoodItem, Recipe
+from app.models.food_catalog import Recipe
 from app.models.meal_candidate_planning_profile import MealCandidatePlanningProfile
 
 # Stable lock key: protects database schema migration across local API workers.
