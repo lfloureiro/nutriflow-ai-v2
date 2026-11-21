@@ -176,7 +176,7 @@ function FindLocalApiProcess([int]$port) {
     # belonging to this checkout as a second independent identification.
     if (-not (Test-NutriFlowApi $port)) { return $null }
     $expectedEnvironment = Join-Path $root '.venv\Scripts\python.exe'
-    $matches = @()
+    $candidateProcesses = @()
     foreach ($candidate in @(Get-CimInstance Win32_Process -ErrorAction Stop)) {
         $command = [string]$candidate.CommandLine
         if (-not $command) { continue }
@@ -187,11 +187,11 @@ function FindLocalApiProcess([int]$port) {
         if ($normalized -notmatch ('--port\s+' + $port + '(?:\s|$)')) { continue }
         $process = Get-Process -Id ([int]$candidate.ProcessId) -ErrorAction SilentlyContinue
         if ($process -and $process.ProcessName -match '^python') {
-            $matches += $process
+            $candidateProcesses += $process
         }
     }
-    if ($matches.Count -eq 1) { return $matches[0] }
-    if ($matches.Count -gt 1) {
+    if ($candidateProcesses.Count -eq 1) { return $candidateProcesses[0] }
+    if ($candidateProcesses.Count -gt 1) {
         throw ('Multiple NutriFlow Uvicorn candidates found for port ' + $port +
             '; refusing to choose a process automatically.')
     }
