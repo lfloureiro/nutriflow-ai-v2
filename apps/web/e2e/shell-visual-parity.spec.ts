@@ -186,6 +186,13 @@ for (const theme of ["light", "dark"] as const) {
       await page.evaluate(value => { window.location.hash=value; },hash);
       await expect(page.locator(".primary-nav .nav-item.active")).toHaveText(label);
       expect(await shellSnapshot(page), `Visual shell differs in ${theme} on ${hash}`).toEqual(baseline);
+      if (hash.includes("people")) {
+        await expect(page.locator(".nf-family-main-grid")).toBeVisible();
+        await expect(page.locator(".nf-family-member-section .person-row")).toHaveCount(1);
+        await expect(page.locator(".nf-family-objectives")).toBeVisible();
+        await expect(page.locator(".nf-family-preferences")).toBeVisible();
+        await expect(page.locator(".nf-family-comparison")).toBeVisible();
+      }
       if (!hash.includes("meals")) {
         await expect(page.locator(".home-base, .shopping-screen, .people-screen").first()).toBeVisible();
         await expect(page.locator(".shell-main .shell-loading")).toHaveCount(0);
