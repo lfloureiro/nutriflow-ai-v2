@@ -153,6 +153,8 @@ export default function NextMealHero({
   const currentSuggestion = suggestion?.slot === identity ? suggestion : null;
   const choice = currentSuggestion?.proposal.selected_plan?.choices[0] ?? null;
   const name = slot?.entry?.recipe_name ?? slot?.entry?.title ?? choice?.candidate_name ?? null;
+  const replacement = choice?.transformation?.operation;
+  const replacementLabel = replacement ? `${replacement.source_food_name} → ${replacement.replacement_food_name}` : null;
   const noProposalDetails = slot && !slot.entry && !choice && (emptyCatalogKey===identity || currentSuggestion)
     ? mealProposalUnavailableReason(slot.mealType, emptyCatalogKey===identity ? 0 : currentSuggestion?.candidateCount ?? null,
       currentSuggestion?.proposal.skipped_slots.flatMap(item=>item.exclusion_reasons) ?? [],locale)
@@ -172,7 +174,7 @@ export default function NextMealHero({
   const status = ready ? copy.planned : choice ? copy.proposed : copy.title;
   const heading = name ?? (busy ? copy.pending : failedKey === identity || loadError ? copy.unavailable :
     people.length < 2 ? copy.needPeople : copy.noSuggestion);
-  const secondary = ready ? copy.planned : choice ? copy.disclaimer :
+  const secondary = ready ? copy.planned : choice ? (replacementLabel ? `${locale==="pt-PT"?"Adaptação proposta — ingrediente a trocar":"Proposed adaptation — ingredient to replace"}: ${replacementLabel}. ${copy.disclaimer}` : copy.disclaimer) :
     busy ? copy.emptyHelp : people.length < 2 ? copy.emptyHelp : noProposalDetails ?? copy.noSuggestionHelp;
 
   return (
