@@ -13,7 +13,8 @@ param(
     [int]$ApiPort = 8000,
     [int]$WebPort = 5173,
     [switch]$ForceRestart,
-    [switch]$VerifyFrontendOnly
+    [switch]$VerifyFrontendOnly,
+    [switch]$Diagnose
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -57,6 +58,35 @@ function Test-NutriFlowFrontend([int]$port) {
         return [int]$client.StatusCode -eq 200 -and
             [string]$client.Content -match 'vite'
     } catch { return $false }
+}
+function Show-PortDiagnostics([int]$port,[string]$role) {
+    Write-Host ('--- NutriFlow ' + $role + ' port ' + $port + ' diagnostics ---')
+    $connections = @(Listener $port)
+    Write-Host ('TCP listeners: ' + $connections.Count)
+    foreach ($connection in $connections) {
+        $ownerId = [int]$connection.OwningProcess
+        Write-Host ('TCP: ' + $connection.LocalAddress + ':' + $connection.LocalPort +
+            ' PID=' + $ownerId)
+        $process = Get-Process -Id $ownerId -ErrorAction SilentlyContinue
+        $cim = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $ownerId) -ErrorAction SilentlyContinue
+        if ($process) {
+            Write-Host ('Process: ' + $process.ProcessName + ' PID=' + $process.Id +
+                ' StartUTC=' + $process.StartTime.ToUniversalTime().ToString('o'))
+        }
+        if ($cim) {
+            Write-Host ('Executable: ' + [string]$cim.ExecutablePath)
+            # Do not print full arguments: applications can contain credentials.
+            $line = [string]$cim.CommandLine
+            Write-Host ('CommandPrefix: ' + $line.Substring(0,[Math]::Min(180,$line.Length)))
+        }
+    }
+    if ($role -eq 'frontend') {
+        Write-Host ('Homepage healthy: ' + (Healthy ('http://127.0.0.1:' + $port + '/')))
+        Write-Host ('NutriFlow Vite signature: ' + (Test-NutriFlowFrontend $port))
+    } else {
+        Write-Host ('NutriFlow API signature: ' + (Test-NutriFlowApi $port))
+    }
+    Write-Host '--- end diagnostics ---'
 }
 function VerifiedServiceProcess([int]$port,[string]$role) {
     $owners = @(Listener $port | Select-Object -ExpandProperty OwningProcess -Unique)
@@ -201,6 +231,11 @@ function Launch([string]$exe,[string[]]$arg,[string]$cwd,[string]$name,[int]$por
             }
         }
         if (-not $proc) {
+            Show-PortDiagnostics $port $role
+            Write-Host ('Launch PID: ' + $started.Id + '; running: ' +
+                [bool](Get-Process -Id $started.Id -ErrorAction SilentlyContinue))
+            Write-Host ('Launch executable: ' + $exe)
+            Write-Host ('Launch first argument: ' + $(if ($arg.Count -gt 0) { $arg[0] } else { '' }))
             throw ($name + ' responded but its listening process is not verified as NutriFlow. ' +
                 'Inspect the warning above and ' + (Join-Path $stateDir ($name + '.err.log')))
         }
@@ -215,6 +250,18 @@ function Save($state) {
     $state | ConvertTo-Json -Depth 6 | Set-Content -Path $stateFile -Encoding UTF8
 }
 if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir | Out-Null }
+if ($Diagnose) {
+    Show-PortDiagnostics $ApiPort 'api'
+    Show-PortDiagnostics $WebPort 'frontend'
+    if (Test-Path $stateFile) {
+        $previousState = Get-Content $stateFile -Raw | ConvertFrom-Json
+        foreach ($kind in @('api','web')) {
+            $saved = $previousState.$kind
+            if ($saved) { Write-Host ('Tracked ' + $kind + ' PID: ' + $saved.pid) }
+        }
+    }
+    exit 0
+}
 if ($VerifyFrontendOnly) {
     # Windows CI smoke test of the actual launch/port ownership implementation.
     # Uses a zero-dependency HTTP signature fixture; Web CI tests real Vite.
