@@ -13,6 +13,7 @@ import {
   recommendationCandidates,
 } from "./recommendationPlanning";
 import Icon from "./ui/Icon";
+import { resolveMealHeroImage } from "./mealHeroImages";
 
 export type HeroSuggestedMeal = {
   date: string;
@@ -20,33 +21,6 @@ export type HeroSuggestedMeal = {
   request: SharedWeeklyPlanProposalRequest;
   proposal: SharedWeeklyPlanProposal;
 };
-
-type HeroImage = { src: string; author: string; source: string; license: string };
-
-/** Deliberately curated, not keyword-based image matching.
- * A photo must not misrepresent the actual recipe or imply nutritional validation.
- * Wikimedia Commons CC0 1.0; retain source even for a public-domain image.
- */
-export function verifiedRecipePhoto(name: string | null): HeroImage | null {
-  const normalized = name?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase() ?? "";
-  const photos: Record<string, { file: string; author: string }> = {
-    "salmao no forno com ervas": {file:"Steckenroth, salmon on baked vegetables.jpg", author:"Steckenroth"},
-    "salmao no forno com ervinhas da provenca": {file:"Steckenroth, salmon on baked vegetables.jpg", author:"Steckenroth"},
-    "pao, queijo e tomate": {file:"Toast with cheddar cheese and tomato.jpg", author:"OKJaguar"},
-    "torrada com queijo": {file:"Toast with cheddar cheese and tomato.jpg", author:"OKJaguar"},
-    "frango rapido": {file:"Chicken plate.jpg", author:"Wikimedia Commons contributor"},
-    "omelete de espinafres": {file:"An omelette.jpg", author:"Wikimedia Commons contributor"},
-  };
-  const entry = photos[normalized];
-  if (!entry) return null;
-  const encoded = encodeURIComponent(entry.file).replace(/%2F/g, "/");
-  return {
-    src: `https://commons.wikimedia.org/wiki/Special:FilePath/${encoded}?width=900`,
-    author: entry.author,
-    source: `https://commons.wikimedia.org/wiki/File:${entry.file.replace(/ /g, "_")}`,
-    license: "CC0 1.0",
-  };
-}
 
 type LoadState = { slot: string; proposal: SharedWeeklyPlanProposal; request: SharedWeeklyPlanProposalRequest } | null;
 const LABELS = {
@@ -174,7 +148,9 @@ export default function NextMealHero({
   const currentSuggestion = suggestion?.slot === identity ? suggestion : null;
   const choice = currentSuggestion?.proposal.selected_plan?.choices[0] ?? null;
   const name = slot?.entry?.recipe_name ?? slot?.entry?.title ?? choice?.candidate_name ?? null;
-  const photo = verifiedRecipePhoto(name);
+  const photo = resolveMealHeroImage({planned:slot?.entry, proposal:slot?.entry ? null : choice});
+  const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
+  const showingPhoto = photo && photo.src !== failedPhoto ? photo : null;
   const timeLabel = slot ? new Intl.DateTimeFormat(locale, {
     weekday:"short", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit", timeZone: timezone,
   }).format(new Date(slot.scheduledAt)) : "";
@@ -193,7 +169,8 @@ export default function NextMealHero({
   return (
     <section className="nf-next-meal-hero" aria-label={copy.title}>
       <div className="nf-next-meal-hero__art">
-        {photo ? <img src={photo.src} alt="" loading="lazy" referrerPolicy="no-referrer" /> :
+        {showingPhoto ? <img key={showingPhoto.src} src={showingPhoto.src} alt={showingPhoto.alt}
+          loading="eager" referrerPolicy="no-referrer" onError={() => setFailedPhoto(showingPhoto.src)} /> :
           <img src="/images/shared-meal.svg" alt="" aria-hidden="true" />}
       </div>
       <div className="nf-next-meal-hero__info">
@@ -201,9 +178,12 @@ export default function NextMealHero({
         <h2>{heading}</h2>
         <p>{secondary}</p>
         <div className="nf-next-meal-hero__context"><Icon name="clock"/>{timeLabel} · {mealLabel}</div>
-        {photo ? <a className="nf-next-meal-hero__credit" href={photo.source} target="_blank" rel="noopener noreferrer">
-          {copy.photo}: {photo.author} · {photo.license}
-        </a> : <small className="nf-next-meal-hero__credit">{copy.illustration}</small>}
+        {showingPhoto ? (showingPhoto.source ?
+          <a className="nf-next-meal-hero__credit" href={showingPhoto.source} target="_blank" rel="noopener noreferrer">
+            {copy.photo}: {showingPhoto.author} · {showingPhoto.license}
+          </a> :
+          <small className="nf-next-meal-hero__credit">{copy.photo}</small>
+        ) : <small className="nf-next-meal-hero__credit">{copy.illustration}</small>}
       </div>
       <div className="nf-next-meal-hero__actions">
         {slot && <button className="button primary" type="button" onClick={() => {
