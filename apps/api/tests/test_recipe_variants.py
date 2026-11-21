@@ -595,7 +595,7 @@ def test_recipe_edit_still_rejects_known_restrictions_and_changed_evidence(clien
 def test_recipe_edit_reuses_identical_family_adaptation_without_new_rows(client, db_session, pilot):
     from sqlalchemy import func, select
 
-    family, _, _, foods, base, payload, _ = pilot
+    family, _, _, _, base, payload, _ = pilot
     path = f"/api/families/{family.id}/recipe-variants/recipe-edit"
     body = {"base_recipe_id": str(base.id), "name": "Esparguete · família",
             "operations": payload["operations"]}
