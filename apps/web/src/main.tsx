@@ -49,3 +49,4 @@ import "./week-reference.css";
 import "./shell-prototype.css";
 import "./screen-reference.css";
 import "./viewport-density.css";
+import "./compact-desktop-reference.css";
