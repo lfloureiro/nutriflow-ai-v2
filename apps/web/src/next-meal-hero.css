@@ -1,0 +1,133 @@
+/* v2.0.72: approved editorial next-meal card.
+   Fixed image-track height prevents natural image dimensions from expanding
+   the whole hero to >300px; colour is scoped to the page and theme. */
+.app-shell--meals .nf-next-meal-hero {
+  --meal-hero-surface: #fffefa;
+  --meal-hero-surface-end: #f0eee6;
+  --meal-hero-border: #dedfd5;
+  --meal-hero-muted: #657365;
+  --meal-hero-title: #25372d;
+  display: grid;
+  grid-template-columns: minmax(160px, 30%) minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: center;
+  height: 184px;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--meal-hero-border);
+  border-radius: 17px;
+  background: linear-gradient(110deg, var(--meal-hero-surface), var(--meal-hero-surface-end));
+  color: var(--meal-hero-title);
+  margin: 0 0 18px;
+  box-shadow: none;
+}
+:root[data-theme="dark"] .app-shell--meals .nf-next-meal-hero {
+  --meal-hero-surface: #292628;
+  --meal-hero-surface-end: #302b2d;
+  --meal-hero-border: #514a4d;
+  --meal-hero-muted: #cbc1b9;
+  --meal-hero-title: #f9f4ed;
+}
+.app-shell--meals .nf-next-meal-hero__art {
+  position: relative;
+  align-self: stretch;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--surface-soft);
+}
+.app-shell--meals .nf-next-meal-hero__art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: 184px;
+  object-fit: cover;
+}
+.app-shell--meals .nf-next-meal-hero__info {
+  min-width: 0;
+  padding: 18px 22px;
+}
+.app-shell--meals .nf-next-meal-hero__eyebrow {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--color-action);
+  font-size: 10px;
+  line-height: 1.4;
+  font-weight: 750;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.app-shell--meals .nf-next-meal-hero h2 {
+  margin: 0 0 5px;
+  color: var(--meal-hero-title);
+  font-size: clamp(18px, 1.8vw, 23px);
+  letter-spacing: -.5px;
+  line-height: 1.22;
+  font-weight: 680;
+  overflow-wrap: anywhere;
+}
+.app-shell--meals .nf-next-meal-hero p {
+  margin: 0 0 8px;
+  color: var(--meal-hero-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.app-shell--meals .nf-next-meal-hero__context {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--meal-hero-muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+.app-shell--meals .nf-next-meal-hero__context svg { width: 13px; height: 13px; }
+.app-shell--meals .nf-next-meal-hero__credit {
+  display: block;
+  margin-top: 5px;
+  color: var(--meal-hero-muted);
+  font-size: 9px;
+  line-height: 1.35;
+}
+.app-shell--meals .nf-next-meal-hero__actions {
+  display: grid;
+  justify-items: stretch;
+  gap: 8px;
+  min-width: 150px;
+  padding: 16px 20px 16px 0;
+}
+.app-shell--meals .nf-next-meal-hero__actions .button {
+  white-space: normal;
+  text-align: center;
+  border-radius: 10px;
+  min-height: 40px;
+  padding: 9px 13px;
+  font-size: 11px;
+  font-weight: 650;
+}
+.app-shell--meals .nf-next-meal-hero__actions svg { width: 14px; height: 14px; }
+@media (max-width: 1050px) {
+  .app-shell--meals .nf-next-meal-hero {
+    height: auto;
+    min-height: 170px;
+    grid-template-columns: minmax(145px, 29%) minmax(0, 1fr);
+    grid-template-rows: auto auto;
+  }
+  .app-shell--meals .nf-next-meal-hero__art { grid-row: 1 / span 2; }
+  .app-shell--meals .nf-next-meal-hero__art img { max-height: none; }
+  .app-shell--meals .nf-next-meal-hero__actions {
+    grid-column: 2;
+    padding: 0 18px 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 580px) {
+  .app-shell--meals .nf-next-meal-hero { grid-template-columns: 1fr; grid-template-rows: auto; }
+  .app-shell--meals .nf-next-meal-hero__art { grid-row: auto; height: 140px; min-height: 140px; }
+  .app-shell--meals .nf-next-meal-hero__art img { max-height: 140px; }
+  .app-shell--meals .nf-next-meal-hero__info { padding: 14px 16px; }
+  .app-shell--meals .nf-next-meal-hero__actions { grid-column: 1; padding: 0 16px 15px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-shell--meals .nf-next-meal-hero *, .app-shell--meals .nf-next-meal-hero *::before { transition: none; }
+}

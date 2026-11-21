@@ -1,0 +1,448 @@
+/* Canonical Casa à Mesa shell: one visual contract for EVERY route.
+   Measured from Casa_a_Mesa_High_Fidelity.html, 20 Nov 2026.
+   Route-specific selectors remain limited to the main weekly canvas. */
+@media (min-width: 761px) {
+  .side-nav {
+    width: 230px;
+    gap: 36px;
+    padding: 34px 20px 22px;
+    border-color: var(--color-border);
+    background: var(--color-surface);
+    backdrop-filter: none;
+  }
+  .shell-content { margin-left: 230px; }
+  .side-brand { padding: 0; margin: 0; }
+  .nf-brand { gap: 10px; }
+  .nf-brand-mark { width: 36px; height: 36px; border-radius: 12px; }
+  .nf-brand-name {
+    font: 700 19px/1.3 "Manrope", sans-serif;
+    letter-spacing: -.9px;
+  }
+  .nf-brand-name small {
+    font: 500 11px/1.6 "DM Sans", sans-serif;
+    letter-spacing: .7px;
+    margin-top: 3px;
+  }
+  .primary-nav { gap: 5px; }
+  .primary-nav .nav-item {
+    grid-template-columns: 20px minmax(0,1fr);
+    gap: 12px;
+    min-height: 44px;
+    padding: 12px 14px;
+    border-radius: 11px;
+    font-size: 13px;
+    font-weight: 550;
+    color: var(--color-muted);
+  }
+  .primary-nav .nav-item.active {
+    background: var(--color-action-soft);
+    color: var(--color-action);
+  }
+  .primary-nav .nav-item:hover:not(.active) { background: var(--color-surface-soft); }
+  .primary-nav .nav-icon { width: 20px; height: 20px; border-radius: 0; }
+  .side-nav__ai {
+    display: grid;
+    gap: 5px;
+    margin-top: auto;
+    padding: 15px;
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    background: var(--color-bg);
+    box-shadow: none;
+  }
+  .side-nav__ai-heading { gap: 10px; font-size: 13px; }
+  .side-nav__ai > span:last-child { color: var(--color-muted); font-size: 11px; }
+  .side-nav__ai-heading .nf-icon { color: var(--color-action); }
+  .side-nav__family {
+    margin-top: 0;
+    padding: 5px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  .shell-topbar {
+    min-height: 92px;
+    background: var(--color-bg);
+    border-bottom: 1px solid var(--color-border);
+    backdrop-filter: none;
+  }
+}
+
+/* Screenshot-approved composite target, 1536x1024, 20 Nov 2026.
+   The following optical treatment is shared by every desktop screen.
+   Dark gradients are intentionally distinct from the original flat HTML. */
+:root[data-theme="dark"] {
+  --nf-optical-ink: #f7f4f3;
+  --nf-optical-gold: #f4bc76;
+  --nf-optical-edge: #494549;
+  --nf-optical-glow: 0 0 22px #f4bc7614;
+  --nf-optical-shadow: 0 20px 55px #00000052;
+}
+:root[data-theme="dark"] body,
+:root[data-theme="dark"] .app-shell,
+:root[data-theme="dark"] .shell-content {
+  background:
+    radial-gradient(ellipse 75% 48% at 74% -10%, #332c2c55, transparent 76%),
+    radial-gradient(ellipse 80% 75% at 75% 115%, #29232b36, transparent 82%),
+    #151518;
+}
+@media (min-width: 1101px) {
+  .side-nav {
+    width: clamp(230px, 20.833vw, 320px);
+    padding: 48px 22px 26px;
+    gap: 48px;
+  }
+  .shell-content { margin-left: clamp(230px, 20.833vw, 320px); }
+  .nf-brand-mark { width: clamp(42px, 3.906vw, 60px); height: clamp(42px, 3.906vw, 60px); border-radius: 16px; }
+  .nf-brand-mark .nf-icon { width: 30px; height: 30px; }
+  .nf-brand-name { font-size: clamp(20px, 1.89vw, 29px); letter-spacing: -1.3px; }
+  .nf-brand-name small { font-size: clamp(11px, 1.04vw, 16px); letter-spacing: 0; }
+  .nf-brand-version { font-size: 12px; }
+  .primary-nav { gap: 3px; }
+  .primary-nav .nav-item {
+    grid-template-columns: 31px minmax(0,1fr);
+    gap: 19px;
+    min-height: 66px;
+    padding: 14px 20px;
+    border-radius: 16px;
+    font-size: clamp(15px, 1.3vw, 20px);
+    font-weight: 500;
+  }
+  .primary-nav .nav-icon { width: 29px; height: 29px; }
+  .primary-nav .nav-icon .nf-icon { width: 28px; height: 28px; }
+  .side-nav__ai {
+    margin-top: 0;
+    min-height: 166px;
+    padding: 22px 25px;
+    border-radius: 24px;
+    gap: 12px;
+  }
+  .side-nav__ai-heading { font-size: clamp(15px, 1.3vw, 20px); gap: 17px; line-height: 1.3; }
+  .side-nav__ai-heading .nf-icon { width: 40px; height: 40px; flex-basis: 40px; }
+  .side-nav__ai > span:last-child { font-size: clamp(12px, 1.11vw, 17px); line-height: 1.6; }
+  .side-nav__family {
+    margin-top: auto;
+    border-top: 1px solid var(--color-border);
+    padding: 30px 6px 12px;
+  }
+  .side-nav__family span { font-size: 14px; letter-spacing: .03em; }
+  .side-nav__family strong { font-size: 18px; }
+}
+:root[data-theme="dark"] .side-nav {
+  background:
+    radial-gradient(ellipse at 18% 0%, #333030ab, transparent 60%),
+    linear-gradient(165deg, #242326 0%, #1c1b1f 65%, #211e23 100%);
+  border-right-color: #3a3539;
+  box-shadow: 8px 0 35px #00000022;
+}
+:root[data-theme="dark"] .nf-brand-mark {
+  background: linear-gradient(138deg, #e5b37e 0%, #d29a67 100%);
+  color: #252024;
+  box-shadow: inset 0 1px #fff3, 0 8px 27px #b9783f22;
+}
+:root[data-theme="dark"] .nf-brand-name {
+  color: #faf8f8;
+  text-shadow: 0 1px 9px #fff2;
+}
+:root[data-theme="dark"] .primary-nav .nav-item {
+  color: #e4dfe0;
+  text-shadow: 0 0 15px #ffffff08;
+}
+:root[data-theme="dark"] .primary-nav .nav-item.active {
+  color: #f1bd86;
+  background: linear-gradient(111deg, #654b33d9, #513c31ba);
+  box-shadow: inset 0 1px 0 #f7c78818, 0 4px 20px #00000018;
+  font-weight: 700;
+}
+:root[data-theme="dark"] .primary-nav .nav-item.active .nav-icon {
+  background: transparent;
+  color: inherit;
+}
+:root[data-theme="dark"] .side-nav__ai {
+  background:
+    radial-gradient(ellipse at 15% 0%, #7c5c4155, transparent 65%),
+    linear-gradient(140deg, #302a2b 0%, #282428 75%);
+  border-color: #77685f;
+  box-shadow: inset 0 1px 0 #ffffff12, 0 18px 30px #00000018;
+}
+:root[data-theme="dark"] .side-nav__ai-heading .nf-icon { color: #f7b65f; filter: drop-shadow(0 0 9px #e6a35444); }
+:root[data-theme="dark"] .side-nav__family {
+  background: transparent;
+  color: #f8f6f5;
+}
+:root[data-theme="dark"] .shell-topbar {
+  background: linear-gradient(90deg, #211f23ee, #1a191dee);
+  border-bottom-color: #3a3539;
+}
+:root[data-theme="dark"] .shell-topbar strong,
+:root[data-theme="dark"] .screen-header h1 { color: #f7f4f3; }
+@media (max-width: 1100px) and (min-width: 761px) {
+  .side-nav { width: 230px; }
+  .shell-content { margin-left: 230px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .primary-nav .nav-item,
+  .side-nav__ai { transition: none; }
+}
+
+/* Screenshot family identity: semantic settings action, real family initials. */
+@media (min-width: 761px) {
+  .side-nav__family {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    gap: 14px;
+    background: transparent;
+    color: var(--color-text);
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    text-align: left;
+    cursor: pointer;
+  }
+  .side-nav__family-avatar {
+    display: grid;
+    place-items: center;
+    flex: 0 0 46px;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: #e4cdb3;
+    color: #242025;
+    font: 700 20px/1 "Manrope", sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0;
+  }
+  .side-nav__family .side-nav__family-copy {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+    color: var(--color-text);
+    font-size: inherit;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .side-nav__family-copy strong {
+    color: inherit;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 700;
+  }
+  .side-nav__family-copy small {
+    color: var(--color-muted);
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.4;
+    text-transform: none;
+  }
+  .side-nav__family:hover .side-nav__family-copy strong,
+  .side-nav__family:focus-visible .side-nav__family-copy strong { text-decoration: underline; }
+}
+@media (min-width: 1101px) {
+  .side-nav__family-avatar {
+    flex-basis: clamp(46px, 3.9vw, 60px);
+    width: clamp(46px, 3.9vw, 60px);
+    height: clamp(46px, 3.9vw, 60px);
+    font-size: clamp(20px, 1.56vw, 24px);
+  }
+  .side-nav__family-copy strong { font-size: clamp(15px, 1.3vw, 20px); }
+  .side-nav__family-copy small { font-size: clamp(12px, 1.11vw, 17px); }
+}
+:root[data-theme="dark"] .side-nav__family-avatar {
+  background: linear-gradient(135deg, #f8d2a7, #e6b88a);
+  color: #211c1e;
+  box-shadow: inset 0 1px 0 #ffffff66, 0 7px 22px #00000021;
+}
+
+/* Short desktop windows must retain access to the actual family identity,
+   rather than cutting off the last lines under the viewport edge. */
+@media (min-width: 761px) {
+  .side-nav {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+  .side-nav::-webkit-scrollbar { display: none; }
+}
+@media (min-width: 1101px) and (max-height: 950px) {
+  .side-nav { gap: 20px; padding-top: 28px; padding-bottom: 14px; }
+  .primary-nav .nav-item { min-height: 52px; padding-top: 9px; padding-bottom: 9px; }
+  .side-nav__ai { min-height: 128px; padding: 16px 19px; gap: 6px; }
+  .side-nav__family { padding-top: 16px; padding-bottom: 6px; }
+}
+
+/* v2.0.79: family footer owns its layout. Generic
+   .side-nav__family span from shell.css must not turn its avatar
+   and copy into tiny uppercase metadata. */
+@media (min-width: 761px) {
+  .side-nav .side-nav__family {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    min-width: 0;
+    width: 100%;
+    margin-top: 0;
+    flex-shrink: 0;
+    padding: 18px 4px 10px;
+    border-top: 1px solid var(--color-border);
+  }
+  .side-nav .side-nav__family .side-nav__family-avatar {
+    display: grid;
+    place-items: center;
+    flex: 0 0 clamp(44px, 3.9vw, 60px);
+    width: clamp(44px, 3.9vw, 60px);
+    height: clamp(44px, 3.9vw, 60px);
+    padding: 0;
+    border-radius: 50%;
+    font: 700 clamp(20px, 1.56vw, 24px)/1 "Manrope", sans-serif;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+  }
+  .side-nav .side-nav__family .side-nav__family-copy {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    min-width: 0;
+    gap: 3px;
+    padding: 0;
+    text-align: left;
+    letter-spacing: normal;
+    text-transform: none;
+    white-space: normal;
+  }
+  .side-nav .side-nav__family .side-nav__family-copy strong {
+    display: block;
+    width: 100%;
+    color: var(--color-text);
+    font-size: clamp(14px, 1.3vw, 20px);
+    font-weight: 700;
+    line-height: 1.35;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .side-nav .side-nav__family .side-nav__family-copy small {
+    display: block;
+    width: 100%;
+    color: var(--color-muted);
+    font: 400 clamp(11px, 1.11vw, 17px)/1.4 "DM Sans", sans-serif;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: normal;
+    overflow-wrap: normal;
+  }
+}
+
+/* v2.0.81 — uniform typography density for the shared desktop shell.
+   The 80% browser screenshot is reproduced at 100% without zooming the UI. */
+@media (min-width: 1101px) and (min-height: 560px) and (max-height: 960px) {
+  .side-nav {
+    gap: 18px;
+    padding: 22px 20px 14px;
+  }
+  .nf-brand-mark {
+    width: 49px;
+    height: 49px;
+    border-radius: 14px;
+  }
+  .nf-brand-mark .nf-icon { width: 25px; height: 25px; }
+  .nf-brand-name {
+    font-size: clamp(20px, 1.45vw, 23px);
+    line-height: 1.22;
+    letter-spacing: -.8px;
+  }
+  .nf-brand-name small {
+    font-size: 12px;
+    line-height: 1.35;
+    margin-top: 3px;
+  }
+  .nf-brand-version { font-size: 10px; }
+  .primary-nav { gap: 3px; }
+  .primary-nav .nav-item {
+    min-height: 48px;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 13px;
+    padding: 10px 15px;
+    font-size: 15px;
+    line-height: 1.3;
+    border-radius: 13px;
+  }
+  .primary-nav .nav-icon,
+  .primary-nav .nav-icon .nf-icon { width: 23px; height: 23px; }
+  .side-nav__ai {
+    min-height: 112px;
+    padding: 15px 16px;
+    gap: 7px;
+    border-radius: 18px;
+  }
+  .side-nav__ai-heading {
+    font-size: 16px;
+    gap: 12px;
+    line-height: 1.25;
+  }
+  .side-nav__ai-heading .nf-icon {
+    width: 30px;
+    height: 30px;
+    flex-basis: 30px;
+  }
+  .side-nav__ai > span:last-child {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .side-nav .side-nav__family { padding-top: 13px; padding-bottom: 7px; }
+  .side-nav .side-nav__family .side-nav__family-avatar {
+    flex-basis: 48px;
+    width: 48px;
+    height: 48px;
+    font-size: 20px;
+  }
+  .side-nav .side-nav__family .side-nav__family-copy strong {
+    font-size: 15px;
+  }
+  .side-nav .side-nav__family .side-nav__family-copy small {
+    font-size: 12px;
+  }
+  .shell-topbar { min-height: 74px; }
+  .shell-topbar strong { font-size: 13px; }
+  .shell-topbar__label { font-size: 10px; }
+}
+
+/* Short CSS viewport (e.g. Windows scaling with Chrome at 100%):
+   keep the same shared menu but reserve space for its footer. */
+@media (min-width: 1101px) and (min-height: 560px) and (max-height: 679px) {
+  .side-nav { gap: 9px; padding-top: 15px; padding-bottom: 10px; }
+  .nf-brand-mark { width: 43px; height: 43px; }
+  .nf-brand-name { font-size: 19px; }
+  .nf-brand-name small { font-size: 11px; }
+  .primary-nav { gap: 0; }
+  .primary-nav .nav-item { min-height: 41px; padding-top: 7px; padding-bottom: 7px; font-size: 14px; }
+  .side-nav__ai { min-height: 82px; padding: 11px 13px; gap: 3px; }
+  .side-nav__ai-heading { font-size: 14px; }
+  .side-nav__ai > span:last-child { font-size: 11px; line-height: 1.35; }
+  .side-nav .side-nav__family { padding-top: 8px; padding-bottom: 4px; }
+}
+
+/* v2.0.85 — keep both shared sidebar actions anchored at the bottom.
+   An older desktop override set .side-nav__ai margin-top:0 and cancelled
+   the flex spacer; restoring auto on the first action moves the pair as one.
+   On short windows, sidebar scrolling remains available. */
+@media (min-width: 761px) {
+  .side-nav .side-nav__ai {
+    margin-top: auto;
+    flex-shrink: 0;
+  }
+  .side-nav .side-nav__ai + .side-nav__family {
+    margin-top: 0;
+    flex-shrink: 0;
+  }
+}

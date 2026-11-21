@@ -73,3 +73,13 @@
 .shopping-receipt-history li { margin:.5rem 0; overflow-wrap:anywhere; }
 
 .requirement-delivery-note { grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:.5rem 1.5rem; border-top:1px solid var(--border); padding-top:.5rem; color:var(--muted); }
+
+/* Confirmation status is explicitly independent from proposal attendance. */
+.nf-weekly-attendance-decisions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:10px;margin:12px 0}
+.nf-weekly-attendance-decisions .field{min-width:0;margin:0}
+.nf-weekly-attendance-decisions .field span{font-size:12px;font-weight:600}
+.nf-weekly-attendance-decisions select{max-width:100%;width:100%;min-height:40px}
+@media(max-width:480px){.nf-weekly-attendance-decisions{grid-template-columns:minmax(0,1fr)}}
+
+.nf-weekly-guests{margin:12px 0;max-width:350px}
+.nf-weekly-guests input[type=number]{width:100%;max-width:140px;min-height:40px}

@@ -1,0 +1,163 @@
+import { useId, useLayoutEffect, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+
+import "./ContextDrawer.css";
+
+type ContextDrawerProps = {
+  title: string;
+  children: ReactNode;
+  footer?: ReactNode;
+  wide?: boolean;
+  /** Return false to keep the drawer open (e.g. when a draft cannot be discarded). */
+  onRequestClose: () => boolean | void;
+  closeLabel?: string;
+};
+
+const FOCUSABLE = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "summary",
+  "[contenteditable='true']",
+  "[tabindex]:not([tabindex='-1'])",
+].join(", ");
+
+export default function ContextDrawer({
+  title,
+  children,
+  footer,
+  wide = false,
+  onRequestClose,
+  closeLabel = "Fechar",
+}: ContextDrawerProps) {
+  const titleId = useId();
+  const panelRef = useRef<HTMLElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onRequestClose);
+  onCloseRef.current = onRequestClose;
+
+  useLayoutEffect(() => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    // The drawer is portaled outside #root, so the rest of the app is not interactive.
+    const appRoot = document.getElementById("root");
+    const wasInert = appRoot?.inert ?? false;
+    if (appRoot) appRoot.inert = true;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
+    // A portal can mount while the originating route is still committing.
+    // Reassert the first focus once after paint, without interfering with
+    // subsequent user keyboard navigation.
+    const firstFocusFrame = window.requestAnimationFrame(() => {
+      if (panelRef.current?.isConnected) {
+        closeRef.current?.focus({ preventScroll: true });
+      }
+    });
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab" || !panelRef.current) return;
+      const candidates = Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE))
+        .filter((element) =>
+          element.getClientRects().length > 0 &&
+          !element.matches(":disabled") &&
+          !element.closest("[inert], [aria-hidden='true']") &&
+          getComputedStyle(element).visibility === "visible",
+        );
+      if (!candidates.length) {
+        event.preventDefault();
+        panelRef.current.focus();
+        return;
+      }
+      // Keep Tab movement deterministic even when a browser's native focus order
+      // changes during React updates. Every keyboard step stays within the modal.
+      event.preventDefault();
+      const currentIndex = candidates.indexOf(document.activeElement as HTMLElement);
+      const nextIndex = event.shiftKey
+        ? (currentIndex <= 0 ? candidates.length - 1 : currentIndex - 1)
+        : (currentIndex < 0 || currentIndex >= candidates.length - 1 ? 0 : currentIndex + 1);
+      candidates[nextIndex]?.focus();
+    }
+
+    // Tab handling is not sufficient when a child component, browser extension,
+    // or another script moves focus directly. Keep the active modal authoritative.
+    function onFocusIn(event: FocusEvent) {
+      const panel = panelRef.current;
+      if (!panel || !(event.target instanceof Node) || panel.contains(event.target)) return;
+      if (closeRef.current && !closeRef.current.disabled) {
+        closeRef.current.focus();
+      } else {
+        panel.focus();
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("focusin", onFocusIn);
+    return () => {
+      window.cancelAnimationFrame(firstFocusFrame);
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (appRoot) appRoot.inert = wasInert;
+      // Restore synchronously as before: waiting for the next animation frame
+      // loses keyboard focus on rapid modal close/open cycles in Chromium.
+      // If the launcher was removed, never restore focus to <body>.
+      const originalUsable = previousFocus !== null &&
+        previousFocus !== document.body &&
+        previousFocus !== document.documentElement &&
+        previousFocus.isConnected;
+      if (originalUsable) {
+        previousFocus.focus({ preventScroll: true });
+      } else {
+        // Portal DOM removal and route updates can occur after passive-effect
+        // cleanup. Defer only this unusual fallback to the next task, leaving
+        // the normal launcher restoration synchronous and deterministic.
+        window.setTimeout(() => {
+          if (document.querySelector(".nf-context-drawer")) return;
+          if (document.activeElement !== document.body &&
+              document.activeElement !== document.documentElement &&
+              document.activeElement?.isConnected) return;
+          const fallback = document.querySelector<HTMLElement>(
+            ".primary-nav [aria-current='page'], .side-brand, .shell-main [tabindex='0']",
+          );
+          fallback?.focus({ preventScroll: true });
+        }, 0);
+      }
+    };
+  }, []);
+
+  return createPortal(
+    <div className="nf-context-overlay">
+      <section
+        ref={panelRef}
+        className={`nf-context-drawer${wide ? " nf-context-drawer--wide" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+      >
+        <header className="nf-context-drawer__head">
+          <h2 id={titleId}>{title}</h2>
+          <button
+            ref={closeRef}
+            className="nf-context-drawer__close"
+            type="button"
+            aria-label={closeLabel}
+            onClick={() => onCloseRef.current()}
+          >
+            ×
+          </button>
+        </header>
+        <div className="nf-context-drawer__body">{children}</div>
+        {footer ? <footer className="nf-context-drawer__foot">{footer}</footer> : null}
+      </section>
+    </div>,
+    document.body,
+  );
+}

@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useUnsavedChanges } from "./useUnsavedChanges";
+import { requestNavigation } from "./navigation";
+import ContextDrawer from "./ui/ContextDrawer";
 
 import {
   ApiError,
@@ -268,6 +271,10 @@ function IngredientEditor({
   const [nutritionDirty, setNutritionDirty] = useState(ingredient === null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const guard = useUnsavedChanges(values, locale === "pt-PT"
+    ? "Tens alterações neste ingrediente por guardar. Sair e descartá-las?"
+    : "You have unsaved ingredient changes. Leave and discard them?");
+  const closeEditor = () => { if (!busy && guard.confirmDiscard()) onBack(); };
 
   function update(field: keyof EditorValues, value: string, nutrition = false) {
     setValues((current) => ({ ...current, [field]: value }));
@@ -319,6 +326,7 @@ function IngredientEditor({
           ...(nutritionDirty ? { composition } : {}),
         });
       }
+      guard.markSaved();
       onSaved();
     } catch (caught: unknown) {
       setError(errorText(caught));
@@ -328,6 +336,7 @@ function IngredientEditor({
   }
 
   async function toggleActive() {
+    if (!guard.confirmDiscard()) return;
     if (ingredient === null) {
       return;
     }
@@ -342,6 +351,7 @@ function IngredientEditor({
       } else {
         await updateFamilyIngredient(familyId, ingredient.id, { is_active: true });
       }
+      guard.markSaved();
       onSaved();
     } catch (caught: unknown) {
       setError(errorText(caught));
@@ -352,7 +362,7 @@ function IngredientEditor({
 
   return (
     <div className="ingredient-editor">
-      <button className="button ghost ingredient-back" onClick={onBack} type="button">
+      <button className="button ghost ingredient-back" disabled={busy} onClick={closeEditor} type="button">
         ← {copy.back}
       </button>
       <header className="screen-header compact-screen-header">
@@ -362,6 +372,7 @@ function IngredientEditor({
         </div>
       </header>
 
+      {guard.dirty && <p className="nf-draft-state" role="status">{locale === "pt-PT" ? "Alterações por guardar" : "Unsaved changes"}</p>}
       {error ? (
         <div className="error-banner" role="alert">
           <strong>{copy.error}</strong>
@@ -532,9 +543,6 @@ export default function IngredientCatalogue({ familyId }: { familyId: string }) 
   const [revision, setRevision] = useState(0);
 
   useEffect(() => {
-    if (selected !== undefined) {
-      return;
-    }
     let cancelled = false;
     const timer = window.setTimeout(() => {
       setBusy(true);
@@ -561,7 +569,7 @@ export default function IngredientCatalogue({ familyId }: { familyId: string }) 
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [familyId, query, includeInactive, revision, selected]);
+  }, [familyId, query, includeInactive, revision]);
 
   const hasSearch = useMemo(
     () => query.trim().length > 0 || nutritionFilter !== "all",
@@ -579,20 +587,6 @@ export default function IngredientCatalogue({ familyId }: { familyId: string }) 
     () => ingredients.filter((ingredient) => ingredientNutritionStatus(ingredient) === "ready").length,
     [ingredients],
   );
-
-  if (selected !== undefined) {
-    return (
-      <IngredientEditor
-        familyId={familyId}
-        ingredient={selected}
-        onBack={() => setSelected(undefined)}
-        onSaved={() => {
-          setSelected(undefined);
-          setRevision((current) => current + 1);
-        }}
-      />
-    );
-  }
 
   return (
     <div className="ingredient-catalogue">
@@ -652,11 +646,11 @@ export default function IngredientCatalogue({ familyId }: { familyId: string }) 
         </div>
       ) : null}
 
-      {busy ? (
+      {busy && ingredients.length === 0 ? (
         <div className="shell-loading" role="status">
           {copy.loading}
         </div>
-      ) : filteredIngredients.length === 0 ? (
+      ) : filteredIngredients.length === 0 && !busy ? (
         <div className="ingredient-empty">{hasSearch ? copy.emptySearch : copy.empty}</div>
       ) : (
         <div className="ingredient-list">
@@ -670,6 +664,28 @@ export default function IngredientCatalogue({ familyId }: { familyId: string }) 
           ))}
         </div>
       )}
+      {selected !== undefined ? (
+        <ContextDrawer
+          title={selected?.name ?? copy.createTitle}
+          wide
+          closeLabel={locale === "pt-PT" ? "Fechar detalhe" : "Close detail"}
+          onRequestClose={() => {
+            if (!requestNavigation()) return false;
+            setSelected(undefined);
+            return true;
+          }}
+        >
+          <IngredientEditor
+            familyId={familyId}
+            ingredient={selected}
+            onBack={() => setSelected(undefined)}
+            onSaved={() => {
+              setSelected(undefined);
+              setRevision((current) => current + 1);
+            }}
+          />
+        </ContextDrawer>
+      ) : null}
     </div>
   );
 }

@@ -1,0 +1,827 @@
+/* v2.0.87: approved Week → remaining routes, first visual harmonisation.
+   Shared typography and surface depth, without changing route logic, forms,
+   contextual drawers, nutrition status or the approved weekly composition. */
+
+:root {
+  --nf-screen-card-radius: 18px;
+  --nf-screen-card-border: var(--color-border);
+  --nf-screen-card-surface: var(--color-surface);
+  --nf-screen-title-size: clamp(24px, 2.15vw, 30px);
+  --nf-screen-section-size: clamp(16px, 1.35vw, 19px);
+  --nf-screen-card-shadow: var(--shadow-soft);
+}
+:root[data-theme="dark"] {
+  --nf-screen-card-surface: linear-gradient(132deg, #242326 0%, #211f23 100%);
+  --nf-screen-card-border: #454146;
+  --nf-screen-card-shadow: inset 0 1px 0 #ffffff09, 0 12px 26px #0000001c;
+}
+@media (min-width: 761px) {
+  /* Do not restyle the approved weekly map or its dynamically sized hero. */
+  .app-shell:not(.app-shell--meals) .shell-main {
+    padding-top: clamp(16px, 2.1vh, 23px);
+  }
+  .app-shell:not(.app-shell--meals) .screen-header {
+    margin-bottom: 16px;
+  }
+}
+:where(.nf-home, .people-screen, .home-base, .shopping-screen, .settings-screen) .screen-header h1 {
+  font-family: "Manrope", sans-serif;
+  font-size: var(--nf-screen-title-size);
+  font-weight: 700;
+  letter-spacing: -.75px;
+  line-height: 1.18;
+  color: var(--color-text);
+}
+:where(.nf-home, .people-screen, .home-base, .shopping-screen, .settings-screen) .screen-header .eyebrow {
+  color: var(--color-decorative-accent);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .9px;
+}
+:where(.nf-home, .people-screen, .home-base, .shopping-screen, .settings-screen) .screen-header p {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+:where(.nf-home, .people-screen, .home-base, .shopping-screen, .settings-screen) :is(.nf-panel-heading h2, .settings-card h2) {
+  font-family: "Manrope", sans-serif;
+  font-size: var(--nf-screen-section-size);
+  font-weight: 700;
+  letter-spacing: -.3px;
+  line-height: 1.3;
+}
+:where(.nf-home, .people-screen, .home-base, .shopping-screen, .settings-screen)
+  :is(.nf-panel, .panel, .person-row, .settings-card, .shopping-refresh-card,
+      .shopping-manual-form, .ingredient-list, .recipe-form-card,
+      .ingredient-form-card, .pantry-list, .shopping-list-section .shopping-item) {
+  border-radius: var(--nf-screen-card-radius);
+  border-color: var(--nf-screen-card-border);
+  box-shadow: var(--nf-screen-card-shadow);
+}
+/* Home was previously a flat green 315px banner. It now shares the Week's
+   coal/amber editorial light and restrained vertical rhythm. */
+.nf-home .nf-home-heading {
+  margin-bottom: 14px;
+  gap: 12px;
+}
+.nf-home .nf-home-heading h1 {
+  font-size: var(--nf-screen-title-size);
+  margin: 4px 0 7px;
+}
+.nf-home .nf-home-grid { gap: 14px; }
+.nf-home .nf-meal-hero {
+  min-height: 230px;
+  border: 1px solid var(--nf-screen-card-border);
+  border-radius: 20px;
+  background: linear-gradient(120deg, var(--color-surface), var(--color-surface-soft));
+  color: var(--color-text);
+  box-shadow: var(--nf-screen-card-shadow);
+}
+.nf-home .nf-meal-hero-copy { padding: clamp(16px, 2vw, 24px); max-width: 73%; }
+.nf-home .nf-meal-hero-copy > .eyebrow {
+  color: var(--color-decorative-accent);
+  font-size: 10px;
+  font-weight: 750;
+}
+.nf-home .nf-meal-hero h2 {
+  color: var(--color-text);
+  font: 700 clamp(19px, 1.8vw, 25px)/1.2 "Manrope", sans-serif;
+  letter-spacing: -.5px;
+  margin: 10px 0 8px;
+}
+.nf-home .nf-meal-hero p, .nf-home .nf-hero-meta { color: var(--color-muted); }
+.nf-home .nf-meal-hero-art { width: 245px; height: 225px; right: -54px; bottom: -16px; }
+.nf-home .nf-meal-hero .button.primary {
+  background: transparent;
+  border: 1px solid var(--color-action);
+  color: var(--color-action);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-action) 11%, transparent);
+}
+.nf-home .nf-meal-hero .button.primary:hover {
+  background: var(--color-action-soft);
+  color: var(--color-action-strong);
+}
+:root[data-theme="dark"] .nf-home .nf-meal-hero {
+  background: linear-gradient(110deg, #292628, #302a2d 62%, #242225);
+  box-shadow: inset 0 1px 0 #ffffff12, 0 12px 29px #00000029;
+}
+.nf-home .nf-today-section { margin-top: 20px; }
+.nf-home .nf-day-slots { gap: 9px; }
+.nf-home .nf-day-slot {
+  min-height: 140px;
+  padding: 12px;
+  gap: 7px;
+  border-radius: 13px;
+  box-shadow: var(--nf-screen-card-shadow);
+}
+.nf-home .nf-day-slot strong { font-size: 12px; line-height: 1.35; }
+.nf-home .nf-slot-icon { width: 29px; height: 29px; border-radius: 9px; }
+.nf-home .nf-slot-icon .nf-icon { width: 17px; height: 17px; }
+.nf-home .nf-home-shortcuts { margin-top: 15px; }
+.nf-home .nf-saved-weeks { margin-top: 15px; border-radius: 14px; }
+.nf-home .nf-home-note { margin-top: 15px; }
+/* All route cards use the same legible colour system, without turning
+   warning/danger or eligibility states into decorative gold. */
+:root[data-theme="dark"] :where(.nf-home, .people-screen, .home-base, .shopping-screen, .settings-screen)
+  :is(.nf-panel, .panel, .person-row, .settings-card, .shopping-refresh-card) {
+  background: var(--nf-screen-card-surface);
+}
+@media (min-width: 761px) and (max-height: 760px) {
+  .nf-home .nf-home-heading { margin-bottom: 10px; }
+  .nf-home .nf-meal-hero { min-height: 190px; }
+  .nf-home .nf-meal-hero-art { width: 208px; height: 200px; }
+  .nf-home .nf-day-slot { min-height: 120px; }
+}
+@media (max-width: 760px) {
+  .nf-home .nf-meal-hero { min-height: 225px; }
+  .nf-home .nf-meal-hero-copy { max-width: 82%; }
+}
+@media (max-width: 580px) {
+  .nf-home .nf-home-grid { gap: 12px; }
+  .nf-home .nf-meal-hero-copy { max-width: 88%; }
+  .nf-home .nf-meal-hero-art { right: -92px; opacity: .35; }
+  .nf-home .nf-day-slot { min-height: 135px; }
+}
+
+/* Dark legacy .nf-meal-hero button selector was more specific than the
+   shared editorial outline. Explicit theme scope restores Week's amber action. */
+:root[data-theme="dark"] .nf-home .nf-meal-hero .button.primary {
+  background: transparent;
+  color: var(--color-action);
+  border-color: var(--color-action);
+  box-shadow: 0 0 20px #f4bc761c;
+}
+:root[data-theme="dark"] .nf-home .nf-meal-hero .button.primary:hover {
+  background: var(--color-action-soft);
+  color: var(--color-action-strong);
+}
+
+/* v2.0.88 – reference-locked home composition. The five mockups are visual
+   targets, never demo data: all labels, photos and statuses are sourced
+   from the real dashboard. Keep drawers and click targets unchanged. */
+:root {
+  --nf-ref-amber: #eab874;
+  --nf-ref-coal: #201f22;
+  --nf-ref-gap: clamp(9px, 1.15vh, 15px);
+}
+@media (min-width: 1101px) {
+  .app-shell:not(.app-shell--meals) .shell-main { padding-top: 12px; }
+  .nf-home .nf-home-heading { margin-bottom: var(--nf-ref-gap); }
+  .nf-home .nf-home-heading h1 { font-size: clamp(19px, 1.5vw, 24px); margin: 3px 0; }
+  .nf-home .nf-home-heading p { font-size: 11px; line-height: 1.4; margin: 0; }
+  .nf-home .nf-home-grid { gap: var(--nf-ref-gap); grid-template-columns: minmax(0, 1.75fr) minmax(240px, .9fr); }
+  .nf-home .nf-meal-hero { min-height: 165px; border-radius: 17px; }
+  .nf-home .nf-meal-hero-copy { max-width: 76%; padding: 14px 17px; }
+  .nf-home .nf-meal-hero h2 { font-size: clamp(18px, 1.6vw, 23px); margin: 5px 0; }
+  .nf-home .nf-meal-hero p { font-size: 11px; line-height: 1.35; margin-bottom: 9px; }
+  .nf-home .nf-meal-hero-art { right: 0; bottom: 0; width: 35%; height: 100%; transform: none; opacity: .8; object-fit: cover; }
+  .nf-home .nf-meal-hero-art.nf-meal-hero-photo {
+    width: 38%; height: 100%; object-fit: cover; object-position: center;
+    opacity: 1; filter: none; mask-image: linear-gradient(to right, transparent 0%, #000 34%);
+  }
+  .nf-home .nf-family-panel { padding: 13px; border-radius: 17px; }
+  .nf-home .nf-family-panel .nf-panel-heading { margin-bottom: 6px; }
+  .nf-home .nf-person-line { padding-block: 4px; }
+  .nf-home .nf-panel-footnote { margin: 6px 0 0; font-size: 10px; }
+  .nf-home .nf-today-section { margin-top: var(--nf-ref-gap); }
+  .nf-home .nf-today-section .nf-panel-heading { margin-bottom: 8px; }
+  .nf-home .nf-today-section h2 { font-size: 17px; margin: 3px 0; }
+  .nf-home .nf-day-slots { gap: 8px; }
+  .nf-home .nf-day-slot { min-height: 112px; padding: 10px; gap: 4px; border-radius: 13px; }
+  .nf-home .nf-day-slot .eyebrow { font-size: 10px; }
+  .nf-home .nf-slot-icon { width: 26px; height: 26px; }
+  .nf-home .nf-day-slot strong { font-size: 11px; }
+  .nf-home .nf-day-slot small, .nf-home .nf-slot-status { font-size: 10px; }
+  .nf-home .nf-home-shortcuts { margin-top: var(--nf-ref-gap); gap: 9px; }
+  .nf-home .nf-home-shortcuts button { padding: 11px 13px; border-radius: 13px; }
+  .nf-home .nf-home-shortcuts strong { font-size: 12px; }
+  .nf-home .nf-home-shortcuts small { font-size: 10px; line-height: 1.35; }
+  .nf-home .nf-saved-weeks { margin-top: var(--nf-ref-gap); padding: 11px 13px; border-radius: 13px; }
+  .nf-home .nf-home-note { margin-top: 9px; font-size: 10px; }
+}
+@media (min-width: 1101px) and (max-height: 690px) {
+  .nf-home .nf-home-heading { margin-bottom: 7px; }
+  .nf-home .nf-home-grid { gap: 8px; }
+  .nf-home .nf-meal-hero { min-height: 142px; }
+  .nf-home .nf-meal-hero-copy { padding: 9px 13px; }
+  .nf-home .nf-meal-hero p { margin-bottom: 5px; }
+  .nf-home .nf-today-section { margin-top: 9px; }
+  .nf-home .nf-day-slot { min-height: 91px; }
+  .nf-home .nf-home-shortcuts { margin-top: 9px; }
+  .nf-home .nf-saved-weeks { margin-top: 8px; }
+}
+@media (min-width: 761px) and (max-width: 1100px) {
+  .nf-home .nf-meal-hero-art.nf-meal-hero-photo {
+    right: 0; bottom: 0; width: 35%; height: 100%;
+    opacity: 1; transform: none; filter: none; object-fit: cover;
+    mask-image: linear-gradient(to right, transparent, black 35%);
+  }
+}
+:root[data-theme="dark"] .nf-home .nf-meal-hero-art.nf-meal-hero-photo { filter: none; }
+@media (max-width: 760px) {
+  .nf-home .nf-meal-hero-art.nf-meal-hero-photo { object-fit: cover; transform:none; filter:none; opacity:.34; }
+}
+
+/* Recipes reference: four editorial food cards per desktop row; real recipe
+   metadata and nutrition evidence remain visible without synthetic ratings. */
+@media (min-width:1101px) {
+  .home-base .nf-house-nav { margin-bottom: 12px; }
+  .recipe-catalogue .recipe-header { margin-bottom: 12px; }
+  .recipe-catalogue .recipe-header h1 { font-size:clamp(20px,1.7vw,25px); }
+  .recipe-catalogue .recipe-toolbar { gap:8px; margin-bottom:10px; }
+  .recipe-catalogue .nf-catalogue-results { margin: 8px 0; font-size:11px; }
+  .recipe-catalogue .nf-recipe-grid { grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }
+  .recipe-catalogue .nf-recipe-card {
+    display:flex; flex-direction:column; gap:7px; padding:7px;
+    border-radius:14px; min-height:0;
+    background:var(--nf-screen-card-surface);
+    border-color:var(--nf-screen-card-border);
+    box-shadow:var(--nf-screen-card-shadow);
+    overflow:hidden;
+  }
+  .recipe-catalogue .nf-recipe-art {
+    width:100%; height:clamp(85px,15vh,143px);
+    border-radius:10px; overflow:hidden;
+    background:linear-gradient(135deg,#302b2a,#1e1b1d);
+  }
+  .recipe-catalogue .nf-recipe-art img { width:100%;height:100%;object-fit:cover;display:block; }
+  .recipe-catalogue .nf-recipe-card .ingredient-row__main { gap:4px;padding:0 4px; }
+  .recipe-catalogue .nf-recipe-card .ingredient-row__main strong { font:700 12px/1.3 "Manrope",sans-serif; }
+  .recipe-catalogue .nf-recipe-card .ingredient-row__main small { font-size:10px;line-height:1.35; }
+  .recipe-catalogue .nf-recipe-card .ingredient-row__end { margin-top:auto;gap:4px;padding:0 4px 3px;font-size:10px; }
+  .recipe-catalogue .nf-recipe-card .recipe-nutrition-state { font-size:9px; }
+}
+@media(min-width:761px) and (max-width:1100px){
+  .recipe-catalogue .nf-recipe-grid {grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .recipe-catalogue .nf-recipe-art {height:105px}
+  .recipe-catalogue .nf-recipe-art img{width:100%;height:100%;object-fit:cover;display:block}
+}
+@media(max-width:760px){
+  .recipe-catalogue .nf-recipe-grid {grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .recipe-catalogue .nf-recipe-art{height:110px}
+  .recipe-catalogue .nf-recipe-art img{width:100%;height:100%;object-fit:cover;display:block}
+}
+@media(max-width:440px){
+  .recipe-catalogue .nf-recipe-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .recipe-catalogue .nf-recipe-card {padding:8px;gap:7px;border-radius:12px}
+  .recipe-catalogue .nf-recipe-card .ingredient-row__main strong{font-size:12px}
+  .recipe-catalogue .nf-recipe-card .ingredient-row__main small{font-size:10px}
+  .recipe-catalogue .nf-recipe-art{height:82px}
+}
+/* Shopping and Pantry: preserve all rows and actions but give overview
+   controls and inventory a single restrained surface hierarchy. */
+@media(min-width:1101px) {
+  .shopping-screen > .screen-header, .pantry-screen > .screen-header {margin-bottom:10px}
+  .shopping-screen > .screen-header h1, .pantry-screen > .screen-header h1 {font-size:24px}
+  .shopping-screen .nf-shopping-overview {margin:10px 0;gap:9px}
+  .shopping-screen .nf-shopping-overview>div {padding:11px 14px;min-height:72px;border-radius:13px;
+    border-color:var(--nf-screen-card-border);box-shadow:var(--nf-screen-card-shadow)}
+  .shopping-screen .nf-shopping-overview b {font-size:23px}
+  .shopping-screen .nf-list-controls {margin:9px 0;gap:8px}
+  .shopping-screen .shopping-list-section {gap:7px}
+  .shopping-screen .shopping-list-section>.shopping-item {padding:10px 13px;border-radius:12px;gap:6px}
+  .pantry-screen .nf-pantry-overview {margin:10px 0;padding:13px;border-radius:14px}
+  .pantry-screen .pantry-list {gap:7px}
+  .pantry-screen .pantry-row {padding:12px 14px;border-radius:13px}
+}
+
+/* Family reference: four-member editorial overview. Real members only:
+   no mock names, diagnoses, dietary badges or fictitious progress. */
+.people-screen .people-list {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+}
+.people-screen .person-row {
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:flex-start;
+  min-height:158px;
+  min-width:0;
+  gap:11px;
+  padding:15px;
+  text-align:left;
+  border:1px solid var(--nf-screen-card-border);
+  border-radius:16px;
+  background:var(--nf-screen-card-surface);
+  color:var(--color-text);
+  box-shadow:var(--nf-screen-card-shadow);
+}
+.people-screen .person-row > span:nth-child(2) {display:grid;min-width:0;gap:3px}
+.people-screen .person-row > span:nth-child(2) strong {
+  font:700 13px/1.3 "Manrope",sans-serif;
+  overflow-wrap:anywhere;
+}
+.people-screen .person-row > span:nth-child(2) small {
+  color:var(--color-muted);font-size:11px;
+}
+.people-screen .person-row > span:last-child {
+  align-self:flex-end;margin-top:auto;
+  color:var(--nf-ref-amber);
+}
+.people-screen .person-row:hover,.people-screen .person-row:focus-visible {
+  border-color:var(--color-action);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--color-action) 22%,transparent),var(--nf-screen-card-shadow);
+}
+@media(min-width:761px) and (max-width:1180px){
+  .people-screen .people-list{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:760px){
+  .people-screen .people-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .people-screen .person-row{padding:12px;min-height:145px}
+}
+@media(max-width:420px){
+  .people-screen .people-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .people-screen .person-row{padding:10px;gap:6px;min-height:128px}
+}
+
+/* Home reference layout: reorder existing real widgets with grid areas.
+   Do not replace family information with fictitious nutrition percentages. */
+@media(min-width:1101px) and (min-height:680px){
+  .nf-home {
+    display:grid;
+    grid-template-columns:minmax(0,1.55fr) minmax(255px,1fr);
+    grid-template-areas:
+      "heading heading"
+      "hero hero"
+      "today members"
+      "quick plans"
+      "note note";
+    column-gap:12px;
+    row-gap:11px;
+    align-content:start;
+  }
+  .nf-home .nf-home-heading {grid-area:heading;margin:0}
+  .nf-home .nf-home-grid {display:contents}
+  .nf-home .nf-meal-hero {grid-area:hero;min-height:126px}
+  .nf-home .nf-family-panel {grid-area:members;align-self:stretch}
+  .nf-home .nf-today-section {grid-area:today;margin:0;min-width:0}
+  .nf-home .nf-home-shortcuts {grid-area:quick;margin:0;align-self:start}
+  .nf-home .nf-saved-weeks {grid-area:plans;margin:0;align-self:start}
+  .nf-home .nf-home-note {grid-area:note;margin:0}
+  .nf-home .nf-meal-hero-art {left:0;right:auto;top:0;bottom:0;width:30%;height:100%;
+     object-fit:cover;opacity:1;transform:none;filter:none}
+  .nf-home .nf-meal-hero-art.nf-meal-hero-photo {
+     left:0;right:auto;width:31%;height:100%;mask-image:none;opacity:1;filter:none
+  }
+  .nf-home .nf-meal-hero-copy {
+     margin-left:31%;max-width:none;width:69%;box-sizing:border-box;
+     padding:12px 19px;display:grid;align-content:center;
+     grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto auto auto auto;
+     column-gap:10px;row-gap:2px;
+  }
+  .nf-home .nf-meal-hero-copy>.eyebrow {grid-column:1;grid-row:1;color:var(--nf-ref-amber)}
+  .nf-home .nf-home-hero-date {grid-column:1;grid-row:2;color:var(--color-muted);font-size:10px}
+  .nf-home .nf-meal-hero h2 {grid-column:1;grid-row:3;font-size:clamp(17px,1.6vw,23px);margin:2px 0}
+  .nf-home .nf-meal-hero p {grid-column:1;grid-row:4;margin:0;font-size:10px;line-height:1.35;max-width:none}
+  .nf-home .nf-meal-hero .button.primary {
+    grid-column:2;grid-row:1 / 6;align-self:center;justify-self:end;
+    min-height:38px;white-space:nowrap;font-size:11px;
+  }
+  .nf-home .nf-hero-meta {grid-column:1;grid-row:5;margin-top:3px}
+  .nf-home .nf-day-slots {grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+  .nf-home .nf-day-slot {min-height:135px}
+  .nf-home .nf-today-section .nf-panel-heading {margin-bottom:8px}
+  .nf-home .nf-family-panel {min-height:180px;max-height:215px;overflow:auto}
+  .nf-home .nf-home-shortcuts {display:flex;flex-direction:column;align-items:stretch;gap:9px}
+  .nf-home .nf-home-shortcuts > .nf-home-shortcut-grid {width:100%;grid-template-columns:repeat(4,minmax(0,1fr))}
+  .nf-home .nf-home-shortcuts button {min-width:0;min-height:76px}
+  .nf-home .nf-home-shortcuts button small {overflow-wrap:anywhere}
+  .nf-home .nf-saved-weeks {min-height:76px}
+}
+@media(min-width:1101px) and (min-height:680px) and (max-height:830px){
+  .nf-home {row-gap:8px}
+  .nf-home .nf-meal-hero {min-height:108px}
+  .nf-home .nf-meal-hero-copy {padding:8px 14px}
+  .nf-home .nf-day-slot {min-height:112px}
+  .nf-home .nf-family-panel{min-height:153px;max-height:185px}
+  .nf-home .nf-home-shortcuts button{min-height:65px}
+  .nf-home .nf-saved-weeks{min-height:65px}
+}
+
+/* Family reference v2.0.89: structured information surfaces, no synthetic
+   dietary labels or fabricated household goals. All profile actions remain. */
+.people-screen .nf-family-main-grid {
+  display:grid;grid-template-columns:minmax(0,1.8fr) minmax(210px,.95fr);
+  gap:12px;align-items:stretch;
+}
+.people-screen :is(.nf-family-member-section,.nf-family-objectives,
+  .nf-family-preferences,.nf-family-comparison) {
+  padding:13px;border:1px solid var(--nf-screen-card-border);
+  border-radius:17px;background:var(--nf-screen-card-surface);
+  box-shadow:var(--nf-screen-card-shadow);min-width:0;
+}
+.people-screen .nf-family-section-header {
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:6px;margin-bottom:12px;
+}
+.people-screen .nf-family-section-header h2 {
+  font:700 14px/1.3 "Manrope",sans-serif;
+  letter-spacing:-.25px;margin:0;
+}
+.people-screen .nf-family-section-header small {
+  color:var(--nf-ref-amber);font-size:10px;font-weight:650;
+}
+.people-screen .nf-family-member-section .person-row {
+  min-height:128px;padding:12px;gap:7px;
+}
+.people-screen .nf-family-member-section .people-list {gap:8px}
+.people-screen .nf-family-objectives {
+  display:flex;flex-direction:column;justify-content:flex-start;gap:10px;
+}
+.people-screen .nf-family-objectives p,.people-screen .nf-family-preferences p {
+  color:var(--color-muted);font-size:12px;line-height:1.55;margin:0;
+}
+.people-screen .nf-family-objectives .button {align-self:flex-start;margin-top:auto}
+.people-screen .nf-family-insights {
+  margin-top:12px;display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.8fr);gap:12px;
+}
+.people-screen .nf-family-comparison-list {display:grid;gap:6px}
+.people-screen .nf-family-comparison-list>button {
+  border:1px solid var(--nf-screen-card-border);background:var(--color-surface-soft);
+  color:var(--color-text);border-radius:11px;padding:9px 10px;
+  display:flex;align-items:center;gap:9px;text-align:left;min-width:0;
+  cursor:pointer;
+}
+.people-screen .nf-family-comparison-list>button strong {
+  font:650 12px/1.35 "Manrope",sans-serif;
+}
+.people-screen .nf-family-comparison-list>button span {
+  color:var(--color-muted);font-size:10px;margin-left:auto;
+}
+.people-screen .nf-family-comparison-list>button .nf-icon {
+  width:16px;height:16px;color:var(--nf-ref-amber);
+}
+.people-screen .nf-family-comparison-list>button:hover,
+.people-screen .nf-family-comparison-list>button:focus-visible {
+  border-color:var(--color-action);
+}
+@media(min-width:1101px) and (max-height:750px){
+  .people-screen .nf-family-main-grid{gap:9px}
+  .people-screen .nf-family-insights{margin-top:9px;gap:9px}
+  .people-screen :is(.nf-family-member-section,.nf-family-objectives,
+    .nf-family-preferences,.nf-family-comparison){padding:10px}
+  .people-screen .nf-family-member-section .person-row{min-height:110px}
+}
+@media(max-width:900px){
+  .people-screen .nf-family-main-grid,.people-screen .nf-family-insights {
+    grid-template-columns:1fr;
+  }
+}
+
+/* Recipes v2.0.90: reference hero + supporting insight, both connected to
+   the actual catalogue. Never imply recommendation or medical compatibility. */
+.nf-recipe-editorial-row {
+  display:grid;grid-template-columns:minmax(0,2.1fr) minmax(205px,.9fr);
+  gap:10px;margin-bottom:12px;
+}
+.nf-recipe-feature {
+  display:flex;gap:14px;align-items:center;text-align:left;overflow:hidden;
+  border:1px solid var(--nf-screen-card-border);border-radius:16px;
+  background:var(--nf-screen-card-surface);color:var(--color-text);
+  padding:0;min-width:0;min-height:110px;
+  box-shadow:var(--nf-screen-card-shadow);cursor:pointer;
+}
+.nf-recipe-feature .nf-recipe-art {
+  flex:0 0 34%;width:34%;height:100%;min-height:110px;
+  margin:0;border-radius:0;overflow:hidden;background:var(--color-surface-soft);
+}
+.nf-recipe-feature .nf-recipe-art img {
+  display:block;width:100%;height:100%;object-fit:cover;
+}
+.nf-recipe-feature-copy {
+  display:grid;min-width:0;gap:5px;padding:8px 13px 8px 0;
+}
+.nf-recipe-feature-copy small {
+  color:var(--nf-ref-amber);font-size:10px;letter-spacing:.7px;font-weight:750;
+}
+.nf-recipe-feature-copy strong {
+  font:700 clamp(16px,1.35vw,22px)/1.2 "Manrope",sans-serif;
+}
+.nf-recipe-feature-copy span {font-size:11px;color:var(--color-muted);line-height:1.35}
+.nf-recipe-feature-copy em {font-size:11px;color:var(--nf-ref-amber);font-style:normal;font-weight:650}
+.nf-recipe-feature-aside {
+  padding:13px;border:1px solid var(--nf-screen-card-border);
+  border-radius:16px;background:var(--nf-screen-card-surface);
+  color:var(--color-text);box-shadow:var(--nf-screen-card-shadow);
+  display:flex;flex-direction:column;justify-content:center;gap:7px;
+}
+.nf-recipe-feature-aside strong {font:700 14px/1.3 "Manrope",sans-serif}
+.nf-recipe-feature-aside p{color:var(--color-muted);font-size:11px;line-height:1.45;margin:0}
+.nf-recipe-feature-aside .button{align-self:flex-start}
+@media(min-width:1101px) and (max-height:750px){
+  .nf-recipe-feature{min-height:94px}
+  .nf-recipe-feature .nf-recipe-art{min-height:94px}
+  .nf-recipe-feature-aside{padding:10px}
+  .nf-recipe-editorial-row{margin-bottom:8px;gap:8px}
+}
+@media(max-width:900px){.nf-recipe-editorial-row{grid-template-columns:1fr}}
+@media(max-width:500px){
+  .nf-recipe-feature{gap:9px}
+  .nf-recipe-feature .nf-recipe-art{flex-basis:35%;width:35%;min-height:100px}
+  .nf-recipe-feature-copy strong{font-size:15px}
+  .nf-recipe-feature-aside{padding:11px}
+}
+
+/* v2.0.91 — Home: constrain the real viewport, not a guessed monitor height.
+   The short-window desktop layout is intentionally active at 700–830 CSS px,
+   while excess family members can scroll inside their own card. */
+.nf-home .nf-home-shortcuts .nf-panel-heading {margin:0 0 7px}
+.nf-home .nf-home-shortcuts .nf-panel-heading h2 {
+  margin:0;font:700 15px/1.3 "Manrope",sans-serif;
+}
+.nf-home .nf-home-shortcut-grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.nf-home .nf-home-shortcut-grid > button {
+  min-width:0;min-height:77px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;gap:6px;
+  padding:9px 5px;border:1px solid var(--nf-screen-card-border);
+  border-radius:12px;background:var(--nf-screen-card-surface);
+  color:var(--color-text);cursor:pointer;box-shadow:var(--nf-screen-card-shadow);
+}
+.nf-home .nf-home-shortcut-grid >button:hover,
+.nf-home .nf-home-shortcut-grid >button:focus-visible {border-color:var(--color-action);}
+.nf-home .nf-home-shortcut-grid >button .nf-icon {color:var(--nf-ref-amber);width:23px;height:23px}
+.nf-home .nf-home-shortcut-grid >button strong {font:650 10px/1.35 "Manrope",sans-serif}
+.nf-home .nf-family-progress-heading {display:flex;align-items:center;gap:7px}
+.nf-home .nf-family-progress-heading .nf-icon {color:var(--nf-ref-amber);width:17px;height:17px}
+.nf-home .nf-family-progress-heading strong {font:700 13px/1.3 "Manrope",sans-serif}
+.nf-home .nf-family-progress-sub {font-size:10px;color:var(--color-muted);margin:3px 0 6px}
+.nf-home .nf-family-nutrition-lines {display:grid;gap:5px;margin-bottom:8px}
+.nf-home .nf-family-nutrition-lines>div {display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:10px}
+.nf-home .nf-family-nutrition-lines>div span {overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.nf-home .nf-family-nutrition-lines>div strong {font-size:10px;color:var(--nf-ref-amber);white-space:nowrap}
+.nf-home .nf-family-nutrition-lines>small {color:var(--color-muted);font-size:10px;line-height:1.35}
+.nf-home .nf-day-slot {overflow:hidden}
+.nf-home .nf-today-photo {width:calc(100% + 20px);height:clamp(43px,8vh,76px);
+  display:block;object-fit:cover;margin:-10px -10px 0;max-width:none;
+  border-radius:12px 12px 4px 4px}
+.nf-home .nf-today-photo-fallback {display:none}
+@media(min-width:1101px) and (min-height:680px){
+  .nf-home .nf-family-panel {overflow:auto}
+  .nf-home .nf-day-slot {justify-content:flex-start;min-width:0}
+  .nf-home .nf-day-slot .nf-slot-icon {display:none}
+  .nf-home .nf-today-section .nf-panel-heading {margin-bottom:5px}
+  .nf-home .nf-today-section .nf-panel-heading .eyebrow {display:none}
+  .nf-home .nf-today-section h2 {font-size:16px}
+  .nf-home .nf-home-shortcuts {display:block}
+  .nf-home .nf-home-shortcut-grid {grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+  .nf-home .nf-saved-weeks>summary {font-size:11px}
+}
+@media(min-width:1101px) and (max-height:830px) {
+  .app-shell:not(.app-shell--meals) .shell-main {padding-top:7px}
+  .nf-home {row-gap:7px}
+  .nf-home .nf-home-heading {margin:0}
+  .nf-home .nf-home-heading .eyebrow {display:none}
+  .nf-home .nf-home-heading p {display:none}
+  .nf-home .nf-home-heading h1 {font-size:19px}
+  .nf-home .nf-meal-hero {min-height:105px}
+  .nf-home .nf-day-slot {min-height:clamp(103px,19vh,148px)}
+  .nf-home .nf-today-photo {height:clamp(36px,6.6vh,59px)}
+  .nf-home .nf-family-panel {max-height:clamp(169px,29vh,223px);min-height:0}
+  .nf-home .nf-home-shortcut-grid>button {min-height:64px}
+  .nf-home .nf-saved-weeks {min-height:0;padding:9px 11px}
+  .nf-home .nf-home-note {margin:0}
+}
+@media(min-width:1101px) and (max-height:700px){
+  .nf-home {row-gap:5px}
+  .nf-home .nf-home-heading h1 {font-size:17px}
+  .nf-home .nf-meal-hero {min-height:90px}
+  .nf-home .nf-meal-hero-copy {padding:5px 10px}
+  .nf-home .nf-meal-hero h2 {font-size:16px}
+  .nf-home .nf-day-slot {min-height:105px;padding:7px}
+  .nf-home .nf-today-photo {width:calc(100% + 14px);margin:-7px -7px 0;height:39px}
+  .nf-home .nf-family-panel {max-height:180px}
+  .nf-home .nf-home-shortcut-grid>button {min-height:54px;padding:4px}
+  .nf-home .nf-home-shortcut-grid>button .nf-icon {width:18px;height:18px}
+  .nf-home .nf-home-shortcuts .nf-panel-heading {margin-bottom:4px}
+  .nf-home .nf-saved-weeks {padding:7px 9px}
+}
+@media(max-width:1100px){
+  .nf-home .nf-home-shortcuts {display:block}
+  .nf-home .nf-home-shortcut-grid {grid-template-columns:repeat(4,minmax(0,1fr))}
+  .nf-home .nf-today-photo {height:60px}
+}
+@media(max-width:490px) {
+  .nf-home .nf-home-shortcut-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .nf-home .nf-today-photo {height:55px}
+}
+
+/* Pantry/Shopping reference summaries: all figures are computed from the
+   corresponding API's actual items/lots. Never invent product costs. */
+.shopping-screen .nf-shopping-overview {grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.shopping-screen .nf-shopping-overview>div {min-width:0;gap:10px}
+.shopping-screen .nf-shopping-overview>div .nf-icon {color:var(--nf-ref-amber)}
+.pantry-screen .nf-pantry-summary {
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;
+}
+.pantry-screen .nf-pantry-summary>div {
+  display:grid;align-content:center;justify-items:start;gap:6px;min-width:0;
+  padding:13px 15px;border:1px solid var(--nf-screen-card-border);
+  border-radius:15px;background:var(--nf-screen-card-surface);
+  color:var(--color-text);box-shadow:var(--nf-screen-card-shadow);
+}
+.pantry-screen .nf-pantry-summary .nf-icon {color:var(--nf-ref-amber);width:20px;height:20px}
+.pantry-screen .nf-pantry-summary small {color:var(--color-muted);font-size:10px;line-height:1.35}
+.pantry-screen .nf-pantry-summary strong {font:700 23px/1.1 "Manrope",sans-serif}
+.pantry-screen .nf-pantry-overview {margin:0;padding:9px 13px}
+.pantry-screen .nf-pantry-overview strong {font-size:12px}
+.pantry-screen .nf-pantry-overview p {font-size:10px}
+@media(min-width:1101px) and (max-height:760px){
+  .shopping-screen .nf-shopping-overview>div {padding:8px 11px;min-height:62px}
+  .pantry-screen .nf-pantry-summary>div {padding:9px 12px;gap:4px}
+  .pantry-screen .nf-pantry-summary strong {font-size:20px}
+  .shopping-screen .shopping-list-section>.shopping-item,.pantry-screen .pantry-row {padding:8px 10px}
+}
+@media(max-width:900px){
+  .shopping-screen .nf-shopping-overview,.pantry-screen .nf-pantry-summary {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+/* v2.0.92 – use the *available* vertical space, not hardcoded tiny cards.
+   1280×700 synthetic review of 2.0.91 showed unused space below the page
+   and a scroll-limited member panel. This grid expands the middle row while
+   the actions and hero remain fully visible. */
+@media(min-width:1101px) and (min-height:680px){
+  .nf-home {
+    height:min(775px, calc(100dvh - 94px));
+    min-height:0;
+    box-sizing:border-box;
+    grid-template-rows:auto clamp(115px, 17vh, 156px) minmax(0,1fr) auto auto;
+    row-gap:clamp(7px, 1vh, 11px);
+    align-content:stretch;
+  }
+  .nf-home .nf-meal-hero {
+    height:100%;
+    min-height:0;
+  }
+  .nf-home .nf-today-section {
+    min-height:0;
+    height:100%;
+    display:flex;
+    flex-direction:column;
+  }
+  .nf-home .nf-today-section .nf-panel-heading {flex:0 0 auto}
+  .nf-home .nf-day-slots {
+    flex:1 1 auto;
+    min-height:0;
+    align-items:stretch;
+  }
+  .nf-home .nf-day-slot {
+    height:100%;
+    min-height:0;
+    gap:clamp(4px,.9vh,10px);
+  }
+  .nf-home .nf-today-photo {height:clamp(58px,10.5vh,110px)}
+  .nf-home .nf-family-panel {
+    height:100%;min-height:0;max-height:none;overflow-y:auto;overflow-x:hidden;
+    scrollbar-width:thin;
+  }
+  .nf-home .nf-home-shortcuts .nf-home-shortcut-grid>button {min-height:80px}
+  .nf-home .nf-home-note {font-size:10px;line-height:1.25}
+}
+@media(min-width:1101px) and (min-height:680px) and (max-height:830px){
+  .nf-home .nf-day-slot {min-height:0}
+  .nf-home .nf-today-photo {height:clamp(53px,9vh,80px)}
+  .nf-home .nf-home-shortcuts .nf-home-shortcut-grid>button {min-height:73px}
+  .nf-home .nf-home-heading h1 {font-size:19px}
+}
+@media(min-width:1101px) and (min-height:680px) and (max-height:720px){
+  .nf-home .nf-home-shortcuts .nf-home-shortcut-grid>button{min-height:69px}
+  .nf-home .nf-home-shortcuts .nf-panel-heading{margin-bottom:4px}
+  .nf-home .nf-home-note{font-size:9px}
+}
+
+.nf-home .nf-home-photo-credit {
+  position:absolute;z-index:3;left:8px;bottom:6px;max-width:calc(30% - 14px);
+  display:block;padding:2px 5px;border-radius:5px;
+  font:500 8px/1.2 "Manrope",sans-serif;
+  color:#fff9ed;background:#181619b8;text-decoration:none;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.nf-home .nf-home-photo-credit:focus-visible {outline:2px solid var(--nf-ref-amber)}
+@media(max-width:1100px){
+  .nf-home .nf-home-photo-credit {left:auto;right:5px;max-width:34%}
+}
+
+/* v2.0.93 — Home reference correction: the approved composition starts at
+   the next meal, with no second marketing header above it. Planning remains
+   accessible from the hero and the quick actions. Real adjacent weeks appear
+   as three cards, not an initially collapsed long management form. */
+.nf-home .nf-saved-weeks-heading {display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.nf-home .nf-saved-weeks-heading h2 {display:flex;align-items:center;gap:8px;font:700 16px/1.3 "Manrope",sans-serif;margin:0}
+.nf-home .nf-saved-weeks-heading h2 .nf-icon {color:var(--nf-ref-amber);height:21px;width:21px}
+.nf-home .nf-saved-weeks-heading small {font-size:11px;color:var(--color-muted)}
+.nf-home .nf-home-week-cards {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.nf-home .nf-home-week-card {
+  position:relative;display:flex;flex-direction:column;align-items:flex-start;
+  justify-content:center;gap:6px;min-width:0;min-height:110px;
+  padding:13px;border:1px solid var(--nf-screen-card-border);
+  border-radius:14px;background:var(--color-surface-soft);
+  color:var(--color-text);text-align:left;cursor:pointer;
+}
+.nf-home .nf-home-week-card .nf-icon {color:var(--nf-ref-amber);width:21px;height:21px}
+.nf-home .nf-home-week-card strong {font:700 12px/1.3 "Manrope",sans-serif}
+.nf-home .nf-home-week-card span {color:var(--color-muted);font-size:10px}
+.nf-home .nf-home-week-card small {position:absolute;top:11px;right:9px;color:var(--nf-ref-amber);font-size:9px}
+.nf-home .nf-home-week-card.is-current {
+  border-color:#c38b63;background:linear-gradient(140deg,#8c534c44,#37282a88);
+}
+.nf-home .nf-home-week-card:hover,.nf-home .nf-home-week-card:focus-visible {border-color:var(--color-action);outline-offset:2px}
+.nf-home .nf-home-week-details {margin-top:7px;font-size:10px;color:var(--color-muted)}
+.nf-home .nf-home-week-details>summary {cursor:pointer}
+.nf-home .nf-home-week-details[open] {position:relative;z-index:2}
+.nf-home .nf-home-week-details .home-scheduled-weeks {margin-top:10px}
+@media(min-width:1101px) and (min-height:680px) {
+  .nf-home {grid-template-areas:"hero hero" "today members" "quick plans" "note note";
+    grid-template-rows:clamp(115px,17vh,156px) minmax(0,1fr) auto auto}
+  .nf-home .nf-home-heading {display:none}
+  .nf-home .nf-home-shortcuts,.nf-home .nf-saved-weeks {
+    padding:13px 15px;min-width:0;border:1px solid var(--nf-screen-card-border);
+    border-radius:17px;background:var(--nf-screen-card-surface);
+    box-shadow:var(--nf-screen-card-shadow);
+  }
+  .nf-home .nf-home-shortcut-grid>button {min-height:110px}
+  .nf-home .nf-saved-weeks {margin:0;align-self:stretch}
+}
+@media(min-width:1101px) and (min-height:680px) and (max-height:830px) {
+  .nf-home .nf-home-shortcuts,.nf-home .nf-saved-weeks{padding:9px 11px}
+  .nf-home .nf-home-week-card{min-height:78px;padding:8px;gap:3px}
+  .nf-home .nf-home-week-card .nf-icon{height:16px;width:16px}
+  .nf-home .nf-home-week-card strong{font-size:10px}
+  .nf-home .nf-home-shortcut-grid>button{min-height:79px}
+  .nf-home .nf-saved-weeks-heading{margin-bottom:5px}
+}
+@media(max-width:1100px){
+  .nf-home .nf-saved-weeks {padding:12px}
+  .nf-home .nf-home-week-card {min-height:90px;padding:9px}
+}
+@media(max-width:540px){
+  .nf-home .nf-home-week-cards{grid-template-columns:1fr}
+  .nf-home .nf-home-week-card{min-height:58px;display:grid;grid-template-columns:24px 1fr;gap:3px 8px}
+  .nf-home .nf-home-week-card .nf-icon{grid-row:1/3}
+  .nf-home .nf-home-week-card small{position:static;grid-column:2}
+}
+
+/* Pantry: real stock content in a main inventory area and complementary
+   sidebar. The reference's product photography is not fabricated. */
+.pantry-screen .nf-pantry-columns {
+  display:grid;grid-template-columns:minmax(0,2.1fr) minmax(230px,.9fr);
+  align-items:start;gap:12px;
+}
+.pantry-screen .nf-pantry-columns .pantry-list {
+  min-width:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:9px;align-content:start;
+}
+.pantry-screen .nf-pantry-columns .pantry-row {
+  min-width:0;min-height:130px;padding:13px;
+  display:flex;flex-direction:column;justify-content:space-between;gap:12px;
+  border:1px solid var(--nf-screen-card-border);border-radius:14px;
+  background:var(--nf-screen-card-surface);
+  box-shadow:var(--nf-screen-card-shadow);
+}
+.pantry-screen .nf-pantry-columns .pantry-row>div:first-child {min-width:0;display:grid;gap:5px}
+.pantry-screen .nf-pantry-columns .pantry-row strong {
+  font:700 13px/1.3 "Manrope",sans-serif;overflow-wrap:anywhere;
+}
+.pantry-screen .nf-pantry-columns .pantry-row .row-actions {
+  display:flex;align-items:center;justify-content:flex-start;
+  flex-wrap:wrap;gap:6px;margin-top:auto;
+}
+.pantry-screen .nf-pantry-columns .pantry-list>.empty-card,
+.pantry-screen .nf-pantry-columns .pantry-list>.empty-state {grid-column:1/-1}
+.pantry-screen .nf-pantry-insights {display:grid;gap:12px;min-width:0}
+.pantry-screen .nf-pantry-insights-card {
+  min-width:0;padding:16px;display:grid;gap:10px;
+  border:1px solid var(--nf-screen-card-border);border-radius:16px;
+  background:var(--nf-screen-card-surface);
+  box-shadow:var(--nf-screen-card-shadow);
+}
+.pantry-screen .nf-pantry-insights-card h2 {
+  display:flex;align-items:center;gap:8px;margin:0;
+  font:700 14px/1.35 "Manrope",sans-serif;
+}
+.pantry-screen .nf-pantry-insights-card h2 .nf-icon {color:var(--nf-ref-amber)}
+.pantry-screen .nf-pantry-insights-card p {margin:0;color:var(--color-muted);font-size:11px;line-height:1.55}
+.pantry-screen .nf-pantry-insights-card dl {display:grid;gap:7px;margin:0}
+.pantry-screen .nf-pantry-insights-card dl>div {display:flex;justify-content:space-between;align-items:center;gap:9px}
+.pantry-screen .nf-pantry-insights-card dt {font-size:11px;color:var(--color-muted)}
+.pantry-screen .nf-pantry-insights-card dd {margin:0;font:700 13px "Manrope",sans-serif;color:var(--nf-ref-amber)}
+.pantry-screen .nf-pantry-insights-card .button {justify-self:start}
+@media(min-width:1101px) and (max-height:760px) {
+  .pantry-screen .nf-pantry-columns .pantry-row{min-height:105px;padding:9px}
+  .pantry-screen .nf-pantry-insights-card{padding:11px;gap:7px}
+}
+@media(min-width:761px) and (max-width:1250px){
+  .pantry-screen .nf-pantry-columns .pantry-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:900px){
+  .pantry-screen .nf-pantry-columns{grid-template-columns:1fr}
+  .pantry-screen .nf-pantry-columns .pantry-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pantry-screen .nf-pantry-insights{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:530px){
+  .pantry-screen .nf-pantry-columns .pantry-list{grid-template-columns:1fr}
+  .pantry-screen .nf-pantry-insights{grid-template-columns:1fr}
+}

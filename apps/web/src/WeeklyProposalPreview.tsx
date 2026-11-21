@@ -1,4 +1,7 @@
 import WeekOverview from "./ui/WeekOverview";
+import ContextDrawer from "./ui/ContextDrawer";
+import type { HeroSuggestedMeal } from "./NextMealBanner";
+import { requestNavigation } from "./navigation";
 import Icon from "./ui/Icon";
 import SavedMealChanges from "./SavedMealChanges";
 import {listRecipeReviews,type ReviewRecipe} from "./api/dietaryReviewClient";
@@ -40,7 +43,6 @@ import {
   recommendationSourceKinds,
   type RecommendationSource,
 } from "./recommendationPlanning";
-import "./weekly-matrix.css";
 
 export function guidedMealSources(meal: MealType, configured?: Partial<Record<MealType,"home"|"delivery"|"restaurant">>): RecommendationSource[] {
   const source=configured?.[meal] ?? (configured && meal==="lunch" ? "delivery":"home");
@@ -57,6 +59,19 @@ export type ShoppingRefreshSummary = {
   automaticNeeded: number;
   planningIssues: number;
 };
+
+export function weeklyMealAttendanceContext(
+  date:string,
+  meal:MealType,
+  options?:{
+    guestNotices?:{planning_date:string;meal_type:MealType;guest_count:number}[];
+    attendanceDecisions?:{planning_date:string;meal_type:MealType;people:{person_id:string;decision:"present"|"absent"|"unconfirmed"}[]}[];
+  },
+):{guestCount:number;pendingCount:number} {
+  const guestCount=options?.guestNotices?.find(item=>item.planning_date===date&&item.meal_type===meal)?.guest_count??0;
+  const pendingCount=options?.attendanceDecisions?.find(item=>item.planning_date===date&&item.meal_type===meal)?.people.filter(item=>item.decision==="unconfirmed").length??0;
+  return {guestCount,pendingCount};
+}
 
 export function shoppingRefreshSummary(list: ShoppingList): ShoppingRefreshSummary {
   return {
@@ -717,6 +732,8 @@ function sourceKindsFor(sources: RecommendationSource[]): string[] {
 export default function WeeklyProposalPreview({
   familyId,
   weekStart,
+  heroSuggestion,
+  simpleWeekView = false,
   people,
   plan: suppliedPlan,
   onEdit,
@@ -729,21 +746,26 @@ export default function WeeklyProposalPreview({
   renderSelectedMeal,
   recipeReviews,
   initialSelection,
+  initialDate,
   onSelectionChange,
   onMealCommitted,
 }: {
   onMealCommitted?:()=>void;
   initialSelection?: {date:string;mealType:MealType} | null;
-  onSelectionChange?: (selection:{date:string;mealType:MealType})=>void;
+  /** Preferred day from the weekly route, even when no meal drawer is open. */
+  initialDate?: string;
+  onSelectionChange?: (selection:{date:string;mealType:MealType}|null)=>boolean|void;
   recipeReviews?: ReviewRecipe[];
   renderSelectedMeal?: (context: SelectedMealContext) => ReactNode;
   familyId: string;
+  heroSuggestion?: HeroSuggestedMeal | null;
+  simpleWeekView?: boolean;
   weekStart?: string;
   people: Person[];
   plan?: FamilyMealPlan;
   onEdit?: (planningDate: string, mealType: MealType, entry: MealPlanEntry | null) => void;
   onPlanChanged?: () => void;
-  planningOptions?: {mealSources?: Partial<Record<MealType,"home"|"delivery"|"restaurant">>; mealTypes: MealType[]; excludedFoodItemIds: string[]; attendance?: {planning_date: string; meal_type: MealType; person_ids: string[]}[]};
+  planningOptions?: {mealSources?: Partial<Record<MealType,"home"|"delivery"|"restaurant">>; mealTypes: MealType[]; excludedFoodItemIds: string[]; attendance?: {planning_date: string; meal_type: MealType; person_ids: string[]}[]; guestNotices?: {planning_date:string;meal_type:MealType;guest_count:number}[]; attendanceDecisions?: {planning_date:string;meal_type:MealType;people:{person_id:string;decision:"present"|"absent"|"unconfirmed"}[]}[]};
   autoGenerate?: boolean;
   onApplied?: (shoppingUpdated: boolean) => void;
   recipeAdaptations?: Record<string,string[]>;
@@ -776,13 +798,77 @@ export default function WeeklyProposalPreview({
   const [shoppingSummary, setShoppingSummary] = useState<ShoppingRefreshSummary | null>(null);
   const [planRefreshWarning, setPlanRefreshWarning] = useState<string | null>(null);
   const [shoppingWarning, setShoppingWarning] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(initialSelection?.date ?? null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(initialSelection?.date ?? initialDate ?? null);
   const [selectedMealType, setSelectedMealType] = useState<MealType | null>(initialSelection?.mealType ?? null);
+  useEffect(() => {
+    if (initialSelection) setSelectedDate(initialSelection.date);
+    else if (initialDate) setSelectedDate(initialDate);
+    setSelectedMealType(initialSelection?.mealType ?? null);
+  }, [initialDate, initialSelection?.date, initialSelection?.mealType]);
   const [adaptationBusy, setAdaptationBusy] = useState(false);
   const [adaptationResult, setAdaptationResult] =
     useState<SharedMealTransformationResult | null>(null);
   const [adaptationError, setAdaptationError] = useState<string | null>(null);
   const plan = refreshedPlan ?? suppliedPlan ?? loadedPlan;
+
+  // Let the simple week use genuinely free browser space instead of guessing
+  // a CSS viewport breakpoint. Never squeeze the four meal rows to achieve fit.
+  const weekGridRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const grid = weekGridRef.current;
+    if (!simpleWeekView || !grid) return;
+    let frame = 0;
+    let disposed = false;
+    const recalculate = () => {
+      if (disposed || !grid.isConnected) return;
+      // The desktop grid is a five-track CSS subgrid. Previous patches
+      // changed only --week-compact-row, leaving the rendered tracks at their
+      // intrinsic heights in some browser layouts. Set the actual grid
+      // tracks on this mounted element instead.
+      grid.style.removeProperty("grid-template-rows");
+      grid.style.removeProperty("--week-compact-row");
+      if (!window.matchMedia("(min-width: 1101px) and (min-height: 560px) and (max-height: 960px)").matches) return;
+      const rows = window.getComputedStyle(grid).gridTemplateRows.trim().split(/\s+/)
+        .map(value => Number.parseFloat(value)).filter(Number.isFinite);
+      if (rows.length !== 5) return;
+      const base = Math.max(...rows.slice(1));
+      const shortWindow = window.innerHeight < 700;
+      const reserve = shortWindow ? 12 : 17;
+      const available = window.innerHeight - grid.getBoundingClientRect().bottom - reserve;
+      // Preserve the approved 1280x631 expansion when there is headroom.
+      // Synthetic plans with taller introductory content may instead need
+      // a few pixels removed so their last dinner row stays inside the
+      // viewport; never force growth when the grid already overflows.
+      const adjustment = Math.min(shortWindow ? 22 : 18, Math.floor(available / 4));
+      const rowHeight = Math.max(64, Math.min(shortWindow ? 100 : 138, base + adjustment));
+      // Keep the compact-row variable for CSS consumers and E2E inspection,
+      // but enforce the computed height on the actual grid element.
+      grid.style.setProperty("--week-compact-row", `${rowHeight}px`);
+      grid.style.setProperty("grid-template-rows", `${rows[0]}px repeat(4, ${rowHeight}px)`);
+    };
+    const schedule = () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => { frame = 0; recalculate(); });
+    };
+    window.addEventListener("resize", schedule);
+    const observer = new ResizeObserver(schedule);
+    const screen = grid.closest(".family-meals-screen");
+    const hero = screen?.querySelector(".nf-next-meal-hero");
+    const navigation = screen?.querySelector(".family-meals-date-nav");
+    if (hero) observer.observe(hero);
+    if (navigation) observer.observe(navigation);
+    void document.fonts.ready.then(() => { if (!disposed) schedule(); });
+    schedule();
+    return () => {
+      disposed = true;
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", schedule);
+      observer.disconnect();
+      grid.style.removeProperty("--week-compact-row");
+      grid.style.removeProperty("grid-template-rows");
+    };
+  }, [simpleWeekView, suppliedPlan, refreshedPlan, loadedPlan]);
+
   const effectiveWeekStart = refreshedPlan?.start_date ?? suppliedPlan?.start_date ?? weekStart;
   const scopeKey=`${familyId}:${weekStart??suppliedPlan?.start_date??""}`;
   const currentScope=useRef<string|null>(scopeKey);
@@ -803,6 +889,19 @@ export default function WeeklyProposalPreview({
     setAdaptationError(null);
     setAdaptationBusy(false);
   }, [familyId, weekStart]);
+
+  // A read-only recommendation from the top card enters the existing review
+  // flow. It is not persisted or accepted until the family confirms it here.
+  useEffect(() => {
+    if (!heroSuggestion || !effectiveWeekStart) return;
+    if (heroSuggestion.proposal.family_id !== familyId) return;
+    const weekEnd = addCalendarDays(effectiveWeekStart, 6);
+    if (heroSuggestion.date < effectiveWeekStart || heroSuggestion.date > weekEnd) return;
+    setProposalRequest(heroSuggestion.request);
+    setProposal(heroSuggestion.proposal);
+    setSelectedDate(heroSuggestion.date);
+    setSelectedMealType(heroSuggestion.mealType);
+  }, [familyId, effectiveWeekStart, heroSuggestion]);
 
   useEffect(() => {
     if (suppliedPlan || !weekStart) return;
@@ -1118,15 +1217,26 @@ export default function WeeklyProposalPreview({
   }
 
   function selectDay(planningDate: string) {
+    if (onSelectionChange?.(null) === false) return;
     setSelectedDate(planningDate);
     setSelectedMealType(null);
   }
 
   function selectMeal(planningDate: string, mealType: MealType) {
+    // An empty slot in the saved weekly map opens its editor directly. Do not
+    // show an empty detail drawer first, or stack it behind the editor.
+    const emptySlot = plan &&
+      !mealEntryFor(plan, planningDate, mealType) &&
+      !choiceFor(grouped, planningDate, mealType) &&
+      !skippedSlots[slotKey(planningDate, mealType)];
+    if (emptySlot && onEdit) {
+      onEdit(planningDate, mealType, null);
+      return;
+    }
+    if (onSelectionChange?.({date:planningDate,mealType}) === false) return;
     setSelectedDate(planningDate);
     setSelectedMealType(mealType);
-    onSelectionChange?.({date:planningDate,mealType});
-    window.requestAnimationFrame(()=>{const detail=document.getElementById("nf-selected-meal");detail?.focus({preventScroll:true});detail?.scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",block:"start"});});
+    // The drawer owns focus and scrolling; leave the weekly map in place.
   }
 
   useEffect(() => {
@@ -1137,8 +1247,8 @@ export default function WeeklyProposalPreview({
   }, [autoGenerate, plan, people]);
 
   return (
-    <section className="meal-plan-editor weekly-proposal-preview">
-      <div className="meal-plan-editor__heading">
+    <section className={`meal-plan-editor weekly-proposal-preview ${simpleWeekView ? "nf-week-map-final" : ""}`}>
+      {!simpleWeekView || proposal?.selected_plan ? <div className="meal-plan-editor__heading">
         <div>
           <span className="eyebrow">{copy.eyebrow}</span>
           <h2>{copy.title}</h2>
@@ -1155,7 +1265,7 @@ export default function WeeklyProposalPreview({
               {decisionBusy === "apply" ? copy.applyingWeek : copy.applyWeek}
             </button>
           ) : null}
-          <button
+          {!simpleWeekView ? <button
             className={proposal?.selected_plan ? "button ghost" : "button primary"}
             disabled={busy || decisionBusy !== null || people.length < 2 || !plan}
             onClick={() => void generateProposal()}
@@ -1168,11 +1278,11 @@ export default function WeeklyProposalPreview({
               : proposal
                 ? copy.regenerate
                 : copy.generate}
-          </button>
+          </button> : null}
         </div>
-      </div>
+      </div> : null}
 
-      {people.length < 2 ? <div className="family-meals-empty-day">{copy.noPeople}</div> : null}
+      {people.length < 2 && (!simpleWeekView || people.length === 0) ? <div className="family-meals-empty-day">{copy.noPeople}</div> : null}
       {loadError ? (
         <div className="error-banner" role="alert">
           <strong>{copy.error}</strong><span>{loadError}</span>
@@ -1234,12 +1344,22 @@ export default function WeeklyProposalPreview({
         <div className="shell-loading" role="status">{copy.loading}</div>
       ) : (
         <>
-          <WeekOverview plan={plan} proposed={weekDates.reduce((sum,date)=>sum+ALL_MEAL_TYPES.filter(kind=>!mealEntryFor(plan,date,kind)&&choiceFor(grouped,date,kind)).length,0)}/>
+          {!simpleWeekView ? <WeekOverview plan={plan} proposed={weekDates.reduce((sum,date)=>sum+ALL_MEAL_TYPES.filter(kind=>!mealEntryFor(plan,date,kind)&&choiceFor(grouped,date,kind)).length,0)}/> : null}
           <nav className="nf-week-day-picker" aria-label={locale === "pt-PT" ? "Escolher dia da semana" : "Choose a weekday"}>{weekDates.map(date=>{const day=formatGridDay(date,locale);return <button type="button" key={date} aria-pressed={selectedDate===date} className={selectedDate===date?"selected":""} onClick={()=>selectDay(date)}><span>{day.weekday}</span><b>{day.date}</b></button>;})}</nav>
           <div className="weekly-calendar-scroll">
-            <div className="weekly-day-grid" role="group" aria-label={copy.title}>
+            <div className="weekly-day-grid" ref={weekGridRef} role="group" aria-label={copy.title}>
+              <div className="nf-week-row-labels" aria-hidden="true">
+                <span />
+                {ALL_MEAL_TYPES.map(mealType => <span key={mealType}><Icon name={mealType === "breakfast" ? "coffee" : mealType === "lunch" ? "utensils" : mealType === "snack" ? "apple" : "cloche"}/>{mealLabel(mealType, locale)}</span>)}
+              </div>
               {weekDates.map((planningDate) => {
                 const gridDay = formatGridDay(planningDate, locale);
+                const shortDayNumber = Number(planningDate.slice(-2)).toString();
+                const weekdayIndex = new Date(`${planningDate}T00:00:00Z`).getUTCDay();
+                const weekdayAbbreviations = locale === "pt-PT"
+                  ? ["dom.", "seg.", "ter.", "qua.", "qui.", "sex.", "sáb."]
+                  : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+                const shortWeekday = simpleWeekView ? weekdayAbbreviations[weekdayIndex] : gridDay.weekday;
                 return (
                   <article
                     className={`weekly-grid-day ${selectedDate === planningDate ? "selected is-mobile-day" : ""}`}
@@ -1250,8 +1370,8 @@ export default function WeeklyProposalPreview({
                       onClick={() => selectDay(planningDate)}
                       type="button"
                     >
-                      <strong>{gridDay.weekday}</strong>
-                      <small>{gridDay.date}</small>
+                      <strong>{shortWeekday}</strong>
+                      <small>{simpleWeekView ? shortDayNumber : gridDay.date}</small>
                     </button>
                     <div className="weekly-grid-day__meals">
                       {ALL_MEAL_TYPES.map((mealType) => {
@@ -1262,6 +1382,11 @@ export default function WeeklyProposalPreview({
                         const ingredientProposals=recipeProposedChanges(currentReviews,entry?.recipe_id??choice?.recipe_id);
                         const pendingReason = skippedSlots[slotKey(planningDate, mealType)];
                         const state = entry ? "planned" : choice ? "proposed" : "empty";
+                        const hasAppliedChanges = Boolean(entry?.variant_changes?.length || entry?.transformations.length);
+                        const needsReview = !hasAppliedChanges && Boolean(
+                          choice?.variant_changes?.length || choice?.transformation ||
+                          ingredientProposals.length || slotAdaptations?.[entry?.recipe_id ?? choice?.recipe_id ?? ""]?.length
+                        );
                         const label = entry
                           ? entryName(entry)
                           : choice?.candidate_name ?? (pendingReason ? copy.pending : locale === "pt-PT" ? "+ Adicionar" : "+ Add");
@@ -1270,29 +1395,40 @@ export default function WeeklyProposalPreview({
                             aria-pressed={
                               selectedDate === planningDate && selectedMealType === mealType
                             }
+                            aria-label={`${mealLabel(mealType, locale)} · ${gridDay.weekday} ${planningDate} · ${entry ? copy.planned : choice ? copy.proposed : pendingReason ? copy.pending : copy.empty} · ${label}`}
                             className={`weekly-grid-meal is-${state} ${
+                              needsReview ? "has-review" : ""
+                            } ${
                               selectedDate === planningDate && selectedMealType === mealType
                                 ? "selected"
                                 : ""
                             }`}
                             key={mealType}
-                            onClick={() => {if(!entry && !choice && !pendingReason && onEdit){onSelectionChange?.({date:planningDate,mealType});onEdit(planningDate,mealType,null);}else selectMeal(planningDate,mealType);}}
+                            onClick={() => selectMeal(planningDate,mealType)}
                             type="button"
                           >
-                            <span className="weekly-grid-meal__label">
-                              <small>{mealLabel(mealType, locale)}</small>
-                              <em>
-                                {entry
-                                  ? copy.planned
-                                  : choice
-                                    ? copy.proposed
-                                    : pendingReason
-                                      ? copy.pending
-                                      : copy.empty}
-                              </em>
-                            </span>
-                            <strong>{label}</strong>
-                            {(entry?.variant_changes?.length || entry?.transformations.length || choice?.variant_changes?.length || choice?.transformation || ingredientProposals.length || slotAdaptations?.[entry?.recipe_id ?? choice?.recipe_id ?? ""]?.length) ? <small className={`nf-week-change-hint ${entry?.variant_changes?.length || entry?.transformations.length ? "is-applied" : "is-review"}`}>{entry?.variant_changes?.length || entry?.transformations.length ? (locale === "pt-PT" ? "Adaptação aplicada" : "Adaptation applied") : choice?.variant_changes?.length || choice?.transformation ? (locale === "pt-PT" ? "Adaptação em proposta" : "Proposed adaptation") : (locale === "pt-PT" ? "Trocas por rever" : "Substitutions to review")}</small> : null}
+                            {state === "empty" && !pendingReason ? (
+                              <span className="nf-week-empty-action" aria-hidden="true">
+                                <b>+</b><span>{locale === "pt-PT" ? "Adicionar" : "Add"}</span>
+                              </span>
+                            ) : (
+                              <>
+                                <strong>{label}</strong>
+                                {needsReview || hasAppliedChanges ? (
+                                  <small className={`nf-week-change-hint ${hasAppliedChanges ? "is-applied" : "is-review"}`}>
+                                    {hasAppliedChanges ? (locale === "pt-PT" ? "Adaptação aplicada" : "Adaptation applied") :
+                                      choice?.variant_changes?.length || choice?.transformation
+                                        ? (locale === "pt-PT" ? "Adaptar" : "Adapt")
+                                        : (locale === "pt-PT" ? "Por verificar" : "Review")}
+                                  </small>
+                                ) : (
+                                  <span className="weekly-grid-meal__label">
+                                    <small>{mealLabel(mealType, locale)}</small>
+                                    <em>{entry ? copy.planned : choice ? copy.proposed : copy.pending}</em>
+                                  </span>
+                                )}
+                              </>
+                            )}
                           </button>
                         );
                       })}
@@ -1303,7 +1439,7 @@ export default function WeeklyProposalPreview({
             </div>
           </div>
 
-          {selectedDate ? (
+          {selectedDate && !simpleWeekView ? (
             <details className="nf-day-overview"><summary>{locale === "pt-PT" ? "Resumo do dia selecionado" : "Selected day overview"}</summary><section className="weekly-day-detail">
               <div className="weekly-section-heading">
                 <div>
@@ -1351,8 +1487,31 @@ export default function WeeklyProposalPreview({
           ) : null}
 
           {selectedDate && selectedMealType ? (
+            <ContextDrawer
+              title={selectedEntry ? entryName(selectedEntry) : selectedChoice?.candidate_name ?? mealLabel(selectedMealType, locale)}
+              wide
+              closeLabel={locale === "pt-PT" ? "Fechar detalhe" : "Close meal detail"}
+              onRequestClose={() => {
+                if (onSelectionChange ? onSelectionChange(null) === false : !requestNavigation()) return false;
+                setSelectedMealType(null);
+                return true;
+              }}
+            >
             <section className="weekly-meal-detail" id="nf-selected-meal" tabIndex={-1}>
-              <button className="button ghost small nf-detail-close" type="button" onClick={()=>{setSelectedMealType(null);document.querySelector<HTMLButtonElement>(".weekly-grid-meal.selected")?.focus();}}><Icon name="arrow"/>{locale === "pt-PT" ? "Voltar ao mapa" : "Back to planner"}</button>
+              {(() => {
+                const {guestCount,pendingCount:pending}=weeklyMealAttendanceContext(selectedDate,selectedMealType,planningOptions);
+                if(guestCount===0&&pending===0)return null;
+                return <aside className="nf-meal-attendance-notice" aria-label={locale==="pt-PT"?"Exceções de presença da semana":"Weekly attendance exceptions"}>
+                  <strong>{locale==="pt-PT"?"Presenças previstas · planeamento semanal":"Expected attendance · weekly planning"}</strong>
+                  {guestCount>0&&<p>{locale==="pt-PT"
+                    ?`${guestCount} convidado(s) sem perfil. Apenas previsão: não incluídos nas porções, avaliações nutricionais nem compras automáticas. Requer revisão manual.`
+                    :`${guestCount} unprofiled guest(s). Headcount only: excluded from portions, nutrition assessments and automatic shopping. Requires manual review.`}</p>}
+                  {pending>0&&<p>{locale==="pt-PT"
+                    ?`${pending} presença(s) por confirmar nesta refeição. As escolhas semanais não alteram automaticamente os participantes guardados.`
+                    :`${pending} attendance decision(s) pending. Weekly decisions never automatically overwrite saved meal participants.`}</p>}
+                </aside>;
+              })()}
+              <button className="button ghost small nf-detail-close" type="button" onClick={()=>{if(onSelectionChange ? onSelectionChange(null)!==false : requestNavigation())setSelectedMealType(null);}}><Icon name="arrow"/>{locale === "pt-PT" ? "Voltar ao mapa" : "Back to planner"}</button>
               <div className="weekly-section-heading weekly-meal-detail__heading">
                 <div>
                   <span className="eyebrow">{copy.mealDetail}</span>
@@ -1371,7 +1530,7 @@ export default function WeeklyProposalPreview({
                       <button
                         className="button ghost"
                         disabled={selectedEntry.status !== "planned" || decisionBusy !== null}
-                        onClick={() => onEdit(selectedDate, selectedMealType, selectedEntry)}
+                        onClick={() => {if(onSelectionChange ? onSelectionChange(null)!==false : requestNavigation()){setSelectedMealType(null);onEdit(selectedDate, selectedMealType, selectedEntry);}}}
                         type="button"
                       >
                         {selectedEntry.transformations.length > 0
@@ -1404,7 +1563,7 @@ export default function WeeklyProposalPreview({
                           : copy.suggestAdaptation}
                     </button>
                   </div>
-                ) : !selectedEntry && !selectedChoice && onEdit ? <button type="button" className="button primary" onClick={()=>onEdit(selectedDate,selectedMealType,null)}>{locale === "pt-PT" ? "Escolher receita" : "Choose recipe"}</button> : null}
+                ) : !selectedEntry && !selectedChoice && onEdit ? <button type="button" className="button primary" onClick={()=>{if(onSelectionChange ? onSelectionChange(null)!==false : requestNavigation()){setSelectedMealType(null);onEdit(selectedDate,selectedMealType,null);}}}>{locale === "pt-PT" ? "Escolher receita" : "Choose recipe"}</button> : null}
               </div>
 
               {reviewError && <p role="alert">{locale==="pt-PT"?"Alternativas indisponíveis: ":"Alternatives unavailable: "}{reviewError}</p>}
@@ -1718,6 +1877,7 @@ export default function WeeklyProposalPreview({
                 <div className="family-meals-empty-day">{copy.empty}</div>
               )}
             </section>
+            </ContextDrawer>
           ) : null}
         </>
       )}

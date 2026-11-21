@@ -652,3 +652,38 @@
     width: 100%;
   }
 }
+
+/* Week planning receives the broader canvas of the approved prototype.
+   Other pages keep their existing content width and toolbar. */
+@media (min-width: 1101px) {
+  .app-shell--meals .shell-main {
+    width: min(calc(100% - 44px), 1280px);
+  }
+}
+
+/* Casa à Mesa: actionable AI card below the primary navigation. */
+.side-nav__ai {
+  display:grid; gap:10px; text-align:left; margin-top:auto;
+  padding:17px 15px; color:var(--text); background:var(--bg);
+  border:1px solid var(--border); border-radius:17px; cursor:pointer;
+}
+.side-nav__ai-heading {display:flex;align-items:center;gap:12px;font-size:13px;line-height:1.4}
+.side-nav__ai-heading .nf-icon {width:25px;height:25px;flex:0 0 25px;color:var(--accent)}
+.side-nav__ai>span:last-child {color:var(--muted);font-size:11px;line-height:1.55}
+.side-nav__ai:hover,.side-nav__ai:focus-visible {border-color:var(--accent)}
+.side-nav__ai+.side-nav__family {margin-top:0}
+@media(max-width:760px){.side-nav__ai{display:none}}
+
+.app-shell--meals .family-meals-screen:has(.nf-next-meal-hero) .family-meals-date-nav {
+  margin-bottom: 14px;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.app-shell--meals .family-meals-screen:has(.nf-next-meal-hero) .family-meals-date-nav .button {
+  min-height: 34px;
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: none;
+}

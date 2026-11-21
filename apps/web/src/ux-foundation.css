@@ -35,3 +35,14 @@ html,body,*{scrollbar-width:none}*::-webkit-scrollbar{width:0;height:0}button:fo
 .nf-avatar-hair-accent{stroke:var(--avatar-hair)}.nf-onboarding-options{border:1px solid var(--border);border-radius:15px;padding:16px}.nf-onboarding-options>summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--accent)}.nf-onboarding-options[open]>summary{margin-bottom:20px}.nf-onboarding-options .family-source-setup{margin-top:20px}.nf-taste-panel{margin-top:24px;padding:20px;border:1px solid var(--border);border-radius:20px;background:var(--surface)}.nf-taste-panel>summary{cursor:pointer;color:var(--accent);font-weight:600}.nf-taste-panel[open]>summary{margin-bottom:22px}.nf-taste-panel .recipe-preferences-screen h1{font-size:23px}.nf-taste-panel .screen-header p{max-width:65ch}
 
 .people-list .nf-avatar{width:64px;height:64px;flex-basis:64px}.nf-person-line>.nf-avatar{width:52px;height:52px;flex-basis:52px}
+
+/* Application release indicator: kept legible without enlarging the sidebar. */
+.nf-brand-version{display:inline-block;vertical-align:baseline;margin-left:5px;padding:1px 5px;border:1px solid var(--border);border-radius:5px;background:var(--surface-soft);color:var(--muted);font-size:9px;font-weight:650;letter-spacing:0;line-height:1.35;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* Casa à Mesa prototype: quiet six-destination desktop navigation. */
+@media (min-width: 761px) {
+  .primary-nav { gap: 5px; }
+  .primary-nav .nav-item { min-height: 46px; border-radius: 11px; padding: 12px 14px; font-size: 13px; font-weight: 550; }
+  .primary-nav .nav-item.active { background: var(--color-action-soft); color: var(--color-action); }
+  .primary-nav .nav-item:hover:not(.active) { background: var(--surface-soft); }
+}

@@ -1,17 +1,17 @@
 import {useEffect,useState} from "react";
 export type AppView="home"|"meals"|"shopping"|"people"|"house"|"more";
 export type HouseView="recipes"|"ingredients"|"pantry"|"substitutions"|"shopping"|"preferences"|"sources"|"restaurants"|"delivery";
-export type AppRoute={view:AppView;mode:"today"|"week"|"prepare"|"recommend";date?:string;person?:string;house:HouseView};
+export type AppRoute={view:AppView;mode:"today"|"week"|"prepare"|"recommend";date?:string;meal?: "breakfast"|"lunch"|"snack"|"dinner";person?:string;house:HouseView};
 const views=["home","meals","shopping","people","house","more"];
 const houses=["recipes","ingredients","pantry","substitutions","shopping","preferences","sources","restaurants","delivery"];
 export function parseRoute(hash:string):AppRoute {
  const [path,query]=hash.replace(/^#\/?/,"").split("?");const params=new URLSearchParams(query);
  const date=params.get("date")??"";const validDate=/^\d{4}-\d{2}-\d{2}$/.test(date)&&!Number.isNaN(Date.parse(date))&&new Date(date).toISOString().slice(0,10)===date;
- const mode=params.get("mode")??"today";const house=params.get("tab")??"recipes";const person=params.get("person")??"";
- return {view:(views.includes(path??"")?path:"home") as AppView,mode:(["today","week","prepare","recommend"].includes(mode)?mode:"today") as AppRoute["mode"],house:(houses.includes(house)?house:"recipes") as HouseView,...(validDate?{date}:{}),...(/^[a-zA-Z0-9-]{1,80}$/.test(person)?{person}:{})};
+ const meal=params.get("meal")??"";const mode=params.get("mode")??"today";const house=params.get("tab")??"recipes";const person=params.get("person")??"";
+ return {view:(views.includes(path??"")?path:"home") as AppView,mode:(["today","week","prepare","recommend"].includes(mode)?mode:"today") as AppRoute["mode"],house:(houses.includes(house)?house:"recipes") as HouseView,...(validDate?{date}:{}),...(path==="meals"&&mode==="week"&&validDate&&["breakfast","lunch","snack","dinner"].includes(meal)?{meal:meal as AppRoute["meal"]}:{}),...(/^[a-zA-Z0-9-]{1,80}$/.test(person)?{person}:{})};
 }
 export function routeHash(route:AppRoute):string {
- const params=new URLSearchParams();if(route.date)params.set("date",route.date);if(route.mode!=="today")params.set("mode",route.mode);if(route.person)params.set("person",route.person);if(route.house!=="recipes")params.set("tab",route.house);
+ const params=new URLSearchParams();if(route.date)params.set("date",route.date);if(route.view==="meals"&&route.mode==="week"&&route.date&&route.meal)params.set("meal",route.meal);if(route.mode!=="today")params.set("mode",route.mode);if(route.person)params.set("person",route.person);if(route.house!=="recipes")params.set("tab",route.house);
  return `#/${route.view}${params.size?`?${params}`:""}`;
 }
 const blockers=new Set<()=>boolean>();

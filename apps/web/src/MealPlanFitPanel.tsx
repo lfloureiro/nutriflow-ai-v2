@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ApiError, listFamilyRecipes } from "./api/client";
 import { proposeMealTransformations } from "./api/mealTransformationClient";
@@ -11,6 +11,12 @@ import { useI18n } from "./i18n";
 import {
   formatPlanFitNumber,
   planFitConflictMessage,
+  planFitCandidateNutrition,
+  planFitMatchesRequest,
+  transformationMatchesRequest,
+  planFitHasOpenEvidence,
+  planFitEvidenceSource,
+  planFitEvidenceSummary,
   planFitGuidelineExplanation,
   planFitRuleExplanation,
   planFitSafetyIssue,
@@ -27,7 +33,9 @@ const COPY = {
     help: "Testa uma receita e uma porção contra as regras alimentares efetivas desta pessoa.",
     meal: "Refeição",
     recipe: "Receita",
+    chooseActualRecipe: "Escolher receita e confirmar porção",
     quantity: "Quantidade",
+    quantityInvalid: "Indica uma quantidade positiva antes de avaliar. A unidade é a da composição da receita.",
     evaluate: "Avaliar",
     evaluating: "A avaliar…",
     improve: "Sugerir melhoria",
@@ -49,6 +57,19 @@ const COPY = {
     no_active_plan: "Sem plano activo",
     plan_conflict: "Conflito no plano",
     score: "Adequação",
+    portionNutrition: "Composição da porção avaliada",
+    portionEnergy: "Energia da porção",
+    portionUncertain: "Energia não disponível — não assumir zero.",
+    nutrientUncertain: "Outros nutrientes sem evidência não são apresentados como zero.",
+    coverageTitle: "Cobertura da avaliação",
+    coverageRules: "Regras avaliadas",
+    coverageUnknown: "Regras sem evidência suficiente",
+    coverageGuidelines: "Orientações não avaliadas",
+    coverageBlocks: "Bloqueios obrigatórios identificados",
+    coverageHelp: "A falta de dados não demonstra segurança ou adequação nutricional. O resultado depende da porção indicada e das fontes efetivamente registadas.",
+    provisionalScore: "Avaliação com evidência incompleta ou não confirmada. A pontuação não equivale a uma certificação nutricional ou FODMAP.",
+    evidenceSource: "Origem registada",
+    missingSource: "Origem não indicada",
     eligible: "Elegível",
     blocked: "Bloqueada",
     mealRules: "Regras desta refeição",
@@ -74,14 +95,18 @@ const COPY = {
     dinner: "Jantar",
     loadError: "Não foi possível carregar as receitas.",
     evaluateError: "Não foi possível avaliar esta refeição.",
+    responseMismatch: "A avaliação recebida não corresponde à pessoa, data, refeição ou porção selecionada. Volta a avaliar.",
     transformationError: "Não foi possível calcular melhorias para esta refeição.",
+    transformationMismatch: "As propostas recebidas já não correspondem à receita, à pessoa ou à porção selecionada. Volta a pedir sugestões.",
   },
   en: {
     title: "Plan fit",
     help: "Test a recipe and portion against this person's effective nutrition guidance.",
     meal: "Meal",
     recipe: "Recipe",
+    chooseActualRecipe: "Choose actual recipe and confirm portion",
     quantity: "Quantity",
+    quantityInvalid: "Enter a positive quantity before evaluating. The unit comes from the recipe composition.",
     evaluate: "Evaluate",
     evaluating: "Evaluating…",
     improve: "Suggest improvement",
@@ -103,6 +128,19 @@ const COPY = {
     no_active_plan: "No active plan",
     plan_conflict: "Plan conflict",
     score: "Fit",
+    portionNutrition: "Evaluated portion composition",
+    portionEnergy: "Portion energy",
+    portionUncertain: "Energy unavailable — do not assume zero.",
+    nutrientUncertain: "Other nutrients without evidence are not treated as zero.",
+    coverageTitle: "Evaluation coverage",
+    coverageRules: "Rules evaluated",
+    coverageUnknown: "Rules lacking sufficient evidence",
+    coverageGuidelines: "Unevaluated guidance",
+    coverageBlocks: "Identified mandatory blocks",
+    coverageHelp: "Missing data does not demonstrate safety or nutritional suitability. Results depend on the selected portion and recorded sources.",
+    provisionalScore: "Some evidence is incomplete or unconfirmed. This score is not a nutrition or FODMAP certification.",
+    evidenceSource: "Recorded source",
+    missingSource: "Source not supplied",
     eligible: "Eligible",
     blocked: "Blocked",
     mealRules: "Rules for this meal",
@@ -128,7 +166,9 @@ const COPY = {
     dinner: "Dinner",
     loadError: "Could not load recipes.",
     evaluateError: "Could not evaluate this meal.",
+    responseMismatch: "The returned assessment does not match the selected person, date, meal or portion. Please evaluate again.",
     transformationError: "Could not calculate improvements for this meal.",
+    transformationMismatch: "The proposals no longer match the selected recipe, person or portion. Request new suggestions.",
   },
 } as const;
 
@@ -177,15 +217,19 @@ export default function MealPlanFitPanel({
   personId,
   planningDate,
   dailyNutritionStateId,
+  requestedMealType,
+  requireExplicitRecipe = false,
 }: {
   familyId: string;
   personId: string;
   planningDate: string;
   dailyNutritionStateId: string | null;
+  requestedMealType?: PlanningMealType;
+  requireExplicitRecipe?: boolean;
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
-  const [mealType, setMealType] = useState<PlanningMealType>("lunch");
+  const [mealType, setMealType] = useState<PlanningMealType>(requestedMealType ?? "lunch");
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [selectedRecipeId, setSelectedRecipeId] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -195,6 +239,22 @@ export default function MealPlanFitPanel({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<MealPlanFitResult | null>(null);
   const [transformation, setTransformation] = useState<MealTransformationResult | null>(null);
+  const evaluationEpoch = useRef(0);
+  const transformationEpoch = useRef(0);
+  function invalidateEvaluation() {
+    evaluationEpoch.current += 1;
+    transformationEpoch.current += 1;
+    setResult(null);
+    setTransformation(null);
+    setError(null);
+    setBusy(false);
+    setTransformationBusy(false);
+  }
+  useEffect(() => {
+    // Switching people, dates or daily states invalidates in-flight API responses.
+    invalidateEvaluation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personId, planningDate, dailyNutritionStateId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -225,31 +285,35 @@ export default function MealPlanFitPanel({
 
   useEffect(() => {
     const current = availableRecipes.find((recipe) => recipe.id === selectedRecipeId);
-    const next = current ?? availableRecipes[0] ?? null;
+    const next = current ?? (requireExplicitRecipe ? null : availableRecipes[0] ?? null);
     if (!next) {
       setSelectedRecipeId("");
       setQuantity("");
-      setResult(null);
-      setTransformation(null);
+      invalidateEvaluation();
       return;
     }
     if (!current) setSelectedRecipeId(next.id);
     setQuantity(initialQuantity(next));
-    setResult(null);
-    setTransformation(null);
-  }, [availableRecipes, selectedRecipeId]);
+    invalidateEvaluation();
+  }, [availableRecipes, selectedRecipeId, requireExplicitRecipe]);
 
   const selectedRecipe = availableRecipes.find((recipe) => recipe.id === selectedRecipeId) ?? null;
   const composition = selectedRecipe?.latest_composition ?? null;
+  const quantityValid = quantity.trim() !== "" && Number.isFinite(Number(quantity)) && Number(quantity) > 0;
 
   async function runEvaluation() {
     if (!selectedRecipe || !composition) return;
     const numericQuantity = Number(quantity);
-    if (!Number.isFinite(numericQuantity) || numericQuantity <= 0) return;
+    if (!quantityValid || !Number.isFinite(numericQuantity) || numericQuantity <= 0) return;
 
+    const epoch = ++evaluationEpoch.current;
+    transformationEpoch.current += 1;
     setBusy(true);
     setError(null);
+    setResult(null);
     setTransformation(null);
+    // The old proposal was invalidated above; do not retain its loading state.
+    setTransformationBusy(false);
     try {
       const response = await evaluateMealPlanFit(personId, {
         planning_date: planningDate,
@@ -262,17 +326,23 @@ export default function MealPlanFitPanel({
           quantity_unit: composition.reference_unit,
         },
       });
-      setResult(response);
+      if (epoch === evaluationEpoch.current) {
+        if (planFitMatchesRequest(response,{personId,planningDate,mealType,quantity,quantityUnit:composition.reference_unit})) setResult(response);
+        else { setResult(null);setError(copy.responseMismatch); }
+      }
     } catch (caught: unknown) {
-      setResult(null);
-      setError(errorText(caught, copy.evaluateError));
+      if (epoch === evaluationEpoch.current) {
+        setResult(null);
+        setError(errorText(caught, copy.evaluateError));
+      }
     } finally {
-      setBusy(false);
+      if (epoch === evaluationEpoch.current) setBusy(false);
     }
   }
 
   async function runTransformations() {
     if (!selectedRecipe || !composition || !result) return;
+    const epoch = ++transformationEpoch.current;
     setTransformationBusy(true);
     setError(null);
     try {
@@ -285,12 +355,17 @@ export default function MealPlanFitPanel({
         daily_nutrition_state_id: dailyNutritionStateId,
         max_proposals: 5,
       });
-      setTransformation(response);
+      if (epoch === transformationEpoch.current) {
+        if (transformationMatchesRequest(response,{personId,recipeId:selectedRecipe.id,planningDate,mealType,quantity,quantityUnit:composition.reference_unit})) setTransformation(response);
+        else {setTransformation(null);setError(copy.transformationMismatch);}
+      }
     } catch (caught: unknown) {
-      setTransformation(null);
-      setError(errorText(caught, copy.transformationError));
+      if (epoch === transformationEpoch.current) {
+        setTransformation(null);
+        setError(errorText(caught, copy.transformationError));
+      }
     } finally {
-      setTransformationBusy(false);
+      if (epoch === transformationEpoch.current) setTransformationBusy(false);
     }
   }
 
@@ -300,6 +375,8 @@ export default function MealPlanFitPanel({
       : Math.round(Number(result.fit_score) * 100);
   const mealRuleResults = result?.rule_results.filter((rule) => rule.scope !== "daily") ?? [];
   const dailyRuleResults = result?.rule_results.filter((rule) => rule.scope === "daily") ?? [];
+  const evidence = result ? planFitEvidenceSummary(result) : null;
+  const portionNutrition = result ? planFitCandidateNutrition(result) : null;
 
   function renderRule(rule: MealPlanFitRule) {
     return (
@@ -335,6 +412,10 @@ export default function MealPlanFitPanel({
           ) : null}
         </div>
         <p>{planFitRuleExplanation(rule, locale)}</p>
+        <details className="plan-fit-rule__evidence">
+          <summary>{copy.evidenceSource}</summary>
+          <p>{planFitEvidenceSource(rule.source, locale).join(" · ") || copy.missingSource}</p>
+        </details>
       </article>
     );
   }
@@ -355,8 +436,7 @@ export default function MealPlanFitPanel({
             value={mealType}
             onChange={(event) => {
               setMealType(event.target.value as PlanningMealType);
-              setResult(null);
-              setTransformation(null);
+              invalidateEvaluation();
             }}
           >
             {MEAL_TYPES.map((item) => (
@@ -377,10 +457,10 @@ export default function MealPlanFitPanel({
               setSelectedRecipeId(nextId);
               const nextRecipe = availableRecipes.find((recipe) => recipe.id === nextId);
               if (nextRecipe) setQuantity(initialQuantity(nextRecipe));
-              setResult(null);
-              setTransformation(null);
+              invalidateEvaluation();
             }}
           >
+            {requireExplicitRecipe ? <option value="">{copy.chooseActualRecipe}</option> : null}
             {availableRecipes.map((recipe) => (
               <option key={recipe.id} value={recipe.id}>
                 {recipe.name}
@@ -396,20 +476,24 @@ export default function MealPlanFitPanel({
               min="0.01"
               step="0.01"
               type="number"
+              aria-invalid={quantity.length > 0 && !quantityValid}
+              aria-describedby={quantity.length > 0 && !quantityValid ? "nf-plan-fit-quantity-help" : undefined}
               value={quantity}
               onChange={(event) => {
                 setQuantity(event.target.value);
-                setResult(null);
-                setTransformation(null);
+                // Changing the portion must invalidate requests already in flight,
+                // not only clear the visible result.
+                invalidateEvaluation();
               }}
             />
             <span>{planFitUnitLabel(composition?.reference_unit, locale, quantity)}</span>
           </div>
+          {quantity.length > 0 && !quantityValid ? <small id="nf-plan-fit-quantity-help" role="status">{copy.quantityInvalid}</small> : null}
         </label>
 
         <button
           className="button primary"
-          disabled={busy || !selectedRecipe || !quantity}
+          disabled={busy || !selectedRecipe || !quantityValid}
           onClick={() => void runEvaluation()}
           type="button"
         >
@@ -450,6 +534,38 @@ export default function MealPlanFitPanel({
             </div>
           </div>
 
+          {planFitHasOpenEvidence(result) ? <p className="plan-fit-provisional" role="note">{copy.provisionalScore}</p> : null}
+
+          {portionNutrition ? (
+            <section className="plan-fit-portion" aria-label={copy.portionNutrition}>
+              <h4>{copy.portionNutrition}</h4>
+              <p>{copy.portionEnergy}: {portionNutrition.energyKcal === null
+                ? copy.portionUncertain
+                : `${formatPlanFitNumber(portionNutrition.energyKcal, locale)} kcal`}</p>
+              {portionNutrition.nutrients.length > 0 ? (
+                <dl>{portionNutrition.nutrients.map((nutrient)=>(
+                  <div key={nutrient.key}>
+                    <dt>{planFitTargetLabel(nutrient.key,locale)}</dt>
+                    <dd>{formatPlanFitNumber(nutrient.value,locale)} {planFitUnitLabel(nutrient.unit,locale,nutrient.value)}</dd>
+                  </div>
+                ))}</dl>
+              ) : null}
+              <small>{copy.nutrientUncertain}</small>
+            </section>
+          ) : null}
+
+          {evidence ? (
+            <section className="plan-fit-coverage" aria-label={copy.coverageTitle}>
+              <h4>{copy.coverageTitle}</h4>
+              <dl>
+                <div><dt>{copy.coverageRules}</dt><dd>{evidence.evaluated}</dd></div>
+                <div><dt>{copy.coverageUnknown}</dt><dd>{evidence.unknown}</dd></div>
+                <div><dt>{copy.coverageGuidelines}</dt><dd>{evidence.unevaluatedGuidelines}</dd></div>
+                <div><dt>{copy.coverageBlocks}</dt><dd>{evidence.blocking}</dd></div>
+              </dl>
+              <p>{copy.coverageHelp}</p>
+            </section>
+          ) : null}
           {result.safety_issues.length > 0 ? (
             <div className="plan-fit-alert">
               <strong>{copy.safety}</strong>
@@ -560,6 +676,10 @@ export default function MealPlanFitPanel({
                     <span className="plan-fit-status status-not_evaluated">{copy.not_evaluated}</span>
                   </div>
                   <p>{planFitGuidelineExplanation(guideline, locale)}</p>
+                  <details className="plan-fit-rule__evidence">
+                    <summary>{copy.evidenceSource}</summary>
+                    <p>{planFitEvidenceSource(guideline.source, locale).join(" · ") || copy.missingSource}</p>
+                  </details>
                 </article>
               ))}
             </div>

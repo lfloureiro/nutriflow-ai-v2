@@ -24,3 +24,21 @@
 .dietary-substitution { border-left: 3px solid var(--accent); padding: .75rem 1rem; margin: .75rem 0; background: var(--surface-soft); border-radius: var(--radius-sm); }
 .dietary-source { overflow-wrap: anywhere; }
 @media (max-width: 760px) { .dietary-layout { grid-template-columns: 1fr; } .dietary-recipe-list { max-height: 240px; } }
+
+/* Consistent density and draft feedback for secondary individual forms. */
+.nf-condition-form { align-items: start; min-width: 0; background: var(--surface); }
+.nf-condition-form label { min-width: 0; font-size: .84rem; }
+.nf-condition-form input, .nf-condition-form select, .nf-condition-form textarea { min-width: 0; }
+.nf-condition-form .dietary-actions { gap: .75rem; }
+.nf-condition-draft-state { color: var(--color-warning); font-size: .8rem; font-weight: 650; }
+@media (max-width: 620px) {
+  .nf-condition-form { grid-template-columns: minmax(0, 1fr); padding: 1rem; }
+  .nf-condition-form .dietary-actions { align-items: stretch; }
+  .nf-condition-form .dietary-actions button { min-height: 42px; }
+}
+
+/* Recorded health-condition metadata: unknown means missing evidence, not absence. */
+.nf-condition-evidence{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:10px;margin:12px 0}
+.nf-condition-evidence>div{min-width:0;padding:10px;background:var(--surface-soft);border-radius:10px;overflow-wrap:anywhere}
+.nf-condition-evidence dt{font-size:12px;color:var(--muted)}
+.nf-condition-evidence dd{margin:4px 0 0;font-size:13px;font-weight:600}

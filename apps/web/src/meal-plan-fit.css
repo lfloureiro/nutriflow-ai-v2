@@ -236,3 +236,34 @@
     flex-direction: column;
   }
 }
+
+/* Evidence coverage is informational, never a clinical approval badge. */
+.plan-fit-coverage{padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--surface-soft);min-width:0}
+.plan-fit-coverage h4{margin:0 0 12px}
+.plan-fit-coverage dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));gap:10px;margin:0}
+.plan-fit-coverage dl>div{min-width:0;display:grid;gap:4px;padding:10px;background:var(--surface);border-radius:10px}
+.plan-fit-coverage dt{font-size:12px;color:var(--muted)}
+.plan-fit-coverage dd{font-size:20px;font-weight:650;margin:0}
+.plan-fit-coverage>p{font-size:12px;line-height:1.55;color:var(--muted);margin:12px 0 0}
+.plan-fit-rule__evidence{margin-top:8px;max-width:100%;overflow-wrap:anywhere}
+.plan-fit-rule__evidence summary{font-size:12px;color:var(--muted);cursor:pointer}
+.plan-fit-rule__evidence p{font-size:12px;line-height:1.5;margin:6px 0 0}
+
+/* Values come from the evaluated portion, not the full recipe or a default zero. */
+.plan-fit-portion{padding:16px;border:1px solid var(--border);border-radius:14px;min-width:0;background:var(--surface)}
+.plan-fit-portion h4{margin:0 0 10px}
+.plan-fit-portion>p{margin:0 0 10px;font-size:13px}
+.plan-fit-portion dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));gap:10px;margin:0 0 10px}
+.plan-fit-portion dl>div{min-width:0;padding:10px;background:var(--surface-soft);border-radius:10px;overflow-wrap:anywhere}
+.plan-fit-portion dt{font-size:12px;color:var(--muted)}
+.plan-fit-portion dd{margin:5px 0 0;font-weight:650;font-size:16px}
+.plan-fit-portion>small{font-size:12px;line-height:1.55;color:var(--muted)}
+
+/* Personal-day meal is a context shortcut; recipe and serving require explicit selection. */
+.person-meal-fit-action{font-size:12px;white-space:normal;text-align:center}
+.person-meal-fit-context{display:grid;gap:6px;padding:14px 16px;margin:12px 0;border:1px solid var(--border);border-radius:12px;background:var(--surface-soft);overflow-wrap:anywhere}
+.person-meal-fit-context strong{font-size:13px}
+.person-meal-fit-context span{font-size:12px;color:var(--muted);line-height:1.55}
+
+/* Do not visually certify a meal when plan evidence is absent or not assessed. */
+.plan-fit-provisional{margin:0;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface-soft);color:var(--muted);font-size:13px;line-height:1.55;overflow-wrap:anywhere}

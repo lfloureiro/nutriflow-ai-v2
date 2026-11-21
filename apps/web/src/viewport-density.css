@@ -1,0 +1,1024 @@
+/* v2.0.95 - Emergency density baseline.
+   The 1672px illustrative reference is NOT a licence to scale controls with vw.
+   Use sane CSS-pixel dimensions at 100% Chrome zoom and Windows display scaling.
+   This stylesheet deliberately comes LAST to override the accumulated optical
+   prototype patches, without altering route logic or mobile navigation.
+   The canonical shell must remain the same on every desktop route. */
+@media (min-width:761px) {
+  .side-nav {
+    width: 224px;
+    padding: 18px 13px 12px;
+    gap: 12px;
+    overflow-y: auto;
+  }
+  .shell-content { margin-left:224px; min-width:0; }
+  .side-brand { min-width:0; margin-bottom:0; padding:0 6px; }
+  .nf-brand { gap:9px; }
+  .nf-brand-mark { width:38px; height:38px; flex:0 0 38px; border-radius:11px; }
+  .nf-brand-mark .nf-icon {width:22px;height:22px;}
+  .nf-brand-name {
+    font-size:18px;line-height:1.15;letter-spacing:-.6px;min-width:0;
+  }
+  .nf-brand-name small {
+    font-size:10px;line-height:1.3;letter-spacing:0;margin-top:3px;
+  }
+  .nf-brand-version {font-size:9px}
+  .primary-nav {gap:3px}
+  .primary-nav .nav-item {
+    min-height:40px;
+    grid-template-columns:20px minmax(0,1fr);
+    gap:10px;
+    padding:8px 11px;
+    font-size:13px;
+    font-weight:550;
+    line-height:1.3;
+    border-radius:11px;
+  }
+  .primary-nav .nav-icon,
+  .primary-nav .nav-icon .nf-icon {width:19px;height:19px}
+  .side-nav .side-nav__ai {
+    min-height:0;
+    margin-top:auto;
+    padding:12px 12px;
+    gap:5px;
+    border-radius:13px;
+  }
+  .side-nav__ai-heading {font-size:13px;gap:8px;line-height:1.3}
+  .side-nav__ai-heading .nf-icon {width:21px;height:21px;flex-basis:21px}
+  .side-nav__ai > span:last-child {font-size:11px;line-height:1.35}
+  .side-nav .side-nav__family {
+    gap:9px;padding:10px 4px 5px;
+    flex-shrink:0;
+  }
+  .side-nav .side-nav__family .side-nav__family-avatar {
+    flex:0 0 35px;width:35px;height:35px;
+    font-size:15px;
+  }
+  .side-nav .side-nav__family .side-nav__family-copy strong {
+    font-size:12px;line-height:1.25;
+  }
+  .side-nav .side-nav__family .side-nav__family-copy small {
+    font-size:10px;line-height:1.3;
+  }
+  .shell-topbar {min-height:60px;padding:8px 20px;gap:12px}
+  .shell-topbar strong {font-size:12px}
+  .shell-topbar__label {font-size:10px}
+  .shell-topbar .nf-topbar-actions {gap:6px;min-width:0}
+  .nf-topbar-actions select {min-height:32px;font-size:11px}
+  .shell-main {
+    width:calc(100% - 32px);
+    max-width:1370px;
+    min-width:0;
+    padding-top:12px;
+    padding-bottom:18px;
+  }
+  .app-shell:not(.app-shell--meals) .shell-main {padding-top:12px}
+  .screen-header {margin-bottom:12px;gap:12px}
+  .screen-header h1,
+  .compact-screen-header h1 {
+    font-size:clamp(20px,1.8vw,27px);
+    line-height:1.2;
+    letter-spacing:-.6px;
+  }
+  .screen-header p {font-size:12px;line-height:1.4}
+  .nf-panel {padding:13px;border-radius:15px}
+  .nf-panel-heading {margin-bottom:9px;gap:8px}
+  .nf-panel-heading h2 {font-size:15px}
+  .nf-home .nf-home-week-card {min-height:80px;padding:9px}
+  .nf-home .nf-home-shortcut-grid>button {min-height:74px;padding:9px 5px}
+  .nf-home .nf-today-photo {height:clamp(42px,8vh,76px)}
+}
+@media (min-width:761px) and (max-width:1100px) {
+  .side-nav {width:205px;padding-inline:10px;}
+  .shell-content {margin-left:205px}
+  .shell-main {width:calc(100% - 24px)}
+  .primary-nav .nav-item {font-size:12px;gap:8px}
+  .nf-home .nf-home-week-cards {gap:5px}
+  .nf-home .nf-home-week-card {min-height:65px;padding:7px}
+}
+@media (min-width:761px) and (max-height:700px) {
+  .side-nav {gap:7px;padding-top:10px;padding-bottom:7px}
+  .primary-nav .nav-item {min-height:34px;padding-top:6px;padding-bottom:6px}
+  .side-nav .side-nav__ai {padding:8px 10px;gap:3px}
+  .side-nav__ai > span:last-child {font-size:10px}
+  .side-nav .side-nav__family {padding-top:7px}
+  .shell-topbar {min-height:52px;padding-block:5px}
+  .shell-main {padding-top:7px}
+  .app-shell:not(.app-shell--meals) .shell-main {padding-top:7px}
+  .nf-home .nf-home-week-card {min-height:62px}
+  .nf-home .nf-home-shortcut-grid>button {min-height:63px}
+}
+@media(max-width:760px) {
+  /* No desktop sidebar. Keep the existing bottom navigation and scrollable
+     content; do not make dense controls too small for touch. */
+  .shell-main {min-width:0;max-width:100%}
+}
+
+/* Four real profiles must not be reduced to only two visible rows in
+   a 1280x700 viewport. Compact the summary, never hide the people. */
+@media(min-width:1101px) and (max-height:750px) {
+  .nf-home .nf-family-panel {padding:8px 10px}
+  .nf-home .nf-family-progress-heading {gap:4px}
+  .nf-home .nf-family-progress-heading strong {font-size:11px}
+  .nf-home .nf-family-progress-sub {margin:1px 0 3px;font-size:9px}
+  .nf-home .nf-family-nutrition-lines {gap:2px;margin-bottom:3px}
+  .nf-home .nf-panel-heading {margin-bottom:4px}
+  .nf-home .nf-person-line {padding:2px 3px;min-height:32px;gap:7px}
+  .nf-home .nf-person-line .nf-avatar {width:29px;height:29px;flex-basis:29px}
+  .nf-home .nf-person-copy strong {font-size:10px;line-height:1.2}
+  .nf-home .nf-person-copy small {font-size:9px;line-height:1.2}
+  .nf-home .nf-panel-footnote {margin:3px 0 0;font-size:9px}
+}
+
+/* 1229x610: keep the desktop Home composition in compact editorial rows.
+   The earlier min-height:680 breakpoint reverted to a long stacked page. */
+@media(min-width:1101px) and (max-height:679px) {
+  .nf-home {
+    display:grid;
+    grid-template-columns:minmax(0,1.55fr) minmax(240px,1fr);
+    grid-template-areas:"hero hero" "today members" "quick plans" "note note";
+    grid-template-rows:88px minmax(0,1fr) auto auto;
+    column-gap:9px;
+    row-gap:6px;
+    box-sizing:border-box;
+    height:calc(100dvh - 70px);
+    min-height:0;
+    align-content:stretch;
+  }
+  .nf-home .nf-home-heading {display:none}
+  .nf-home .nf-home-grid {display:contents}
+  .nf-home .nf-meal-hero {
+    grid-area:hero;height:88px;min-height:0;
+    border-radius:14px;overflow:hidden;
+  }
+  .nf-home .nf-meal-hero-art {left:0;right:auto;top:0;bottom:0;width:29%;height:100%;
+    opacity:1;object-fit:cover;transform:none;}
+  .nf-home .nf-meal-hero-art.nf-meal-hero-photo {
+    width:29%;left:0;right:auto;mask-image:none;opacity:1;filter:none;
+  }
+  .nf-home .nf-meal-hero-copy {
+    margin-left:29%;max-width:none;width:71%;
+    display:grid;align-content:center;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:2px 8px;padding:5px 11px;
+  }
+  .nf-home .nf-meal-hero-copy>.eyebrow,
+  .nf-home .nf-home-hero-date,
+  .nf-home .nf-meal-hero h2,
+  .nf-home .nf-meal-hero p,
+  .nf-home .nf-hero-meta {grid-column:1}
+  .nf-home .nf-meal-hero h2 {font-size:15px;margin:0}
+  .nf-home .nf-meal-hero p {font-size:9px;margin:0;line-height:1.2}
+  .nf-home .nf-meal-hero .button.primary {
+    grid-column:2;grid-row:1/6;align-self:center;justify-self:end;
+    min-height:30px;font-size:10px;padding:5px 8px;
+  }
+  .nf-home .nf-family-panel {grid-area:members;min-width:0;min-height:0;height:100%;
+    max-height:none;overflow-y:auto;padding:8px 10px;}
+  .nf-home .nf-today-section {grid-area:today;min-width:0;min-height:0;
+    display:flex;flex-direction:column;margin:0;}
+  .nf-home .nf-today-section .nf-panel-heading {flex:0 0 auto;margin-bottom:4px}
+  .nf-home .nf-today-section h2 {font-size:13px;margin:0}
+  .nf-home .nf-day-slots {
+    flex:1 1 auto;min-height:0;display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;
+  }
+  .nf-home .nf-day-slot {
+    height:100%;min-height:0;min-width:0;padding:6px;
+    gap:4px;border-radius:11px;overflow:hidden;
+  }
+  .nf-home .nf-day-slot strong {font-size:10px;line-height:1.25}
+  .nf-home .nf-day-slot small,.nf-home .nf-slot-status {font-size:9px}
+  .nf-home .nf-day-slot .nf-slot-icon {display:none}
+  .nf-home .nf-today-photo {width:calc(100% + 12px);height:49px;
+    margin:-6px -6px 0;object-fit:cover}
+  .nf-home .nf-home-shortcuts {
+    grid-area:quick;margin:0;min-width:0;
+    padding:8px;border:1px solid var(--nf-screen-card-border);
+    border-radius:13px;background:var(--nf-screen-card-surface);
+  }
+  .nf-home .nf-home-shortcuts .nf-panel-heading {margin-bottom:4px}
+  .nf-home .nf-home-shortcut-grid {grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+  .nf-home .nf-home-shortcut-grid>button {min-height:55px;gap:3px;padding:4px 3px}
+  .nf-home .nf-home-shortcut-grid>button .nf-icon {height:17px;width:17px}
+  .nf-home .nf-home-shortcut-grid>button strong {font-size:9px;line-height:1.2}
+  .nf-home .nf-saved-weeks {
+    grid-area:plans;align-self:stretch;margin:0;min-width:0;
+    padding:8px;border:1px solid var(--nf-screen-card-border);
+    border-radius:13px;background:var(--nf-screen-card-surface);
+  }
+  .nf-home .nf-saved-weeks-heading {margin-bottom:4px}
+  .nf-home .nf-saved-weeks-heading h2 {font-size:12px}
+  .nf-home .nf-saved-weeks-heading small {display:none}
+  .nf-home .nf-home-week-cards {gap:4px}
+  .nf-home .nf-home-week-card {min-height:55px;padding:5px;gap:2px}
+  .nf-home .nf-home-week-card .nf-icon {width:14px;height:14px}
+  .nf-home .nf-home-week-card strong {font-size:9px}
+  .nf-home .nf-home-week-card span {font-size:9px}
+  .nf-home .nf-home-week-card small {display:none}
+  .nf-home .nf-home-week-details {font-size:9px;margin-top:3px}
+  .nf-home .nf-home-note {grid-area:note;margin:0;font-size:9px;line-height:1.2}
+}
+
+/* v2.0.96: home information density and genuine navigation cards.
+   The prior 2x2 grey block was caused by inherited button dimensions and
+   generic button surfaces, not by the number of shortcuts. */
+.nf-home .nf-home-shortcuts .nf-home-shortcut-grid {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  width:100%;
+  gap:7px;
+  align-items:stretch;
+}
+.nf-home .nf-home-shortcuts .nf-home-shortcut-grid > button {
+  appearance:none;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  min-width:0;
+  width:100%;
+  min-height:68px;
+  padding:9px 5px;
+  gap:5px;
+  border:1px solid var(--nf-screen-card-border);
+  border-radius:11px;
+  background:var(--color-surface-soft);
+  color:var(--color-text);
+  box-shadow:none;
+  text-align:center;
+}
+.nf-home .nf-home-shortcuts .nf-home-shortcut-grid > button .nf-icon {
+  width:21px;height:21px;color:var(--nf-ref-amber);
+}
+.nf-home .nf-home-shortcuts .nf-home-shortcut-grid > button strong {
+  font:650 10px/1.3 "Manrope",sans-serif;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.nf-home .nf-home-shortcuts .nf-home-shortcut-grid > button:hover,
+.nf-home .nf-home-shortcuts .nf-home-shortcut-grid > button:focus-visible {
+  border-color:var(--color-action);
+  background:var(--color-action-soft);
+}
+.nf-home .nf-saved-weeks .nf-home-week-cards {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:7px;
+  width:100%;
+}
+.nf-home .nf-saved-weeks .nf-home-week-card {
+  appearance:none;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  min-width:0;
+  width:100%;
+  min-height:68px;
+  gap:4px;
+  padding:8px;
+  border:1px solid var(--nf-screen-card-border);
+  border-radius:11px;
+  background:var(--color-surface-soft);
+  color:var(--color-text);
+  box-shadow:none;
+}
+.nf-home .nf-saved-weeks .nf-home-week-card.is-current {
+  border-color:var(--color-action);
+  background:var(--color-action-soft);
+}
+.nf-home .nf-saved-weeks .nf-home-week-card strong {
+  font:650 10px/1.25 "Manrope",sans-serif;
+  overflow-wrap:anywhere;
+}
+.nf-home .nf-saved-weeks .nf-home-week-card span {
+  font-size:9px;
+  line-height:1.25;
+  white-space:normal;
+}
+.nf-home .nf-saved-weeks .nf-home-week-card .nf-icon {
+  width:18px;height:18px;color:var(--nf-ref-amber);
+}
+.nf-home .nf-saved-weeks .nf-home-week-card small {display:none}
+.nf-home .nf-family-nutrition-lines {
+  gap:5px;
+  margin-bottom:5px;
+}
+.nf-home .nf-family-nutrition-lines .nf-nutrition-person {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:1px 6px;
+  font-size:10px;
+}
+.nf-home .nf-nutrition-person-name {
+  font-weight:650;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.nf-home .nf-nutrition-person strong {
+  color:var(--color-text);
+  font-size:10px;
+  font-weight:600;
+  white-space:nowrap;
+}
+.nf-home .nf-nutrition-person small {
+  grid-column:1/-1;
+  color:var(--color-muted);
+  font-size:9px;
+}
+.nf-home .nf-nutrition-meter {
+  grid-column:1/-1;
+  display:block;
+  height:3px;
+  background:var(--color-border);
+  border-radius:999px;
+  overflow:hidden;
+}
+.nf-home .nf-nutrition-meter > span {
+  display:block;
+  height:100%;
+  background:var(--color-action);
+  border-radius:inherit;
+}
+.nf-home .nf-family-at-a-glance {
+  display:flex;flex-wrap:wrap;gap:6px 12px;
+  margin-bottom:7px;
+  color:var(--color-muted);
+  font-size:10px;
+}
+.nf-home .nf-family-at-a-glance > span {
+  display:inline-flex;align-items:center;gap:4px;
+}
+.nf-home .nf-family-at-a-glance .nf-icon {
+  width:13px;height:13px;color:var(--nf-ref-amber);
+}
+@media(min-width:1101px) and (max-height:750px){
+  .nf-home .nf-family-nutrition-lines {gap:3px;margin-bottom:3px}
+  .nf-home .nf-family-nutrition-lines .nf-nutrition-person {gap:0 6px}
+  .nf-home .nf-nutrition-person small {font-size:8px}
+  .nf-home .nf-family-at-a-glance {margin-bottom:4px;font-size:9px}
+  .nf-home .nf-home-shortcuts .nf-home-shortcut-grid > button {min-height:54px;padding:5px 3px;gap:3px}
+  .nf-home .nf-home-shortcuts .nf-home-shortcut-grid > button .nf-icon {width:17px;height:17px}
+  .nf-home .nf-saved-weeks .nf-home-week-card {min-height:54px;padding:5px;gap:2px}
+  .nf-home .nf-saved-weeks .nf-home-week-card .nf-icon {width:15px;height:15px}
+}
+@media(min-width:761px) and (max-width:1180px){
+  .nf-home .nf-home-shortcuts .nf-home-shortcut-grid,
+  .nf-home .nf-saved-weeks .nf-home-week-cards {gap:4px}
+  .nf-home .nf-home-shortcuts .nf-home-shortcut-grid > button strong {font-size:9px}
+}
+@media(max-width:540px){
+  .nf-home .nf-home-shortcuts .nf-home-shortcut-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .nf-home .nf-saved-weeks .nf-home-week-cards {grid-template-columns:1fr}
+  .nf-home .nf-saved-weeks .nf-home-week-card {
+    display:grid;grid-template-columns:22px 1fr;
+    align-items:center;min-height:48px;
+  }
+  .nf-home .nf-saved-weeks .nf-home-week-card .nf-icon {grid-row:1/3}
+}
+
+/* v2.1.0 — actual seven-day grid rows, not a cosmetic child-card minimum.
+   At the 760 CSS px desktop viewport: 25dvh - 100px = 90px per meal.
+   At 700: 75px. At 900: 125px (capped to 126px).
+   The weekly map's four real rows inherit these tracks via subgrid.
+   This late, scoped !important deliberately wins over stale inline heights
+   and earlier week-reference / ux-planning overrides. */
+@media (min-width:1101px) and (min-height:700px) and (max-height:960px) {
+  .app-shell--meals .nf-week-map-final .weekly-calendar-scroll .weekly-day-grid {
+    grid-template-rows:48px repeat(4,minmax(0,clamp(56px,calc(25dvh - 100px),126px))) !important;
+  }
+}
+
+/* v2.1.1 — Windows display scaling creates an actual 610 CSS-px high
+   viewport even when the screenshot is 959 physical pixels tall.
+   Previous changes only targeted >=700 CSS px and never ran there.
+   These rows are the PARENT grid tracks, inherited by day subgrids.
+   At 610 CSS px: 25dvh - 80px = 72.5 CSS px per meal;
+   at 560: 60px; at 680: clamp to 82px.
+   This is a fallback: the mounted React grid sets measured inline tracks,
+   which must win when synthetic content exceeds the usable viewport. */
+@media (min-width:1101px) and (min-height:560px) and (max-height:699px) {
+  .app-shell--meals .nf-week-map-final .weekly-calendar-scroll .weekly-day-grid {
+    grid-template-rows:40px repeat(4,minmax(0,clamp(56px,calc(25dvh - 80px),82px)));
+  }
+}
+
+/* Shopping: approved editorial split, retaining all original list operations.
+   All figures come from the current real shopping list, never mock prices. */
+.shopping-screen .nf-shopping-workspace {
+  display:grid;
+  grid-template-columns:minmax(0,2.1fr) minmax(230px,.9fr);
+  align-items:start;
+  gap:12px;
+  min-width:0;
+}
+.shopping-screen .nf-shopping-workspace-main {min-width:0}
+.shopping-screen .nf-shopping-workspace .shopping-list-section {
+  margin:0;
+  min-width:0;
+}
+.shopping-screen .nf-shopping-workspace-aside {
+  min-width:0;
+  display:grid;
+  align-content:start;
+  gap:12px;
+}
+.shopping-screen .nf-shopping-aside-card {
+  min-width:0;
+  padding:15px;
+  border:1px solid var(--nf-screen-card-border);
+  border-radius:15px;
+  background:var(--nf-screen-card-surface);
+  color:var(--color-text);
+  box-shadow:var(--nf-screen-card-shadow);
+  display:grid;
+  gap:9px;
+}
+.shopping-screen .nf-shopping-aside-card h2 {
+  margin:0;display:flex;align-items:center;gap:8px;
+  font:700 14px/1.3 "Manrope",sans-serif;
+}
+.shopping-screen .nf-shopping-aside-card h2 .nf-icon {
+  width:19px;height:19px;color:var(--nf-ref-amber);
+}
+.shopping-screen .nf-shopping-aside-card p {
+  margin:0;
+  color:var(--color-muted);
+  font-size:11px;line-height:1.55;
+}
+.shopping-screen .nf-shopping-aside-card dl {
+  margin:0;display:grid;gap:8px;
+}
+.shopping-screen .nf-shopping-aside-card dl>div {
+  display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding-bottom:6px;border-bottom:1px solid var(--nf-screen-card-border);
+}
+.shopping-screen .nf-shopping-aside-card dt {
+  color:var(--color-muted);font-size:11px;
+}
+.shopping-screen .nf-shopping-aside-card dd {
+  margin:0;font:700 14px "Manrope",sans-serif;color:var(--nf-ref-amber);
+}
+.shopping-screen .nf-shopping-aside-meter {
+  height:6px;border-radius:999px;
+  background:var(--color-surface-soft);overflow:hidden;
+}
+.shopping-screen .nf-shopping-aside-meter>span {
+  display:block;height:100%;border-radius:inherit;background:var(--color-action);
+}
+.shopping-screen .nf-shopping-aside-card .button {justify-self:start}
+@media(min-width:1101px) and (max-height:750px){
+  .shopping-screen .nf-shopping-workspace {gap:9px}
+  .shopping-screen .nf-shopping-aside-card {padding:10px;gap:6px}
+}
+@media(max-width:1000px){
+  .shopping-screen .nf-shopping-workspace {grid-template-columns:1fr}
+  .shopping-screen .nf-shopping-workspace-aside {grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:600px){
+  .shopping-screen .nf-shopping-workspace-aside {grid-template-columns:1fr}
+}
+
+.shopping-screen .nf-shopping-item-group {
+  display:grid;gap:3px;min-width:0;
+  border:1px solid var(--nf-screen-card-border);
+  border-radius:14px;overflow:hidden;
+  margin-top:10px;
+}
+.shopping-screen .nf-shopping-item-group > h3 {
+  display:flex;align-items:center;gap:9px;
+  min-height:36px;margin:0;padding:7px 12px;
+  font:700 12px/1.3 "Manrope",sans-serif;
+  background:var(--color-surface-soft);
+  border-bottom:1px solid var(--nf-screen-card-border);
+}
+.shopping-screen .nf-shopping-item-group > h3 .nf-icon {
+  width:19px;height:19px;color:var(--nf-ref-amber);
+}
+.shopping-screen .nf-shopping-item-group > h3 > span {
+  margin-left:auto;border-radius:999px;
+  padding:2px 8px;font-size:10px;
+  background:var(--color-action-soft);color:var(--color-action);
+}
+.shopping-screen .nf-shopping-item-group > .shopping-item {
+  margin:0;border-radius:0;border-left:0;border-right:0;
+  box-shadow:none;
+}
+.shopping-screen .nf-shopping-item-group > .shopping-item:last-child {border-bottom:0}
+
+/* Pantry: readable product/quantity/expiry hierarchy using real lot data.
+   Illustrative photos from the approved mockup are not substitutes for items. */
+.pantry-screen .nf-pantry-item-main {display:grid;align-content:start;gap:7px;min-width:0}
+.pantry-screen .nf-pantry-item-heading {display:flex;align-items:center;gap:9px;min-width:0}
+.pantry-screen .nf-pantry-item-heading > strong {
+  font:700 12px/1.3 "Manrope",sans-serif;min-width:0;overflow-wrap:anywhere;
+}
+.pantry-screen .nf-pantry-item-icon {
+  display:flex;align-items:center;justify-content:center;flex:0 0 34px;
+  width:34px;height:34px;border-radius:10px;
+  background:var(--color-action-soft);color:var(--nf-ref-amber);
+}
+.pantry-screen .nf-pantry-item-icon .nf-icon {width:19px;height:19px}
+.pantry-screen .nf-pantry-item-quantity {
+  display:flex;align-items:baseline;gap:5px;padding:2px 0;
+  color:var(--color-text);min-width:0;
+}
+.pantry-screen .nf-pantry-item-quantity strong {
+  font:700 20px/1.2 "Manrope",sans-serif;
+  letter-spacing:-.4px;
+}
+.pantry-screen .nf-pantry-item-quantity span {font-size:11px;color:var(--color-muted)}
+.pantry-screen .nf-pantry-item-main .nf-expiry-badge {
+  justify-self:start;white-space:normal;
+}
+.pantry-screen .nf-pantry-item-location {
+  color:var(--color-muted);font-size:10px;overflow-wrap:anywhere;
+}
+.pantry-screen .nf-pantry-columns .pantry-row {
+  min-height:170px;
+}
+@media(min-width:1101px) and (max-height:750px){
+  .pantry-screen .nf-pantry-columns .pantry-row {min-height:145px}
+  .pantry-screen .nf-pantry-item-main {gap:4px}
+}
+
+.nf-home .nf-family-nutrition-lines .nf-nutrition-empty {
+  display:block;
+  padding:8px 10px;
+  border:1px solid var(--nf-screen-card-border);
+  border-radius:10px;
+  background:var(--color-surface-soft);
+  color:var(--color-muted);
+  font-size:10px;
+  line-height:1.45;
+}
+@media(min-width:1101px) and (max-height:750px){
+  .nf-home .nf-family-nutrition-lines .nf-nutrition-empty {
+    padding:5px 8px;font-size:9px;
+  }
+}
+
+/* v2.1.7: measured 1280x631 CSS-px visual repair.
+   Use variables that exist in the base design system, with safe fallbacks.
+   Scope all fixes to affected routes. Weekly grid sizing stays untouched. */
+.nf-home .nf-home-shortcuts .nf-home-shortcut-grid,
+.nf-home .nf-saved-weeks .nf-home-week-cards {
+  display:grid !important;min-width:0;width:100%;align-items:stretch;
+  grid-auto-flow:row;
+}
+.nf-home .nf-home-shortcuts .nf-home-shortcut-grid {
+  grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+  gap:6px !important;
+}
+.nf-home .nf-saved-weeks .nf-home-week-cards {
+  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  gap:6px !important;
+}
+.nf-home .nf-home-shortcuts .nf-home-shortcut-grid > button,
+.nf-home .nf-saved-weeks .nf-home-week-cards > button {
+  appearance:none !important;
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:center !important;
+  box-sizing:border-box !important;
+  width:100% !important;
+  min-width:0 !important;
+  min-height:65px !important;
+  height:auto !important;
+  margin:0 !important;
+  padding:7px 4px !important;
+  gap:5px !important;
+  border:1px solid var(--border,#534a4b) !important;
+  border-radius:11px !important;
+  background:var(--surface-soft,#2b292a) !important;
+  color:var(--text,#f3edef) !important;
+  text-align:center !important;
+  box-shadow:none !important;
+  white-space:normal !important;
+  cursor:pointer;
+}
+.nf-home .nf-home-shortcuts .nf-home-shortcut-grid > button:hover,
+.nf-home .nf-saved-weeks .nf-home-week-cards > button:hover {
+  border-color:var(--accent,#d7a47b) !important;
+}
+.nf-home .nf-home-shortcuts .nf-home-shortcut-grid > button strong,
+.nf-home .nf-saved-weeks .nf-home-week-cards > button strong {
+  display:block;font-size:10px;line-height:1.25;font-weight:650;
+  white-space:normal;overflow-wrap:anywhere;max-width:100%;
+}
+.nf-home .nf-home-shortcuts .nf-home-shortcut-grid > button .nf-icon,
+.nf-home .nf-saved-weeks .nf-home-week-cards > button .nf-icon {
+  width:18px;height:18px;color:var(--accent,#d7a47b);
+}
+.nf-home .nf-saved-weeks .nf-home-week-cards > button {
+  align-items:flex-start !important;text-align:left !important;
+}
+.nf-home .nf-saved-weeks .nf-home-week-cards > button.is-current {
+  background:var(--accent-soft,#4d3a30) !important;
+  border-color:var(--accent,#d7a47b) !important;
+}
+.nf-home .nf-saved-weeks .nf-home-week-cards > button span {
+  font-size:9px;white-space:normal;overflow-wrap:anywhere;color:var(--muted,#c1b3b0);
+}
+.nf-home .nf-family-nutrition-lines > .nf-nutrition-person {
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1.25fr) !important;
+  gap:2px 6px !important;
+  min-width:0;
+  padding:3px 0;
+  align-items:center;
+  border-bottom:1px solid var(--border,#4c4749);
+}
+.nf-home .nf-family-nutrition-lines > .nf-nutrition-person .nf-nutrition-person-name {
+  font-size:10px;min-width:0;color:var(--text,#fff);font-weight:650;
+}
+.nf-home .nf-family-nutrition-lines > .nf-nutrition-person > strong {
+  font-size:9px !important;font-weight:500;
+  color:var(--muted,#c1b3b0) !important;
+  white-space:normal !important;overflow-wrap:anywhere;
+  text-align:right;
+}
+.nf-home .nf-family-nutrition-lines > .nf-nutrition-person > small,
+.nf-home .nf-family-nutrition-lines > .nf-nutrition-person > .nf-nutrition-meter {
+  grid-column:1/-1;
+}
+.nf-home .nf-family-nutrition-lines > .nf-nutrition-person > small {
+  font-size:9px;color:var(--accent,#d7a47b);
+}
+.nf-home .nf-family-at-a-glance {gap:10px;margin-bottom:6px}
+.nf-home .nf-family-at-a-glance > span {display:inline-flex;gap:4px;align-items:center;font-size:10px}
+.nf-home .nf-family-at-a-glance .nf-icon {height:13px;width:13px}
+.nf-home .nf-family-panel {overflow-y:auto;overflow-x:hidden}
+.shopping-screen .nf-shopping-overview {
+  display:grid !important;
+  grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+  gap:8px;
+  margin:9px 0 7px;
+}
+.shopping-screen .nf-shopping-overview > div {
+  min-width:0 !important;display:flex;align-items:center;gap:8px;
+  min-height:65px;padding:8px 10px;
+}
+.shopping-screen .nf-shopping-overview > div > span {
+  display:grid;gap:3px;min-width:0;
+  color:var(--muted,#c1b3b0);font-size:10px;line-height:1.3;
+}
+.shopping-screen .nf-shopping-overview > div b {
+  display:block;font-size:22px;line-height:1.05;color:var(--text,#fff);
+}
+.shopping-screen .nf-shopping-overview > p {grid-column:1/-1;margin:0;font-size:10px;line-height:1.3}
+.shopping-screen .shopping-refresh-card {
+  display:flex;align-items:end;gap:9px;
+  padding:9px 12px !important;margin:8px 0 !important;
+  flex-wrap:wrap;
+}
+.shopping-screen .shopping-refresh-card .field {flex:0 1 190px;min-width:135px;margin:0}
+.shopping-screen .shopping-refresh-card input,
+.shopping-screen .shopping-refresh-card select {min-height:34px;padding:5px 8px}
+.shopping-screen .shopping-refresh-card .button {min-height:34px;padding:6px 12px}
+.pantry-screen .nf-pantry-summary {
+  display:grid !important;grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+  gap:8px;margin:8px 0 10px;
+}
+.pantry-screen .nf-pantry-summary > div {
+  min-width:0;display:grid;grid-template-columns:25px minmax(0,1fr);
+  align-items:center;align-content:center;gap:1px 9px;
+  padding:9px 12px;
+  border:1px solid var(--border,#534a4b);
+  border-radius:12px;
+  background:var(--surface,#262426);
+  color:var(--text,#f3edef);
+}
+.pantry-screen .nf-pantry-summary > div .nf-icon {
+  grid-row:1/3;height:21px;width:21px;color:var(--accent,#d7a47b)
+}
+.pantry-screen .nf-pantry-summary > div strong {grid-column:2;font-size:21px;line-height:1.1}
+.pantry-screen .nf-pantry-summary > div small {grid-column:2;font-size:10px;line-height:1.3;color:var(--muted,#c1b3b0)}
+.pantry-screen .nf-pantry-overview {margin:8px 0;padding:9px 12px;min-height:0}
+.pantry-screen .nf-list-controls {margin:8px 0;gap:8px}
+.pantry-screen .pantry-toggle {margin:6px 0}
+.recipe-catalogue .recipe-header {
+  margin-bottom:8px !important;
+}
+.recipe-catalogue .nf-recipe-editorial-row {
+  display:grid !important;grid-template-columns:minmax(0,2fr) minmax(210px,.85fr);
+  align-items:stretch;gap:9px !important;margin:10px 0 !important;
+}
+.recipe-catalogue .nf-recipe-feature {
+  height:clamp(115px,20vh,146px) !important;
+  min-height:0 !important;
+  max-height:146px;
+}
+.recipe-catalogue .nf-recipe-feature .nf-recipe-art {
+  height:100%;min-height:0 !important;
+}
+.recipe-catalogue .nf-recipe-feature-aside {
+  min-height:0 !important;padding:10px !important;gap:5px;
+}
+.recipe-catalogue .nf-recipe-browse-toolbar,
+.recipe-catalogue .nf-catalogue-context {margin:6px 0 !important;gap:8px}
+@media(min-width:1101px) and (max-height:700px){
+  .nf-home .nf-home-shortcuts .nf-home-shortcut-grid > button,
+  .nf-home .nf-saved-weeks .nf-home-week-cards > button {
+    min-height:56px !important;padding:5px 3px !important;gap:3px !important;
+  }
+  .nf-home .nf-family-nutrition-lines > .nf-nutrition-person {padding:2px 0;gap:1px 5px !important}
+  .shopping-screen .screen-header {margin-bottom:7px}
+  .pantry-screen .screen-header {margin-bottom:7px}
+  .recipe-catalogue .nf-recipe-editorial-row {margin:8px 0 !important}
+}
+@media(max-width:1100px){
+  .shopping-screen .nf-shopping-overview,
+  .pantry-screen .nf-pantry-summary {grid-template-columns:repeat(2,minmax(0,1fr)) !important}
+  .recipe-catalogue .nf-recipe-editorial-row {grid-template-columns:1fr}
+}
+@media(max-width:540px){
+  .nf-home .nf-home-shortcuts .nf-home-shortcut-grid {grid-template-columns:repeat(2,minmax(0,1fr)) !important}
+  .nf-home .nf-saved-weeks .nf-home-week-cards {grid-template-columns:1fr !important}
+}
+
+/* v2.1.8 — page-specific editorial geometry, grounded in approved mockups.
+   Layout panels remain native React components and retain all interactions.
+   These rules do not alter the accepted seven-day calendar. */
+@media(min-width:1101px) {
+  .home-base .nf-house-nav {
+    margin:0 0 7px!important;min-height:0;
+    padding:3px 4px;gap:3px;
+  }
+  .home-base .nf-house-nav > button {min-height:31px;padding:5px 12px;font-size:11px}
+  .home-base .nf-house-tools > summary {min-height:31px;padding:5px 12px;font-size:11px}
+  .home-base .recipe-catalogue .recipe-header {
+    margin:0 0 7px!important;min-height:0;
+    align-items:center;
+  }
+  .home-base .recipe-catalogue .recipe-header h1 {
+    font-size:clamp(20px,1.8vw,25px);margin:2px 0 3px;
+  }
+  .home-base .recipe-catalogue .recipe-header p {
+    margin:0;font-size:11px;line-height:1.3;
+  }
+  .home-base .recipe-catalogue .nf-recipe-editorial-row {
+    display:grid!important;
+    grid-template-columns:minmax(0,2fr) minmax(210px,.8fr);
+    gap:9px!important;
+    margin:7px 0!important;align-items:stretch;
+  }
+  .home-base .recipe-catalogue .nf-recipe-editorial-row .nf-recipe-feature {
+    display:flex!important;
+    height:116px!important;min-height:0!important;max-height:116px!important;
+    overflow:hidden;align-items:stretch;
+    background:var(--surface,#262426);color:var(--text,#f3edef);
+    border:1px solid var(--border,#534a4b);
+  }
+  .home-base .recipe-catalogue .nf-recipe-feature .nf-recipe-art {
+    flex:0 0 34%;width:34%;min-height:0!important;height:116px!important;
+    overflow:hidden;
+  }
+  .home-base .recipe-catalogue .nf-recipe-feature .nf-recipe-art img {
+    width:100%;height:100%;object-fit:cover;display:block;
+  }
+  .home-base .recipe-catalogue .nf-recipe-feature-copy {
+    align-content:center;gap:3px;padding:7px 10px;
+  }
+  .home-base .recipe-catalogue .nf-recipe-feature-copy strong {
+    font-size:15px;line-height:1.2;
+  }
+  .home-base .recipe-catalogue .nf-recipe-feature-aside {
+    height:116px!important;min-height:0!important;
+    padding:8px 11px!important;gap:3px!important;
+    background:var(--surface,#262426);
+    border-color:var(--border,#534a4b);
+  }
+  .home-base .recipe-catalogue .nf-recipe-feature-aside p {font-size:10px;line-height:1.3}
+  .home-base .recipe-catalogue .nf-recipe-feature-aside .button {min-height:29px;font-size:10px}
+  .home-base .recipe-catalogue .recipe-toolbar {margin:5px 0!important}
+  .home-base .recipe-catalogue .nf-recipe-filter-tools {margin:4px 0}
+  .home-base .recipe-catalogue .nf-catalogue-results {margin:4px 0!important}
+  .home-base .recipe-catalogue .nf-recipe-grid {
+    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;
+  }
+  .home-base .recipe-catalogue .nf-recipe-grid .nf-recipe-card {
+    display:flex;flex-direction:column;min-width:0;gap:4px;
+    min-height:130px;padding:6px;border-radius:12px;
+    background:var(--surface,#262426);border:1px solid var(--border,#534a4b);
+    color:var(--text,#f3edef);
+  }
+  .home-base .recipe-catalogue .nf-recipe-grid .nf-recipe-card .nf-recipe-art {
+    height:69px!important;min-height:0;width:100%;
+  }
+  .home-base .recipe-catalogue .nf-recipe-grid .nf-recipe-card .ingredient-row__main strong {font-size:11px;line-height:1.2}
+  .home-base .recipe-catalogue .nf-recipe-grid .nf-recipe-card .ingredient-row__main small {font-size:9px;line-height:1.25}
+  .home-base .recipe-catalogue .nf-recipe-grid .nf-recipe-card .ingredient-row__end {gap:3px;font-size:9px}
+  .shopping-screen > .screen-header {
+    min-height:0;margin:0 0 7px!important;padding:3px 0;
+  }
+  .shopping-screen > .screen-header h1 {font-size:23px;margin:2px 0 3px}
+  .shopping-screen > .screen-header p {font-size:11px;line-height:1.3;margin:0}
+  .shopping-screen .shopping-refresh-card {
+    min-height:0;align-items:end;gap:8px;
+    padding:8px 11px!important;margin:6px 0!important;
+  }
+  .shopping-screen .shopping-refresh-card .field {flex:0 1 175px}
+  .shopping-screen .shopping-refresh-card input,
+  .shopping-screen .shopping-refresh-card select {height:32px!important;min-height:32px!important}
+  .shopping-screen .nf-shopping-overview {
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    gap:7px!important;margin:7px 0!important;
+  }
+  .shopping-screen .nf-shopping-overview > div {min-height:55px!important;padding:7px 9px!important}
+  .shopping-screen .nf-shopping-overview > p {font-size:9px;margin:0!important}
+  .shopping-screen .nf-shopping-workspace {
+    grid-template-columns:minmax(0,2.1fr) minmax(215px,.9fr);
+    gap:9px;
+  }
+  .shopping-screen .nf-shopping-workspace-main > .shopping-list-section {
+    margin:0!important;min-width:0;
+  }
+  .shopping-screen .shopping-list-section > h2 {margin:0 0 7px;font-size:15px}
+  .shopping-screen .nf-list-controls {margin:4px 0 7px;gap:7px}
+  .shopping-screen .nf-list-controls .field {margin:0;min-width:175px}
+  .shopping-screen .nf-list-controls input {min-height:32px;padding:5px 9px}
+  .shopping-screen .nf-shopping-supporting-details {margin-top:9px}
+  .shopping-screen .nf-shopping-supporting-details details {
+    margin:4px 0;padding:7px 10px;font-size:10px;
+  }
+  .pantry-screen > .screen-header {
+    min-height:0;margin:0 0 7px!important;padding:3px 0;
+  }
+  .pantry-screen > .screen-header h1 {margin:2px 0 3px;font-size:23px}
+  .pantry-screen > .screen-header p {font-size:11px;margin:0}
+  .pantry-screen .nf-pantry-summary {
+    display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    margin:7px 0!important;gap:7px!important;
+  }
+  .pantry-screen .nf-pantry-summary > div {
+    display:grid!important;min-height:56px!important;
+    grid-template-columns:24px minmax(0,1fr);grid-template-rows:auto auto;
+    padding:7px 9px!important;
+    border:1px solid var(--border,#534a4b)!important;
+    border-radius:12px;background:var(--surface,#262426)!important;
+  }
+  .pantry-screen .nf-pantry-summary > div .nf-icon {grid-row:1/3}
+  .pantry-screen .nf-pantry-summary > div small {
+    grid-column:2;grid-row:2;font-size:9px;
+    white-space:normal;
+  }
+  .pantry-screen .nf-pantry-summary > div strong {
+    grid-column:2;grid-row:1;font-size:19px;
+  }
+  .pantry-screen .nf-list-controls {margin:7px 0!important}
+  .pantry-screen .pantry-toggle {margin:3px 0 7px}
+  .people-screen .people-screen-header {
+    box-sizing:border-box;display:flex;align-items:center;
+    min-height:85px;margin:0 0 10px!important;
+    padding:11px 16px;
+    border:1px solid var(--border,#534a4b);
+    border-radius:15px;
+    background:linear-gradient(112deg,var(--surface,#262426),var(--accent-soft,#4d3a30));
+  }
+  .people-screen .people-screen-header h1 {margin:2px 0;font-size:23px}
+  .people-screen .people-screen-header p {margin:0;font-size:11px}
+  .people-screen .nf-people-hero-avatars {
+    display:flex;align-items:center;justify-content:center;gap:0;
+    margin-left:auto;margin-right:10px;flex-shrink:0;
+  }
+  .people-screen .nf-people-hero-avatars .nf-avatar {
+    width:33px;height:33px;flex-basis:33px;
+    border:2px solid var(--surface,#262426);margin-left:-8px;
+  }
+  .people-screen .nf-family-member-section .person-row {min-height:105px;padding:8px}
+  .people-screen .nf-family-member-section .people-list {gap:6px}
+  .people-screen .nf-family-main-grid {gap:9px}
+  .people-screen .nf-family-insights {gap:9px;margin-top:8px}
+  .people-screen :is(.nf-family-member-section,.nf-family-objectives,.nf-family-preferences,.nf-family-comparison) {padding:10px}
+  .people-screen .nf-family-section-header {margin-bottom:7px}
+  .people-screen .nf-family-goal-facts {display:grid;gap:7px;align-content:start;margin-bottom:8px}
+  .people-screen .nf-family-goal-facts > div {
+    display:flex;justify-content:space-between;align-items:baseline;gap:7px;
+    border-bottom:1px solid var(--border,#534a4b);padding-bottom:5px;
+  }
+  .people-screen .nf-family-goal-facts strong {font-size:17px;color:var(--accent,#d7a47b)}
+  .people-screen .nf-family-goal-facts span,
+  .people-screen .nf-family-goal-disclaimer {font-size:10px;color:var(--muted,#c1b3b0)}
+  .people-screen .nf-family-preference-placeholder {
+    display:flex;align-items:flex-start;gap:10px;
+    padding:9px;border-radius:10px;background:var(--surface-soft,#2b292a);
+  }
+  .people-screen .nf-family-preference-placeholder .nf-icon {color:var(--accent,#d7a47b);width:20px;height:20px}
+  .people-screen .nf-family-preference-placeholder p {font-size:10px;line-height:1.45;margin:0}
+}
+@media(min-width:1101px) and (max-height:700px){
+  .home-base .recipe-catalogue .nf-recipe-editorial-row .nf-recipe-feature,
+  .home-base .recipe-catalogue .nf-recipe-feature .nf-recipe-art,
+  .home-base .recipe-catalogue .nf-recipe-feature-aside {height:96px!important;max-height:96px!important}
+  .home-base .recipe-catalogue .nf-recipe-grid .nf-recipe-card .nf-recipe-art {height:54px!important}
+  .home-base .recipe-catalogue .nf-recipe-grid .nf-recipe-card {min-height:105px}
+  .people-screen .nf-family-member-section .person-row {min-height:91px}
+  .people-screen .people-screen-header {min-height:73px;padding:7px 12px}
+  .shopping-screen .nf-shopping-overview > div {min-height:50px!important}
+}
+@media(max-width:1100px){
+  .people-screen .nf-people-hero-avatars {display:none}
+}
+
+/* Family profile matrix: real recorded data only, still opens individual drawer. */
+.people-screen .nf-family-comparison-table-wrap {
+  width:100%;overflow-x:auto;border:1px solid var(--border,#534a4b);
+  border-radius:11px;scrollbar-width:thin;
+}
+.people-screen .nf-family-comparison-table {
+  width:100%;border-collapse:collapse;table-layout:fixed;
+  color:var(--text,#f3edef);font-size:10px;
+}
+.people-screen .nf-family-comparison-table th,
+.people-screen .nf-family-comparison-table td {
+  min-width:0;padding:7px 5px;
+  border-bottom:1px solid var(--border,#534a4b);
+  text-align:center;line-height:1.35;
+  overflow-wrap:anywhere;
+}
+.people-screen .nf-family-comparison-table thead {
+  background:var(--surface-soft,#2b292a);
+}
+.people-screen .nf-family-comparison-table th:first-child {
+  text-align:left;width:28%;
+}
+.people-screen .nf-family-comparison-table tbody th {
+  font-weight:550;color:var(--muted,#c1b3b0);
+}
+.people-screen .nf-family-comparison-table th button {
+  appearance:none;border:0;background:transparent;
+  color:var(--accent,#d7a47b);font-family:inherit;font-weight:700;font-size:10px;line-height:1.3;
+  padding:0;cursor:pointer;
+}
+.people-screen .nf-family-comparison-table tr:last-child>* {border-bottom:0}
+@media(min-width:1101px) and (max-height:700px) {
+  .people-screen .nf-family-comparison-table th,
+  .people-screen .nf-family-comparison-table td {padding:5px 4px;font-size:9px}
+}
+
+/* Home family panel: real completeness gauge, not a medical target. */
+.nf-home .nf-family-panel-layout {
+  display:grid;grid-template-columns: minmax(0,1fr) minmax(0,1.05fr);
+  gap:12px;min-height:0;
+}
+.nf-home .nf-family-panel-nutrition,
+.nf-home .nf-family-panel-people {min-width:0;min-height:0}
+.nf-home .nf-family-panel-nutrition {
+  padding-right:10px;border-right:1px solid var(--border,#534a4b);
+}
+.nf-home .nf-family-panel-nutrition .nf-family-progress-heading {margin-bottom:4px}
+.nf-home .nf-family-panel-nutrition .nf-family-progress-heading strong {font-size:11px;line-height:1.2}
+.nf-home .nf-family-panel-nutrition .nf-family-progress-sub {font-size:9px;line-height:1.25;margin:3px 0 7px}
+.nf-home .nf-family-record-meter {
+  display:flex;align-items:center;gap:8px;
+  margin:2px 0 7px;min-width:0;
+}
+.nf-home .nf-family-record-ring {
+  flex:0 0 46px;display:grid;place-items:center;
+  height:46px;width:46px;border-radius:50%;
+  position:relative;color:var(--text,#f3edef);
+}
+.nf-home .nf-family-record-ring::before {
+  content:"";position:absolute;inset:5px;border-radius:50%;
+  background:var(--surface,#262426);
+}
+.nf-home .nf-family-record-ring > span {
+  position:relative;z-index:1;font-size:12px;font-weight:700;
+}
+.nf-home .nf-family-record-meter > small {
+  color:var(--muted,#c1b3b0);font-size:9px;line-height:1.35;
+}
+.nf-home .nf-family-panel-people .nf-panel-heading {margin-bottom:5px}
+.nf-home .nf-family-panel-people .nf-panel-heading h2 {font-size:12px;line-height:1.25}
+.nf-home .nf-family-panel-people .nf-person-line {
+  min-height:34px;padding:3px 1px;gap:7px;
+  border-bottom:1px solid var(--border,#534a4b);
+}
+.nf-home .nf-family-panel-people .nf-person-line .nf-avatar {
+  flex:0 0 29px;height:29px;width:29px;
+}
+.nf-home .nf-family-panel-people .nf-person-copy {gap:0}
+.nf-home .nf-family-panel-people .nf-person-copy strong {font-size:10px;line-height:1.15}
+.nf-home .nf-family-panel-people .nf-person-copy small {font-size:9px;line-height:1.2}
+.nf-home .nf-family-panel-people .nf-panel-footnote {font-size:9px;margin:6px 0 0;line-height:1.2}
+.nf-home .nf-family-panel-nutrition .nf-family-nutrition-lines {gap:3px;margin-bottom:5px}
+.nf-home .nf-family-panel-nutrition .nf-nutrition-person {padding:2px 0}
+.nf-home .nf-family-panel-nutrition .nf-family-at-a-glance {gap:7px}
+@media(min-width:1101px) and (max-height:700px){
+  .nf-home .nf-family-panel-layout {gap:8px}
+  .nf-home .nf-family-panel-nutrition {padding-right:7px}
+  .nf-home .nf-family-record-ring {flex-basis:37px;width:37px;height:37px}
+  .nf-home .nf-family-record-ring::before {inset:4px}
+  .nf-home .nf-family-record-ring > span {font-size:10px}
+  .nf-home .nf-family-panel-people .nf-person-line {min-height:31px;padding:2px 0}
+  .nf-home .nf-family-panel-people .nf-person-line .nf-avatar {flex-basis:26px;width:26px;height:26px}
+}
+@media(max-width:1100px){
+  .nf-home .nf-family-panel-layout {grid-template-columns:1fr}
+  .nf-home .nf-family-panel-nutrition {border-right:0;border-bottom:1px solid var(--border,#534a4b);padding:0 0 8px}
+}

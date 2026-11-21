@@ -3,13 +3,21 @@ import {describe, expect, it, vi} from "vitest";
 import {renderToStaticMarkup} from "react-dom/server";
 import FamilyHome, {currentMealKind, nextFamilyMeal} from "./FamilyHome";
 import PersonAvatar, {avatarAgeGroup, familySkinPalette, avatarInitials, avatarTone} from "./ui/PersonAvatar";
-import Brand from "./ui/Brand";
+import Brand, { APP_VERSION } from "./ui/Brand";
 import type {FamilyDashboard, FamilyDashboardMeal} from "./api/types";
 
 vi.mock("./i18n",()=>({useI18n:()=>({locale:"pt-PT", t:(key:string)=>key})}));
 const meal=(id:string, scheduled_at:string, status="planned"):FamilyDashboardMeal=>({id,scheduled_at,status,meal_type:"dinner",title:"Jantar de teste",timezone:"Europe/Lisbon",location:"Casa",participant_person_ids:["person-test"]});
 const dashboard:FamilyDashboard={family_id:"synthetic-family",family_name:"Família de teste",timezone:"Europe/Lisbon",dashboard_date:"2026-11-18",members:[{person_id:"person-test",first_name:"Ana",last_name:"Silva",timezone:"Europe/Lisbon",health:null,nutrition:null}],meals:[]};
 describe("UX foundation with authoritative dashboard data",()=>{
+  it("displays the frontend semantic version alongside Casa à Mesa",()=>{
+    expect(APP_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
+    const html=renderToStaticMarkup(<Brand/>);
+    expect(html).toContain("Casa à Mesa");
+    expect(html).toContain(`v${APP_VERSION}`);
+    expect(html).toContain(`Versão ${APP_VERSION}`);
+  });
+
   it("keeps a stable avatar tone across name changes without exposing identity keys",()=>{
     expect(avatarTone("person-test")).toBe(avatarTone("person-test"));
     const html=renderToStaticMarkup(<PersonAvatar identity="private-person-id" name="Ana Silva"/>);

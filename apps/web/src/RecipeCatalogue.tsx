@@ -3,6 +3,8 @@ import {requestNavigation} from "./navigation";
 import {browseRecipes,defaultRecipeBrowse,readRecipeBrowse,storeRecipeBrowse,searchText,isAdaptedRecipe,type RecipeBrowse} from "./recipeBrowsing";
 import RecipeTastePanel from "./ui/RecipeTastePanel";
 import Icon from "./ui/Icon";
+import {resolveMealHeroImage} from "./mealHeroImages";
+import ContextDrawer from "./ui/ContextDrawer";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import {
@@ -22,6 +24,18 @@ import type {
   RecipeNutritionEvidence,
 } from "./api/recipeTypes";
 import { useI18n, type Locale } from "./i18n";
+
+function RecipeCardArt({name}: {name:string}) {
+  const resolved = resolveMealHeroImage({planned:{title:name}});
+  const [failedSrc,setFailedSrc] = useState<string|null>(null);
+  const image = resolved && resolved.src !== failedSrc ? resolved : null;
+  return <span className="nf-recipe-art" aria-label={image?.alt ?? name}>
+    {image ?
+      <img src={image.src} alt="" loading="lazy" referrerPolicy="no-referrer"
+        onError={() => setFailedSrc(image.src)} /> :
+      <Icon name="book" />}
+  </span>;
+}
 
 const MEAL_TYPES: RecipeMealType[] = ["breakfast", "lunch", "snack", "dinner"];
 type NutritionFilter = "all" | "ingredient_calculated" | "incomplete" | "synthetic_development";
@@ -794,9 +808,6 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (selected !== undefined) {
-      return;
-    }
     let cancelled = false;
     const timer = window.setTimeout(() => {
       setBusy(true);
@@ -826,7 +837,7 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [familyId, includeInactive, query, revision, selected]);
+  }, [familyId, includeInactive, query, revision]);
 
   const hasSearch = useMemo(() => query.trim().length > 0 || nutritionFilter !== "all"||mealFilter!=="all"||originFilter!=="all"||includeInactive, [query, nutritionFilter,mealFilter,originFilter,includeInactive]);
   const filteredRecipes = useMemo(
@@ -834,27 +845,42 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
     [recipes,nutritionFilter,mealFilter,originFilter,sortOrder,locale],
   );
 
-  if (selected !== undefined) {
-    if (selected !== null && !selected.editable) {
-      return <><button type="button" className="button secondary" onClick={()=>copyRecipe(selected)}>{locale==="pt-PT"?"Criar cópia para a família":"Create family copy"}</button><SharedRecipeViewer recipe={selected} onDone={() => setSelected(undefined)} /><RecipeTastePanel key={selected.id} familyId={familyId} recipe={selected}/></>;
-    }
-    return (
-      <>
-      {selected&&<button type="button" className="button secondary" onClick={()=>copyRecipe(selected)}>{locale==="pt-PT"?"Criar cópia para a família":"Create family copy"}</button>}
-      <RecipeEditor key={selected?.id??seedRecipe?.id??"new"}
-        seedRecipe={selected===null?seedRecipe:undefined}
-        familyId={familyId}
-        ingredients={ingredients}
-        recipe={selected}
-        onDone={() => {
-          setSeedRecipe(undefined);setSelected(undefined);
-          setRevision((current) => current + 1);
-        }}
-      />
-      {selected ? <RecipeTastePanel key={selected.id} familyId={familyId} recipe={selected}/> : null}
-      </>
-    );
-  }
+  const editorPanel = selected !== undefined ? (
+    <ContextDrawer
+      title={selected?.name ?? copy.newRecipe}
+      wide
+      closeLabel={locale === "pt-PT" ? "Fechar detalhe" : "Close detail"}
+      onRequestClose={() => {
+        if (!requestNavigation()) return false;
+        setSeedRecipe(undefined);
+        setSelected(undefined);
+        return true;
+      }}
+    >
+      {selected !== null && !selected.editable ? (
+        <>
+          <button type="button" className="button secondary" onClick={()=>copyRecipe(selected)}>{locale==="pt-PT"?"Criar cópia para a família":"Create family copy"}</button>
+          <SharedRecipeViewer recipe={selected} onDone={() => setSelected(undefined)} />
+          <RecipeTastePanel key={selected.id} familyId={familyId} recipe={selected}/>
+        </>
+      ) : (
+        <>
+          {selected&&<button type="button" className="button secondary" onClick={()=>copyRecipe(selected)}>{locale==="pt-PT"?"Criar cópia para a família":"Create family copy"}</button>}
+          <RecipeEditor key={selected?.id??seedRecipe?.id??"new"}
+            seedRecipe={selected===null?seedRecipe:undefined}
+            familyId={familyId}
+            ingredients={ingredients}
+            recipe={selected}
+            onDone={() => {
+              setSeedRecipe(undefined);setSelected(undefined);
+              setRevision((current) => current + 1);
+            }}
+          />
+          {selected ? <RecipeTastePanel key={selected.id} familyId={familyId} recipe={selected}/> : null}
+        </>
+      )}
+    </ContextDrawer>
+  ) : null;
 
   return (
     <div className="recipe-catalogue">
@@ -868,6 +894,33 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
           + {copy.newRecipe}
         </button>
       </header>
+      {filteredRecipes.length > 0 && !busy ? (() => {
+        // Only feature an actual recipe from the current, permission-filtered
+        // catalogue. This is a visual highlight, not a medical recommendation.
+        const photoRecipe = filteredRecipes.find(recipe =>
+          resolveMealHeroImage({planned:{title:recipe.name}}) !== null);
+        const featured = photoRecipe ?? filteredRecipes[0]!;
+        return <div className="nf-recipe-editorial-row">
+          <button type="button" className="nf-recipe-feature" onClick={() => setSelected(featured)}>
+            <RecipeCardArt name={featured.name}/>
+            <span className="nf-recipe-feature-copy">
+              <small>{locale === "pt-PT" ? "RECEITA DO CATÁLOGO" : "FROM THE CATALOGUE"}</small>
+              <strong>{featured.name}</strong>
+              <span>{featured.suitable_meal_types.map(type => copy[type]).join(" · ")} · {featured.ingredients.length} {copy.ingredients.toLowerCase()}</span>
+              <em>{locale === "pt-PT" ? "Ver receita" : "View recipe"} ›</em>
+            </span>
+          </button>
+          <aside className="nf-recipe-feature-aside">
+            <strong>{locale === "pt-PT" ? "Explorar adaptações" : "Explore adaptations"}</strong>
+            <p>{locale === "pt-PT" ?
+              "Revê ingredientes, dados nutricionais e possíveis alterações antes de confirmar." :
+              "Review ingredients, nutrition data and possible changes before confirming."}</p>
+            <button type="button" className="button ghost small" onClick={() => setSelected(featured)}>
+              {locale === "pt-PT" ? "Abrir detalhe" : "Open details"}
+            </button>
+          </aside>
+        </div>;
+      })() : null}
       <div className="recipe-toolbar nf-recipe-browse-toolbar">
         <label className="field recipe-search">
           <span>{copy.search}</span>
@@ -909,9 +962,9 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
           <span>{error}</span>
         </div>
       ) : null}
-      {busy ? (
+      {busy && recipes.length === 0 ? (
         <div className="shell-loading" role="status">{copy.loading}</div>
-      ) : filteredRecipes.length === 0 ? (
+      ) : filteredRecipes.length === 0 && !busy ? (
         <div className="ingredient-empty">{hasSearch ? copy.emptySearch : copy.empty}</div>
       ) : (
         <div className="nf-recipe-grid">
@@ -924,7 +977,7 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
                 onClick={() => setSelected(recipe)}
                 type="button"
               >
-                <span className="nf-recipe-art" aria-hidden="true"><Icon name="book" /></span>
+                <RecipeCardArt name={recipe.name}/>
                 <span className="ingredient-row__main">
                   <strong>{recipe.name}</strong>
                   <small>
@@ -947,6 +1000,7 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
           })}
         </div>
       )}
+      {editorPanel}
     </div>
   );
 }
