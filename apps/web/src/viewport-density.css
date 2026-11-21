@@ -542,3 +542,19 @@
   .pantry-screen .nf-pantry-columns .pantry-row {min-height:145px}
   .pantry-screen .nf-pantry-item-main {gap:4px}
 }
+
+.nf-home .nf-family-nutrition-lines .nf-nutrition-empty {
+  display:block;
+  padding:8px 10px;
+  border:1px solid var(--nf-screen-card-border);
+  border-radius:10px;
+  background:var(--color-surface-soft);
+  color:var(--color-muted);
+  font-size:10px;
+  line-height:1.45;
+}
+@media(min-width:1101px) and (max-height:750px){
+  .nf-home .nf-family-nutrition-lines .nf-nutrition-empty {
+    padding:5px 8px;font-size:9px;
+  }
+}
