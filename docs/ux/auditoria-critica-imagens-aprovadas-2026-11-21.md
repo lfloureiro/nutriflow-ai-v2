@@ -30,3 +30,9 @@ O anterior passe genérico de v2.0.87–2.0.92 e a existência de testes de view
 - Comparar screenshots com os PNG em 1672 × 941 dark, a mesmo zoom e fonte; auditar geometria dos 6 blocos principais e depois cores/tipografia.
 - Repetir 1280 × 700, 1440 × 900, 1024, 768, 390, e light/dark; manter acessibilidade, drawers e sem perdas de dados.
 - CI 3/3 no SHA final; PR #76 draft, main e DB reais intocados.
+
+## Continuação v2.0.94 — Despensa
+- `PantryScreen.tsx`: criada estrutura `nf-pantry-columns` com inventário à esquerda e dois painéis à direita. O painel de stock calcula disponíveis, validade a rever e lotes sem data a partir do estado real. O botão de validade atualiza o filtro existente; adicionar stock usa o drawer existente.
+- `screen-reference.css`: lotes exibidos como cartões numa grelha responsiva (3 colunas desktop, 2 em tablet, 1 em mobile) e painéis laterais. Estados, edição, ativação/inativação, quantidades e API preservados.
+- `shell-visual-parity.spec.ts`: assertivas para a estrutura em duas áreas e os dois painéis laterais.
+- **Limite:** ainda não há fotografias verificadas para cada produto nem sistema comprovado de limiares de reposição; não gerar recomendações falsas. A comparação visual exata com `despensa.png` continua pendente. O último commit ainda requer resultado Web/API/E2E.
