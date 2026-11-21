@@ -42,13 +42,13 @@ Os cinco PNG de referência **originais** foram localizados na Biblioteca do pro
 - `compras.png`: `1593f11dd93c9121d6382c9800bc5800ad2b48a45fd375c377ca5fb2375f82d6`
 - `despensa.png`: `2c83ee7034e955c8b8b682c3fc5722626b73543d0755b39e9151df5e27290135`
 
-Em Receitas, a referência aprovada mostra um hero horizontal com receita real e painel de sugestões, uma pesquisa compacta, filtros rápidos e uma grelha de 4 colunas no desktop. O catálogo já tem hero/aside/grelha; **não preencher o painel com afirmações falsas de compatibilidade, tempos de confeção ou favoritos** só para reproduzir o mockup. Os novos filtros de imagem e revisão de duplicados têm de preservar esta hierarquia, usando disclosure secundário.
+Em Receitas, a referência aprovada mostra um hero horizontal com receita real e painel de sugestões, uma pesquisa compacta, filtros rápidos e uma grelha de 4 colunas no desktop. O catálogo já tem hero/aside/grelha; **não preencher o painel com afirmações falsas de compatibilidade, tempos de confeção ou favoritos** só para reproduzir o mockup. Foram adicionados filtros rápidos visíveis Todas / Pequeno-almoço / Almoço / Lanche / Jantar / Adaptações, com estado acessível `aria-pressed` e versão mobile horizontal; os filtros avançados continuam em disclosure secundário. A auditoria de duplicados também continua secundária, sem alterar o catálogo.
 
 Em Família, Compras e Despensa, as referências foram agora verificadas, mas ainda falta confrontar o browser atual, nos mesmos viewports, com cada imagem antes de implementar grandes mudanças visuais. Uma captura ilustrativa não é fonte de números reais de stock, preço, objetivos ou restrições.
 
 ## Versão do lote
 - `apps/web/package.json`: **2.1.22**. Contém as correções documentadas de 21/11/2026 e a primeira revisão do UX de Receitas; não representa conclusão de paridade das outras páginas.
-- Commits principais: `cef8ce5` (densidade do Início), `bc46d3b` (estado do filtro), `2a0dbbe` (UI do filtro), `dd5948d` (teste), `9593445` (atalho Sem imagem), `61df8d9` (cliente da auditoria), `9b6d4e5` (secção de duplicados). Confirmar sempre último SHA e os 3 checks.
+- Commits principais: `cef8ce5` (densidade do Início), `bc46d3b` (estado do filtro), `2a0dbbe` (UI do filtro), `dd5948d` (teste), `9593445` (atalho Sem imagem), `61df8d9` (cliente da auditoria), `9b6d4e5` (secção de duplicados), `0195deb` (filtros rápidos), `ecbdda1` (estilo responsivo). Confirmar sempre último SHA e os 3 checks.
 
 ## Política de execução
 Trabalhar em commits pequenos no PR #76, com testes e documentação por lote. Não declarar «pronto a testar» enquanto existir CI vermelho ou divergência visual conhecida. Atualizar este documento quando um item mudar de estado; não apagar histórico dos handoffs anteriores.
