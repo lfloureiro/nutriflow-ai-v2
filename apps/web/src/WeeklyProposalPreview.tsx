@@ -36,7 +36,7 @@ import type { MealDeliveryProviderKey } from "./api/mealDeliveryTypes";
 import type { Person } from "./api/types";
 import { useI18n, type Locale } from "./i18n";
 import { scheduledIso } from "./planning";
-import { familyLocalDate } from "./nextMealSelection";
+import { familyLocalDate, mealProposalUnavailableReason } from "./nextMealSelection";
 import {
   recommendationCandidates,
   recommendationDeliveryProviderKeys,
@@ -295,7 +295,9 @@ export function weeklySkippedSlotMessages(
       slot.slot_key,
       slot.meal_type === "lunch" && !isWeekendDate(slot.planning_date)
         ? copy.weekdayLunchPending
-        : copy.unavailableSlot,
+        : slot.reason === "no_eligible_candidates"
+          ? mealProposalUnavailableReason(slot.meal_type, null, slot.exclusion_reasons, locale)
+          : copy.unavailableSlot,
     ]),
   );
 }
@@ -1364,6 +1366,11 @@ export default function WeeklyProposalPreview({
       {proposal && !proposal.selected_plan ? (
         <div className="family-meals-empty-day">
           {proposalHasOnlySkippedSlots(proposal) ? copy.allOpenSlotsPending : copy.noPlan}
+          {proposal.skipped_slots.length > 0 ? (
+            <p>{locale === "pt-PT"
+              ? "As propostas foram avaliadas, mas nenhuma satisfez simultaneamente as regras de todos os participantes. Seleciona o pequeno-almoço para ver o motivo."
+              : "The proposals were evaluated, but none satisfied all participants' rules. Select breakfast to review the reason."}</p>
+          ) : null}
         </div>
       ) : null}
 
@@ -1423,6 +1430,7 @@ export default function WeeklyProposalPreview({
                             aria-pressed={
                               selectedDate === planningDate && selectedMealType === mealType
                             }
+                            title={pendingReason || undefined}
                             aria-label={`${mealLabel(mealType, locale)} · ${gridDay.weekday} ${planningDate} · ${entry ? copy.planned : choice ? copy.proposed : pendingReason ? copy.pending : copy.empty} · ${label}`}
                             className={`weekly-grid-meal is-${state} ${
                               needsReview ? "has-review" : ""
