@@ -284,3 +284,54 @@
   .pantry-screen .pantry-list {gap:7px}
   .pantry-screen .pantry-row {padding:12px 14px;border-radius:13px}
 }
+
+/* Family reference: four-member editorial overview. Real members only:
+   no mock names, diagnoses, dietary badges or fictitious progress. */
+.people-screen .people-list {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+}
+.people-screen .person-row {
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:flex-start;
+  min-height:158px;
+  min-width:0;
+  gap:11px;
+  padding:15px;
+  text-align:left;
+  border:1px solid var(--nf-screen-card-border);
+  border-radius:16px;
+  background:var(--nf-screen-card-surface);
+  color:var(--color-text);
+  box-shadow:var(--nf-screen-card-shadow);
+}
+.people-screen .person-row > span:nth-child(2) {display:grid;min-width:0;gap:3px}
+.people-screen .person-row > span:nth-child(2) strong {
+  font:700 13px/1.3 "Manrope",sans-serif;
+  overflow-wrap:anywhere;
+}
+.people-screen .person-row > span:nth-child(2) small {
+  color:var(--color-muted);font-size:11px;
+}
+.people-screen .person-row > span:last-child {
+  align-self:flex-end;margin-top:auto;
+  color:var(--nf-ref-amber);
+}
+.people-screen .person-row:hover,.people-screen .person-row:focus-visible {
+  border-color:var(--color-action);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--color-action) 22%,transparent),var(--nf-screen-card-shadow);
+}
+@media(min-width:761px) and (max-width:1180px){
+  .people-screen .people-list{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:760px){
+  .people-screen .people-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .people-screen .person-row{padding:12px;min-height:145px}
+}
+@media(max-width:420px){
+  .people-screen .people-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .people-screen .person-row{padding:10px;gap:6px;min-height:128px}
+}
