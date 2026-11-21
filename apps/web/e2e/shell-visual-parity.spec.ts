@@ -198,6 +198,8 @@ for (const theme of ["light", "dark"] as const) {
       }
       if (hash.includes("pantry")) {
         await expect(page.locator(".nf-pantry-summary > div")).toHaveCount(4);
+        await expect(page.locator(".nf-pantry-columns")).toBeVisible();
+        await expect(page.locator(".nf-pantry-insights-card")).toHaveCount(2);
       }
       if (!hash.includes("meals")) {
         await expect(page.locator(".home-base, .shopping-screen, .people-screen").first()).toBeVisible();
