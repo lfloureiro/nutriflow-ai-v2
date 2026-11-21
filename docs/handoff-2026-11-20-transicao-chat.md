@@ -158,3 +158,11 @@ O utilizador enviou uma nova captura **v2.0.81 a 100%** mostrando que a tipograf
 A primeira execução E2E identificou que a fórmula inicial da v2.0.82 ainda excedia 760 CSS px em 31px (`gridBottom=787.28px` para `height=760px`). A fórmula foi corrigida **sem flexibilizar o teste** para `clamp(56px, calc((100dvh - 450px)/4), 112px)`; abaixo de 680px, espaçamentos internos, cabeçalho de dias e tamanho das células reduzem-se adicionalmente.
 
 **Evidência:** no SHA `f57e8bd4ef4bc6626a0c330543a7bc9f55b07947`, Web CI, API CI e UX E2E sintético terminaram com `success`; o E2E inclui 1229×610, 1440×760 e 1440×900. A captura real de Chromium `visual-week-fit-dark-1229x610.png` no artefacto `week-visual-618240662868873d585a75854dcd924b4b6dcede` mostra as quatro linhas completas, sidebar e rodapé com avatar visíveis e texto de recomendação do hero sem corte. A captura usa uma família sintética e slots vazios; o **teste manual da família real e de receitas preenchidas ainda está pendente**. O PR #76 permanece draft.
+
+## v2.0.83 — mais altura nas refeições sem perder o ajuste ao ecrã (21/11/2026)
+
+A captura real aprovada pelo utilizador da v2.0.82 a 100% mostra largura e tamanho de fonte adequados e as quatro refeições completas, mas um espaço livre no fundo do viewport. Decisão: **aumentar ligeiramente apenas a altura das quatro linhas de refeição**, sem mexer na largura das colunas, sidebar, textos, hero ou botões.
+
+- `apps/web/src/week-reference.css`: no modo desktop com altura CSS 700–960px, passa a adicionar **10px a cada linha** (máximo 122px), mantendo a fórmula base responsiva. O ecrã CSS inferior a 700px usa a regra anterior, já validada no Chromium a 1229×610.
+- `apps/web/e2e/week-responsive-visual.spec.ts`: verifica em Chromium a altura real das linhas a 1440×760 e 1440×900, e preservação do tamanho reduzido a 1229×610; mantém a condição de que a linha Jantar não ultrapasse o viewport e não surja scroll. O teste utiliza uma família sintética; a inspeção final com receitas reais fica pendente.
+- Versão 2.0.83, PR #76 permanece draft; não alterar dados, backend, processos locais ou outras páginas. Confirmar os três workflows no **mesmo SHA final** e só então solicitar novo teste manual do Chrome a 100%.
