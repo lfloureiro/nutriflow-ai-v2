@@ -78,6 +78,7 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
   const focusKind = next?.meal_type ?? currentMealKind(now,dashboard.timezone);
   const nutritionRows = familyNutritionSummary(dashboard.members);
   const nutritionWithData = nutritionRows.filter(row => row.hasConfirmedConsumption || (row.planned !== null && row.planned > 0));
+  const intakeRecordedPercent = dashboard.members.length ? Math.round(nutritionRows.filter(row=>row.hasConfirmedConsumption).length*100/dashboard.members.length) : 0;
   const energyNumber = new Intl.NumberFormat(locale,{maximumFractionDigits:0});
   const plannedMeals = dashboard.meals.filter(meal=>meal.status!=="cancelled").length;
   const kinds = ["breakfast", "lunch", "snack", "dinner"];
@@ -108,8 +109,17 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
         </a>}
       </section>
       <Panel className="nf-family-panel" label={pt ? "Pessoas da família" : "Family members"}>
+        <div className="nf-family-panel-layout"><section className="nf-family-panel-nutrition">
         <div className="nf-family-progress-heading"><Icon name="leaf"/><strong>{pt?"Acompanhamento nutricional":"Nutrition overview"}</strong></div>
         <p className="nf-family-progress-sub">{pt?"Consumo registado e energia planeada — não são metas clínicas":"Recorded intake and planned energy — not clinical targets"}</p>
+        <div className="nf-family-record-meter">
+          <span className="nf-family-record-ring" role="img"
+            aria-label={pt?`${intakeRecordedPercent}% dos membros com consumo registado hoje`:`${intakeRecordedPercent}% of members with recorded intake today`}
+            style={{background:`conic-gradient(var(--accent,#d7a47b) ${intakeRecordedPercent}%, var(--surface-soft,#2b292a) 0)`}}>
+            <span>{intakeRecordedPercent}%</span>
+          </span>
+          <small>{pt?"Membros com registo hoje":"Members with intake recorded today"}</small>
+        </div>
         <div className="nf-family-nutrition-lines">
           {nutritionWithData.map(({member,consumed,planned,hasConfirmedConsumption,ratio})=><div className="nf-nutrition-person" key={member.person_id}>
             <span className="nf-nutrition-person-name">{memberDisplayName(member)}</span>
@@ -127,6 +137,7 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
           <span><Icon name="people"/>{dashboard.members.length} {pt?"perfis":"profiles"}</span>
           <span><Icon name="calendar"/>{plannedMeals} {pt?"refeições no dia":"meals today"}</span>
         </div>
+        </section><section className="nf-family-panel-people">
         <div className="nf-panel-heading"><h2>{pt ? "Quem se senta à mesa" : "Who is at the table"}</h2><span className="nf-count">{dashboard.members.length}</span></div>
         {dashboard.members.map(member=><button className="nf-person-line" type="button" key={member.person_id} onClick={()=>onOpenPerson(member.person_id)}>
           <PersonAvatar identity={member.person_id} name={memberDisplayName(member)} familyIdentity={dashboard.family_id} age={member.age_years} sex={member.sex_for_energy_calculation} appearance={member.avatar_appearance} decorative/>
@@ -134,6 +145,7 @@ export default function FamilyHome({dashboard, onPlanMeal, onOpenPerson, onOpenW
         </button>)}
         {!dashboard.members.length && <EmptyState title={pt ? "Quem vem à mesa?" : "Who is joining?"} description={pt ? "Adiciona as pessoas em Família para começar." : "Add people in Family to get started."}/>}
         <p className="nf-panel-footnote">{pt ? "As necessidades de cada pessoa acompanham o planeamento." : "Each person’s needs accompany the plan."}</p>
+        </section></div>
       </Panel>
     </div>
     <section className="nf-today-section" aria-labelledby="today-heading">
