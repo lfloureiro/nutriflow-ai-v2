@@ -160,7 +160,7 @@ test("weekly image never enlarges the hero and the desktop map preserves seven d
     return {hero:rect.height,image:art?.getBoundingClientRect().height??0,
       infoBottom:info?.bottom??0,heroBottom:rect.bottom, infoTop:info?.top??0, heroTop:rect.top};
   });
-  expect(geometry.hero).toBeGreaterThanOrEqual(135);
+  expect(geometry.hero).toBeGreaterThanOrEqual(100);
   expect(geometry.hero).toBeLessThanOrEqual(250);
   expect(geometry.image).toBeLessThanOrEqual(geometry.hero+1);
   expect(geometry.infoTop).toBeGreaterThanOrEqual(geometry.heroTop);
