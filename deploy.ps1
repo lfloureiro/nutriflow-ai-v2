@@ -158,7 +158,7 @@ function StateEntry([int]$port,$entry) {
         # report a different TCP owner. Never apply this to adopted processes.
         if (-not (IsTrustedLaunch $entry) -or
             $process.ProcessName -ine 'node' -or
-            -not (Test-NutriFlowFrontend $port)) {
+            -not (Healthy ('http://127.0.0.1:' + $port + '/'))) {
             return $null
         }
     }
