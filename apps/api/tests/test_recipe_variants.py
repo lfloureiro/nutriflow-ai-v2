@@ -591,6 +591,58 @@ def test_recipe_edit_still_rejects_known_restrictions_and_changed_evidence(clien
     assert "Base recipe changed" in saved.text
 
 
+
+def test_recipe_edit_reuses_identical_family_adaptation_without_new_rows(client, db_session, pilot):
+    from sqlalchemy import func, select
+
+    family, _, _, foods, base, payload, _ = pilot
+    path = f"/api/families/{family.id}/recipe-variants/recipe-edit"
+    body = {"base_recipe_id": str(base.id), "name": "Esparguete · família",
+            "operations": payload["operations"]}
+    first = client.post(path, json=body)
+    assert first.status_code == 201, first.text
+    original = first.json()
+    counts_before = (
+        db_session.scalar(select(func.count()).select_from(Recipe)),
+        db_session.scalar(select(func.count()).select_from(FoodItem)),
+    )
+    second = client.post(path, json={**body, "name": "Outra designação · família"})
+    assert second.status_code == 201, second.text
+    assert second.json()["id"] == original["id"]
+    assert second.json()["recipe_id"] == original["recipe_id"]
+    assert (
+        db_session.scalar(select(func.count()).select_from(Recipe)),
+        db_session.scalar(select(func.count()).select_from(FoodItem)),
+    ) == counts_before
+
+    edited = [{**operation, "quantity": "121"} if index == 0 else operation
+              for index, operation in enumerate(payload["operations"])]
+    changed = client.post(path, json={**body, "operations": edited})
+    assert changed.status_code == 201, changed.text
+    assert changed.json()["recipe_id"] != original["recipe_id"]
+
+
+def test_recipe_edit_reuses_user_named_replacements_without_duplicate_foods(client, db_session, pilot):
+    from sqlalchemy import func, select
+
+    family, _, _, _, base, payload, _ = pilot
+    path = f"/api/families/{family.id}/recipe-variants/recipe-edit"
+    operations = [{**operation, "replacement_food_item_id": None,
+                   "replacement_name": "Natas sem lactose" if index == 0 else "Molho de ervas"}
+                  for index, operation in enumerate(payload["operations"])]
+    body = {"base_recipe_id": str(base.id), "name": "Receita adaptada · família",
+            "operations": operations}
+    first = client.post(path, json=body)
+    assert first.status_code == 201, first.text
+    before = db_session.scalar(select(func.count()).select_from(FoodItem))
+    second = client.post(path, json={**body, "name": "Renomeada",
+                                     "operations": [{**operation, "replacement_name":
+                                         operation["replacement_name"].upper()} for operation in operations]})
+    assert second.status_code == 201, second.text
+    assert second.json()["recipe_id"] == first.json()["recipe_id"]
+    assert db_session.scalar(select(func.count()).select_from(FoodItem)) == before
+
+
 def test_recipe_edit_scope_invalid_operation_and_missing_description(client, pilot):
     import uuid
 
