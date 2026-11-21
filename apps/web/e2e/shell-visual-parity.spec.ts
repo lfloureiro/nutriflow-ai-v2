@@ -146,6 +146,30 @@ for (const theme of ["light", "dark"] as const) {
     expect(Math.abs(arrangement.dayTop-arrangement.familyTop)).toBeLessThanOrEqual(4);
     await page.screenshot({path:`test-results/visual-home-${theme}-1280.png`,fullPage:true});
 
+    // The four home actions and three adjacent calendar weeks must be
+    // real compact grids, not grey 2x2 buttons or overflowing labels.
+    const actionLayout = await page.evaluate(() => {
+      const actions = document.querySelector<HTMLElement>(".nf-home .nf-home-shortcut-grid");
+      const weeks = document.querySelector<HTMLElement>(".nf-home .nf-home-week-cards");
+      if (!actions || !weeks) throw new Error("Missing home navigation cards");
+      const actionItems = [...actions.querySelectorAll<HTMLElement>("button")];
+      const weekItems = [...weeks.querySelectorAll<HTMLElement>("button")];
+      return {
+        actions: actionItems.length,
+        weeks: weekItems.length,
+        actionRowCount: new Set(actionItems.map(item => Math.round(item.getBoundingClientRect().top))).size,
+        weekRowCount: new Set(weekItems.map(item => Math.round(item.getBoundingClientRect().top))).size,
+        actionOverflow: actionItems.some(item => item.getBoundingClientRect().right > actions.getBoundingClientRect().right + 1),
+        weekOverflow: weekItems.some(item => item.getBoundingClientRect().right > weeks.getBoundingClientRect().right + 1),
+      };
+    });
+    expect(actionLayout.actions).toBe(4);
+    expect(actionLayout.weeks).toBe(3);
+    expect(actionLayout.actionRowCount).toBe(1);
+    expect(actionLayout.weekRowCount).toBe(1);
+    expect(actionLayout.actionOverflow).toBe(false);
+    expect(actionLayout.weekOverflow).toBe(false);
+
     const footerGeometry = await page.evaluate(() => {
       const footer = document.querySelector<HTMLElement>(".side-nav__family");
       const ai = document.querySelector<HTMLElement>(".side-nav__ai");
