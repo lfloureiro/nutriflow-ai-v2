@@ -824,7 +824,7 @@ export default function WeeklyProposalPreview({
       grid.style.removeProperty("--week-compact-row");
       if (!window.matchMedia("(min-width: 1101px) and (min-height: 560px) and (max-height: 960px)").matches) return;
       const style = window.getComputedStyle(grid);
-      const rows = style.gridTemplateRows.split(/\\s+/).map(value => Number.parseFloat(value)).filter(Number.isFinite);
+      const rows = style.gridTemplateRows.trim().split(/\s+/).map(value => Number.parseFloat(value)).filter(Number.isFinite);
       if (rows.length !== 5) return;
       const currentRow = Math.max(...rows.slice(1));
       const available = window.innerHeight - grid.getBoundingClientRect().bottom - 16;
