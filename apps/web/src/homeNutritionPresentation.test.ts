@@ -56,6 +56,29 @@ describe("historical presentation data provenance",()=>{
     expect(scheduledMemberNutrition(actual,"2026-11-21","2026-11-21",meals,Date.now()).source)
       .toBe("recorded");
   });
+  it("does not mark an ongoing dinner complete just because 20:00 passed",()=>{
+    const now=Date.parse("2026-11-21T20:22:00Z");
+    const meals=[
+      {id:"lunch",scheduled_at:"2026-11-21T13:00:00Z",status:"planned",participant_person_ids:["p1"]},
+      {id:"snack",scheduled_at:"2026-11-21T17:00:00Z",status:"planned",participant_person_ids:["p1"]},
+      {id:"dinner",scheduled_at:"2026-11-21T20:00:00Z",status:"planned",participant_person_ids:["p1"]},
+    ];
+    expect(plannedMealProgress(meals,now,"dinner")).toEqual({elapsed:2,total:3});
+    expect(scheduledMemberNutrition(member,"2026-11-21","2026-11-21",meals,now,"dinner"))
+      .toEqual({consumed:1267,planned:1900,ratio:67,source:"scheduled"});
+    const finished=meals.map(meal=>meal.id==="dinner"?{...meal,status:"completed"}:meal);
+    expect(plannedMealProgress(finished,now,"dinner")).toEqual({elapsed:3,total:3});
+    expect(scheduledMemberNutrition(member,"2026-11-21","2026-11-21",finished,now,"dinner").ratio).toBe(100);
+  });
+  it("keeps each participant's count independent",()=>{
+    const now=Date.parse("2026-11-21T20:22:00Z");
+    const meals=[
+      {id:"lunch",scheduled_at:"2026-11-21T13:00:00Z",status:"planned",participant_person_ids:["p1","p2"]},
+      {id:"dinner",scheduled_at:"2026-11-21T20:00:00Z",status:"planned",participant_person_ids:["p2"]},
+    ];
+    expect(scheduledMemberNutrition(member,"2026-11-21","2026-11-21",meals,now,"dinner").ratio).toBe(100);
+    expect(scheduledMemberNutrition({...member,person_id:"p2"},"2026-11-21","2026-11-21",meals,now,"dinner").ratio).toBe(50);
+  });
   it("shows elapsed scheduled meal times, not consumption",()=>{
     const current=Date.parse("2026-11-21T18:05:00Z");
     const schedule=plannedMealProgress([
