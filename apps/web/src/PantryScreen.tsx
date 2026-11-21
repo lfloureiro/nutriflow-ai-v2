@@ -331,7 +331,7 @@ export default function PantryScreen({ familyId }: { familyId: string }) {
         </ContextDrawer>
       ) : null}
 
-      <div className="pantry-list">
+      <div className="nf-pantry-columns"><div className="pantry-list">
         {!busy && shown.length === 0 ? lots.length ? <p className="empty-card" role="status">{locale === "pt-PT" ? "Sem lotes para esta pesquisa ou filtro." : "No lots match this search or filter."}</p> : <EmptyState title={copy.empty} description={locale === "pt-PT" ? "Começa pelos ingredientes que já tens em casa, com quantidade, local e validade quando conhecida. O plano desconta o stock utilizável nas compras." : "Start with ingredients at home, their quantity, location and expiry when known. Shopping deducts usable stock."}><button type="button" className="button primary" onClick={startCreate}>{copy.add}</button></EmptyState> : null}
         {shown.map((lot) => (
           <article className={`pantry-row ${lot.is_available ? "" : "inactive"}`} data-stock-state={pantryState(lot,now)} key={lot.id}>
@@ -360,6 +360,23 @@ export default function PantryScreen({ familyId }: { familyId: string }) {
           </article>
         ))}
       </div>
+      <aside className="nf-pantry-insights" aria-label={locale === "pt-PT" ? "Análise da despensa" : "Pantry insights"}>
+        <section className="nf-pantry-insights-card">
+          <h2><Icon name="spark"/>{locale === "pt-PT" ? "Estado do stock" : "Stock overview"}</h2>
+          <p>{locale === "pt-PT" ? "Resumo calculado apenas a partir dos lotes registados." : "Summary calculated only from recorded lots."}</p>
+          <dl>
+            <div><dt>{locale === "pt-PT" ? "Lotes disponíveis" : "Available lots"}</dt><dd>{lots.filter(lot=>lot.is_available).length}</dd></div>
+            <div><dt>{locale === "pt-PT" ? "Validade a rever" : "Review expiry"}</dt><dd>{attention}</dd></div>
+            <div><dt>{locale === "pt-PT" ? "Sem validade" : "No expiry date"}</dt><dd>{undated}</dd></div>
+          </dl>
+          {attention > 0 && <button className="button ghost small" type="button" onClick={()=>setFilter("soon")}>{locale === "pt-PT" ? "Rever validades" : "Review expiry"}<Icon name="arrow"/></button>}
+        </section>
+        <section className="nf-pantry-insights-card">
+          <h2><Icon name="pantry"/>{locale === "pt-PT" ? "Gerir a despensa" : "Manage pantry"}</h2>
+          <p>{locale === "pt-PT" ? "Regista quantidades, locais e prazos. As necessidades de compra exigem um limiar de reposição configurado." : "Record quantities, storage locations and expiry. Replenishment needs require a configured threshold."}</p>
+          <button type="button" className="button primary" disabled={busy} onClick={startCreate}><Icon name="pantry"/>{copy.add}</button>
+        </section>
+      </aside></div>
     </div>
   );
 }
