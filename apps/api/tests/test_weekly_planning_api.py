@@ -19,12 +19,14 @@ from app.demo_seed import (
     seed_demo_dataset,
 )
 from app.development_breakfast_seed import seed_development_breakfast_catalog
+from app.development_plant_milk_seed import seed_development_plant_milk_options
 from app.development_plan_fit_seed import seed_development_plan_fit
 from app.development_transformation_seed import seed_development_transformations
 from app.main import app
 from app.models.daily_nutrition_state import DailyNutritionState
 from app.models.family import Family
 from app.models.food_catalog import (
+    FoodItem,
     Recipe,
     RecipeCompositionSnapshot,
     RecipeNutrientComponent,
@@ -1260,3 +1262,84 @@ def test_weekly_attendance_changes_group_and_does_not_count_absent_person(db_ses
             assert client.post(path, json=payload).status_code == 422
     finally:
         app.dependency_overrides.clear()
+
+
+def test_weekly_breakfast_rechecks_milk_exclusion_after_safe_substitution(
+    db_session: Session,
+) -> None:
+    """An explicit milk exclusion must be visible to the transformation rescue step."""
+    family, ana, bruno, _, _ = _setup(db_session, "milk-rescue")
+    seed_development_breakfast_catalog(db_session, families=(family,))
+    seed_development_plant_milk_options(db_session, families=(family,))
+    db_session.flush()
+
+    for person in (ana, bruno):
+        state = db_session.scalar(
+            select(DailyNutritionState).where(
+                DailyNutritionState.person_id == person.id,
+                DailyNutritionState.state_date == PLANNING_DATE,
+            )
+        )
+        assert state is not None
+        state.energy_remaining_min_kcal = Decimal(0)
+        state.energy_remaining_max_kcal = Decimal(1000)
+
+    milk = db_session.scalar(
+        select(FoodItem).where(FoodItem.catalog_key == "breakfast:ingredient:milk")
+    )
+    recipe = db_session.scalar(
+        select(Recipe).where(Recipe.recipe_key == "breakfast:recipe:cereal-milk")
+    )
+    assert milk is not None
+    assert recipe is not None
+    composition = db_session.scalar(
+        select(RecipeCompositionSnapshot).where(
+            RecipeCompositionSnapshot.recipe_id == recipe.id
+        )
+    )
+    assert composition is not None
+    assert milk.id is not None
+    assert family.id is not None
+    assert ana.id is not None
+    assert bruno.id is not None
+
+    payload = {
+        "person_ids": [str(ana.id), str(bruno.id)],
+        "excluded_food_item_ids": [str(milk.id)],
+        "slots": [
+            {
+                "slot_key": "breakfast-with-milk-exclusion",
+                "planning_date": PLANNING_DATE.isoformat(),
+                "scheduled_at": "2026-09-17T08:30:00Z",
+                "meal_type": "breakfast",
+                "candidates": [_candidate(composition)],
+                "has_kitchen": True,
+                "source_kinds": ["home"],
+            }
+        ],
+        "max_combinations": 100,
+    }
+
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                f"/api/families/{family.id}/weekly-planning/proposals",
+                json=payload,
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["selected_plan"] is not None
+    choice = body["selected_plan"]["choices"][0]
+    assert choice["candidate_key"] == recipe.recipe_key
+    assert choice["transformation"] is not None
+    operation = choice["transformation"]["operation"]
+    assert operation["source_food_item_id"] == str(milk.id)
+    assert operation["replacement_food_name"] in {
+        "Leite meio-gordo sem lactose",
+        "Bebida vegetal de arroz sem adição de açúcar",
+    }
+    assert choice["transformation"]["kind"] == "plan_adapted"
