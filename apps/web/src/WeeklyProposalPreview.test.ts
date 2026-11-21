@@ -148,6 +148,29 @@ describe("server-authoritative unavailable weekly slots", () => {
   });
 });
 
+describe("rejected breakfast diagnostics", () => {
+  it("explains nutrition-plan constraints rather than hiding them behind pending", () => {
+    const reasons = weeklySkippedSlotMessages([{
+      slot_key: "2026-11-22:breakfast",
+      planning_date: "2026-11-22",
+      meal_type: "breakfast",
+      reason: "no_eligible_candidates",
+      exclusion_reasons: ["plan_fit:fail", "plan-rule:protein"],
+    }], "pt-PT");
+    expect(reasons["2026-11-22:breakfast"]).toContain("regras do plano nutricional");
+  });
+  it("explains restriction constraints without falsely claiming a safe milk swap", () => {
+    const reasons = weeklySkippedSlotMessages([{
+      slot_key: "2026-11-22:breakfast",
+      planning_date: "2026-11-22",
+      meal_type: "breakfast",
+      reason: "no_eligible_candidates",
+      exclusion_reasons: ["safety:ingredient_reaction"],
+    }], "pt-PT");
+    expect(reasons["2026-11-22:breakfast"]).toContain("restrições alimentares");
+  });
+});
+
 describe("weekly portion labels", () => {
   it("formats recipe servings without raw database precision", () => {
     expect(formatMealPortion("2.0000", "serving", "1966.33", "pt-PT")).toBe(
