@@ -357,28 +357,6 @@ export default function ShoppingListScreen({ familyId, initialStartDate, onOpenP
       {data ? (
         <>
           <section className="nf-shopping-overview" aria-label={locale === "pt-PT" ? "Resumo das compras" : "Shopping overview"}><div><Icon name="bag"/><span><b>{summary.needed}</b>{locale === "pt-PT" ? "a comprar" : "to buy"}</span></div><div><Icon name="bag"/><span><b>{summary.purchased}</b>{locale === "pt-PT" ? "marcados como comprados" : "marked purchased"}</span></div><div><Icon name="pantry"/><span><b>{summary.received}</b>{locale === "pt-PT" ? "com receção concluída" : "fully received"}</span></div><div><Icon name="calendar"/><span><b>{summary.partial}</b>{locale === "pt-PT" ? "receções parciais" : "partial receipts"}</span></div><p>{locale === "pt-PT" ? "Marcar como comprado não acrescenta stock. Regista a entrada quando os produtos chegarem." : "Marking purchased does not add stock. Record receipt when products arrive."}{summary.partial>0 ? ` · ${summary.partial} ${locale === "pt-PT" ? "receções parciais" : "partial receipts"}` : ""}</p></section>
-          {data.planning_issues.length > 0 ? (
-            <details className="shopping-issues nf-shopping-issues">
-              <summary><strong>{copy.issues} · {data.planning_issues.length}</strong></summary>
-              <ul>{data.planning_issues.map((issue) => <li key={issue}>{shoppingIssueLabel(issue, locale === "pt-PT")}</li>)}</ul>
-            </details>
-          ) : null}
-
-          <details className="shopping-requirements nf-stock-comparison">
-            <summary>{locale === "pt-PT" ? "Conferir plano versus despensa" : "Compare plan and pantry"} · {data.requirements.length}</summary>
-            <p className="muted">{locale === "pt-PT" ? "Necessário para o plano, stock utilizável e quantidade em falta. Entregas previstas são apresentadas à parte." : "Plan needs, usable stock and missing quantity. Expected deliveries are shown separately."}</p>
-            {data.requirements.length === 0 ? <div className="empty-card">{copy.noRequirements}</div> : null}
-            {data.requirements.map((requirement) => (
-              <div className="requirement-row" key={requirement.food_item_id}>
-                <IngredientAlternativeLine name={requirement.food_item_name} alternatives={foodAlternativeNames(planRecipes,requirement.food_item_id)}/>
-                <span>{formatShoppingQuantity(requirement.required_quantity,locale)} {requirement.unit} {copy.required}</span>
-                <span>{formatShoppingQuantity(requirement.available_quantity,locale)} {requirement.unit} {copy.stock}</span>
-                <span>{formatShoppingQuantity(requirement.missing_quantity,locale)} {requirement.unit} {copy.missing}</span>
-                {Number(requirement.incoming_quantity??0)>0&&<div className="requirement-delivery-note"><span>{formatShoppingQuantity(requirement.incoming_quantity!,locale)} {requirement.unit} {locale==="pt-PT"?"previstos por receber (não é stock)":"expected to arrive (not stock)"}</span><span>{formatShoppingQuantity(requirement.to_buy_quantity??requirement.missing_quantity,locale)} {requirement.unit} {locale==="pt-PT"?"ainda por comprar":"still to buy"}</span></div>}
-              </div>
-            ))}
-          </details>
-
           <div className="nf-shopping-workspace"><div className="nf-shopping-workspace-main">
           <section className="shopping-list-section">
             <h2>{copy.list}</h2>
@@ -459,6 +437,30 @@ export default function ShoppingListScreen({ familyId, initialStartDate, onOpenP
             <input aria-label={copy.unit} placeholder={copy.unit} value={manualUnit} onChange={(event) => setManualUnit(event.target.value)} />
             <button className="button primary" disabled={busy} type="submit">{copy.add}</button>
           </form></details>
+          </div>
+          <div className="nf-shopping-supporting-details" aria-label={locale === "pt-PT" ? "Verificação detalhada das compras" : "Detailed shopping checks"}>
+          {data.planning_issues.length > 0 ? (
+            <details className="shopping-issues nf-shopping-issues">
+              <summary><strong>{copy.issues} · {data.planning_issues.length}</strong></summary>
+              <ul>{data.planning_issues.map((issue) => <li key={issue}>{shoppingIssueLabel(issue, locale === "pt-PT")}</li>)}</ul>
+            </details>
+          ) : null}
+
+          <details className="shopping-requirements nf-stock-comparison">
+            <summary>{locale === "pt-PT" ? "Conferir plano versus despensa" : "Compare plan and pantry"} · {data.requirements.length}</summary>
+            <p className="muted">{locale === "pt-PT" ? "Necessário para o plano, stock utilizável e quantidade em falta. Entregas previstas são apresentadas à parte." : "Plan needs, usable stock and missing quantity. Expected deliveries are shown separately."}</p>
+            {data.requirements.length === 0 ? <div className="empty-card">{copy.noRequirements}</div> : null}
+            {data.requirements.map((requirement) => (
+              <div className="requirement-row" key={requirement.food_item_id}>
+                <IngredientAlternativeLine name={requirement.food_item_name} alternatives={foodAlternativeNames(planRecipes,requirement.food_item_id)}/>
+                <span>{formatShoppingQuantity(requirement.required_quantity,locale)} {requirement.unit} {copy.required}</span>
+                <span>{formatShoppingQuantity(requirement.available_quantity,locale)} {requirement.unit} {copy.stock}</span>
+                <span>{formatShoppingQuantity(requirement.missing_quantity,locale)} {requirement.unit} {copy.missing}</span>
+                {Number(requirement.incoming_quantity??0)>0&&<div className="requirement-delivery-note"><span>{formatShoppingQuantity(requirement.incoming_quantity!,locale)} {requirement.unit} {locale==="pt-PT"?"previstos por receber (não é stock)":"expected to arrive (not stock)"}</span><span>{formatShoppingQuantity(requirement.to_buy_quantity??requirement.missing_quantity,locale)} {requirement.unit} {locale==="pt-PT"?"ainda por comprar":"still to buy"}</span></div>}
+              </div>
+            ))}
+          </details>
+
           </div>
           <aside className="nf-shopping-workspace-aside" aria-label={locale === "pt-PT" ? "Resumo e apoio às compras" : "Shopping guidance"}>
             <section className="nf-shopping-aside-card">
