@@ -505,7 +505,7 @@
 }
 @media(min-width:761px) and (max-height:720px){
   .family-home.nf-home.nf-home-reference-v4 {
-    grid-template-rows:clamp(84px,15vh,109px) minmax(0,1fr) 165px auto!important;
+    grid-template-rows:clamp(84px,15vh,109px) minmax(0,1fr) 177px auto!important;
   }
   .nf-home.nf-home-reference-v4 .nf-meal-hero-copy .nf-hero-meta {
     font-size:8px;
