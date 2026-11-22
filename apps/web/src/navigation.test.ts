@@ -5,6 +5,11 @@ describe("bookmarkable navigation",()=>{
   const route={view:"meals",mode:"week",date:"2026-11-19",person:"person-1",house:"pantry"} as const;
   expect(parseRoute(routeHash(route))).toEqual(route);expect(routeHash(route)).not.toContain("family");
  });
+ it("opens a bookmarkable, independent Intelligence at the table workspace",()=>{
+  const route={view:"ai",mode:"today",house:"recipes"} as const;
+  expect(routeHash(route)).toBe("#/ai");
+  expect(parseRoute("#/ai")).toEqual(route);
+ });
  it("rejects malformed dates, unknown screens and unsupported tabs/modes",()=>{
   expect(parseRoute("#/unknown?mode=other&tab=unsafe&date=2026-02-31&person=<script>")).toEqual({view:"home",mode:"today",house:"recipes"});
   expect(parseRoute("#/house?tab=ingredients&date=2026-11-19")).toMatchObject({view:"house",house:"ingredients",date:"2026-11-19"});
