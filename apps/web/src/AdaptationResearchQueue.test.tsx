@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import AdaptationResearchQueue, { adaptationResearchItems, buildAdaptationResearchBrief } from "./AdaptationResearchQueue";
 import type { ReviewRecipe } from "./api/dietaryReviewClient";
+import { researchSuggestionsForIngredient } from "./adaptationResearchReferences";
 
 vi.mock("./i18n", () => ({ useI18n: () => ({ locale: "pt-PT" }) }));
 
@@ -20,6 +21,18 @@ const recipes = [{
 }] as unknown as ReviewRecipe[];
 
 describe("family adaptation research backlog", () => {
+  it("groups repeated ingredient names into evidence-backed research hypotheses", () => {
+    expect(researchSuggestionsForIngredient("Alho congelado")[0]?.replacement).toContain("Azeite");
+    expect(researchSuggestionsForIngredient("Alho francês")[0]?.replacement).toContain("parte verde");
+    expect(researchSuggestionsForIngredient("Cebola picada congelada")[0]?.replacement).toContain("Cebolinho");
+    expect(researchSuggestionsForIngredient("Iogurte grego")[0]?.brand).toBe("Mevgal");
+    expect(researchSuggestionsForIngredient("Massa cotovelos")[0]?.brand).toBe("Auchan");
+    expect(researchSuggestionsForIngredient("Esparguete")[0]?.brand).toBe("Rummo");
+    expect(researchSuggestionsForIngredient("Cogumelos congelados")[0]?.replacement).toContain("conserva");
+    expect(researchSuggestionsForIngredient("Lata de feijão vermelho")[0]?.reason).toContain("NÃO equivale");
+    expect(researchSuggestionsForIngredient("Cenouras")).toHaveLength(0);
+  });
+
   it("finds unresolved excluded ingredients even without any substitution", () => {
     const items = adaptationResearchItems(recipes, ["excluded-onion", "excluded-milk"]);
     expect(items).toHaveLength(2);
