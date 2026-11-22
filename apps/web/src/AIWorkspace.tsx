@@ -42,7 +42,17 @@ export default function AIWorkspace({ familyId, onOpenPlanning }: {
     setPreview(null);
     const load = async () => {
       const catalogue = await listRecipeReviews(familyId);
-      const setup = await getWeekSetup(familyId, currentMonday()).catch(() => null);
+      const monday = currentMonday();
+      const nextMonday = new Date(`${monday}T12:00:00Z`);
+      nextMonday.setUTCDate(nextMonday.getUTCDate() + 7);
+      // The AI lab is generally opened from "prepare next week". Match
+      // the most recently configured future week before falling back to
+      // the current one, so the review queue uses the same exclusions.
+      const futureSetup = await getWeekSetup(
+        familyId, nextMonday.toISOString().slice(0, 10),
+      ).catch(() => null);
+      const setup = futureSetup ??
+        await getWeekSetup(familyId, monday).catch(() => null);
       const automatic = setup
         ? await getPlanningRestrictions(familyId, setup).catch(() => null)
         : null;
@@ -53,8 +63,8 @@ export default function AIWorkspace({ familyId, onOpenPlanning }: {
         ...(automatic?.excluded_food_item_ids ?? []),
       ])]);
       if (!setup || !automatic) setNotice(pt
-        ? "As restrições não foram totalmente carregadas para a semana atual. A lista pode estar incompleta."
-        : "Current-week restrictions were not fully loaded. The list may be incomplete.");
+        ? "As restrições não foram totalmente carregadas para a semana planeada. A lista pode estar incompleta."
+        : "Planned-week restrictions were not fully loaded. The list may be incomplete.");
       setLoading(false);
     };
     void load().catch(e => {
