@@ -25,6 +25,8 @@
 - [Monash — massas/cereais e glúten](https://monashfodmap.com/blog/gluten-and-ibs/)
 - [Monash — cogumelos em salmoura numa receita](https://www.monashfodmap.com/recipe/hot-sour-asian-soup/)
 - [Monash — leguminosas e água de conserva](https://www.monashfodmap.com/about-fodmap-and-ibs/frequently-asked-questions/)
+- [FODMAP Friendly — tabela pública de grupos de alimentos](https://fodmapfriendly.com/for-consumers/foods-high-low-fodmap/)
+- [FODMAP Friendly — método de análise laboratorial](https://fodmapfriendly.com/ingredient-testing/)
 
 **Data da consulta:** 2026-11-22. Os limites laboratoriais exatos por marca, por ingrediente e por pessoa **não foram confirmados**; para essas células a informação permanece em falta. `Sem glúten` e `sem lactose` não são sinónimos de `low FODMAP certificado`.
 
