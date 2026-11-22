@@ -46,6 +46,7 @@ def _candidate_hint_key(
     previous_candidate_counts: dict[str, int] | None = None,
     previous_main_category: str | None = None,
     previous_main_protein: str | None = None,
+    meal_type: str | None = None,
 ) -> tuple[object, ...]:
     evaluation = candidate.evaluation
     rank = evaluation.rank if evaluation.rank is not None else 1_000_000
@@ -70,6 +71,7 @@ def _candidate_hint_key(
         return (
             -evaluation.weekly_mandatory_support_participants,
             -evaluation.weekly_mandatory_support_total,
+            repeat_count if meal_type == "dinner" else 0,
             -evaluation.weekly_advisory_support_participants,
             -evaluation.weekly_advisory_support_total,
             repeat_count,
@@ -87,6 +89,7 @@ def _candidate_hint_key(
     return (
         -evaluation.weekly_mandatory_support_participants,
         -evaluation.weekly_mandatory_support_total,
+        repeat_count if meal_type == "dinner" else 0,
         -evaluation.weekly_advisory_support_participants,
         -evaluation.weekly_advisory_support_total,
         -minimum_score,
@@ -177,7 +180,7 @@ def optimize_shared_weekly_slots_scalable(
         ordered_candidates = tuple(
             sorted(
                 candidates,
-                key=lambda candidate: _candidate_hint_key(candidate),
+                key=lambda candidate: _candidate_hint_key(candidate, meal_type=slot.meal_type),
             )
         )
 
@@ -226,6 +229,7 @@ def optimize_shared_weekly_slots_scalable(
                             _candidate_hint_key(
                                 candidate,
                                 previous_candidate_counts=previous_candidate_counts,
+                                meal_type=slot.meal_type,
                                 previous_main_category=previous_main_category,
                                 previous_main_protein=previous_main_protein,
                             ),
