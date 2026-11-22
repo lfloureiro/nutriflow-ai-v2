@@ -450,3 +450,34 @@ Commit `93e8686`. Commits `34cc830` e `6ea1aab` corrigem a ordem de imports do s
 **Próximos passos funcionais ainda necessários**: serviço de pesquisa com fontes autorizadas e revisão humana, fila própria persistida com atribuição/estado de investigação e interface de consentimento, importação de rótulos reais e evidência nutricional/FODMAP por porção, reevaluar regras por cada pessoa, e desenvolver operações múltiplas (Issue #77) de substituição leite + pão na mesma receita. Não relaxar exclusões nem declarar compatibilidade sem verificação. A regeneração da semana nunca deverá adicionar receitas duplicadas ou alterar familiares sem confirmação.
 
 Commits: `3e7105e`, `b4d77f2`, `947f7e0`, `be4f4ac`, `401e36c`, `6ca272c`, `075afcf`, `77ac234`, `8f6cde4`, `ea49123`, `27b968b`. Ainda requer Web CI e UX E2E no último SHA.
+
+
+## Lote em revisão — diagnóstico completo da seleção e referências FODMAP (22/11/2026)
+
+**Observação do utilizador:** semana 23–29/11 repetia, entre dezenas de receitas, frango rápido, bifanas com natas, escalopes ao vinho Madeira e salmão. A lista de investigação exportada tem dezenas de ocorrências de alho, cebola, leite, iogurte, cogumelos, massas de trigo, muesli, maçã e leguminosas, muitas já com `proposta a rever`.
+
+**Falha confirmada no frontend:** `getRecommendationBootstrap` devolve catálogo ordenado alfabeticamente; `recommendationCandidates` removia silenciosamente tudo após os primeiros 100 candidatos válidos. Assim receitas posteriores não eram sequer avaliadas. Agora, quando ultrapassa 150, são selecionadas 150 posições **distribuídas por todo o catálogo**, deterministicamente; abaixo disso nenhuma receita é eliminada pelo limite. Isso reduz o viés de ordenação, mas não garante elegibilidade nem cobertura exaustiva. Testes para 240 receitas asseguram primeira, média e última e ausência de duplicados.
+
+**Debug por fases:** `WeeklyProposalPreview.generateProposal` em modo opt-in no browser (`localStorage.setItem("nutriflow.weekly.debug", "1")`) regista `bootstrap`, `manuallyRejected`, `wrongMealType`, `wrongSource`, `suitableForBackend`, `forwarded`, `capped` e nomes excluídos pelo teto. Na API, `NUTRIFLOW_WEEKLY_DEBUG=1` e `NUTRIFLOW_WEEKLY_DEBUG_VERBOSE=1` (definidas **antes do arranque do processo Uvicorn**) registam **todos** os candidatos avaliados, `eligible/rejected` e `reasons` de avaliação partilhada e Plan-Fit, resumo por slot e escolha final de jantar. Não é uma autorização para aceitar candidatos que falharam regras. Logs locais podem conter nomes de receitas e regras; não publicar sem rever.
+
+**Referências investigadas:** `docs/nutrition/investigacao-substituicoes-2026-11-22.md` reúne 11 grupos de ingredientes, fontes Monash e exemplos de Auchan/Continente com URLs, ingredientes comerciais publicados quando confirmados e razões de dúvida. `adaptationResearchReferences.ts` expõe essas hipóteses na fila `AdaptationResearchQueue`; escolher apenas **preenche uma proposta**, a guardar manualmente e sem dose automática. Evitar duplicados de mesma alternativa por ingrediente. A investigação por IA com recolha automática de informação externa continua pendente; usar links estáticos e briefing de pesquisa não é ainda um serviço autónomo.
+
+**Diagnóstico local recomendado (terminal e browser):**
+
+```powershell
+$env:NUTRIFLOW_WEEKLY_DEBUG = "1"
+$env:NUTRIFLOW_WEEKLY_DEBUG_VERBOSE = "1"
+.\deploy.cmd -ForceRestart
+Get-Content .\.nutriflow-local\api.out.log -Tail 160
+```
+
+Antes de gerar nova proposta no browser, abrir DevTools (F12), Console:
+```javascript
+localStorage.setItem("nutriflow.weekly.debug", "1")
+```
+
+Gerar a proposta e guardar os eventos `[NutriFlow WEEKLY]` da consola e `[CANDIDATE-VERBOSE]` / `[ROTATION-VERBOSE]` no log da API. Não apagar o plano atual para diagnosticar: as propostas são read-only até confirmação; o botão pode recalcular apenas os slots por decidir. Repor variáveis/flag em 0 depois.
+
+**Ainda não demonstrado**: número exato de receitas disponíveis por pessoa e os bloqueios concretos da família na base local, se o solver limitado a 256 combinações encontra o melhor plano, nem compatibilidade FODMAP das substituições propostas. Não confundir o estado `proposta a rever` com elegibilidade. Exige revisão de rótulos, dose e regras por participante, e suporte multi-operação pendente na Issue #77.
+
+Commits principais: `9422f7d` (rejeições detalhadas), `1b9fa29` e `1b8400a` (amostragem de catálogo e teste), `a841da0`, `fd2b91c`, `78a8b24` (referências de investigação), `6e5bc00` (documentação nutricional), `0fb4561` (diagnóstico do frontend). CI por validar no SHA final.
