@@ -1,7 +1,6 @@
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.development_breakfast_seed import seed_development_breakfast_catalog
 from app.development_bread_review_seed import (
     CANDIDATES,
     GROUP,
@@ -9,6 +8,7 @@ from app.development_bread_review_seed import (
     SOURCE_BREAD_KEY,
     seed_development_bread_candidates,
 )
+from app.development_breakfast_seed import seed_development_breakfast_catalog
 from app.models.family import Family
 from app.models.food_catalog import FoodCompositionSnapshot, FoodItem, Recipe
 from app.models.food_transformation_profile import FoodTransformationProfile
