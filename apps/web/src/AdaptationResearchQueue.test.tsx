@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import AdaptationResearchQueue, { adaptationResearchItems } from "./AdaptationResearchQueue";
+import AdaptationResearchQueue, { adaptationResearchItems, buildAdaptationResearchBrief } from "./AdaptationResearchQueue";
 import type { ReviewRecipe } from "./api/dietaryReviewClient";
 
 vi.mock("./i18n", () => ({ useI18n: () => ({ locale: "pt-PT" }) }));
@@ -40,6 +40,15 @@ describe("family adaptation research backlog", () => {
     expect(items.map(item => item.ingredientName)).toEqual(["Cebola", "Leite"]);
     expect(items[0].hasVariant).toBe(true);
     expect(items[0].missing).toBe(false);
+  });
+
+  it("builds a sourced AI research brief without declaring any replacement safe", () => {
+    const brief = buildAdaptationResearchBrief(adaptationResearchItems(recipes, ["excluded-onion"]));
+    expect(brief).toContain("Monash University");
+    expect(brief).toContain("Auchan");
+    expect(brief).toContain("Cebola (100 g)");
+    expect(brief).toContain("Não inventes valores nutricionais");
+    expect(brief).not.toContain("Cebola é low FODMAP");
   });
 
   it("renders research links and explicitly states missing evidence", () => {
