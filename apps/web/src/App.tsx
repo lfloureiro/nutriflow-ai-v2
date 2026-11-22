@@ -8,6 +8,7 @@ import FamilyEntryScreen from "./FamilyEntryScreen";
 import FamilyHome, { memberDisplayName } from "./FamilyHome";
 import type { FamilyMealsMode } from "./FamilyMeals";
 const FamilyMealsScreen = lazy(() => import("./FamilyMeals"));
+const AIWorkspace = lazy(() => import("./AIWorkspace"));
 const FamilySettings = lazy(() => import("./FamilySettings"));
 import Brand from "./ui/Brand";
 import ContextDrawer from "./ui/ContextDrawer";
@@ -192,7 +193,7 @@ export default function App() {
             <span>{locale === "pt-PT" ? "Despensa" : "Pantry"}</span>
           </button>
         </nav>
-        <button className="side-nav__ai" type="button" onClick={() => navigate({view:"meals",mode:"recommend",meal:undefined})}>
+        <button className={`side-nav__ai${view === "ai" ? " active" : ""}`} aria-current={view === "ai" ? "page" : undefined} type="button" onClick={() => navigate({view:"ai"})}>
           <span className="side-nav__ai-heading"><Icon name="spark"/><strong>{locale === "pt-PT" ? "Inteligência à mesa" : "Intelligence at the table"}</strong></span>
           <span>{locale === "pt-PT" ? "Interpretar. Aprender. Explicar." : "Interpret. Learn. Explain."}</span>
         </button>
@@ -273,6 +274,12 @@ export default function App() {
               onMealSelectionChange={(selection) => navigate({date:selection?.date ?? route.date,meal:selection?.mealType,view:"meals",mode:"week"})}
               referenceDate={dashboard?.dashboard_date}
             /></Suspense>
+          ) : null}
+
+          {view === "ai" ? (
+            <Suspense fallback={<div className="shell-loading" role="status">{t("home.loading")}</div>}>
+              <AIWorkspace familyId={activeFamilyId} onOpenPlanning={() => navigate({view:"meals",mode:"prepare"})} />
+            </Suspense>
           ) : null}
 
           {view === "people" ? (
