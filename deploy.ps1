@@ -351,6 +351,30 @@ function AdoptLegacy([int]$port,[string]$role) {
     if ($answer -cne 'SIM') { throw ('Takeover of ' + $role + ' not authorized.') }
     return @{ pid=$process.Id; start_utc=$process.StartTime.ToUniversalTime().ToString('o') }
 }
+function WaitPortFree([int]$port,[string]$role,[int]$seconds=12) {
+    # A Windows Node/Vite listener can linger or be recreated briefly after
+    # its recorded PID exits. Do not select or terminate a second process.
+    # Require several consecutive clear samples before launching.
+    $clearSamples = 0
+    $attempts = [Math]::Max(1, $seconds * 4)
+    for ($attempt = 0; $attempt -lt $attempts; $attempt++) {
+        $listeners = @(Listener $port)
+        $responding = if ($role -eq 'api') {
+            Healthy ('http://127.0.0.1:' + $port + '/openapi.json')
+        } else {
+            Healthy ('http://127.0.0.1:' + $port + '/')
+        }
+        if ($listeners.Count -eq 0 -and -not $responding) {
+            $clearSamples++
+            if ($clearSamples -ge 4) { return $true }
+        } else {
+            $clearSamples = 0
+        }
+        Start-Sleep -Milliseconds 250
+    }
+    Show-PortDiagnostics $port $role
+    return $false
+}
 function StopManaged([int]$port,$entry) {
     $process = StateEntry $port $entry
     if ($null -eq $process) { return }
@@ -360,15 +384,19 @@ function StopManaged([int]$port,$entry) {
     catch {
         if (Get-Process -Id $process.Id -ErrorAction SilentlyContinue) { throw }
     }
-    if (@(Listener $port).Count -gt 0 -or
-        (Healthy ('http://127.0.0.1:' + $port + '/'))) {
-        throw ('Port ' + $port + ' still responds or is occupied after stopping PID ' +
-            $process.Id + '. Refusing to start a second server.')
+    $role = if ($port -eq $WebPort) { 'frontend' } else { 'api' }
+    if (-not (WaitPortFree $port $role)) {
+        throw ('Port ' + $port + ' remains occupied or was reopened after stopping PID ' +
+            $process.Id + '. Inspect the owner above; no other process was terminated.')
     }
 }
 function Launch([string]$exe,[string[]]$arg,[string]$cwd,[string]$name,[int]$port,[string]$url) {
-    if (@(Listener $port).Count -gt 0 -or (Healthy $url)) {
-        throw ('Port ' + $port + ' already responds or has a listener. Refusing second ' + $name)
+    # A just-stopped Vite process may release/reacquire the listener during
+    # Windows teardown. Wait for a stable free port instead of racing it.
+    $role = if ($name -like 'frontend*') { 'frontend' } else { 'api' }
+    if (-not (WaitPortFree $port $role)) {
+        throw ('Port ' + $port + ' already responds or has a listener. Refusing second ' +
+            $name + '; no untracked process was terminated.')
     }
     $prefix = Join-Path $stateDir $name
     $args = @{
