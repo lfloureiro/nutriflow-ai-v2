@@ -1,8 +1,8 @@
 import {useEffect,useState} from "react";
-export type AppView="home"|"meals"|"shopping"|"people"|"house"|"more";
+export type AppView="home"|"meals"|"shopping"|"people"|"house"|"ai"|"more";
 export type HouseView="recipes"|"ingredients"|"pantry"|"substitutions"|"shopping"|"preferences"|"sources"|"restaurants"|"delivery";
 export type AppRoute={view:AppView;mode:"today"|"week"|"prepare"|"recommend";date?:string;meal?: "breakfast"|"lunch"|"snack"|"dinner";person?:string;house:HouseView};
-const views=["home","meals","shopping","people","house","more"];
+const views=["home","meals","shopping","people","house","ai","more"];
 const houses=["recipes","ingredients","pantry","substitutions","shopping","preferences","sources","restaurants","delivery"];
 export function parseRoute(hash:string):AppRoute {
  const [path,query]=hash.replace(/^#\/?/,"").split("?");const params=new URLSearchParams(query);
