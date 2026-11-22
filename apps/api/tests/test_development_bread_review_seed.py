@@ -10,10 +10,9 @@ from app.development_bread_review_seed import (
     seed_development_bread_candidates,
 )
 from app.models.family import Family
-from app.models.food_catalog import FoodCompositionSnapshot, FoodItem
+from app.models.food_catalog import FoodCompositionSnapshot, FoodItem, Recipe
 from app.models.food_transformation_profile import FoodTransformationProfile
 from app.services.shared_meal_transformation import _load_variants
-from app.models.food_catalog import Recipe
 
 
 def test_retail_bread_candidates_are_idempotent_and_never_automatically_safe(
