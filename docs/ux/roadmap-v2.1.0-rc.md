@@ -434,7 +434,7 @@ Commit `93e8686`. Commits `34cc830` e `6ea1aab` corrigem a ordem de imports do s
 **Instrução de atualização:** no terminal Windows, a branch deverá ter as alterações sincronizadas; `git pull --ff-only origin codex/ux-drawer-next-batch-20261119` e `.\\deploy.cmd`; se persistir, recolher `.\\deploy.ps1 -Diagnose` e os últimos registos em `.nutriflow-local\\api.err.log`. Não terminar manualmente processos que não sejam identificados como NutriFlow.
 
 
-## v2.1.24 — A adaptação de receitas é o centro do planeamento familiar (22/11/2026)
+## Lote UX em desenvolvimento — pesquisa de substituições familiares (22/11/2026)
 
 **Defeito identificado na captura de 23–29/11:** os cartões de proposta com variante ou substituição já registada mostravam `Adaptar` / `Por verificar`; pratos sem proposta registada apareciam apenas como `Proposta`. Esta diferença era causada por `WeeklyProposalPreview.tsx` depender da existência de `variant_changes`, `transformation`, `ingredientProposals` ou correspondência em `recipeAdaptations`. **Não existia evidência de que uma proposta sem substituição fosse compatível.** Isto ocultava necessidades de investigação.
 
