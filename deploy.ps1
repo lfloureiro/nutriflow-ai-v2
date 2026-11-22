@@ -536,7 +536,8 @@ function Launch([string]$exe,[string[]]$arg,[string]$cwd,[string]$name,[int]$por
             # not show a different IPv4 listener. Other IPv6 owners are
             # irrelevant to this explicit IPv4 Vite launch.
             $noContradictoryOwner = $liveConnections.Count -eq 0 -or
-                ($null -ne $loopbackOwner -and $loopbackOwner -eq $direct.Id)
+                ($null -ne $direct -and $null -ne $loopbackOwner -and
+                    $loopbackOwner -eq $direct.Id)
             if ($direct -and $direct.ProcessName -ieq 'node' -and
                 $exe -ieq (Executable 'node') -and
                 $arg.Count -gt 0 -and
