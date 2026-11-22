@@ -10,6 +10,7 @@ import ShoppingListScreen from "./ShoppingListScreen";
 import SelectedMealOptions from "./SelectedMealOptions";
 import RetailAlternativeCards from "./RetailAlternativeCards";
 import {adaptationSummaries} from "./RecipeAdaptationCards";
+import AdaptationResearchQueue from "./AdaptationResearchQueue";
 import "./planning-journey.css";
 import {copyWeeklyOrganisation, repeatMealAttendance, setWeeklyAttendanceDecision, setWeeklyGuestCount} from "./weeklyAttendance";
 import {calendarDateOffset} from "./mealAlternatives";
@@ -208,6 +209,12 @@ export default function PlanningJourney({familyId, referenceDate, onPlanChanged,
     </section>}
     {step===3 && <>
       <div className="journey-context"><strong>{week} · {selectedPeople.map(p=>p.first_name).join(" · ")}</strong><p>{pt ? "Revê a proposta e usa «Confirmar a semana no plano». Só depois as refeições são guardadas e a lista de compras é calculada." : "Review the proposal and choose Confirm week in planner. Only then are meals saved and shopping calculated."}</p></div>
+      <AdaptationResearchQueue
+        familyId={familyId}
+        recipes={recipes}
+        excluded={effectiveExcluded}
+        onChanged={() => { void listRecipeReviews(familyId).then(setRecipes).catch(e => setError(String(e))); }}
+      />
       <WeeklyProposalPreview onMealCommitted={onPlanChanged} recipeReviews={recipes} key={`${familyId}:${week}:${setup.version}`} familyId={familyId} weekStart={week} people={selectedPeople} recipeAdaptations={adaptationSummaries(recipes,effectiveExcluded)} renderSelectedMeal={context=><SelectedMealOptions key={`${context.planningDate}:${context.mealType}:${context.recipeId}:${context.personIds.join(",")}`} familyId={familyId} context={context} recipes={recipes} products={products} restrictions={automatic} people={people} manualExclusions={setup.excluded_food_item_ids} onVariantsChanged={()=>{void listRecipeReviews(familyId).then(setRecipes).catch(e=>setError(String(e)));}}/>} recipeAdaptationsForParticipants={(day,meal,attendees)=>adaptationSummaries(recipes,exclusionsForMeal(setup.excluded_food_item_ids,automatic,day,meal,attendees))} planningOptions={{mealSources:setup.meal_sources ?? {lunch:"delivery"},mealTypes:setup.meal_types,excludedFoodItemIds:setup.excluded_food_item_ids,attendance:setup.attendance,guestNotices:setup.guest_notices,attendanceDecisions:setup.attendance_decisions}} autoGenerate={!applied} onPlanChanged={onPlanChanged} onApplied={(updated)=>{setApplied(true);setShoppingWarning(!updated);setStep(4);}} />
 
     </>}
