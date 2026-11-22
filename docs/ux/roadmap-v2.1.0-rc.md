@@ -403,3 +403,8 @@ Os produtos foram confirmados nas páginas públicas do Auchan e Continente em 2
 A UI pode apresentar os produtos no catálogo de ingredientes com nome, fonte e estado, para substituição **manual e revista**. A substituição automática de pão e as duas trocas simultâneas na mesma receita (leite + pão) continuam pendentes de `#77` e de suporte a múltiplas operações no contrato e na persistência. Não afirmar conclusão dessa parte apenas por existir catálogo. Os testes `test_development_bread_review_seed.py` cobrem idempotência, perfis desativados, nutrição desconhecida e preservação de escolhas. Revalidar CI no último SHA.
 
 Nota: `sem glúten` não equivale a low FODMAP; o produto Auchan 400 g declara fibras vegetais sem origem suficiente na descrição comercial para concluir a adequação clínica. Confirmar sempre rótulo atual, porção, ingredientes e tolerâncias por pessoa. Nunca modificar dados familiares reais em E2E.
+
+
+### Visibilidade no catálogo de ingredientes
+
+Em `IngredientCatalogue.tsx`, as entradas `source=development-bread-review` apresentam explicitamente **«Candidato comercial · FODMAP por validar · rever ingredientes e porção»** (e tradução EN). Não recebem estado `nutritionReady` nem ficha de composição inventada, e não podem ser aprovadas apenas por serem sem glúten. Ref: commit `c7c8627`. Os links de fornecedor persistem em `FoodItem.source_reference`; o endpoint de ingredientes atual não expõe ainda este campo na UI, pelo que a consulta pública de rótulo permanece na documentação/catálogo até ampliar a API.
