@@ -1447,9 +1447,24 @@ export default function WeeklyProposalPreview({
                         const pendingReason = skippedSlots[slotKey(planningDate, mealType)];
                         const state = entry ? "planned" : choice ? "proposed" : "empty";
                         const hasAppliedChanges = Boolean(entry?.variant_changes?.length || entry?.transformations.length);
+                        const requiresInvestigation = !hasAppliedChanges && Boolean(
+                          (entry?.recipe_id ?? choice?.recipe_id) &&
+                          (!currentReviews.some(review => review.id === (entry?.recipe_id ?? choice?.recipe_id) ||
+                            review.active_variants?.some(variant => variant.recipe_id === (entry?.recipe_id ?? choice?.recipe_id))) ||
+                          (slotAdaptations?.[entry?.recipe_id ?? choice?.recipe_id ?? ""]?.some(
+                            item => item.includes("alternativa por definir")
+                          ) ?? false))
+                        );
+                        // An unassessed recipe is not "ready" simply because no
+                        // substitute has been entered yet. All new proposals
+                        // require review before a family-specific confirmation.
+                        const requiresFodmapReview = Boolean(choice && !hasAppliedChanges &&
+                          !choice.variant_changes?.length && !choice.transformation &&
+                          !ingredientProposals.length);
                         const needsReview = !hasAppliedChanges && Boolean(
                           choice?.variant_changes?.length || choice?.transformation ||
-                          ingredientProposals.length || slotAdaptations?.[entry?.recipe_id ?? choice?.recipe_id ?? ""]?.length
+                          ingredientProposals.length || slotAdaptations?.[entry?.recipe_id ?? choice?.recipe_id ?? ""]?.length ||
+                          requiresFodmapReview
                         );
                         const label = entry
                           ? entryName(entry)
@@ -1463,7 +1478,7 @@ export default function WeeklyProposalPreview({
                             aria-label={`${mealLabel(mealType, locale)} · ${gridDay.weekday} ${planningDate} · ${entry ? copy.planned : choice ? copy.proposed : pendingReason ? copy.pending : copy.empty} · ${label}`}
                             className={`weekly-grid-meal is-${state} ${
                               needsReview ? "has-review" : ""
-                            } ${
+                            } ${requiresInvestigation ? "needs-investigation" : ""} ${
                               selectedDate === planningDate && selectedMealType === mealType
                                 ? "selected"
                                 : ""
@@ -1482,9 +1497,11 @@ export default function WeeklyProposalPreview({
                                 {needsReview || hasAppliedChanges ? (
                                   <small className={`nf-week-change-hint ${hasAppliedChanges ? "is-applied" : "is-review"}`}>
                                     {hasAppliedChanges ? (locale === "pt-PT" ? "Adaptação aplicada" : "Adaptation applied") :
-                                      choice?.variant_changes?.length || choice?.transformation
-                                        ? (locale === "pt-PT" ? "Adaptar" : "Adapt")
-                                        : (locale === "pt-PT" ? "Por verificar" : "Review")}
+                                      requiresInvestigation
+                                        ? (locale === "pt-PT" ? "Investigar ingredientes" : "Research ingredients")
+                                        : choice?.variant_changes?.length || choice?.transformation
+                                          ? (locale === "pt-PT" ? "Adaptar" : "Adapt")
+                                          : (locale === "pt-PT" ? "Por verificar" : "Review")}
                                   </small>
                                 ) : (
                                   <span className="weekly-grid-meal__label">
