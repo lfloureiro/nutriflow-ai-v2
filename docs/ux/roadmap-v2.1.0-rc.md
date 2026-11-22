@@ -555,3 +555,10 @@ Implementação:
 - `recipeAdaptationProgress.test.ts`: regressão para duas trocas simultâneas, ordem/quantidades equivalentes, variações de doses, estado com propostas apenas por nome, variante ativa parcial e falta de dados. Os testes não alteram a base familiar.
 
 Pendências: a detecção de rascunhos existentes é feita quando se abre a receita (API de variantes, não exportação de propostas); mudar opções após validar exige sempre nova validação; revisão FODMAP por dose e participante continua obrigatória; idempotência **atómica** e deduplicação de variantes por API deve ser revista antes de declarar garantia forte contra corrida.
+
+
+## Windows deployment: Get-NetTCPConnection reports PID 0 (22/11/2026)
+
+O utilizador atualizou corretamente de `654ba877` para `3cacdf05` e executou `deploy.cmd -ForceRestart`. Migrações e catálogo concluíram. Durante a reinicialização do Vite, `Get-NetTCPConnection` devolveu um falso proprietário da porta `127.0.0.1:5173 PID=0` (processo Idle), em conjunto com proprietários reais; `netstat` já rejeitava PIDs `<=0`. Isso levou `SelectLoopbackSocketOwner` a selecionar o PID 0, rejeitar o Node gerido e, no diagnóstico, a tentar obter metadados de processo inexistente.
+
+Correção `6c4a372`: descartar PIDs `<=0` **à origem** em `Listener` ao ler `Get-NetTCPConnection`; reforçar `SelectLoopbackSocketOwner` e `VerifiedServiceProcess` contra entradas sintéticas de PID 0; não consultar/adotar PID 0 no diagnóstico nem em `AdoptLegacy`; tornar o registo de processo tolerante a um PID desaparecido durante a verificação. Os testes puros de PowerShell incluem mistura PID 0 + proprietário IPv4 real + IPv6 e PID 0 isolado. Não foi eliminado nenhum processo de origem desconhecida nem alterada a DB. Validar `Deployment Script CI` e fazer o próximo restart Windows antes de declarar resolvido.
