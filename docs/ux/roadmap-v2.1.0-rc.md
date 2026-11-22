@@ -432,3 +432,21 @@ Código: `shared_weekly_multi_slot_planning.py`, `shared_weekly_search.py`, `wee
 Commit `93e8686`. Commits `34cc830` e `6ea1aab` corrigem a ordem de imports do seed de pão e teste associada à falha Ruff do CI anterior. A compilação e os testes Windows CI ainda têm de passar; não declarar o deploy corrigido no computador até execução local.
 
 **Instrução de atualização:** no terminal Windows, a branch deverá ter as alterações sincronizadas; `git pull --ff-only origin codex/ux-drawer-next-batch-20261119` e `.\\deploy.cmd`; se persistir, recolher `.\\deploy.ps1 -Diagnose` e os últimos registos em `.nutriflow-local\\api.err.log`. Não terminar manualmente processos que não sejam identificados como NutriFlow.
+
+
+## v2.1.24 — A adaptação de receitas é o centro do planeamento familiar (22/11/2026)
+
+**Defeito identificado na captura de 23–29/11:** os cartões de proposta com variante ou substituição já registada mostravam `Adaptar` / `Por verificar`; pratos sem proposta registada apareciam apenas como `Proposta`. Esta diferença era causada por `WeeklyProposalPreview.tsx` depender da existência de `variant_changes`, `transformation`, `ingredientProposals` ou correspondência em `recipeAdaptations`. **Não existia evidência de que uma proposta sem substituição fosse compatível.** Isto ocultava necessidades de investigação.
+
+**Alterações de UX e fluxo já publicadas:**
+- No planeamento semanal, todas as novas propostas de receita sem evidência de adaptação são explicitamente **`Por verificar`**, nunca implicitamente prontas.
+- Receitas sem ficha de ingredientes/revisão ou com exclusões sem substituição são assinaladas a **vermelho** como `Investigar ingredientes`. A cor significa trabalho/evidência pendentes, não reprovação clínica inferida.
+- Na etapa `Planeamento → Rever refeições`, o componente `AdaptationResearchQueue` deriva uma fila **do catálogo persistido de ingredientes e das exclusões familiares atuais**. Mostra receita, ingrediente e quantidade, estado de proposta, links de pesquisa Monash, Auchan e Continente e um formulário de registo de alternativa.
+- `Guardar para revisão` usa o serviço `recipe-adaptations` já existente, com nome concreto e notas/fonte; não marca substituição como `reviewed`, não atribui doses/nutrição fictícias, não cria variante nem altera a refeição/compras. O formulário exige nome e permite documentar URL, dose e dúvidas.
+- `Copiar investigação para IA` produz um briefing estruturado com ingredientes pendentes e pedidos explícitos de comprovação por rótulo, porção, fonte e data. **A pesquisa externa por IA ainda não é um serviço automático no backend; o botão copia o pedido para uma IA e há links diretos para pesquisa.** Não confundir isto com pesquisa/validação concluída.
+- Variantes de receita existentes continuam listadas como `validar por pessoa e porção`; uma variante `active` não garante elegibilidade na refeição atual.
+- Testes Vitest `AdaptationResearchQueue.test.tsx`: exclusões, ausências de alternativas, variantes pré-existentes, links e resumo para IA.
+
+**Próximos passos funcionais ainda necessários**: serviço de pesquisa com fontes autorizadas e revisão humana, fila própria persistida com atribuição/estado de investigação e interface de consentimento, importação de rótulos reais e evidência nutricional/FODMAP por porção, reevaluar regras por cada pessoa, e desenvolver operações múltiplas (Issue #77) de substituição leite + pão na mesma receita. Não relaxar exclusões nem declarar compatibilidade sem verificação. A regeneração da semana nunca deverá adicionar receitas duplicadas ou alterar familiares sem confirmação.
+
+Commits: `3e7105e`, `b4d77f2`, `947f7e0`, `be4f4ac`, `401e36c`, `6ca272c`, `075afcf`, `77ac234`, `8f6cde4`, `ea49123`, `27b968b`. Ainda requer Web CI e UX E2E no último SHA.
