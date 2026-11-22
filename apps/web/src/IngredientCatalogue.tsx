@@ -496,8 +496,15 @@ function IngredientRow({
         <small>
           {ingredient.brand ? `${ingredient.brand} · ` : ""}
           {ingredientNutritionSummary(ingredient, locale)} · {copy.usedIn} {ingredient.recipe_usage_count} {copy.recipes}
-          {ingredient.scope === "shared" ? ` · ${ingredient.source}` : ""}
+          {ingredient.scope === "shared" && ingredient.source !== "development-bread-review" ? ` · ${ingredient.source}` : ""}
         </small>
+        {ingredient.source === "development-bread-review" ? (
+          <small className="ingredient-bread-review">
+            {locale === "pt-PT"
+              ? "Candidato comercial · FODMAP por validar · rever ingredientes e porção"
+              : "Retail candidate · FODMAP not validated · check ingredients and serving"}
+          </small>
+        ) : null}
       </span>
       <span className="ingredient-row__end">
         <span className={`ingredient-nutrition-state ${status}`}>
