@@ -608,6 +608,20 @@ def _planning_slot(
         for candidate in candidates
         if candidate.evaluation.eligible and all(fit.eligible for fit in candidate.plan_fits)
     ]
+    if slot.meal_type == "dinner":
+        # Explain whether rotation was possible with the actual Person-specific
+        # constraints rather than inferring it from the size of the recipe book.
+        weekly_debug(
+            "ROTATION",
+            "dinner-pool",
+            slot=slot.slot_key,
+            offered=len(slot.candidates),
+            evaluated=len(candidates),
+            eligible=len(eligible_candidates),
+            unique_eligible_recipes=len({
+                candidate.evaluation.candidate_key for candidate in eligible_candidates
+            }),
+        )
     shared_eligible = sum(1 for candidate in candidates if candidate.evaluation.eligible)
     plan_eligible = sum(
         1 for candidate in candidates if all(fit.eligible for fit in candidate.plan_fits)
@@ -802,6 +816,20 @@ def _compute_shared_weekly_plan_uncached(
         search_space=result.search_space_size,
         evaluated=result.evaluated_combinations,
         feasible=result.feasible_combinations,
+        repeated_dinners=(
+            result.selected_plan.repeated_dinner_count
+            if result.selected_plan is not None
+            else None
+        ),
+        distinct_dinners=(
+            len({
+                choice.candidate.evaluation.candidate_key
+                for choice in result.selected_plan.choices
+                if choice.meal_type == "dinner"
+            })
+            if result.selected_plan is not None
+            else None
+        ),
         repeated=(
             result.selected_plan.repeated_candidate_count
             if result.selected_plan is not None
