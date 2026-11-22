@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAIResearchExport, previewAIResearchImport } from "./aiResearchImport";
+import { buildAIResearchExport, buildGitHandoff, previewAIResearchImport, readEngineeringChanges } from "./aiResearchImport";
 import type { ReviewRecipe } from "./api/dietaryReviewClient";
 
 const recipes = [{
@@ -46,6 +46,41 @@ describe("AI research schema", () => {
       expect.objectContaining({ingredient_id:"ingredient-1"}),
     ]);
     expect(json.output_example.suggestions[0]?.evidence_status).toBe("unverified");
+  });
+  it("provides an explicit GitHub workflow without committing private DB data", () => {
+    const exported = JSON.parse(buildAIResearchExport(recipes, ["food-onion"])) as {
+      git_policy:{family_data:string;algorithm_or_code:string};
+      output_example:{engineering_changes:{kind:string}[]};
+    };
+    expect(exported.git_policy.family_data).toContain("DB-only");
+    expect(exported.git_policy.algorithm_or_code).toContain("GitHub");
+    expect(exported.output_example.engineering_changes[0]?.kind).toBe("algorithm");
+    const document = JSON.stringify({
+      schema_version:"nutriflow.ai-review.v1",
+      suggestions:[],
+      engineering_changes:[{
+        kind:"algorithm",summary:"Improve dinner rotation",target_paths:["apps/api/app/services/"],
+        rationale:"Improve the set of candidates",acceptance_tests:["API synthetic regression"],
+      }],
+    });
+    const parsed = readEngineeringChanges(document);
+    expect(parsed).toHaveLength(1);
+    expect(previewAIResearchImport(document, recipes)).toEqual([]);
+    const instructions = buildGitHandoff(parsed);
+    expect(instructions).toContain("lfloureiro/nutriflow-ai-v2");
+    expect(instructions).toContain("commit");
+    expect(instructions).toContain("Não publicar dados pessoais");
+  });
+  it("rejects unsafe code target paths and untyped engineering changes", () => {
+    const make = (target_paths: string[]) => JSON.stringify({
+      schema_version:"nutriflow.ai-review.v1", suggestions:[],
+      engineering_changes:[{
+        kind:"application_code",summary:"Change evaluator",target_paths,
+        rationale:"Needs application logic",acceptance_tests:["CI"],
+      }],
+    });
+    expect(() => previewAIResearchImport(make(["../secrets.txt"]), recipes)).toThrow();
+    expect(() => previewAIResearchImport(make(["apps/../../.env"]), recipes)).toThrow();
   });
   it("previews a legitimate sourced candidate without applying a mutation", () => {
     const preview = previewAIResearchImport(payload(), recipes);
