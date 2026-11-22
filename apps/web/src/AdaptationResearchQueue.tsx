@@ -179,6 +179,7 @@ export default function AdaptationResearchQueue({
                       <p>{suggestion.servingEvidence}</p>
                       <div className="nf-research-links">
                         <a href={suggestion.monashUrl} target="_blank" rel="noopener noreferrer">Monash</a>
+                        <a href="https://fodmapfriendly.com/for-consumers/foods-high-low-fodmap/" target="_blank" rel="noopener noreferrer">FODMAP Friendly</a>
                         {suggestion.retailerUrl && (
                           <a href={suggestion.retailerUrl} target="_blank" rel="noopener noreferrer">
                             {suggestion.retailer}
