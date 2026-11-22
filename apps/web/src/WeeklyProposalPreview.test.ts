@@ -16,6 +16,7 @@ import {
   weeklySourcesFor,
   weeklySkippedSlotMessages,
   shoppingRefreshSummary,
+  weeklyMealAttendanceContext,
   nutritionPlanAuthorityLabel,
   formatMealPortion,
   formatMealEnergyReference,
@@ -144,6 +145,29 @@ describe("server-authoritative unavailable weekly slots", () => {
       "2026-09-15:lunch":
         "Almoço de dia útil: primeiro devem ser usadas sobras reais do jantar anterior; sem sobras, só entra uma opção Uber Eats/Glovo com disponibilidade conhecida. Ainda não existe uma opção automática segura para este slot.",
     });
+  });
+});
+
+describe("rejected breakfast diagnostics", () => {
+  it("explains nutrition-plan constraints rather than hiding them behind pending", () => {
+    const reasons = weeklySkippedSlotMessages([{
+      slot_key: "2026-11-22:breakfast",
+      planning_date: "2026-11-22",
+      meal_type: "breakfast",
+      reason: "no_eligible_candidates",
+      exclusion_reasons: ["plan_fit:fail", "plan-rule:protein"],
+    }], "pt-PT");
+    expect(reasons["2026-11-22:breakfast"]).toContain("regras do plano nutricional");
+  });
+  it("explains restriction constraints without falsely claiming a safe milk swap", () => {
+    const reasons = weeklySkippedSlotMessages([{
+      slot_key: "2026-11-22:breakfast",
+      planning_date: "2026-11-22",
+      meal_type: "breakfast",
+      reason: "no_eligible_candidates",
+      exclusion_reasons: ["safety:ingredient_reaction"],
+    }], "pt-PT");
+    expect(reasons["2026-11-22:breakfast"]).toContain("restrições alimentares");
   });
 });
 
@@ -524,3 +548,23 @@ it("materializes only the selected meal when accepting an individual proposal",(
  const single=singleMealPlanRequest(request,choice);expect(single.slots.map(slot=>slot.slot_key)).toEqual(["chosen"]);expect(single.expected_choices).toEqual([{slot_key:"chosen",candidate_key:"candidate"}]);expect(request.slots).toHaveLength(2);
  expect(()=>singleMealPlanRequest({...request,slots:[]},choice)).toThrow();
 });
+
+describe("weekly meal attendance context isolation",()=>{
+  const options={
+    guestNotices:[{planning_date:"2026-11-19",meal_type:"dinner" as const,guest_count:2}],
+    attendanceDecisions:[{planning_date:"2026-11-19",meal_type:"dinner" as const,people:[
+      {person_id:"person-a",decision:"present" as const},
+      {person_id:"person-b",decision:"unconfirmed" as const},
+      {person_id:"person-c",decision:"absent" as const},
+    ]}],
+  };
+  it("counts only guests and pending decisions in the selected slot",()=>{
+    expect(weeklyMealAttendanceContext("2026-11-19","dinner",options)).toEqual({guestCount:2,pendingCount:1});
+  });
+  it("does not copy guest warnings to another slot, day or missing setup",()=>{
+    expect(weeklyMealAttendanceContext("2026-11-19","lunch",options)).toEqual({guestCount:0,pendingCount:0});
+    expect(weeklyMealAttendanceContext("2026-11-20","dinner",options)).toEqual({guestCount:0,pendingCount:0});
+    expect(weeklyMealAttendanceContext("2026-11-19","dinner")).toEqual({guestCount:0,pendingCount:0});
+  });
+});
+

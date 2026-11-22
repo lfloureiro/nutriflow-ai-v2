@@ -18,3 +18,12 @@ export const activateRecipeVariant=(family:string,row:RecipeVariant,context:Vari
 export const retireRecipeVariant=(family:string,row:RecipeVariant)=>request<RecipeVariant>(`${base(family)}/${encodeURIComponent(row.id)}/retire`,{expected_version:row.version});
 
 export const createRecipeEdit=(family:string,data:{base_recipe_id:string;name:string;serving_count:string|null;operations:(Omit<VariantOperation,"replacement_food_item_id">&{replacement_food_item_id:string|null;replacement_name:string})[]})=>request<RecipeVariant>(`${base(family)}/recipe-edit`,data);
+
+export type DuplicateFamilyAdaptationGroup = {
+  base_recipe_id:string;
+  count:number;
+  action:"manual_review_required";
+  recipes:{variant_id:string;recipe_id:string;name:string}[];
+};
+export const listDuplicateFamilyAdaptations=(family:string)=>
+  request<DuplicateFamilyAdaptationGroup[]>(`${base(family)}/duplicates`);

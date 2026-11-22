@@ -395,6 +395,7 @@ def propose_shared_meal_transformations(
     family_id: uuid.UUID,
     data: SharedMealTransformationCreate,
     baseline_fits_by_person: dict[uuid.UUID, MealPlanFitRead] | None = None,
+    rescue_blocked: bool = False,
 ) -> SharedMealTransformationRead:
     try:
         recipe = get_family_visible_recipe_model(db, family_id, data.recipe_id)
@@ -420,6 +421,7 @@ def propose_shared_meal_transformations(
         participant_results: list[SharedMealTransformationParticipantRead] = []
         unsafe = False
         any_plan_improvement = False
+        any_eligibility_recovered = False
         for participant in participants:
             person_id = participant.person.id
             if person_id is None:
@@ -461,6 +463,8 @@ def propose_shared_meal_transformations(
             )
             if not after_fit.eligible or worsened_ids:
                 unsafe = True
+            if not participant.baseline_fit.eligible and after_fit.eligible:
+                any_eligibility_recovered = True
             plan_delta = _plan_score_delta(participant.baseline_fit, after_fit)
             plan_improved = bool(improved_ids) or (
                 plan_delta is not None and plan_delta > ZERO
@@ -511,9 +515,15 @@ def propose_shared_meal_transformations(
             for item in participant_results
         )
 
-        if any_plan_improvement:
+        if any_eligibility_recovered or (rescue_blocked and all(result.after_fit.eligible for result in participant_results)) or any_plan_improvement:
             kind = "plan_adapted"
-            explanation = ["plan_backed_family_improvement"]
+            explanation = (
+                ["plan_backed_family_improvement"] if any_plan_improvement else []
+            )
+            if any_eligibility_recovered or rescue_blocked:
+                explanation.append(
+                    "family_eligibility_recovered_with_safe_ingredient_substitution"
+                )
         elif minimum_preference_delta >= ZERO and average_preference_delta > ZERO:
             kind = "preference_variant"
             explanation = ["family_preference_improved_without_plan_claim"]

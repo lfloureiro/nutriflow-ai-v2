@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "status": "approved_visual_targets",
+  "reference_set": "nutriflow-ux-2026-11-21",
+  "approved_by": "user",
+  "reference_viewport": "1672x941",
+  "notes": "High-fidelity illustrative mockups, not application screenshots nor live family data. Preserve layouts, color, typography, visual density and whole-viewport design. Do not copy fictional profile or nutrition values to production.",
+  "screens": {
+    "inicio": {
+      "file": "inicio.png",
+      "sha256": "9d4537597267bebdeaadadb1bc35d13f236e231b077354b3664caac830beec15"
+    },
+    "receitas": {
+      "file": "receitas.png",
+      "sha256": "8640d165073d827e84e31d589f49671e9f29aa324323798b836235d6704376c1"
+    },
+    "familia": {
+      "file": "familia.png",
+      "sha256": "1c9be23e06a0f93c32ccbce5e567d61d6e63e0838d23b8e32bf0675f2af3c009"
+    },
+    "compras": {
+      "file": "compras.png",
+      "sha256": "1593f11dd93c9121d6382c9800bc5800ad2b48a45fd375c377ca5fb2375f82d6"
+    },
+    "despensa": {
+      "file": "despensa.png",
+      "sha256": "2c83ee7034e955c8b8b682c3fc5722626b73543d0755b39e9151df5e27290135"
+    }
+  }
+}

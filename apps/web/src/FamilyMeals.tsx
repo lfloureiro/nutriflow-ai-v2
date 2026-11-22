@@ -1,9 +1,12 @@
 import {useUnsavedChanges} from "./useUnsavedChanges";
 import PersonAvatar from "./ui/PersonAvatar";
+import ContextDrawer from "./ui/ContextDrawer";
+import Icon from "./ui/Icon";
+import NextMealHero, {type HeroSuggestedMeal} from "./NextMealBanner";
 import {searchText} from "./recipeBrowsing";
 import {listRecipeReviews,type ReviewRecipe} from "./api/dietaryReviewClient";
 import SavedMealChanges from "./SavedMealChanges";
-import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import {
   ApiError,
@@ -24,9 +27,9 @@ import type { Recipe } from "./api/recipeTypes";
 import type { Person } from "./api/types";
 import { useI18n, type Locale } from "./i18n";
 import MealConsumptionControls from "./MealConsumptionControls";
-import MealPlanner from "./MealPlanner";
+const MealPlanner = lazy(() => import("./MealPlanner"));
 import { localDateValue } from "./planning";
-import WeeklyProposalPreview from "./WeeklyProposalPreview";
+const WeeklyProposalPreview = lazy(() => import("./WeeklyProposalPreview"));
 const PlanningJourney = lazy(() => import("./PlanningJourney"));
 
 export type FamilyMealsMode = "prepare" | "today" | "week" | "recommend";
@@ -131,12 +134,22 @@ const COPY = {
   },
 } as const;
 
-type ParticipantDraft = {
+export type AttendanceDecision = "present" | "absent" | "unconfirmed";
+
+export type ParticipantDraft = {
   personId: string;
-  selected: boolean;
+  attendance: AttendanceDecision;
   quantity: string;
   unit: string;
 };
+
+/** Copy decisions only. Inherited quantities or units would be unsafe for another meal. */
+export function copyAttendanceSelection(
+  current: ParticipantDraft[], previousAttendeeIds: readonly string[],
+): ParticipantDraft[] {
+  const previous = new Set(previousAttendeeIds);
+  return current.map(person => ({...person, attendance: previous.has(person.personId) ? "present" : "absent"}));
+}
 
 type EditTarget = {
   date: string;
@@ -233,12 +246,16 @@ function MealEditForm({
   recipes,
   people,
   onDone,
+  attendanceSources,
+  registerClose,
 }: {
   target: EditTarget;
   familyId: string;
   recipes: Recipe[];
   people: Person[];
-  onDone: () => void;
+  onDone: (changed?: boolean) => void;
+  attendanceSources: {date:string;entry:MealPlanEntry}[];
+  registerClose?: (close: () => void) => void;
 }) {
   const { locale } = useI18n();
   const copy = COPY[locale];
@@ -261,7 +278,7 @@ function MealEditForm({
       );
       return {
         personId: person.id,
-        selected: entry ? Boolean(existing) : true,
+        attendance: entry ? (existing ? "present" : "absent") : "unconfirmed",
         quantity: existing?.quantity ?? "",
         unit: existing?.unit ?? "g",
       };
@@ -269,11 +286,14 @@ function MealEditForm({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attendanceSource,setAttendanceSource] = useState("");
 
   const [recipeQuery,setRecipeQuery]=useState("");
   const guard=useUnsavedChanges({recipeId,localTime,location,participants},locale==="pt-PT"?"Tens alterações nesta refeição por guardar. Sair e descartá-las?":"You have unsaved meal changes. Leave and discard them?");
-  const closeEditor=()=>{if(!busy&&guard.confirmDiscard())onDone();};
-  const present=participants.filter(participant=>participant.selected);
+  const closeEditor=()=>{if(!busy&&guard.confirmDiscard())onDone(false);};
+  useEffect(() => { registerClose?.(closeEditor); });
+  const present=participants.filter(participant=>participant.attendance==="present");
+  const unconfirmed=participants.filter(participant=>participant.attendance==="unconfirmed");
   const selectedRecipe=eligibleRecipes.find(recipe=>recipe.id===recipeId);
   const matchingRecipes=eligibleRecipes.filter(recipe=>recipe.id===recipeId||searchText(recipe.name).includes(searchText(recipeQuery)));
   function patchParticipant(personId: string, patch: Partial<ParticipantDraft>) {
@@ -287,7 +307,11 @@ function MealEditForm({
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    const selected = participants.filter((participant) => participant.selected);
+    const selected = participants.filter((participant) => participant.attendance === "present");
+    if (unconfirmed.length > 0) {
+      setError(locale==="pt-PT"?"Confirma a presença ou ausência de cada pessoa antes de guardar.":"Confirm attendance or absence for each person before saving.");
+      return;
+    }
     if (!recipeId || selected.length === 0) {
       setError(!recipeId ? copy.chooseRecipe : copy.noPeople);
       return;
@@ -313,7 +337,7 @@ function MealEditForm({
       } else {
         await createMealPlanEntry(familyId, payload);
       }
-      guard.markSaved();onDone();
+      guard.markSaved();onDone(true);
     } catch (caught: unknown) {
       setError(mealPlanErrorText(caught, locale));
     } finally {
@@ -327,7 +351,7 @@ function MealEditForm({
     setError(null);
     try {
       await cancelMealPlanEntry(familyId, entry.id);
-      guard.markSaved();onDone();
+      guard.markSaved();onDone(true);
     } catch (caught: unknown) {
       setError(mealPlanErrorText(caught, locale));
     } finally {
@@ -423,26 +447,44 @@ function MealEditForm({
           </label>
         </div>
         <div className="meal-plan-participants">
-          <div className="nf-presence-heading"><h3>{copy.participants}</h3><span role="status">{present.length}/{people.length} {locale==="pt-PT"?"presentes":"attending"}</span><div className="button-row"><button type="button" className="button ghost small" onClick={()=>setParticipants(old=>old.map(person=>({...person,selected:true})))}>{locale==="pt-PT"?"Selecionar todos":"Select all"}</button><button type="button" className="button ghost small" onClick={()=>setParticipants(old=>old.map(person=>({...person,selected:false})))}>{locale==="pt-PT"?"Selecionar nenhum":"Select none"}</button></div></div>
+          {!entry && attendanceSources.length > 0 && <div className="nf-attendance-template">
+            <label className="field">
+              <span>{locale==="pt-PT"?"Reutilizar presenças de outra refeição (opcional)":"Reuse attendance from another meal (optional)"}</span>
+              <select value={attendanceSource} onChange={event=>setAttendanceSource(event.target.value)}>
+                <option value="">{locale==="pt-PT"?"Escolher refeição anterior…":"Choose a previous meal…"}</option>
+                {attendanceSources.map(source=><option key={source.entry.id} value={source.entry.id}>{formatDate(source.date,locale)} · {source.entry.recipe_name??mealLabel(target.mealType,locale)}</option>)}
+              </select>
+            </label>
+            <button className="button secondary small" type="button" disabled={!attendanceSource}
+              onClick={()=>{
+                const source=attendanceSources.find(item=>item.entry.id===attendanceSource);
+                if(!source)return;
+                setParticipants(current=>copyAttendanceSelection(current,source.entry.participants.map(person=>person.person_id)));
+                setAttendanceSource("");
+              }}>{locale==="pt-PT"?"Usar apenas presenças":"Copy attendance only"}</button>
+            <p className="muted">{locale==="pt-PT"?"Só copia quem está presente. As quantidades e unidades atuais mantêm-se; nada é guardado até confirmares.":"Copies attendees only. Current amounts and units are preserved; nothing is saved until confirmation."}</p>
+          </div>}
+          <div className="nf-presence-heading"><h3>{copy.participants}</h3><span role="status">{present.length}/{people.length} {locale==="pt-PT"?"presentes":"attending"}{unconfirmed.length>0 ? (locale==="pt-PT"?` · ${unconfirmed.length} por confirmar`:` · ${unconfirmed.length} unconfirmed`) : ""}</span><div className="button-row"><button type="button" className="button ghost small" onClick={()=>setParticipants(old=>old.map(person=>({...person,attendance:"present"})))}>{locale==="pt-PT"?"Selecionar todos":"Select all"}</button><button type="button" className="button ghost small" onClick={()=>setParticipants(old=>old.map(person=>({...person,attendance:"absent"})))}>{locale==="pt-PT"?"Selecionar nenhum":"Select none"}</button></div></div>
           {participants.map((participant) => {
             const person = people.find((candidate) => candidate.id === participant.personId);
             if (!person) return null;
             return (
               <div className="meal-plan-person" key={participant.personId}>
-                <label className="meal-plan-person__check">
-                  <input
-                    checked={participant.selected}
-                    onChange={(event) =>
-                      patchParticipant(participant.personId, { selected: event.target.checked })
-                    }
-                    type="checkbox"
-                  />
+                <div className="meal-plan-person__check">
                   <PersonAvatar identity={person.id} familyIdentity={familyId} name={displayName(person)} appearance={person.avatar_appearance} size="sm" decorative/><strong>{displayName(person)}</strong>
+                </div>
+                <label className="field nf-attendance-decision">
+                  <span>{locale==="pt-PT"?"Presença":"Attendance"}</span>
+                  <select value={participant.attendance} onChange={event=>patchParticipant(participant.personId,{attendance:event.target.value as AttendanceDecision})}>
+                    <option value="unconfirmed">{locale==="pt-PT"?"Por confirmar":"Unconfirmed"}</option>
+                    <option value="present">{locale==="pt-PT"?"Presente":"Present"}</option>
+                    <option value="absent">{locale==="pt-PT"?"Ausente":"Absent"}</option>
+                  </select>
                 </label>
                 <label className="field">
                   <span>{copy.quantity} <small>({copy.defaultPortion})</small></span>
                   <input
-                    disabled={!participant.selected}
+                    disabled={participant.attendance!=="present"}
                     inputMode="decimal"
                     placeholder="—"
                     value={participant.quantity}
@@ -454,7 +496,7 @@ function MealEditForm({
                 <label className="field">
                   <span>{copy.unit}</span>
                   <select
-                    disabled={!participant.selected || !participant.quantity.trim()}
+                    disabled={participant.attendance!=="present" || !participant.quantity.trim()}
                     value={participant.unit}
                     onChange={(event) =>
                       patchParticipant(participant.personId, { unit: event.target.value })
@@ -472,11 +514,12 @@ function MealEditForm({
             );
           })}
         </div>
+        {unconfirmed.length>0&&<p role="status" className="nf-attendance-warning">{locale==="pt-PT"?`Faltam ${unconfirmed.length} confirmações de presença. Não serão tratadas como ausências.`:`${unconfirmed.length} attendance decisions remain unconfirmed. They will not be treated as absences.`}</p>}
         <section className="nf-meal-save-summary" aria-label={locale==="pt-PT"?"Resumo antes de guardar":"Summary before saving"}><span className="eyebrow">{locale==="pt-PT"?"VAI PARA O PLANO":"READY FOR THE PLANNER"}</span><h3>{selectedRecipe?.name??copy.chooseRecipe}</h3><p>{formatDate(target.date,locale)} · {mealLabel(target.mealType,locale)} · {localTime} · {location||"—"}</p><div className="nf-summary-people">{present.map(participant=><span key={participant.personId}>{displayName(people.find(person=>person.id===participant.personId)!)} · {participant.quantity?`${participant.quantity} ${participant.unit}`:copy.defaultPortion}</span>)}</div>{!present.length&&<p role="status">{copy.noPeople}</p>}</section>
         <div className="meal-plan-editor__actions">
           <button
             className="button primary"
-            disabled={busy || !recipeId || !present.length || eligibleRecipes.length === 0}
+            disabled={busy || !recipeId || !present.length || unconfirmed.length>0 || eligibleRecipes.length === 0}
             type="submit"
           >
             {busy ? copy.saving : copy.save}
@@ -497,6 +540,8 @@ export default function FamilyMealsScreen({
   referenceDate,
   initialDate,
   onDateChange,
+  selectedMealType,
+  onMealSelectionChange,
   mode,
   onModeChange,
   onDataChanged,
@@ -505,6 +550,8 @@ export default function FamilyMealsScreen({
   referenceDate?: string;
   initialDate?: string;
   onDateChange?:(date:string)=>boolean;
+  selectedMealType?: MealType;
+  onMealSelectionChange?: (selection: {date: string; mealType: MealType} | null) => boolean | void;
   mode: FamilyMealsMode;
   onModeChange: (mode: FamilyMealsMode) => boolean|void;
   onDataChanged?: () => void;
@@ -518,28 +565,34 @@ export default function FamilyMealsScreen({
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   const [editing, setEditing] = useState<EditTarget | null>(null);
-  const [mealSelection,setMealSelection]=useState<{date:string;mealType:MealType}|null>(null);
+  const [heroSuggestion, setHeroSuggestion] = useState<HeroSuggestedMeal | null>(null);
+  const requestEditorClose = useRef<() => void>(() => {});
+  const [mealSelection,setMealSelection]=useState<{date:string;mealType:MealType}|null>(()=>initialDate&&selectedMealType?{date:initialDate,mealType:selectedMealType}:null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
   const [browsingDate, setBrowsingDate] = useState(
-    initialDate ?? referenceDate ?? localDateValue(),
+    initialDate ?? localDateValue(),
   );
 
   useEffect(() => {
-    setBrowsingDate(initialDate ?? referenceDate ?? localDateValue());
-    setEditing(null);
-    setMealSelection(null);
+    setBrowsingDate(initialDate ?? localDateValue());
   }, [familyId, initialDate]);
+  useEffect(() => {
+    setEditing(null);
+    setHeroSuggestion(null);
+  }, [familyId]);
+  useEffect(() => {
+    setMealSelection(initialDate && selectedMealType ? {date:initialDate,mealType:selectedMealType} : null);
+  }, [familyId, initialDate, selectedMealType]);
 
+  // Keep the plan request identity stable when selecting another day or meal
+  // inside the same week. Changing the URL must not unmount the weekly map.
+  const scopeDate = mode === "week" ? startOfWeekDate(browsingDate) : browsingDate;
   const request = useMemo(() => {
     if (mode === "recommend" || mode === "prepare") return null;
-    if (mode === "today") return { startDate: browsingDate, days: 1 };
-    return {
-      startDate: startOfWeekDate(browsingDate),
-      days: 7,
-    };
-  }, [mode, browsingDate]);
+    return {startDate: scopeDate, days: mode === "today" ? 1 : 7};
+  }, [mode, scopeDate]);
 
   useEffect(() => {
     if (!request) return;
@@ -581,9 +634,9 @@ export default function FamilyMealsScreen({
     onDataChanged?.();
   }
 
-  function closeEditor() {
+  function closeEditor(changed = false) {
     setEditing(null);
-    refreshPlan();
+    if (changed) refreshPlan();
   }
 
   const consumptionDate = browsingDate;
@@ -592,6 +645,7 @@ export default function FamilyMealsScreen({
 
   return (
     <div className="family-meals-screen">
+      {mode !== "week" ? (
       <header className="screen-header compact-screen-header family-meals-header">
         <div>
           <span className="eyebrow">Plano</span>
@@ -599,8 +653,38 @@ export default function FamilyMealsScreen({
           <p>{copy.help}</p>
         </div>
       </header>
+      ) : null}
       {reviewLoadError && <p role="status">{locale==="pt-PT"?"Não foi possível carregar as alternativas dos ingredientes.":"Ingredient alternatives could not be loaded."}</p>}
-      <nav className="secondary-tabs family-meals-tabs" aria-label={copy.navigation}>
+      {mode === "week" && people.length > 0 ? (
+        <NextMealHero
+          familyId={familyId}
+          timezone={plan?.timezone ?? people[0]?.timezone ?? "Europe/Lisbon"}
+          people={people}
+          revision={revision}
+          onOpen={(date, mealType, entry) => {
+            navigateDate(date);
+            setHeroSuggestion(null);
+            if (entry) {
+              if (onMealSelectionChange?.({date,mealType}) === false) return;
+              setMealSelection({date,mealType});
+            } else {
+              if (onMealSelectionChange?.(null) === false) return;
+              setMealSelection(null);
+              setEditing({date,mealType,entry:null});
+            }
+          }}
+          onReview={(suggested) => {
+            if (onMealSelectionChange?.({date:suggested.date,mealType:suggested.mealType}) === false) return;
+            navigateDate(suggested.date);
+            setEditing(null);
+            setHeroSuggestion(suggested);
+            setMealSelection({date:suggested.date,mealType:suggested.mealType});
+          }}
+        />
+      ) : null}
+
+      {mode !== "week" ? (
+        <nav className="secondary-tabs family-meals-tabs" aria-label={copy.navigation}>
         <button type="button" onClick={() => onModeChange("prepare")}>{locale === "pt-PT" ? "Planear próxima semana" : "Plan next week"}</button>
         <button
           className={mode === "today" ? "active" : ""}
@@ -612,7 +696,7 @@ export default function FamilyMealsScreen({
           {copy.today}
         </button>
         <button
-          className={mode === "week" ? "active" : ""}
+          className=""
           onClick={() => {
             if(onModeChange("week")===false)return;setEditing(null);
           }}
@@ -630,6 +714,7 @@ export default function FamilyMealsScreen({
           {copy.recommend}
         </button>
       </nav>
+      ) : null}
 
       {mode !== "recommend" ? (
         <nav className="family-meals-date-nav" aria-label={copy.dateNavigation}>
@@ -663,7 +748,7 @@ export default function FamilyMealsScreen({
         </nav>
       ) : null}
 
-      {mode === "recommend" ? <MealPlanner familyId={familyId} /> : null}
+      {mode === "recommend" ? <Suspense fallback={<div className="shell-loading" role="status">{copy.loading}</div>}><MealPlanner familyId={familyId} /></Suspense> : null}
       {mode !== "recommend" && error ? (
         <div className="error-banner" role="alert">
           <strong>{copy.error}</strong><span>{error}</span>
@@ -674,24 +759,32 @@ export default function FamilyMealsScreen({
       ) : null}
 
       {mode !== "recommend" && !busy && plan ? (
-        editing ? (
-          <MealEditForm
+        mode === "week" ? (
+          <Suspense fallback={<div className="shell-loading" role="status">{copy.loading}</div>}><WeeklyProposalPreview
+            simpleWeekView
+            autoGenerate
+            autoBreakfastOnly
+            heroSuggestion={heroSuggestion}
+            initialDate={initialDate ?? browsingDate}
+            initialSelection={mealSelection} onSelectionChange={(selection)=>{
+              if(onMealSelectionChange?.(selection)===false)return false;
+              setMealSelection(selection);
+              if (!selection || selection.date !== heroSuggestion?.date || selection.mealType !== heroSuggestion?.mealType) setHeroSuggestion(null);
+              return true;
+            }} onMealCommitted={onDataChanged}
             familyId={familyId}
-            onDone={closeEditor}
-            people={people}
-            recipes={recipes}
-            target={editing}
-          />
-        ) : mode === "week" ? (
-          <WeeklyProposalPreview
-            initialSelection={mealSelection} onSelectionChange={setMealSelection} onMealCommitted={onDataChanged}
-            familyId={familyId}
-            onEdit={(date, mealType, entry) => {setMealSelection({date,mealType});setEditing({ date, mealType, entry });}}
+            onEdit={(date, mealType, entry) => {
+              // An editor replaces the detail drawer; it must never be stacked
+              // behind it or leave a stale meal selection in the URL.
+              if (onMealSelectionChange?.(null) === false) return;
+              setMealSelection(null);
+              setEditing({ date, mealType, entry });
+            }}
             onPlanChanged={refreshPlan}
             people={people}
             plan={plan}
             weekStart={plan.start_date}
-          />
+          /></Suspense>
         ) : (
           <div className="meal-plan-days today">
             {plan.days.map((day) => (
@@ -800,6 +893,28 @@ export default function FamilyMealsScreen({
             ))}
           </div>
         )
+      ) : null}
+      {editing ? (
+        <ContextDrawer
+          title={`${mealLabel(editing.mealType, locale)} · ${formatDate(editing.date, locale)}`}
+          closeLabel={copy.cancel}
+          onRequestClose={() => requestEditorClose.current()}
+          wide
+        >
+          <MealEditForm
+            key={`${familyId}:${editing.entry?.id ?? "new"}:${editing.date}:${editing.mealType}`}
+            familyId={familyId}
+            onDone={closeEditor}
+            registerClose={(close) => { requestEditorClose.current = close; }}
+            people={people}
+            recipes={recipes}
+            attendanceSources={(plan?.days ?? []).flatMap(day=>day.date>=editing.date?[]:day.slots
+              .filter(slot=>slot.meal_type===editing.mealType)
+              .flatMap(slot=>slot.meals.filter(entry=>entry.status==="planned"&&entry.participants.length>0)
+                .map(entry=>({date:day.date,entry}))))}
+            target={editing}
+          />
+        </ContextDrawer>
       ) : null}
     </div>
   );

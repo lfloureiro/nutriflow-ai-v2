@@ -1,6 +1,7 @@
 import json
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 
 from app.models.food_catalog import (
@@ -248,6 +249,10 @@ def build_recipe_composition(recipe: Recipe) -> RecipeNutritionBuildResult:
 
     reference_quantity, reference_unit = _reference(recipe)
     composition = RecipeCompositionSnapshot(
+        # PostgreSQL now() is fixed at transaction start, so two snapshots
+        # within the same request otherwise receive identical timestamps.
+        # An explicit wall-clock timestamp retains latest-version ordering.
+        computed_at=datetime.now(UTC),
         reference_quantity=reference_quantity,
         reference_unit=reference_unit,
         energy_kcal=energy_kcal,

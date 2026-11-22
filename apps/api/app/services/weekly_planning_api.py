@@ -320,8 +320,9 @@ def _transformation_candidates(
             meal_type=meal_type,
             recipe_id=recipe.id,
             participants=participants,
-            max_proposals=3,
+            max_proposals=8,
         ),
+        rescue_blocked=not evaluation.eligible,
         baseline_fits_by_person={
             participant.person.id: participant.plan_fit
             for participant in evaluation.participant_evaluations
@@ -407,28 +408,53 @@ def _debug_slot_plan_fit(
             or "none",
         )
 
-    rejected = [
-        candidate
-        for candidate in candidates
-        if not all(fit.eligible for fit in candidate.plan_fits)
-    ]
-    for candidate in rejected[:8]:
-        per_person = []
+    # Complete, deterministic trace (not just the first eight Plan-Fit
+    # failures). A candidate can be rejected by ingredient/exclusion rules,
+    # by its shared assessment, or by an individual mandatory Plan-Fit.
+    # Emit only when explicitly enabled in the local debugging environment.
+    reason_counts: Counter[str] = Counter()
+    for candidate in candidates:
+        reasons = set(candidate.evaluation.exclusion_reasons)
+        if not candidate.evaluation.eligible and not reasons:
+            reasons.add("shared_assessment:ineligible")
         for fit in candidate.plan_fits:
             if fit.eligible:
                 continue
             labels = _plan_fit_blocker_labels(fit)
-            per_person.append(
-                f"{fit.person_id}=>" + (",".join(labels[:8]) if labels else f"status:{fit.status}")
-            )
+            reasons.update(labels or [f"plan_fit:{fit.status}"])
+        if not reasons:
+            if candidate.evaluation.eligible and all(
+                fit.eligible for fit in candidate.plan_fits
+            ):
+                weekly_debug(
+                    "CANDIDATE-VERBOSE",
+                    "eligible",
+                    slot=slot_key,
+                    candidate=candidate.evaluation.candidate_key,
+                    name=candidate.evaluation.candidate_name,
+                )
+                continue
+            reasons.add("eligibility:unknown")
+        reason_counts.update(reasons)
         weekly_debug(
-            "PLANFIT-VERBOSE",
-            "candidate-rejected",
+            "CANDIDATE-VERBOSE",
+            "rejected",
             slot=slot_key,
             candidate=candidate.evaluation.candidate_key,
             name=candidate.evaluation.candidate_name,
-            blockers=" || ".join(per_person) or "unknown",
+            reasons="|".join(sorted(reasons)),
         )
+    weekly_debug(
+        "CANDIDATE-VERBOSE",
+        "rejection-summary",
+        slot=slot_key,
+        reasons="|".join(
+            f"{reason}:{count}"
+            for reason, count in sorted(
+                reason_counts.items(), key=lambda item: (-item[1], item[0])
+            )
+        ) or "none",
+    )
 
 
 def _with_requested_food_exclusions(
@@ -543,6 +569,21 @@ def _planning_slot(
         context.person.id: context for context in contexts if context.person.id is not None
     }
 
+    # Apply configured exclusions before attempting to rescue a blocked recipe.
+    # Otherwise a base recipe is still seen as eligible at transformation time,
+    # and milk -> lactose-free/rice alternatives are discarded as unnecessary.
+    excluded_foods = list(
+        {
+            food.id: food
+            for food in [
+                *(excluded_foods or []),
+                *automatic_excluded_foods(
+                    session, family.id, person_ids, slot.planning_date, slot.meal_type
+                ),
+            ]
+        }.values()
+    )
+
     candidates: list[SharedWeeklyPlanningCandidate] = []
     transformation_metadata: dict[str, _WeeklyTransformationEvidence] = {}
     for evaluation in recommendation.evaluations:
@@ -558,6 +599,8 @@ def _planning_slot(
             evaluation=evaluation,
             plan_fits=tuple(plan_fits),
         )
+        if excluded_foods:
+            base_candidate = _with_requested_food_exclusions(base_candidate, excluded_foods)
         candidates.append(base_candidate)
 
         with weekly_debug_span(
@@ -578,28 +621,32 @@ def _planning_slot(
         candidates.extend(transformed_candidates)
         transformation_metadata.update(transformed_metadata)
 
-    # Reuse the effective plans compiled above rather than compiling a parallel
-    # context before the recommendation path has populated its request cache.
-    excluded_foods = list(
-        {
-            f.id: f
-            for f in [
-                *(excluded_foods or []),
-                *automatic_excluded_foods(
-                    session, family.id, person_ids, slot.planning_date, slot.meal_type
-                ),
-            ]
-        }.values()
-    )
+    # Recheck the fully transformed candidates against the same hard exclusions:
+    # replacing one ingredient never implies that other ingredients are safe.
     if excluded_foods:
         candidates = [
-            _with_requested_food_exclusions(candidate, excluded_foods) for candidate in candidates
+            _with_requested_food_exclusions(candidate, excluded_foods)
+            for candidate in candidates
         ]
     eligible_candidates = [
         candidate
         for candidate in candidates
         if candidate.evaluation.eligible and all(fit.eligible for fit in candidate.plan_fits)
     ]
+    if slot.meal_type == "dinner":
+        # Explain whether rotation was possible with the actual Person-specific
+        # constraints rather than inferring it from the size of the recipe book.
+        weekly_debug(
+            "ROTATION",
+            "dinner-pool",
+            slot=slot.slot_key,
+            offered=len(slot.candidates),
+            evaluated=len(candidates),
+            eligible=len(eligible_candidates),
+            unique_eligible_recipes=len({
+                candidate.evaluation.candidate_key for candidate in eligible_candidates
+            }),
+        )
     shared_eligible = sum(1 for candidate in candidates if candidate.evaluation.eligible)
     plan_eligible = sum(
         1 for candidate in candidates if all(fit.eligible for fit in candidate.plan_fits)
@@ -724,7 +771,18 @@ def _compute_shared_weekly_plan_uncached(
                 {
                     reason
                     for candidate in planning_slot.candidates
-                    for reason in candidate.evaluation.exclusion_reasons
+                    for reason in (
+                        *candidate.evaluation.exclusion_reasons,
+                        *(
+                            blocker
+                            for fit in candidate.plan_fits
+                            if not fit.eligible
+                            for blocker in (
+                                _plan_fit_blocker_labels(fit)
+                                or [f"plan_fit:{fit.status}"]
+                            )
+                        ),
+                    )
                 }
             )
             skipped_slots.append(
@@ -783,6 +841,20 @@ def _compute_shared_weekly_plan_uncached(
         search_space=result.search_space_size,
         evaluated=result.evaluated_combinations,
         feasible=result.feasible_combinations,
+        repeated_dinners=(
+            result.selected_plan.repeated_dinner_count
+            if result.selected_plan is not None
+            else None
+        ),
+        distinct_dinners=(
+            len({
+                choice.candidate.evaluation.candidate_key
+                for choice in result.selected_plan.choices
+                if choice.meal_type == "dinner"
+            })
+            if result.selected_plan is not None
+            else None
+        ),
         repeated=(
             result.selected_plan.repeated_candidate_count
             if result.selected_plan is not None
@@ -812,6 +884,18 @@ def _compute_shared_weekly_plan_uncached(
         rejected_daily_limit=result.rejected_by_person_daily_limit,
         truncated=result.search_truncated,
     )
+    if weekly_debug_verbose_enabled() and result.selected_plan is not None:
+        for choice in result.selected_plan.choices:
+            if choice.meal_type != "dinner":
+                continue
+            weekly_debug(
+                "ROTATION-VERBOSE",
+                "selected-dinner",
+                slot=choice.slot_key,
+                candidate=choice.candidate.evaluation.candidate_key,
+                name=choice.candidate.evaluation.candidate_name,
+                date=choice.planning_date,
+            )
 
     if result.family_id != family.id:
         raise WeeklyPlanningApiError("Weekly planning result belongs to a different Family.")

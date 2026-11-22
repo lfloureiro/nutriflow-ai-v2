@@ -183,3 +183,5 @@
     width: 100%;
   }
 }
+
+.nutrition-authority__verification{margin:12px 0 0;font-size:12px;line-height:1.55;color:var(--muted);overflow-wrap:anywhere}

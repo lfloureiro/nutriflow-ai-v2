@@ -15,6 +15,7 @@ from app.development_planning_profile_seed import (
     LOUREIRO_PROFILE_SOURCE_REFERENCE,
     seed_development_planning_profiles,
 )
+from app.development_plant_milk_seed import seed_development_plant_milk_options
 from app.development_snack_seed import seed_development_snack_catalog
 from app.development_transformation_seed import seed_development_transformations
 from app.legacy_v1_loureiro_seed import seed_loureiro_v1_snapshot
@@ -70,6 +71,10 @@ def main() -> None:
             session,
             families=(demo_family, loureiro_family),
         )
+        milk_options = seed_development_plant_milk_options(
+            session,
+            families=(demo_family, loureiro_family),
+        )
         transformations = seed_development_transformations(
             session,
             families=(demo_family, loureiro_family),
@@ -100,6 +105,7 @@ def main() -> None:
     print(f"Shared breakfast ingredients: {breakfasts.ingredient_count}")
     print(f"Shared snack recipes: {snacks.recipe_count}")
     print(f"New shared snack ingredients: {snacks.new_ingredient_count}")
+    print(f"Breakfast milk options / automatic alternatives: {milk_options}")
     print(f"Transformation profiles: {transformations.profile_count}")
     print(f"Transformation evidence snapshots: {transformations.composition_count}")
     print(f"Demo nutrition targets: {nutrition.target_count}")

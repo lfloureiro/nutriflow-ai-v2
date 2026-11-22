@@ -1,4 +1,5 @@
 import AvatarAppearanceEditor from "./ui/AvatarAppearanceEditor";
+import { requestNavigation } from "./navigation";
 import PersonAvatar from "./ui/PersonAvatar";
 import { useEffect, useMemo, useState } from "react";
 
@@ -10,11 +11,13 @@ import type {
   FamilyDashboardMember,
   Person,
   PlanningDailyNutritionState,
+  PlanningMealType,
 } from "./api/types";
 import { memberDisplayName } from "./FamilyHome";
 import type { Locale } from "./i18n";
 import { useI18n } from "./i18n";
 import MealPlanFitPanel from "./MealPlanFitPanel";
+import { dailyStateMatchesDate, planningDateInstant } from "./planningDateInstant";
 import NutritionPlanAuthorityCard from "./NutritionPlanAuthorityCard";
 import NutritionPlanImportPanel from "./NutritionPlanImportPanel";
 import PersonProfileEditor from "./PersonProfileEditor";
@@ -66,6 +69,10 @@ const COPY = {
     restingHeartRate: "FC repouso",
     meals: "Refeições de hoje",
     mealsHelp: "Apenas as refeições em que esta pessoa participa.",
+    reviewMeal: "Avaliar porção no plano",
+    contextualMeal: "Refeição selecionada para avaliação",
+    clearMealContext: "Limpar seleção",
+    contextualMealHelp: "Foi selecionado o tipo de refeição. Escolhe a receita e confirma a quantidade real antes de avaliar; o título do plano não identifica automaticamente uma receita.",
     noMeals: "Sem refeições para esta pessoa hoje.",
     noData: "Sem dados",
     kcal: "kcal",
@@ -123,6 +130,10 @@ const COPY = {
     restingHeartRate: "Resting HR",
     meals: "Today's meals",
     mealsHelp: "Only meals this person participates in.",
+    reviewMeal: "Assess portion against plan",
+    contextualMeal: "Meal selected for evaluation",
+    clearMealContext: "Clear selection",
+    contextualMealHelp: "Only the meal type was selected. Choose the actual recipe and confirm its portion before evaluating; the plan title does not automatically identify a recipe.",
     noMeals: "No meals for this person today.",
     noData: "No data",
     kcal: "kcal",
@@ -269,6 +280,7 @@ export default function PersonOverview({
   const [revision, setRevision] = useState(0);
   const [planAuthorityRevision, setPlanAuthorityRevision] = useState(0);
   const [planImportRequest, setPlanImportRequest] = useState(0);
+  const [focusedMeal, setFocusedMeal] = useState<{id:string;type:PlanningMealType;title:string}|null>(null);
   const meals = useMemo(
     () => personMeals(dashboard, member.person_id),
     [dashboard, member.person_id],
@@ -276,21 +288,24 @@ export default function PersonOverview({
 
   useEffect(() => {
     let cancelled = false;
-    const now = new Date().toISOString();
+    const scheduledAt = planningDateInstant(dashboard.dashboard_date, member.timezone || dashboard.timezone);
+    setDailyState(null);
+    setPerson(null);
+    setProfile(null);
     void Promise.all([
       getPerson(member.person_id).catch(() => null),
       getPersonEnergyProfile(member.person_id).catch(() => null),
-      getPersonPlanningContext(member.person_id, now).catch(() => null),
+      getPersonPlanningContext(member.person_id, scheduledAt).catch(() => null),
     ]).then(([personResult, profileResult, contextResult]) => {
       if (cancelled) return;
       setPerson(personResult);
       setProfile(profileResult);
-      setDailyState(contextResult?.daily_nutrition_state ?? null);
+      setDailyState(dailyStateMatchesDate(contextResult, dashboard.dashboard_date) ? contextResult.daily_nutrition_state : null);
     });
     return () => {
       cancelled = true;
     };
-  }, [member.person_id, revision]);
+  }, [member.person_id, member.timezone, dashboard.dashboard_date, dashboard.timezone, revision]);
 
   const displayName = person
     ? [person.first_name, person.last_name].filter(Boolean).join(" ")
@@ -333,6 +348,7 @@ export default function PersonOverview({
             className={section === item ? "active" : ""}
             key={item}
             onClick={() => {
+              if (item === section || !requestNavigation()) return;
               setProfileEditing(false);
               setSection(item);
             }}
@@ -412,6 +428,14 @@ export default function PersonOverview({
                       <span>{meal.location ?? meal.meal_type}</span>
                     </div>
                     <span>{meal.status}</span>
+                    {(["breakfast","lunch","snack","dinner"] as string[]).includes(meal.meal_type) ? (
+                      <button className="button ghost person-meal-fit-action" type="button"
+                        onClick={() => {
+                          if (!requestNavigation()) return;
+                          setFocusedMeal({id:meal.id,type:meal.meal_type as PlanningMealType,title:meal.title ?? meal.meal_type});
+                          setSection("nutrition");
+                        }}>{copy.reviewMeal}</button>
+                    ) : null}
                   </article>
                 ))}
               </div>
@@ -461,7 +485,17 @@ export default function PersonOverview({
             personId={member.person_id}
             planningDate={dashboard.dashboard_date}
           />
+          {focusedMeal ? (
+            <p className="person-meal-fit-context" role="status">
+              <strong>{copy.contextualMeal}: {focusedMeal.title}</strong>
+              <span>{copy.contextualMealHelp}</span>
+              <button type="button" className="button ghost person-meal-fit-clear" onClick={()=>setFocusedMeal(null)}>{copy.clearMealContext}</button>
+            </p>
+          ) : null}
           <MealPlanFitPanel
+            key={`${member.person_id}:${focusedMeal?.id ?? "free"}:${planAuthorityRevision}:${dashboard.dashboard_date}`}
+            requestedMealType={focusedMeal?.type}
+            requireExplicitRecipe={focusedMeal !== null}
             dailyNutritionStateId={dailyState?.id ?? null}
             familyId={dashboard.family_id}
             personId={member.person_id}

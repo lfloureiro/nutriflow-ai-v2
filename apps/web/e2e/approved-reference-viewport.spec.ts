@@ -1,0 +1,323 @@
+import { expect, test } from "@playwright/test";
+
+/**
+ * The five approved illustrative mockups have the exact 1672x941 target size
+ * (docs/ux/references/manifest.json). These are synthetic browser captures,
+ * not claims of pixel parity or screenshots of a real household.
+ *
+ * The PNG originals still need to be checked into docs/ux/references/ before
+ * automatic image comparison can be made authoritative.
+ */
+const API = "http://127.0.0.1:8000/api";
+const viewport = { width: 1672, height: 941 };
+const destinations = [
+  { id: "inicio", hash: "#/home", ready: ".nf-home" },
+  { id: "receitas", hash: "#/house?tab=recipes", ready: ".recipe-catalogue" },
+  { id: "familia", hash: "#/people", ready: ".people-screen" },
+  { id: "compras", hash: "#/shopping", ready: ".shopping-screen" },
+  { id: "despensa", hash: "#/house?tab=pantry", ready: ".pantry-screen" },
+] as const;
+
+for (const appearance of ["dark", "light"] as const) {
+  test(`approved-reference viewport: five screens, ${appearance}`, async ({ page, request }) => {
+    const response = await request.post(`${API}/families`, {
+      data: {
+        name: "Agregado Sintético Referência",
+        timezone: "Europe/Lisbon",
+        meal_discovery_sources: ["shared_recipes"],
+        delivery_address: null,
+        restaurant_area: null,
+      },
+    });
+    expect(response.ok()).toBe(true);
+    const family = (await response.json()) as { id: string };
+    for (let index = 1; index <= 4; index += 1) {
+      const person = await request.post(`${API}/families/${family.id}/persons`, {
+        data: {
+          first_name: `Pessoa Sintética ${index}`,
+          last_name: null,
+          birth_date: null,
+          preferred_locale: "pt-PT",
+          timezone: "Europe/Lisbon",
+          meal_discovery: null,
+        },
+      });
+      expect(person.ok()).toBe(true);
+    }
+    await page.setViewportSize(viewport);
+    await page.addInitScript(
+      ({ id, theme }) => {
+        localStorage.setItem("nutriflow-family-id", id);
+        localStorage.setItem("nutriflow-appearance", theme);
+        localStorage.setItem("nutriflow-locale", "pt-PT");
+      },
+      { id: family.id, theme: appearance },
+    );
+    for (const destination of destinations) {
+      await page.goto(`/${destination.hash}`);
+      await expect(page.locator(destination.ready).first()).toBeVisible();
+      await expect(page.locator("html")).toHaveAttribute("data-theme", appearance);
+      await page.evaluate(() => document.fonts.ready);
+      await expect(page.locator(".side-nav")).toBeVisible();
+
+      // A reference must use one common sidebar, irrespective of active route.
+      const bounds = await page.evaluate(() => ({
+        documentWidth: document.documentElement.scrollWidth,
+        viewportWidth: document.documentElement.clientWidth,
+        sidebarWidth: document.querySelector<HTMLElement>(".side-nav")!.getBoundingClientRect().width,
+      }));
+      expect(bounds.documentWidth, `${destination.id} horizontal overflow`)
+        .toBeLessThanOrEqual(bounds.viewportWidth + 1);
+      expect(bounds.sidebarWidth).toBeGreaterThanOrEqual(223);
+      expect(bounds.sidebarWidth).toBeLessThanOrEqual(225);
+
+      if (destination.id === "familia") {
+        await expect(page.locator(".nf-family-comparison-table tbody tr")).toHaveCount(3);
+        await expect(page.locator(".nf-family-comparison-table thead th")).toHaveCount(5);
+        await expect(page.locator(".nf-family-goal-facts > div")).toHaveCount(3);
+      }
+      if (destination.id === "receitas") {
+        await expect(page.locator(".nf-recipe-browse-toolbar")).toBeVisible();
+      }
+      if (destination.id === "compras") {
+        await expect(page.locator(".nf-shopping-workspace")).toBeVisible();
+      }
+      if (destination.id === "despensa") {
+        await expect(page.locator(".nf-pantry-columns")).toBeVisible();
+      }
+
+      if (destination.id === "inicio") {
+        const layout = await page.locator(".nf-home").evaluate((root) => {
+          const content = [...root.querySelectorAll<HTMLElement>(
+            ".nf-home-heading,.nf-meal-hero,.nf-today-section,.nf-family-panel,.nf-home-actions-v3,.nf-home-weeks-v3,.nf-home-note"
+          )];
+          return {
+            bottom: Math.max(...content.map((element) => element.getBoundingClientRect().bottom)),
+            viewport: innerHeight,
+            memberCount: root.querySelectorAll(".nf-home-family-chip").length,
+            familyScroll: getComputedStyle(root.querySelector<HTMLElement>(".nf-family-panel")!).overflowY,
+          };
+        });
+        expect(layout.bottom, "Home primary sections must fit within reference viewport")
+          .toBeLessThanOrEqual(layout.viewport + 2);
+        expect(layout.memberCount).toBe(4);
+        expect(layout.familyScroll).toBe("hidden");
+      }
+
+      await page.screenshot({
+        path: `test-results/reference-${destination.id}-${appearance}-1672x941.png`,
+        fullPage: false,
+        animations: "disabled",
+      });
+    }
+    // Real Windows/Chrome CSS viewport: a narrow, short desktop must keep
+    // the same two-column composition rather than turning into a giant feed.
+    await page.setViewportSize({width:1229,height:610});
+    await page.goto("/#/home");
+    await expect(page.locator(".nf-home .nf-day-slot")).toHaveCount(4);
+    const compact=await page.evaluate(()=>{
+      const home=document.querySelector<HTMLElement>(".nf-home")!;
+      const hero=document.querySelector<HTMLElement>(".nf-home .nf-meal-hero")!;
+      const today=document.querySelector<HTMLElement>(".nf-home .nf-today-section")!;
+      const members=document.querySelector<HTMLElement>(".nf-home .nf-family-panel")!;
+      const weeks=document.querySelector<HTMLElement>(".nf-home .nf-home-weeks-v3")!;
+      return {
+        fullWidth:document.documentElement.scrollWidth,
+        windowWidth:document.documentElement.clientWidth,
+        homeBottom:home.getBoundingClientRect().bottom,
+        heroHeight:hero.getBoundingClientRect().height,
+        aligned:Math.abs(today.getBoundingClientRect().top-members.getBoundingClientRect().top)<5,
+        weekVisible:weeks.getBoundingClientRect().bottom<=innerHeight+2,
+      };
+    });
+    expect(compact.fullWidth).toBeLessThanOrEqual(compact.windowWidth+1);
+    expect(compact.homeBottom).toBeLessThanOrEqual(612);
+    expect(compact.heroHeight).toBeLessThanOrEqual(110);
+    expect(compact.aligned).toBe(true);
+    expect(compact.weekVisible).toBe(true);
+    await page.screenshot({path:`test-results/reference-inicio-${appearance}-1229x610.png`,fullPage:false,animations:"disabled"});
+    // Actual user environment: 1280x631 CSS px. Verify the four
+    // controls/three week cards no longer fall back to grey UA buttons.
+    await page.setViewportSize({width:1280,height:631});
+    await page.goto("/#/home");
+    await expect(page.locator(".nf-home-actions-v3-grid > button")).toHaveCount(4);
+    await expect(page.locator(".nf-home-weeks-v3-grid > button")).toHaveCount(3);
+    const homeContent = await page.evaluate(() => {
+      const shortcut = [...document.querySelectorAll<HTMLElement>(".nf-home-actions-v3-grid > button")];
+      const weeks = [...document.querySelectorAll<HTMLElement>(".nf-home-weeks-v3-grid > button")];
+      return {
+        shortcutRows: new Set(shortcut.map(el=>Math.round(el.getBoundingClientRect().top))).size,
+        weekRows: new Set(weeks.map(el=>Math.round(el.getBoundingClientRect().top))).size,
+        background: getComputedStyle(shortcut[0]!).backgroundColor,
+        horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+      };
+    });
+    const outerShortcutDisplay = await page.locator(".nf-home .nf-home-actions-v3")
+      .evaluate(el=>getComputedStyle(el).display);
+    expect(outerShortcutDisplay,"The outer shortcut panel must not be a 2-column grid").toBe("flex");
+    expect(homeContent.shortcutRows).toBe(1);
+    expect(homeContent.weekRows).toBe(1);
+    const homeStyles = await page.evaluate(()=>{
+      const outer=document.querySelector<HTMLElement>(".nf-home-actions-v3")!;
+      const actions=document.querySelector<HTMLElement>(".nf-home-actions-v3-grid")!;
+      const action=actions.querySelector<HTMLElement>("button")!;
+      const weeks=document.querySelector<HTMLElement>(".nf-home-weeks-v3")!;
+      const weekGrid=document.querySelector<HTMLElement>(".nf-home-weeks-v3-grid")!;
+      const week=weekGrid.querySelector<HTMLElement>("button")!;
+      const family=document.querySelector<HTMLElement>(".nf-home-progress-body")!;
+      const nutrition=document.querySelector<HTMLElement>(".nf-home-progress-measures")!;
+      return {
+        outerDisplay:getComputedStyle(outer).display,
+        actionsDisplay:getComputedStyle(actions).display,
+        actionsCols:getComputedStyle(actions).gridTemplateColumns.split(" ").length,
+        weeksDisplay:getComputedStyle(weekGrid).display,
+        weeksCols:getComputedStyle(weekGrid).gridTemplateColumns.split(" ").length,
+        actionBg:getComputedStyle(action).backgroundColor,
+        weekBg:getComputedStyle(week).backgroundColor,
+        actionHeight:action.getBoundingClientRect().height,
+        weekHeight:week.getBoundingClientRect().height,
+        actionRadius:parseFloat(getComputedStyle(action).borderTopLeftRadius),
+        weekRadius:parseFloat(getComputedStyle(week).borderTopLeftRadius),
+        outerBorder:getComputedStyle(outer).borderTopWidth,
+        weeksBorder:getComputedStyle(weeks).borderTopWidth,
+        familyDisplay:getComputedStyle(family).display,
+        nutritionDisplay:getComputedStyle(nutrition).display,
+      };
+    });
+    expect(homeStyles).toMatchObject({
+      outerDisplay:"flex",actionsDisplay:"grid",actionsCols:4,
+      weeksDisplay:"grid",weeksCols:3,outerBorder:"1px",
+      weeksBorder:"1px",familyDisplay:"grid",nutritionDisplay:"grid",
+    });
+    expect(homeStyles.actionHeight).toBeGreaterThanOrEqual(50);
+    expect(homeStyles.weekHeight).toBeGreaterThanOrEqual(50);
+    expect(homeStyles.actionRadius).toBeGreaterThanOrEqual(9);
+    expect(homeStyles.weekRadius).toBeGreaterThanOrEqual(9);
+    expect(homeStyles.actionBg).not.toBe("rgb(128, 128, 128)");
+    expect(homeStyles.weekBg).not.toBe("rgb(128, 128, 128)");
+    expect(homeContent.background).not.toBe("rgb(239, 239, 239)");
+    expect(homeContent.horizontalOverflow).toBe(false);
+    const visibility = await page.evaluate(() => {
+      const hero=document.querySelector<HTMLElement>(".nf-meal-hero")!;
+      const metadata=document.querySelector<HTMLElement>(".nf-meal-hero .nf-hero-meta")!;
+      const buttons=[...document.querySelectorAll<HTMLElement>(".nf-home-weeks-v3-grid > button")];
+      const rectWithin=(inner:DOMRect,outer:DOMRect)=>inner.top>=outer.top-1 &&
+        inner.bottom<=outer.bottom+1 && inner.left>=outer.left-1 && inner.right<=outer.right+1;
+      return {
+        heroMetaVisible: rectWithin(metadata.getBoundingClientRect(),hero.getBoundingClientRect()),
+        weekDatesVisible: buttons.every(button => {
+          const label=button.querySelector<HTMLElement>("span");
+          return !!label && rectWithin(label.getBoundingClientRect(),button.getBoundingClientRect());
+        }),
+        weekCardMinHeight: Math.min(...buttons.map(x=>x.getBoundingClientRect().height)),
+      };
+    });
+    expect(visibility.heroMetaVisible,"Hero time/participant metadata must not be clipped").toBe(true);
+    expect(visibility.weekDatesVisible,"All three weekly date labels must remain inside their cards").toBe(true);
+    expect(visibility.weekCardMinHeight).toBeGreaterThanOrEqual(70);
+    const peopleFit = await page.evaluate(()=>{
+      const panel=document.querySelector<HTMLElement>(".nf-home .nf-family-panel");
+      const people=[...document.querySelectorAll<HTMLElement>(".nf-home .nf-home-family-chip")];
+      return !!panel && people.length===4 && people.every(item=>{
+        const rect=item.getBoundingClientRect();
+        return rect.bottom <= panel.getBoundingClientRect().bottom+2 &&
+          rect.top >= panel.getBoundingClientRect().top-2;
+      });
+    });
+    expect(peopleFit,"All four family rows must be visible without internal scrolling at 1280x631").toBe(true);
+
+    await page.screenshot({path:`test-results/reference-inicio-${appearance}-1280x631.png`,fullPage:false,animations:"disabled"});
+    for (const [screen,route,selector] of [
+      ["receitas","#/house?tab=recipes",".recipe-catalogue"],
+      ["compras","#/shopping",".shopping-screen"],
+      ["despensa","#/house?tab=pantry",".pantry-screen"],
+    ] as const) {
+      await page.goto(`/${route}`);
+      await expect(page.locator(selector)).toBeVisible();
+      if(screen==="compras") {
+        await expect(page.locator(".nf-shopping-overview > div")).toHaveCount(4);
+        const listTop=await page.locator(".shopping-list-section").evaluate(el=>el.getBoundingClientRect().top);
+        expect(listTop).toBeLessThan(631);
+
+        const cols=await page.locator(".nf-shopping-overview").evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(" ").length);
+        expect(cols).toBe(4);
+      }
+      if(screen==="despensa") {
+        await expect(page.locator(".nf-pantry-summary > div")).toHaveCount(4);
+        const searchTop=await page.locator(".pantry-screen .nf-list-controls").evaluate(el=>el.getBoundingClientRect().top);
+        expect(searchTop).toBeLessThan(631);
+
+        const cols=await page.locator(".nf-pantry-summary").evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(" ").length);
+        expect(cols).toBe(4);
+      }
+      await page.screenshot({path:`test-results/reference-${screen}-${appearance}-1280x631.png`,fullPage:false,animations:"disabled"});
+    }
+    // Critical regression: a 150% browser zoom can expose a 1024px-wide
+    // CSS viewport in an otherwise wide Windows screenshot. The reference
+    // layout must not fall back to giant native controls at this width.
+    await page.setViewportSize({width:1024,height:505});
+    for(const [screen,route,ready] of [
+      ["inicio","#/home",".nf-home"],
+      ["receitas","#/house?tab=recipes",".recipe-catalogue"],
+      ["familia","#/people",".people-screen"],
+      ["compras","#/shopping",".shopping-screen"],
+      ["despensa","#/house?tab=pantry",".pantry-screen"],
+    ] as const){
+      await page.goto(`/${route}`);
+      await expect(page.locator(ready)).toBeVisible();
+      if(screen==="inicio"){
+        const rows=await page.locator(".nf-home-actions-v3-grid > button").evaluateAll(els=>
+          new Set(els.map(el=>Math.round(el.getBoundingClientRect().top))).size);
+        const containerDisplay=await page.locator(".nf-home .nf-home-actions-v3")
+          .evaluate(el=>getComputedStyle(el).display);
+        expect(containerDisplay).toBe("flex");
+        expect(rows).toBe(1);
+        const weeklyRows=await page.locator(".nf-home-weeks-v3-grid > button").evaluateAll(els=>
+          new Set(els.map(el=>Math.round(el.getBoundingClientRect().top))).size);
+        expect(weeklyRows).toBe(1);
+        const homeStyle=await page.evaluate(()=>{
+          const actions=document.querySelector<HTMLElement>(".nf-home-actions-v3-grid")!;
+          const weeks=document.querySelector<HTMLElement>(".nf-home-weeks-v3-grid")!;
+          const first=actions.querySelector<HTMLElement>("button")!;
+          return {
+            actionsCols:getComputedStyle(actions).gridTemplateColumns.split(" ").length,
+            weeksCols:getComputedStyle(weeks).gridTemplateColumns.split(" ").length,
+            buttonHeight:first.getBoundingClientRect().height,
+            radius:parseFloat(getComputedStyle(first).borderTopLeftRadius),
+          };
+        });
+        expect(homeStyle.actionsCols).toBe(4);
+        expect(homeStyle.weeksCols).toBe(3);
+        expect(homeStyle.buttonHeight).toBeGreaterThanOrEqual(50);
+        expect(homeStyle.radius).toBeGreaterThanOrEqual(9);
+      }
+      if(screen==="receitas"){
+        // A newly created isolated family can have no featured recipe.
+        // Assert a real catalogue state rather than waiting one minute for
+        // a feature card that is correctly omitted when there is no data.
+        await expect(page.locator(".nf-recipe-browse-toolbar")).toBeVisible();
+        const feature=page.locator(".nf-recipe-feature");
+        if(await feature.count()){
+          const height=await feature.evaluate(el=>el.getBoundingClientRect().height);
+          expect(height).toBeLessThanOrEqual(100);
+        } else {
+          await expect(page.locator(".ingredient-empty, .nf-recipe-grid, .shell-loading").first()).toBeVisible();
+        }
+      }
+      if(screen==="familia"){
+        await expect(page.locator(".nf-family-comparison-table tbody tr")).toHaveCount(3);
+        const background=await page.locator(".nf-family-comparison-table thead th button").first()
+          .evaluate(el=>getComputedStyle(el).backgroundColor);
+        expect(background).toBe("rgba(0, 0, 0, 0)");
+      }
+      if(screen==="compras"||screen==="despensa"){
+        const selector=screen==="compras"?".nf-shopping-overview":".nf-pantry-summary";
+        const columns=await page.locator(selector).evaluate(el=>
+          getComputedStyle(el).gridTemplateColumns.split(" ").length);
+        expect(columns).toBe(4);
+      }
+      await page.screenshot({path:`test-results/reference-${screen}-${appearance}-1024x505.png`,
+        fullPage:false,animations:"disabled"});
+    }
+  });
+}

@@ -20,7 +20,8 @@
   --color-danger: #994a39;
   --color-danger-soft: #f9e6df;
   --color-focus: #9b632e;
-  --shadow: 0 16px 45px #2736230b;
+  --color-decorative-accent: #e0a777;
+  --shadow: 0 16px 50px #2736230b;
   --shadow-soft: 0 6px 20px #27362306;
   --motion-fast: 140ms;
   --motion-panel: 200ms;
@@ -48,8 +49,9 @@
   --color-danger: #e6a494;
   --color-danger-soft: #402b29;
   --color-focus: #e4bc83;
-  --shadow: 0 16px 45px #0002;
-  --shadow-soft: 0 6px 20px #0001;
+  --color-decorative-accent: #d8b28c;
+  --shadow: none;
+  --shadow-soft: none;
 }
 
 :root {

@@ -374,18 +374,20 @@ def seed_development_breakfast_catalog(
             profile_id = _stable_id("planning-profile", f"{family.id}:{definition.key}")
             profile = session.get(MealCandidatePlanningProfile, profile_id)
             if profile is None:
+                # Existing family choices (e.g. auto_plan_enabled=False)
+                # must never be reset by a routine local catalogue update.
                 profile = MealCandidatePlanningProfile(id=profile_id, family_id=family.id)
+                profile.family_id = family.id
+                profile.candidate_kind = "recipe"
+                profile.food_item_id = None
+                profile.recipe_id = recipe.id
+                profile.planning_category = "breakfast"
+                profile.primary_protein = None
+                profile.suitable_meal_types = ["breakfast"]
+                profile.auto_plan_enabled = True
+                profile.source = BREAKFAST_SOURCE
+                profile.source_reference = BREAKFAST_SOURCE_REFERENCE
                 session.add(profile)
-            profile.family_id = family.id
-            profile.candidate_kind = "recipe"
-            profile.food_item_id = None
-            profile.recipe_id = recipe.id
-            profile.planning_category = "breakfast"
-            profile.primary_protein = None
-            profile.suitable_meal_types = ["breakfast"]
-            profile.auto_plan_enabled = True
-            profile.source = BREAKFAST_SOURCE
-            profile.source_reference = BREAKFAST_SOURCE_REFERENCE
     session.flush()
 
     return DevelopmentBreakfastSeedResult(

@@ -8,6 +8,7 @@ import type { NutritionPlanAuthorityState, NutritionPlanSummary } from "./api/pl
 import type { PlanningMealType } from "./api/types";
 import { useI18n, type Locale } from "./i18n";
 import "./nutrition-plan-authority.css";
+import { nutritionPlanProvenance } from "./nutritionPlanProvenance";
 
 const COPY = {
   "pt-PT": {
@@ -26,6 +27,10 @@ const COPY = {
     conflictHelp:
       "Existem regras obrigatórias em conflito. O NutriFlow não apresenta opções como alinhadas com o plano enquanto o conflito não for revisto.",
     source: "Origem",
+    sourceReference: "Referência documental",
+    missingReference: "Não indicada",
+    planVersion: "Versão registada",
+    verificationNotice: "A origem foi declarada no registo. O NutriFlow não verifica automaticamente as credenciais do profissional nem a autenticidade do documento.",
     validity: "Validade",
     from: "desde",
     until: "até",
@@ -56,6 +61,10 @@ const COPY = {
     conflictHelp:
       "Mandatory rules conflict. NutriFlow does not present options as aligned with the plan until the conflict is reviewed.",
     source: "Source",
+    sourceReference: "Document reference",
+    missingReference: "Not provided",
+    planVersion: "Recorded version",
+    verificationNotice: "The source was declared in this record. NutriFlow does not automatically verify professional credentials or document authenticity.",
     validity: "Validity",
     from: "from",
     until: "until",
@@ -185,6 +194,14 @@ export default function NutritionPlanAuthorityCard({
                   <dd>{planSource(plan)}</dd>
                 </div>
                 <div>
+                  <dt>{copy.sourceReference}</dt>
+                  <dd>{nutritionPlanProvenance(plan).reference ?? copy.missingReference}</dd>
+                </div>
+                <div>
+                  <dt>{copy.planVersion}</dt>
+                  <dd>{nutritionPlanProvenance(plan).version}</dd>
+                </div>
+                <div>
                   <dt>{copy.validity}</dt>
                   <dd>
                     {copy.from} {formatDate(plan.valid_from, locale)}
@@ -195,6 +212,7 @@ export default function NutritionPlanAuthorityCard({
                   </dd>
                 </div>
               </dl>
+              <p className="nutrition-authority__verification">{copy.verificationNotice}</p>
             </article>
           ))}
         </div>

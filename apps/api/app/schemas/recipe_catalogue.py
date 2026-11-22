@@ -120,5 +120,6 @@ class RecipeRead(BaseModel):
     ingredients: list[RecipeIngredientRead]
     latest_composition: RecipeCompositionRead | None
     nutrition_issues: list[str]
+    image_url: str | None = None
     created_at: datetime
     updated_at: datetime

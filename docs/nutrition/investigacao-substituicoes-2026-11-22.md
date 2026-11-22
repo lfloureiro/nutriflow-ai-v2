@@ -1,0 +1,43 @@
+# Investigação de substituições familiares — 22/11/2026
+
+**Contexto:** pedido exportado da fila de investigação do NutriFlow. A lista inclui dezenas de ocorrências em receitas da família, mas incide sobretudo em **11 famílias de ingredientes**. Esta matriz apresenta hipóteses reutilizáveis com fontes primárias verificáveis; **nenhuma proposta é uma aprovação clínica, nutricional, de porção ou de compra automática**. O rótulo recebido e a versão atual da aplicação Monash são fontes decisivas para doses individuais.
+
+## Grupos e produtos pesquisados
+
+| Ingredientes no pedido / receitas exemplificativas | Hipótese de substituição | Evidência FODMAP / razão | Exemplo de fonte comercial e ingredientes publicados | Estado |
+| --- | --- | --- | --- | --- |
+| Alho, alho congelado, alho em pó (Almôndegas, Arroz de bacalhau, Bolonhesa, Chili, Frango Toscânia, etc.) | Azeite aromatizado com alho, sem pedaços sólidos | A Monash descreve a infusão em óleo como forma de preservar aroma sem transferir frutanos hidrossolúveis. **Não** trocar 10 g por 10 g de azeite | Preparação culinária; encontrar azeite comercial sem sólidos, rótulo e conservação seguros **por validar** | Hipótese culinária |
+| Cebola, cebolas, cebola picada congelada, cebolinhas (Bolonhesa, Chili, Empadão, Jardineira, etc.) | Cebolinho e partes verdes de cebolinhas; completar volume com vegetais admitidos | Monash: partes verdes de cebolinhas e cebolinho como aromáticos; a parte branca não é equivalente | [Auchan cebolinho fresco 25 g](https://www.auchan.pt/pt/produtos-frescos/legumes/ervas-aromaticas/cebolinho-auchan-25-g/3372574.html) | Rever dose e técnica |
+| Alho-francês (Bacalhau com legumes) | Apenas parte verde do alho-francês, ou cebolinho | Monash distingue partes verdes/brancas | Cebolinho Auchan acima; não transformar 1 unidade inteira em 1 unidade de parte verde | Rever rendimento |
+| Leite meio-gordo / leite do dia (Bolachas de aveia, Cereais, Empadão, Mac and Cheese, Peixe com mostarda) | Leite meio-gordo sem lactose | Monash indica leite sem lactose como substituto; mantém proteínas do leite | [Mimosa sem lactose, Continente](https://www.continente.pt/produto/o-mesmo-sabor-sem-lactose-foodmimosalactose.html); lista completa do rótulo não extraída | Rever dose, `qb` bloqueado |
+| Iogurte natural e grego (Iogurtes com cereais, muesli, banana e frutos vermelhos) | Natural Auchan sem lactose e grego natural Mevgal sem lactose | Lactose reduzida; não serve para alergia ao leite | [Auchan natural magro 4×125 g](https://www.auchan.pt/pt/alimentacao/produtos-lacteos/sem-lactose/iogurte-sem-lactose/iogurte-natural-magro-auchan-sem-lactose-4x125g/3921275.html); [Mevgal grego 150 g](https://www.auchan.pt/pt/alimentacao/produtos-lacteos/iogurtes/cremosos-gregos/iogurte-mevgal-sem-lactose-grego-natural-2-150g/2222439.html) — leite parcialmente desnatado, proteína do leite, culturas e lactase declarados para Mevgal | Rever dose individual |
+| Esparguete, fetucine, macarronete, macarrão, cotovelos (Bolonhesa, Carne guisada com massa, Mac and Cheese, Rancho) | Massa de arroz/milho | Monash inclui massas sem trigo de arroz/milho como alternativas em porção adequada | [Rummo esparguete 400 g](https://www.auchan.pt/pt/biologicos-e-alternativas/sem-gluten/mercearia-sem-gluten/massas-e-farinhas-sem-gluten/massa-rummo-spaguetti-sem-gluten-400g/3240169.html): arroz integral 36%, milho amarelo 32%, milho branco 20%, arroz 8%, fécula de batata 3%, emulsionante. [Auchan cotovelos 500 g](https://www.auchan.pt/pt/biologicos-e-alternativas/sem-gluten/mercearia-sem-gluten/massas-e-farinhas-sem-gluten/massa-auchan-cotovelos-sem-gluten-500g/2749325.html): milho branco 65%, milho amarelo 29,7%, arroz 5%, emulsionante | Rever peso seco/cozido e `emb` |
+| Muesli (Iogurtes, Muesli com leite) | Flocos de milho simples / aveia ou quinoa em doses adequadas | Monash descreve trocas de cereais de trigo por outras bases; muesli comercial pode ter trigo, inulina, frutos secos e mel | [Corn flakes Verival Continente](https://www.continente.pt/produto/cereais-corn-flakes-sem-gluten-verival-5779336.html): flocos de milho biológicos, rótulo integral por confirmar | Rever porção/fibra |
+| Cogumelos congelados e frescos (Bifes de peru, Frango ao Lagar, Hambúrgueres) | Cogumelos comuns em conserva/salmoura escorridos, ou cogumelos ostra adequados | Monash distingue cogumelos frescos de cogumelos comuns em salmoura; a redução depende da preparação e da dose | [Auchan laminados 3×200 g, 115 g escorridos/unidade](https://www.auchan.pt/pt/alimentacao/mercearia/conservas/cogumelo-milho-ervilha-feijao-e-outros/cogumelos-laminados-auchan-3x200%28115%29g/3903247.html): cogumelos, água, sal, ácido cítrico | Rever dose e escorrimento |
+| Maçã (Iogurte, maçã e muesli; Maçã e frutos secos; Muesli, leite e maçã) | Kiwi verde, laranja ou morangos | Monash lista maçã como mais rica em FODMAP e kiwi/laranja/morangos como alternativas; fruta não é nutricionalmente equivalente grama por grama | Produto hortofrutícola sem marca específica confirmada | Rever peso, maturação, porção |
+| Feijão vermelho e grão (Chili, Feijão com arroz, Bacalhau com grão, Rancho) | Leguminosa de conserva escorrida/lavada, em **porção menor**, eventualmente parte da proteína substituída | A Monash explica que GOS podem passar para a água de conserva. Não é aceite trocar 2–3 embalagens de feijão por igual peso de grão | [Grão Auchan 820/520 g escorrido](https://www.auchan.pt/pt/alimentacao/mercearia/conservas/cogumelo-milho-ervilha-feijao-e-outros/grao-de-bico-auchan-cozido-820%28520%29g/640416.html): grão-de-bico, água e sal | Substituição estrutural a calcular |
+
+## Fontes FODMAP verificadas
+
+- [Monash — cozinhar com alho e cebola](https://www.monashfodmap.com/blog/cooking-with-onion-and-garlic-myths-and/)
+- [Monash — azeites aromatizados com alho e cebola](https://www.monashfodmap.com/blog/all-about-onion-garlic-and-infused-oils-on-the-low-fodmap-diet/)
+- [Monash — alimentos de teor elevado e reduzido](https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/)
+- [Monash — massas/cereais e glúten](https://monashfodmap.com/blog/gluten-and-ibs/)
+- [Monash — cogumelos em salmoura numa receita](https://www.monashfodmap.com/recipe/hot-sour-asian-soup/)
+- [Monash — leguminosas e água de conserva](https://www.monashfodmap.com/about-fodmap-and-ibs/frequently-asked-questions/)
+- [FODMAP Friendly — tabela pública de grupos de alimentos](https://fodmapfriendly.com/for-consumers/foods-high-low-fodmap/)
+- [FODMAP Friendly — método de análise laboratorial](https://fodmapfriendly.com/ingredient-testing/)
+
+**Data da consulta:** 2026-11-22. Os limites laboratoriais exatos por marca, por ingrediente e por pessoa **não foram confirmados**; para essas células a informação permanece em falta. `Sem glúten` e `sem lactose` não são sinónimos de `low FODMAP certificado`.
+
+## Integração no NutriFlow
+
+- `apps/web/src/adaptationResearchReferences.ts`: candidaturas reutilizáveis agrupadas por nome de ingrediente, com marca, hipermercado, URL, ingredientes publicados quando confirmados, fonte Monash e alerta de dose.
+- `AdaptationResearchQueue.tsx`: pesquisa na etapa «Rever refeições»; utilizador pode usar referência para preencher proposta, rever e guardar através do serviço de substituições existente. **Não se criam variantes nem se aplica a troca automaticamente.**
+- Receita com vários bloqueios mantém todos os bloqueios até haver substituições e quantidades revistas para cada um; não concluir que a refeição inteira é compatível apenas por encontrar alternativa ao alho/cebola.
+- A fila atual deriva das exclusões configuradas; não abrange ingredientes sem composição, nem todos os riscos FODMAP que não estejam explicitamente mapeados. Isto continua como melhoria estrutural.
+- Debug semanal: `NUTRIFLOW_WEEKLY_DEBUG=1` e `NUTRIFLOW_WEEKLY_DEBUG_VERBOSE=1` antes de iniciar API; `CANDIDATE-VERBOSE` mostra cada candidato avaliado e motivos, `ROTATION-VERBOSE` mostra os jantares escolhidos. As exclusões no frontend (origem, tipo de refeição, limite do catálogo) ocorrem antes deste ponto e devem também ser contadas para apurar o universo completo.
+
+## Limites e próximos passos
+
+O algoritmo ainda não permite duas substituições automáticas no mesmo candidato semanal; Issue #77. Não foi feita análise das alergias e porções reais da família na base local, nem execução completa dos testes Windows neste documento. A pesquisa por IA com recolha automática de rótulos e resultados Monash não está integrada no backend; as hipóteses são estáticas e exigem revisão humana.

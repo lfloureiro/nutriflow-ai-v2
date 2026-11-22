@@ -1,8 +1,11 @@
 import {useUnsavedChanges} from "./useUnsavedChanges";
 import {requestNavigation} from "./navigation";
-import {browseRecipes,defaultRecipeBrowse,readRecipeBrowse,storeRecipeBrowse,searchText,isAdaptedRecipe,type RecipeBrowse} from "./recipeBrowsing";
+import {browseRecipes,defaultRecipeBrowse,readRecipeBrowse,storeRecipeBrowse,searchText,isAdaptedRecipe,recipeHasImage,type RecipeBrowse} from "./recipeBrowsing";
 import RecipeTastePanel from "./ui/RecipeTastePanel";
 import Icon from "./ui/Icon";
+import {resolveMealHeroImage} from "./mealHeroImages";
+import {listDuplicateFamilyAdaptations, type DuplicateFamilyAdaptationGroup} from "./api/recipeVariantClient";
+import ContextDrawer from "./ui/ContextDrawer";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import {
@@ -22,6 +25,23 @@ import type {
   RecipeNutritionEvidence,
 } from "./api/recipeTypes";
 import { useI18n, type Locale } from "./i18n";
+
+function RecipeCardArt({name,imageUrl}: {name:string;imageUrl?:string|null}) {
+  const resolved = resolveMealHeroImage({planned:{title:name},recipeImageUrl:imageUrl});
+  const [failedSrc,setFailedSrc] = useState<string[]>([]);
+  const image = resolved && !failedSrc.includes(resolved.src)
+    ? {...resolved,src:resolved.src}
+    : resolved?.fallbackSrc && !failedSrc.includes(resolved.fallbackSrc)
+      ? {...resolved,src:resolved.fallbackSrc}
+      : null;
+  return <span className="nf-recipe-art" aria-label={image?.alt ?? name}>
+    {image ?
+      <img src={image.src} alt="" loading="lazy" referrerPolicy="no-referrer"
+        title={resolved?.kind==="generated"?"Imagem ilustrativa gerada por IA":undefined}
+        onError={() => setFailedSrc(previous=>[...previous,image.src])} /> :
+      <Icon name="book" />}
+  </span>;
+}
 
 const MEAL_TYPES: RecipeMealType[] = ["breakfast", "lunch", "snack", "dinner"];
 type NutritionFilter = "all" | "ingredient_calculated" | "incomplete" | "synthetic_development";
@@ -77,9 +97,9 @@ const COPY = {
     remove: "Remover",
     save: "Guardar receita",
     saving: "A guardar…",
-    deactivate: "Desativar receita",
+    deactivate: "Apagar receita",
     restore: "Reativar receita",
-    confirmDeactivate: "Desativar esta receita? O histórico de refeições mantém-se intacto.",
+    confirmDeactivate: "Apagar esta receita da lista ativa? O histórico de refeições mantém-se intacto e podes recuperá-la em Mostrar inativas.",
     nutrition: "Nutrição",
     noNutrition: "Ainda sem cálculo nutricional utilizável.",
     nutritionIncomplete: "Nutrição incompleta",
@@ -153,9 +173,9 @@ const COPY = {
     remove: "Remove",
     save: "Save recipe",
     saving: "Saving…",
-    deactivate: "Deactivate recipe",
+    deactivate: "Delete recipe",
     restore: "Reactivate recipe",
-    confirmDeactivate: "Deactivate this recipe? Meal history remains intact.",
+    confirmDeactivate: "Remove this recipe from active recipes? Meal history remains intact and it can be restored via Show inactive.",
     nutrition: "Nutrition",
     noNutrition: "No usable nutrition calculation yet.",
     nutritionIncomplete: "Incomplete nutrition",
@@ -781,22 +801,21 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
   const [nutritionFilter, setNutritionFilter] = useState<NutritionFilter>(savedBrowse.nutrition);
   const [mealFilter,setMealFilter]=useState<RecipeBrowse["meal"]>(savedBrowse.meal);
   const [originFilter,setOriginFilter]=useState<RecipeBrowse["origin"]>(savedBrowse.origin);
+  const [imageFilter,setImageFilter]=useState<RecipeBrowse["image"]>(savedBrowse.image);
   const [sortOrder,setSortOrder]=useState<RecipeBrowse["sort"]>(savedBrowse.sort);
   const [seedRecipe,setSeedRecipe]=useState<Recipe|undefined>();
-  useEffect(()=>{storeRecipeBrowse(familyId,{query,includeInactive,nutrition:nutritionFilter,meal:mealFilter,origin:originFilter,sort:sortOrder});},[familyId,query,includeInactive,nutritionFilter,mealFilter,originFilter,sortOrder]);
-  function clearFilters(){setQuery("");setIncludeInactive(false);setNutritionFilter("all");setMealFilter("all");setOriginFilter("all");setSortOrder(defaultRecipeBrowse.sort);}
+  useEffect(()=>{storeRecipeBrowse(familyId,{query,includeInactive,nutrition:nutritionFilter,meal:mealFilter,origin:originFilter,image:imageFilter,sort:sortOrder});},[familyId,query,includeInactive,nutritionFilter,mealFilter,originFilter,imageFilter,sortOrder]);
+  function clearFilters(){setQuery("");setIncludeInactive(false);setNutritionFilter("all");setMealFilter("all");setOriginFilter("all");setImageFilter("all");setSortOrder(defaultRecipeBrowse.sort);}
   function copyRecipe(recipe:Recipe){if(!requestNavigation())return;setSeedRecipe(recipe);setSelected(null);}
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [duplicateGroups,setDuplicateGroups]=useState<DuplicateFamilyAdaptationGroup[]>([]);
   const [selected, setSelected] = useState<Recipe | null | undefined>(undefined);
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (selected !== undefined) {
-      return;
-    }
     let cancelled = false;
     const timer = window.setTimeout(() => {
       setBusy(true);
@@ -826,35 +845,76 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [familyId, includeInactive, query, revision, selected]);
+  }, [familyId, includeInactive, query, revision]);
 
-  const hasSearch = useMemo(() => query.trim().length > 0 || nutritionFilter !== "all"||mealFilter!=="all"||originFilter!=="all"||includeInactive, [query, nutritionFilter,mealFilter,originFilter,includeInactive]);
+  useEffect(()=>{
+    let cancelled=false;
+    setDuplicateGroups([]);
+    void listDuplicateFamilyAdaptations(familyId)
+      .then(groups=>{if(!cancelled)setDuplicateGroups(groups);})
+      .catch(()=>{/* Optional audit: never block recipe catalogue if unavailable. */});
+    return()=>{cancelled=true;};
+  },[familyId,revision]);
+
+  const hasSearch = useMemo(() => query.trim().length > 0 || nutritionFilter !== "all"||mealFilter!=="all"||originFilter!=="all"||imageFilter!=="all"||includeInactive, [query, nutritionFilter,mealFilter,originFilter,imageFilter,includeInactive]);
   const filteredRecipes = useMemo(
-    () => browseRecipes(recipes.filter(recipe=>matchesNutritionFilter(recipe,nutritionFilter)),{query,includeInactive,nutrition:nutritionFilter,meal:mealFilter,origin:originFilter,sort:sortOrder},locale),
-    [recipes,nutritionFilter,mealFilter,originFilter,sortOrder,locale],
+    () => browseRecipes(recipes.filter(recipe=>matchesNutritionFilter(recipe,nutritionFilter)),{query,includeInactive,nutrition:nutritionFilter,meal:mealFilter,origin:originFilter,image:imageFilter,sort:sortOrder},locale),
+    [recipes,nutritionFilter,mealFilter,originFilter,imageFilter,sortOrder,locale],
   );
 
-  if (selected !== undefined) {
-    if (selected !== null && !selected.editable) {
-      return <><button type="button" className="button secondary" onClick={()=>copyRecipe(selected)}>{locale==="pt-PT"?"Criar cópia para a família":"Create family copy"}</button><SharedRecipeViewer recipe={selected} onDone={() => setSelected(undefined)} /><RecipeTastePanel key={selected.id} familyId={familyId} recipe={selected}/></>;
-    }
-    return (
-      <>
-      {selected&&<button type="button" className="button secondary" onClick={()=>copyRecipe(selected)}>{locale==="pt-PT"?"Criar cópia para a família":"Create family copy"}</button>}
-      <RecipeEditor key={selected?.id??seedRecipe?.id??"new"}
-        seedRecipe={selected===null?seedRecipe:undefined}
-        familyId={familyId}
-        ingredients={ingredients}
-        recipe={selected}
-        onDone={() => {
-          setSeedRecipe(undefined);setSelected(undefined);
-          setRevision((current) => current + 1);
-        }}
-      />
-      {selected ? <RecipeTastePanel key={selected.id} familyId={familyId} recipe={selected}/> : null}
-      </>
-    );
-  }
+  const missingImageCount = recipes.filter(recipe=>!recipeHasImage(recipe)).length;
+
+  const editorPanel = selected !== undefined ? (
+    <ContextDrawer
+      title={selected?.name ?? copy.newRecipe}
+      wide
+      closeLabel={locale === "pt-PT" ? "Fechar detalhe" : "Close detail"}
+      onRequestClose={() => {
+        if (!requestNavigation()) return false;
+        setSeedRecipe(undefined);
+        setSelected(undefined);
+        return true;
+      }}
+    >
+      {selected !== null && !selected.editable ? (
+        <>
+          <button type="button" className="button secondary" onClick={()=>copyRecipe(selected)}>{locale==="pt-PT"?"Criar cópia para a família":"Create family copy"}</button>
+          <SharedRecipeViewer recipe={selected} onDone={() => setSelected(undefined)} />
+          {selected.scope === "family" && selected.is_active && (
+            <button type="button" className="button ghost"
+              onClick={async () => {
+                if (!window.confirm(copy.confirmDeactivate)) return;
+                try {
+                  await deactivateFamilyRecipe(familyId, selected.id);
+                  setSelected(undefined);
+                  setRevision(current => current + 1);
+                } catch (caught: unknown) {
+                  setError(errorText(caught));
+                }
+              }}>
+              {copy.deactivate}
+            </button>
+          )}
+          <RecipeTastePanel key={selected.id} familyId={familyId} recipe={selected}/>
+        </>
+      ) : (
+        <>
+          {selected&&<button type="button" className="button secondary" onClick={()=>copyRecipe(selected)}>{locale==="pt-PT"?"Criar cópia para a família":"Create family copy"}</button>}
+          <RecipeEditor key={selected?.id??seedRecipe?.id??"new"}
+            seedRecipe={selected===null?seedRecipe:undefined}
+            familyId={familyId}
+            ingredients={ingredients}
+            recipe={selected}
+            onDone={() => {
+              setSeedRecipe(undefined);setSelected(undefined);
+              setRevision((current) => current + 1);
+            }}
+          />
+          {selected ? <RecipeTastePanel key={selected.id} familyId={familyId} recipe={selected}/> : null}
+        </>
+      )}
+    </ContextDrawer>
+  ) : null;
 
   return (
     <div className="recipe-catalogue">
@@ -868,6 +928,33 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
           + {copy.newRecipe}
         </button>
       </header>
+      {filteredRecipes.length > 0 && !busy ? (() => {
+        // Only feature an actual recipe from the current, permission-filtered
+        // catalogue. This is a visual highlight, not a medical recommendation.
+        const photoRecipe = filteredRecipes.find(recipe =>
+          resolveMealHeroImage({planned:{title:recipe.name}}) !== null);
+        const featured = photoRecipe ?? filteredRecipes[0]!;
+        return <div className="nf-recipe-editorial-row">
+          <button type="button" className="nf-recipe-feature" onClick={() => setSelected(featured)}>
+            <RecipeCardArt name={featured.name} imageUrl={featured.image_url}/>
+            <span className="nf-recipe-feature-copy">
+              <small>{locale === "pt-PT" ? "RECEITA DO CATÁLOGO" : "FROM THE CATALOGUE"}</small>
+              <strong>{featured.name}</strong>
+              <span>{featured.suitable_meal_types.map(type => copy[type]).join(" · ")} · {featured.ingredients.length} {copy.ingredients.toLowerCase()}</span>
+              <em>{locale === "pt-PT" ? "Ver receita" : "View recipe"} ›</em>
+            </span>
+          </button>
+          <aside className="nf-recipe-feature-aside">
+            <strong>{locale === "pt-PT" ? "Explorar adaptações" : "Explore adaptations"}</strong>
+            <p>{locale === "pt-PT" ?
+              "Revê ingredientes, dados nutricionais e possíveis alterações antes de confirmar." :
+              "Review ingredients, nutrition data and possible changes before confirming."}</p>
+            <button type="button" className="button ghost small" onClick={() => setSelected(featured)}>
+              {locale === "pt-PT" ? "Abrir detalhe" : "Open details"}
+            </button>
+          </aside>
+        </div>;
+      })() : null}
       <div className="recipe-toolbar nf-recipe-browse-toolbar">
         <label className="field recipe-search">
           <span>{copy.search}</span>
@@ -878,8 +965,25 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
+        <div className="nf-recipe-quick-filters" aria-label={locale==="pt-PT"?"Filtros rápidos de receitas":"Quick recipe filters"}>
+          <button type="button" className={mealFilter==="all"&&originFilter==="all"&&imageFilter==="all"?"is-active":""}
+            aria-pressed={mealFilter==="all"&&originFilter==="all"&&imageFilter==="all"}
+            onClick={()=>{setMealFilter("all");setOriginFilter("all");setImageFilter("all");}}>
+            {locale==="pt-PT"?"Todas":"All"}
+          </button>
+          {(["breakfast","lunch","snack","dinner"] as const).map(type=>
+            <button type="button" key={type} className={mealFilter===type?"is-active":""}
+              aria-pressed={mealFilter===type} onClick={()=>{setMealFilter(type);setOriginFilter("all");setImageFilter("all");}}>
+              {copy[type]}
+            </button>
+          )}
+          <button type="button" className={originFilter==="adapted"?"is-active":""}
+            aria-pressed={originFilter==="adapted"} onClick={()=>{setOriginFilter(originFilter==="adapted"?"all":"adapted");setMealFilter("all");setImageFilter("all");}}>
+            {locale==="pt-PT"?"Adaptações":"Adaptations"}
+          </button>
+        </div>
       </div>
-      <details className="nf-recipe-filter-tools"><summary>{locale==="pt-PT"?"Filtros e ordenação":"Filters and sorting"}{(nutritionFilter!=="all"||mealFilter!=="all"||originFilter!=="all"||includeInactive)&&<span> · {locale==="pt-PT"?"ativos":"active"}</span>}</summary><div className="nf-filter-options">
+      <details className="nf-recipe-filter-tools"><summary>{locale==="pt-PT"?"Filtros e ordenação":"Filters and sorting"}{(nutritionFilter!=="all"||mealFilter!=="all"||originFilter!=="all"||imageFilter!=="all"||includeInactive)&&<span> · {locale==="pt-PT"?"ativos":"active"}</span>}</summary><div className="nf-filter-options">
         <label className="field recipe-quality-filter">
           <span>{copy.nutritionFilter}</span>
           <select
@@ -900,18 +1004,29 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
           />
           <span>{copy.showInactive}</span>
         </label>
-      <div className="nf-catalogue-context"><label className="field"><span>{locale==="pt-PT"?"Tempo de refeição":"Meal type"}</span><select value={mealFilter} onChange={e=>setMealFilter(e.target.value as RecipeBrowse["meal"])}><option value="all">{copy.filterAll}</option>{MEAL_TYPES.map(type=><option key={type} value={type}>{copy[type]}</option>)}</select></label><label className="field"><span>{locale==="pt-PT"?"Origem da receita":"Recipe origin"}</span><select value={originFilter} onChange={e=>setOriginFilter(e.target.value as RecipeBrowse["origin"])}><option value="all">{copy.filterAll}</option><option value="shared">{copy.shared}</option><option value="family">{locale==="pt-PT"?"Próprias da família":"Family originals"}</option><option value="adapted">{locale==="pt-PT"?"Adaptações":"Adaptations"}</option></select></label><label className="field"><span>{locale==="pt-PT"?"Ordenar por":"Sort by"}</span><select value={sortOrder} onChange={e=>setSortOrder(e.target.value as RecipeBrowse["sort"])}><option value="name">{locale==="pt-PT"?"Nome A–Z":"Name A–Z"}</option><option value="updated">{locale==="pt-PT"?"Atualizadas recentemente":"Recently updated"}</option><option value="ingredients">{locale==="pt-PT"?"Menos ingredientes":"Fewer ingredients"}</option></select></label></div>
+      <div className="nf-catalogue-context"><label className="field"><span>{locale==="pt-PT"?"Imagem da receita":"Recipe image"}</span><select value={imageFilter} onChange={e=>setImageFilter(e.target.value as RecipeBrowse["image"])}><option value="all">{copy.filterAll}</option><option value="with">{locale==="pt-PT"?"Com imagem":"With image"}</option><option value="without">{locale==="pt-PT"?"Sem imagem":"Missing image"}</option></select></label><label className="field"><span>{locale==="pt-PT"?"Tempo de refeição":"Meal type"}</span><select value={mealFilter} onChange={e=>setMealFilter(e.target.value as RecipeBrowse["meal"])}><option value="all">{copy.filterAll}</option>{MEAL_TYPES.map(type=><option key={type} value={type}>{copy[type]}</option>)}</select></label><label className="field"><span>{locale==="pt-PT"?"Origem da receita":"Recipe origin"}</span><select value={originFilter} onChange={e=>setOriginFilter(e.target.value as RecipeBrowse["origin"])}><option value="all">{copy.filterAll}</option><option value="shared">{copy.shared}</option><option value="family">{locale==="pt-PT"?"Próprias da família":"Family originals"}</option><option value="adapted">{locale==="pt-PT"?"Adaptações":"Adaptations"}</option></select></label><label className="field"><span>{locale==="pt-PT"?"Ordenar por":"Sort by"}</span><select value={sortOrder} onChange={e=>setSortOrder(e.target.value as RecipeBrowse["sort"])}><option value="name">{locale==="pt-PT"?"Nome A–Z":"Name A–Z"}</option><option value="updated">{locale==="pt-PT"?"Atualizadas recentemente":"Recently updated"}</option><option value="ingredients">{locale==="pt-PT"?"Menos ingredientes":"Fewer ingredients"}</option></select></label></div>
       </div></details>
-      <div className="nf-catalogue-results"><p role="status">{busy?copy.loading:`${filteredRecipes.length} ${locale==="pt-PT"?"receitas encontradas":"recipes found"}`}</p>{hasSearch&&<button className="button ghost small" type="button" onClick={clearFilters}>{locale==="pt-PT"?"Limpar filtros":"Clear filters"}</button>}</div>
+      <div className="nf-catalogue-results"><p role="status">{busy?copy.loading:`${filteredRecipes.length} ${locale==="pt-PT"?"receitas encontradas":"recipes found"}`}</p>{!busy&&missingImageCount>0&&<button className="button ghost small" type="button" aria-pressed={imageFilter==="without"} onClick={()=>setImageFilter(current=>current==="without"?"all":"without")}>{locale==="pt-PT"?`Sem imagem (${missingImageCount})`:`Missing images (${missingImageCount})`}</button>}{hasSearch&&<button className="button ghost small" type="button" onClick={clearFilters}>{locale==="pt-PT"?"Limpar filtros":"Clear filters"}</button>}</div>
       {error ? (
         <div className="error-banner" role="alert">
           <strong>{copy.error}</strong>
           <span>{error}</span>
         </div>
       ) : null}
-      {busy ? (
+      {duplicateGroups.length>0 && <details className="nf-recipe-filter-tools nf-duplicate-review">
+        <summary>{locale==="pt-PT"?"Adaptações possivelmente duplicadas":"Potentially duplicated adaptations"} · {duplicateGroups.reduce((total,group)=>total+group.count,0)} {locale==="pt-PT"?"receitas":"recipes"}</summary>
+        <p>{locale==="pt-PT"?"As receitas abaixo têm a mesma receita-base e composição. Revê os vínculos e o histórico antes de apagar uma das versões. Nenhuma receita é apagada automaticamente.":"These recipes share a base and composition. Review links and history before deleting a version. No recipe is removed automatically."}</p>
+        <div className="nf-filter-options">
+          {duplicateGroups.flatMap(group=>group.recipes.map(item=><button
+            type="button" className="button ghost small" key={item.variant_id}
+            onClick={()=>{const match=recipes.find(recipe=>recipe.id===item.recipe_id);if(match)setSelected(match);else{setQuery(item.name);setOriginFilter("adapted");setIncludeInactive(false);}}}>
+            {item.name} · {item.recipe_id.slice(0,8)}
+          </button>))}
+        </div>
+      </details>}
+      {busy && recipes.length === 0 ? (
         <div className="shell-loading" role="status">{copy.loading}</div>
-      ) : filteredRecipes.length === 0 ? (
+      ) : filteredRecipes.length === 0 && !busy ? (
         <div className="ingredient-empty">{hasSearch ? copy.emptySearch : copy.empty}</div>
       ) : (
         <div className="nf-recipe-grid">
@@ -924,7 +1039,7 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
                 onClick={() => setSelected(recipe)}
                 type="button"
               >
-                <span className="nf-recipe-art" aria-hidden="true"><Icon name="book" /></span>
+                <RecipeCardArt name={recipe.name} imageUrl={recipe.image_url}/>
                 <span className="ingredient-row__main">
                   <strong>{recipe.name}</strong>
                   <small>
@@ -947,6 +1062,7 @@ export default function RecipeCatalogue({ familyId }: { familyId: string }) {
           })}
         </div>
       )}
+      {editorPanel}
     </div>
   );
 }

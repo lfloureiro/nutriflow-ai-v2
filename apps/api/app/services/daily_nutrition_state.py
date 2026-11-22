@@ -291,6 +291,18 @@ def recalculate_daily_nutrition_state(
     if assumed_energy_kcal < ZERO:
         raise DailyNutritionStateRecalculationError("assumed_energy_kcal cannot be negative.")
 
+    # Serialize recalculations for the same person before checking the unique daily-state key.
+    # Under PostgreSQL READ COMMITTED this prevents concurrent requests from both inserting
+    # (person_id, state_date, calculation_version) after seeing no existing row.
+    # The lock lasts until the caller commits/rolls back; it does not change schema or API.
+    locked_person_id = session.scalar(
+        select(Person.id).where(Person.id == person.id).with_for_update()
+    )
+    if locked_person_id is None:
+        raise DailyNutritionStateRecalculationError(
+            "Person must be persisted before DailyNutritionState recalculation."
+        )
+
     _validate_target(person, state_date, nutrition_target)
     window_start, window_end = _day_window(state_date, timezone)
     servings = _load_servings(

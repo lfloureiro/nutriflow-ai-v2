@@ -2,6 +2,8 @@ name: Web CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
@@ -10,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: web-ci-${{ github.ref }}
+  group: web-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -39,6 +41,9 @@ jobs:
 
       - name: Run web tests
         run: npm run test
+
+      - name: Verify generated recipe image assets
+        run: node scripts/verify-generated-images.mjs
 
       - name: Type-check and build web app
         run: npm run build

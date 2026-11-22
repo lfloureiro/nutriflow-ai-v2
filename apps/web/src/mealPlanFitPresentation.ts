@@ -1,5 +1,6 @@
 import type { Locale } from "./i18n";
-import type { MealPlanFitGuideline, MealPlanFitRule, PlanFitConflict } from "./api/planFitTypes";
+import type { MealTransformationResult } from "./api/mealTransformationTypes";
+import type { MealPlanFitGuideline, MealPlanFitRule, MealPlanFitResult, PlanFitConflict, PlanFitSource } from "./api/planFitTypes";
 
 const TARGET_LABELS: Record<string, { "pt-PT": string; en: string }> = {
   energy: { "pt-PT": "Energia", en: "Energy" },
@@ -38,6 +39,28 @@ export function planFitTargetLabel(key: string, locale: Locale): string {
 export function planFitSourceLabel(value: string | null | undefined, locale: Locale): string {
   if (!value) return "NutriFlow";
   return SOURCE_LABELS[value]?.[locale] ?? value;
+}
+
+/** Distinguish missing evaluation from a confirmed safe or passing meal. */
+export function planFitEvidenceSummary(result: MealPlanFitResult): {
+  evaluated: number;
+  unknown: number;
+  unevaluatedGuidelines: number;
+  blocking: number;
+} {
+  return {
+    evaluated: result.rule_results.filter((rule) => ["pass", "fail", "support"].includes(rule.status)).length,
+    unknown: result.rule_results.filter((rule) => ["unknown", "not_evaluated"].includes(rule.status)).length,
+    unevaluatedGuidelines: result.guideline_results.filter((item) => item.status === "not_evaluated").length,
+    blocking: result.rule_results.filter((rule) => rule.is_mandatory && rule.status === "fail").length,
+  };
+}
+
+/** Return only evidence actually supplied by the backend, never inferred provenance. */
+export function planFitEvidenceSource(source: PlanFitSource, locale: Locale): string[] {
+  const values = [source.plan_title, source.source_name ?? source.rule_source, source.source_reference];
+  return [...new Set(values.filter((value): value is string => Boolean(value?.trim())))]
+    .map((value) => planFitSourceLabel(value, locale));
 }
 
 export function formatPlanFitNumber(value: string | null | undefined, locale: Locale): string {
@@ -145,4 +168,64 @@ export function planFitSafetyIssue(issue: string, locale: Locale): string {
       : "The recipe triggers a mandatory food-reaction safety block.";
   }
   return locale === "pt-PT" ? "Existe um bloqueio de segurança obrigatório." : "There is a mandatory safety block.";
+}
+
+/** Display only measured/computed candidate nutrients returned for the requested portion. */
+export function planFitCandidateNutrition(result: MealPlanFitResult): {
+  energyKcal: string | null;
+  nutrients: {key:string;value:string;unit:string}[];
+} {
+  const energy=result.candidate.nutrition.energy_kcal;
+  const nutrients=Object.entries(result.candidate.nutrition.nutrients)
+    .filter(([,entry])=>entry && entry.value?.trim() !== "" && Number.isFinite(Number(entry.value)))
+    .map(([key,entry])=>({key,value:entry.value,unit:entry.unit}))
+    .sort((a,b)=>a.key.localeCompare(b.key));
+  return {
+    energyKcal: energy !== null && energy.trim() !== "" && Number.isFinite(Number(energy)) ? energy : null,
+    nutrients,
+  };
+}
+
+/** Reject even a successful API response if it represents a different person,
+ * day, meal or serving than the request that initiated it.
+ */
+export function planFitMatchesRequest(
+  result:MealPlanFitResult,
+  requested:{personId:string;planningDate:string;mealType:string;quantity:string;quantityUnit?:string},
+):boolean {
+  const requestQuantity=Number(requested.quantity);
+  const responseQuantity=Number(result.candidate?.quantity);
+  return result.person_id===requested.personId
+    && result.planning_date===requested.planningDate
+    && result.meal_type===requested.mealType
+    && (requested.quantityUnit === undefined || result.candidate?.quantity_unit === requested.quantityUnit)
+    && requested.quantity.trim()!==""
+    && result.candidate?.quantity?.trim()!==""
+    && Number.isFinite(requestQuantity)
+    && Number.isFinite(responseQuantity)
+    && Math.abs(requestQuantity-responseQuantity)<1e-8;
+}
+
+/** A numeric fit is not a certification when evidence is incomplete or conflicting. */
+export function planFitHasOpenEvidence(result:MealPlanFitResult):boolean {
+  const coverage=planFitEvidenceSummary(result);
+  return coverage.evaluated===0 || coverage.unknown>0 ||
+    coverage.unevaluatedGuidelines>0 ||
+    result.nutrition_plan_authority.state!=="active_plan" ||
+    result.status==="unknown" || result.status==="partial" ||
+    result.status==="conflict" || result.conflicts.length>0;
+}
+
+/** A proposal response is never automatically applied; it must also describe
+ * the same person, source recipe and portion as the triggering assessment.
+ */
+export function transformationMatchesRequest(
+  response: MealTransformationResult,
+  requested: {personId:string;recipeId:string;planningDate:string;mealType:string;quantity:string;quantityUnit?:string},
+): boolean {
+  return response.person_id === requested.personId &&
+    response.recipe_id === requested.recipeId &&
+    response.planning_date === requested.planningDate &&
+    response.meal_type === requested.mealType &&
+    planFitMatchesRequest(response.baseline_fit, requested);
 }

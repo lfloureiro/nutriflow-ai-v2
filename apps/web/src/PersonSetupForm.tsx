@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useUnsavedChanges } from "./useUnsavedChanges";
 
 import { ApiError } from "./api/client";
 import { createFamilyPerson } from "./api/setupClient";
@@ -154,6 +155,9 @@ export default function PersonSetupForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [includeEnergy, setIncludeEnergy] = useState(false);
+  const guard = useUnsavedChanges({firstName,lastName,birthDate,sex,height,weight,activity,goal,rate,breakfast,includeEnergy,inheritSources,sources,deliveryAddress,restaurantArea},
+    locale === "pt-PT" ? "Tens alterações nesta nova pessoa por guardar. Sair e descartá-las?" : "You have unsaved changes to this new person. Leave and discard them?");
+  const cancelSetup = () => { if (!busy && guard.confirmDiscard()) onCancel(); };
 
   const wantsDelivery = usesDelivery(sources);
   const wantsRestaurants = sources.includes("restaurants");
@@ -206,6 +210,7 @@ export default function PersonSetupForm({
               restaurant_area: restaurantArea.trim() || null,
             },
       });
+      guard.markSaved();
       onCreated();
     } catch (caught: unknown) {
       setError(errorText(caught));
@@ -223,6 +228,7 @@ export default function PersonSetupForm({
           <p>{copy.help}</p>
         </div>
       </header>
+      {guard.dirty && <p className="nf-draft-state" role="status">{locale === "pt-PT" ? "Alterações por guardar" : "Unsaved changes"}</p>}
       {error ? <div className="error-banner" role="alert"><strong>{copy.error}</strong><span>{error}</span></div> : null}
       <form className="person-setup-form" onSubmit={submit}>
         <div className="form-grid two">
@@ -267,7 +273,7 @@ export default function PersonSetupForm({
         </section>
         <div className="button-row">
           <button className="button primary" disabled={busy} type="submit">{busy ? copy.saving : copy.save}</button>
-          <button className="button ghost" disabled={busy} onClick={onCancel} type="button">{copy.cancel}</button>
+          <button className="button ghost" disabled={busy} onClick={cancelSetup} type="button">{copy.cancel}</button>
         </div>
       </form>
     </section>

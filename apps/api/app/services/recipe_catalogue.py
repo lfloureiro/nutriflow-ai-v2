@@ -12,6 +12,7 @@ from app.models.food_catalog import (
     RecipeCompositionSnapshot,
     RecipeIngredient,
 )
+from app.models.recipe_variant import FamilyRecipeVariant
 from app.schemas.recipe_catalogue import (
     RecipeCompositionRead,
     RecipeCreate,
@@ -23,6 +24,7 @@ from app.schemas.recipe_catalogue import (
     RecipeUpdate,
 )
 from app.services.meal_suitability import recipe_default_meal_types
+from app.services.recipe_image_generation import existing_image_url
 from app.services.recipe_nutrition import CALCULATION_VERSION as RECIPE_CALCULATION_VERSION
 from app.services.recipe_nutrition import build_recipe_composition
 
@@ -142,6 +144,17 @@ def _ingredient_read(ingredient: RecipeIngredient) -> RecipeIngredientRead:
     )
 
 
+
+def _family_recipe_image_url(recipe: Recipe) -> str | None:
+    if recipe.family_id is None:
+        return None
+    image_url = existing_image_url(
+        recipe.id, recipe.name,
+        [ingredient.food_item.name for ingredient in recipe.ingredients],
+    )
+    return image_url.replace("{family_id}", str(recipe.family_id)) if image_url else None
+
+
 def _recipe_read(recipe: Recipe) -> RecipeRead:
     composition = _latest_composition(recipe)
     is_shared = recipe.family_id is None
@@ -164,6 +177,7 @@ def _recipe_read(recipe: Recipe) -> RecipeRead:
         ingredients=[_ingredient_read(ingredient) for ingredient in recipe.ingredients],
         latest_composition=_composition_read(recipe, composition),
         nutrition_issues=_composition_issues(composition),
+        image_url=_family_recipe_image_url(recipe),
         created_at=recipe.created_at,
         updated_at=recipe.updated_at,
     )
@@ -373,7 +387,17 @@ def deactivate_family_recipe(
     recipe_id: uuid.UUID,
 ) -> None:
     recipe = get_family_recipe_model(db, family_id, recipe_id)
-    if recipe.source == "family_variant":
-        raise RecipeCatalogueError("Retire the variant through its versioned workflow")
+    if recipe.source in ("family_variant", "family_adaptation"):
+        # Removing a family variant must also retire its active revision.
+        # Keep the Recipe row and historical meal references intact.
+        for variant in db.scalars(
+            select(FamilyRecipeVariant).where(
+                FamilyRecipeVariant.family_id == family_id,
+                FamilyRecipeVariant.recipe_id == recipe_id,
+                FamilyRecipeVariant.status.in_(("active", "draft")),
+            ).with_for_update()
+        ):
+            variant.status = "retired"
+            variant.version += 1
     recipe.is_active = False
     db.commit()

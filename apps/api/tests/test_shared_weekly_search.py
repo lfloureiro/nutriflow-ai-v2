@@ -389,3 +389,73 @@ def test_bounded_search_keeps_person_weekly_maximum_as_hard_gate() -> None:
     ]
     assert len(selected) <= 1
     assert result.rejected_by_person_weekly_maximum > 0
+
+
+def test_bounded_dinner_rotation_prioritizes_unique_recipes_over_soft_score() -> None:
+    """No hard rule forces repetition: a different eligible dinner must be considered."""
+    slots = []
+    for offset in range(7):
+        day = MONDAY + timedelta(days=offset)
+        favorite = _candidate(
+            "dinner:favorite",
+            planning_date=day,
+            score="1.0",
+            meal_type="dinner",
+            planning_category="meat",
+            primary_protein="chicken",
+        )
+        alternative = _candidate(
+            f"dinner:alternative:{offset}",
+            planning_date=day,
+            score="0.5",
+            meal_type="dinner",
+            planning_category="fish" if offset % 2 else "meat",
+            primary_protein="cod" if offset % 2 else "turkey",
+        )
+        slots.append(
+            SharedWeeklyPlanningSlot(
+                slot_key=f"dinner:{offset}",
+                planning_date=day,
+                meal_type="dinner",
+                candidates=(favorite, alternative),
+            )
+        )
+    result = optimize_shared_weekly_slots_scalable(tuple(slots), max_combinations=14)
+    assert result.search_strategy == "bounded"
+    assert result.selected_plan is not None
+    selected = [
+        choice.candidate.evaluation.candidate_key
+        for choice in result.selected_plan.choices
+    ]
+    assert len(set(selected)) == 7
+    assert result.selected_plan.repeated_dinner_count == 0
+
+
+def test_exact_dinner_rotation_prioritizes_distinct_eligible_recipes() -> None:
+    slots = []
+    for offset in range(3):
+        day = MONDAY + timedelta(days=offset)
+        favorite = _candidate(
+            "dinner:favorite",
+            planning_date=day,
+            score="1.0",
+            meal_type="dinner",
+        )
+        alternative = _candidate(
+            f"dinner:alternative:{offset}",
+            planning_date=day,
+            score="0.5",
+            meal_type="dinner",
+        )
+        slots.append(
+            SharedWeeklyPlanningSlot(
+                slot_key=f"dinner:{offset}",
+                planning_date=day,
+                meal_type="dinner",
+                candidates=(favorite, alternative),
+            )
+        )
+    result = optimize_shared_weekly_slots_scalable(tuple(slots), max_combinations=8)
+    assert result.search_strategy == "exact"
+    assert result.selected_plan is not None
+    assert result.selected_plan.repeated_dinner_count == 0

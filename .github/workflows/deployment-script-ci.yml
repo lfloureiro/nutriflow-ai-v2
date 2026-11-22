@@ -1,0 +1,52 @@
+name: Deployment Script CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify-powershell:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Parse PowerShell deployment (without executing it)
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $PWD 'deploy.ps1'), [ref]$tokens, [ref]$errors
+          )
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Host ('Parse error line ' + $_.Extent.StartLineNumber + ', column ' + $_.Extent.StartColumnNumber + ': ' + $_.Message); Write-Host ('Text: ' + $_.Extent.Text) }
+            throw "deploy.ps1 failed PowerShell syntax validation"
+          }
+          $source = Get-Content 'deploy.ps1' -Raw
+          foreach ($required in @('pull','--ff-only','app.local_db_update','StopManaged','Launch','Healthy')) {
+            if (-not $source.Contains($required)) {
+              throw "deploy.ps1 missing required deployment step: $required"
+            }
+          }
+          Write-Host "PowerShell syntax and required deployment steps verified."
+
+      - name: Use supported Node.js 22 for Vite smoke test
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify Node listener ownership and cleanup on Windows
+        shell: powershell
+        run: .\deploy.ps1 -VerifyFrontendOnly -VerifyNetstatOnly -WebPort 5173
+
+      - name: Verify duplicate Uvicorn process selection without touching services
+        shell: powershell
+        run: .\deploy.ps1 -VerifyApiCandidateOnly

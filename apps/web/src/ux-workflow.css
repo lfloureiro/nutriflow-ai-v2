@@ -1,3 +1,25 @@
 .nf-catalogue-context{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-4,1rem);margin-block:1rem}.nf-catalogue-results,.nf-presence-heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.75rem}.nf-catalogue-results p{color:var(--muted);margin:0}.nf-form-lock{border:0;padding:0;margin:0;min-width:0;display:contents}.nf-draft-state{font-size:.85rem;color:var(--muted);border-inline-start:3px solid var(--accent);padding-inline-start:.75rem}.nf-meal-save-summary{border:1px solid var(--border);border-radius:var(--radius-lg,1.25rem);padding:1.25rem;background:var(--surface);margin-block:1rem}.nf-meal-save-summary h3{margin-block:.5rem}.nf-summary-people{display:flex;flex-wrap:wrap;gap:.5rem}.nf-summary-people>span{border-radius:999px;border:1px solid var(--border);background:var(--surface-soft);padding:.4rem .7rem;font-size:.85rem}.meal-plan-person__check{display:flex;align-items:center;gap:.65rem}.meal-plan-person:has(input[type=checkbox]:not(:checked)){opacity:.7}.recipe-ingredient-row{transition:background-color 160ms ease}.recipe-ingredient-row:focus-within{background:var(--surface-soft)}@media(max-width:700px){.nf-catalogue-context{grid-template-columns:1fr}.nf-presence-heading{align-items:flex-start}.nf-summary-people{flex-direction:column}.nf-summary-people>span{border-radius:.75rem}}@media(prefers-reduced-motion:reduce){.recipe-ingredient-row{transition:none}}
 
 .nf-recipe-browse-toolbar{display:block}.nf-recipe-browse-toolbar .recipe-search{width:100%}.nf-recipe-filter-tools{margin-block:1rem}.nf-recipe-filter-tools>summary{cursor:pointer;color:var(--text);font-weight:600;list-style-position:inside;padding:.75rem 1rem;border:1px solid var(--border);border-radius:1rem;background:var(--surface)}.nf-recipe-filter-tools>summary span{font-size:.85rem;color:var(--muted)}.nf-filter-options{padding:1rem;border:1px solid var(--border);border-radius:1rem;margin-top:.5rem;background:var(--surface)}.nf-filter-options>.ingredient-check{margin-top:.75rem}.nf-catalogue-results{margin-block:1rem}
+
+/* Secondary editors follow the Casa à Mesa surface/spacing system without changing required fields. */
+.recipe-editor,.ingredient-editor{min-width:0}
+.recipe-editor .recipe-form-card,.ingredient-editor .ingredient-form-card{
+  border-radius:var(--radius-lg);border-color:var(--border);box-shadow:var(--shadow-soft);
+  padding:clamp(16px,2.4vw,24px);background:var(--surface)
+}
+.recipe-editor .recipe-form-card>h2,.ingredient-editor .ingredient-form-card>h2,
+.recipe-editor .recipe-section-heading h2,.ingredient-editor .ingredient-section-heading h2{
+  font-size:clamp(16px,1.6vw,19px);font-weight:650;line-height:1.35;letter-spacing:-.025em
+}
+.recipe-editor .field,.ingredient-editor .field{min-width:0}
+.recipe-editor .field>span,.ingredient-editor .field>span{font-size:12px;font-weight:650}
+.recipe-editor .field input,.ingredient-editor .field input,
+.recipe-editor .field select,.ingredient-editor .field select,
+.recipe-editor .field textarea,.ingredient-editor .field textarea{min-width:0;max-width:100%}
+.ingredient-editor .nf-draft-state,.recipe-editor .nf-draft-state{margin:0}
+@media(max-width:700px){
+  .recipe-editor .recipe-form-card,.ingredient-editor .ingredient-form-card{padding:16px}
+  .recipe-editor .recipe-form-actions,.ingredient-editor .ingredient-form-actions{gap:10px;flex-wrap:wrap}
+  .recipe-editor .recipe-form-actions .button,.ingredient-editor .ingredient-form-actions .button{min-height:42px}
+}

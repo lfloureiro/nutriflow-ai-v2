@@ -5,7 +5,9 @@ import {getFamilyMealPlan} from "./api/client";
 import {listRecipeReviews,type ReviewRecipe} from "./api/dietaryReviewClient";
 import {foodAlternativeNames,calendarDateOffset} from "./mealAlternatives";
 import IngredientAlternativeLine from "./IngredientAlternativeLine";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import ContextDrawer from "./ui/ContextDrawer";
+import { registerNavigationBlocker } from "./navigation";
 
 import { ApiError } from "./api/client";
 import {
@@ -129,7 +131,33 @@ export default function ShoppingListScreen({ familyId, initialStartDate, onOpenP
   const [manualUnit, setManualUnit] = useState("");
   const [editing, setEditing] = useState<ShoppingListItem | null>(null);
   const [editValues, setEditValues] = useState<EditValues>({ name: "", quantity: "", unit: "" });
+  const editBaseline = useRef<EditValues>({ name: "", quantity: "", unit: "" });
+  const editDirty = editing !== null && JSON.stringify(editValues) !== JSON.stringify(editBaseline.current);
+  const editDirtyRef = useRef(editDirty);
+  editDirtyRef.current = editDirty;
+  const busyRef = useRef(false);
+  const confirmDiscard = () => !editDirtyRef.current || window.confirm(
+    locale === "pt-PT"
+      ? "Tens alterações neste artigo por guardar. Descartá-las?"
+      : "You have unsaved item changes. Discard them?",
+  );
+  useEffect(() => {
+    const release = registerNavigationBlocker(confirmDiscard);
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (!editDirtyRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => { release(); window.removeEventListener("beforeunload", beforeUnload); };
+  }, [locale]);
+  function closeEditor(): boolean {
+    if (busyRef.current || !confirmDiscard()) return false;
+    setEditing(null);
+    return true;
+  }
   const [busy, setBusy] = useState(false);
+  busyRef.current = busy;
   const [error, setError] = useState<string | null>(null);
 
   const [query,setQuery]=useState("");
@@ -244,11 +272,13 @@ export default function ShoppingListScreen({ familyId, initialStartDate, onOpenP
   function startEdit(item: ShoppingListItem) {
     setError(null);
     setEditing(item);
-    setEditValues({
+    const next = {
       name: item.name,
       quantity: item.quantity ?? "",
       unit: item.unit ?? "",
-    });
+    };
+    editBaseline.current = next;
+    setEditValues(next);
   }
 
   async function saveEdit(event: FormEvent) {
@@ -326,29 +356,8 @@ export default function ShoppingListScreen({ familyId, initialStartDate, onOpenP
 
       {data ? (
         <>
-          <section className="nf-shopping-overview" aria-label={locale === "pt-PT" ? "Resumo das compras" : "Shopping overview"}><div><Icon name="bag"/><span><b>{summary.needed}</b>{locale === "pt-PT" ? "a comprar" : "to buy"}</span></div><div><Icon name="bag"/><span><b>{summary.purchased}</b>{locale === "pt-PT" ? "marcados como comprados" : "marked purchased"}</span></div><div><Icon name="pantry"/><span><b>{summary.received}</b>{locale === "pt-PT" ? "com receção concluída" : "fully received"}</span></div><p>{locale === "pt-PT" ? "Marcar como comprado não acrescenta stock. Regista a entrada quando os produtos chegarem." : "Marking purchased does not add stock. Record receipt when products arrive."}{summary.partial>0 ? ` · ${summary.partial} ${locale === "pt-PT" ? "receções parciais" : "partial receipts"}` : ""}</p></section>
-          {data.planning_issues.length > 0 ? (
-            <details className="shopping-issues nf-shopping-issues">
-              <summary><strong>{copy.issues} · {data.planning_issues.length}</strong></summary>
-              <ul>{data.planning_issues.map((issue) => <li key={issue}>{shoppingIssueLabel(issue, locale === "pt-PT")}</li>)}</ul>
-            </details>
-          ) : null}
-
-          <details className="shopping-requirements nf-stock-comparison">
-            <summary>{locale === "pt-PT" ? "Conferir plano versus despensa" : "Compare plan and pantry"} · {data.requirements.length}</summary>
-            <p className="muted">{locale === "pt-PT" ? "Necessário para o plano, stock utilizável e quantidade em falta. Entregas previstas são apresentadas à parte." : "Plan needs, usable stock and missing quantity. Expected deliveries are shown separately."}</p>
-            {data.requirements.length === 0 ? <div className="empty-card">{copy.noRequirements}</div> : null}
-            {data.requirements.map((requirement) => (
-              <div className="requirement-row" key={requirement.food_item_id}>
-                <IngredientAlternativeLine name={requirement.food_item_name} alternatives={foodAlternativeNames(planRecipes,requirement.food_item_id)}/>
-                <span>{formatShoppingQuantity(requirement.required_quantity,locale)} {requirement.unit} {copy.required}</span>
-                <span>{formatShoppingQuantity(requirement.available_quantity,locale)} {requirement.unit} {copy.stock}</span>
-                <span>{formatShoppingQuantity(requirement.missing_quantity,locale)} {requirement.unit} {copy.missing}</span>
-                {Number(requirement.incoming_quantity??0)>0&&<div className="requirement-delivery-note"><span>{formatShoppingQuantity(requirement.incoming_quantity!,locale)} {requirement.unit} {locale==="pt-PT"?"previstos por receber (não é stock)":"expected to arrive (not stock)"}</span><span>{formatShoppingQuantity(requirement.to_buy_quantity??requirement.missing_quantity,locale)} {requirement.unit} {locale==="pt-PT"?"ainda por comprar":"still to buy"}</span></div>}
-              </div>
-            ))}
-          </details>
-
+          <section className="nf-shopping-overview" aria-label={locale === "pt-PT" ? "Resumo das compras" : "Shopping overview"}><div><Icon name="bag"/><span><b>{summary.needed}</b>{locale === "pt-PT" ? "a comprar" : "to buy"}</span></div><div><Icon name="bag"/><span><b>{summary.purchased}</b>{locale === "pt-PT" ? "marcados como comprados" : "marked purchased"}</span></div><div><Icon name="pantry"/><span><b>{summary.received}</b>{locale === "pt-PT" ? "com receção concluída" : "fully received"}</span></div><div><Icon name="calendar"/><span><b>{summary.partial}</b>{locale === "pt-PT" ? "receções parciais" : "partial receipts"}</span></div><p>{locale === "pt-PT" ? "Marcar como comprado não acrescenta stock. Regista a entrada quando os produtos chegarem." : "Marking purchased does not add stock. Record receipt when products arrive."}{summary.partial>0 ? ` · ${summary.partial} ${locale === "pt-PT" ? "receções parciais" : "partial receipts"}` : ""}</p></section>
+          <div className="nf-shopping-workspace"><div className="nf-shopping-workspace-main">
           <section className="shopping-list-section">
             <h2>{copy.list}</h2>
             <div className="nf-list-controls"><label className="field"><span>{locale === "pt-PT" ? "Procurar na lista" : "Search this list"}</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder={locale === "pt-PT" ? "Ingrediente ou artigo…" : "Ingredient or item…"}/></label><nav className="nf-filter-tabs" aria-label={locale === "pt-PT" ? "Estado das compras" : "Shopping status"}>{(["needed","purchased","received","all"] as const).map(value=><button key={value} type="button" aria-pressed={view===value} onClick={()=>setView(value)}>{(locale === "pt-PT" ? {needed:"A comprar",purchased:"Comprados",received:"Recebidos",all:"Todos"} : {needed:"To buy",purchased:"Purchased",received:"Received",all:"All"})[value]} <span>{summary[value]}</span></button>)}</nav></div>
@@ -356,7 +365,14 @@ export default function ShoppingListScreen({ familyId, initialStartDate, onOpenP
             {alternativesError && <p role="status">{locale==="pt-PT"?"Não foi possível carregar as alternativas deste plano.":"Alternatives for this plan could not be loaded."}</p>}
             {data.items.some(i=>i.status==="needed"&&foodAlternativeNames(planRecipes,i.food_item_id).length>0)&&<p className="journey-context">{locale==="pt-PT"?"As trocas marcadas «por aplicar» são propostas. As quantidades abaixo ainda pertencem à receita original; aplica uma variante validada no plano para atualizar as compras.":"Changes marked not applied are proposals. Quantities still belong to the original recipe; apply a validated variant in the plan to update shopping."}</p>}
             {data.items.length === 0 ? <div className="empty-card">{copy.empty}</div> : null}
-            {visibleItems.map((item) => (
+            {(["automatic","manual"] as const).map(source => {
+              const group=visibleItems.filter(item=>item.item_source===source);
+              return group.length ? <section className="nf-shopping-item-group" key={source}>
+                <h3><Icon name={source==="automatic"?"calendar":"bag"}/>{source==="automatic"
+                  ? (locale==="pt-PT"?"Ingredientes do plano":"Plan ingredients")
+                  : (locale==="pt-PT"?"Artigos acrescentados":"Added items")}
+                  <span>{group.length}</span></h3>
+                {group.map((item) => (
               <article className={`shopping-item ${item.status === "purchased" ? "purchased" : ""}`} key={item.id}>
                 <label className="shopping-check">
                   <input
@@ -379,11 +395,19 @@ export default function ShoppingListScreen({ familyId, initialStartDate, onOpenP
                 <ShoppingProductPanel familyId={familyId} item={item} products={retail} onChanged={setData} disabled={busy}/>
                 {item.food_item_id && item.status === "needed" && relatedRetailAlternatives(retail,item.food_item_id,item.product_selection?.product_url).length>0 ? <details className="shopping-retail"><summary>{locale === "pt-PT" ? "Comparar lojas e rever rótulos" : "Compare stores and review labels"}</summary><RetailAlternativeCards familyId={familyId} onConfirmed={()=>{void listRetailAlternatives(familyId).then(setRetail).catch(e=>setRetailError(String(e)));}} products={relatedRetailAlternatives(retail,item.food_item_id,item.product_selection?.product_url)}/></details> : null}
               </article>
-            ))}
+                ))}</section> : null;
+            })}
           </section>
 
           {editing ? (
+            <ContextDrawer
+              title={copy.edit + " · " + editing.name}
+              closeLabel={locale === "pt-PT" ? "Fechar detalhe" : "Close detail"}
+              wide
+              onRequestClose={closeEditor}
+            >
             <form className="house-editor-card shopping-edit-card" onSubmit={saveEdit}>
+              {editDirty ? <p className="nf-draft-state" role="status">{locale === "pt-PT" ? "Alterações por guardar" : "Unsaved changes"}</p> : null}
               <label className="field">
                 <span>{copy.name}</span>
                 <input value={editValues.name} onChange={(event) => setEditValues((v) => ({ ...v, name: event.target.value }))} />
@@ -400,9 +424,10 @@ export default function ShoppingListScreen({ familyId, initialStartDate, onOpenP
               </div>
               <div className="editor-actions">
                 <button className="button primary" disabled={busy} type="submit">{copy.save}</button>
-                <button className="button ghost" onClick={() => setEditing(null)} type="button">{copy.cancel}</button>
+                <button className="button ghost" onClick={closeEditor} type="button">{copy.cancel}</button>
               </div>
             </form>
+            </ContextDrawer>
           ) : null}
 
           <details className="nf-manual-shopping"><summary>{copy.addManual}</summary><form className="shopping-manual-form" onSubmit={addManual}>
@@ -412,6 +437,58 @@ export default function ShoppingListScreen({ familyId, initialStartDate, onOpenP
             <input aria-label={copy.unit} placeholder={copy.unit} value={manualUnit} onChange={(event) => setManualUnit(event.target.value)} />
             <button className="button primary" disabled={busy} type="submit">{copy.add}</button>
           </form></details>
+          <div className="nf-shopping-supporting-details" aria-label={locale === "pt-PT" ? "Verificação detalhada das compras" : "Detailed shopping checks"}>
+          {data.planning_issues.length > 0 ? (
+            <details className="shopping-issues nf-shopping-issues">
+              <summary><strong>{copy.issues} · {data.planning_issues.length}</strong></summary>
+              <ul>{data.planning_issues.map((issue) => <li key={issue}>{shoppingIssueLabel(issue, locale === "pt-PT")}</li>)}</ul>
+            </details>
+          ) : null}
+
+          <details className="shopping-requirements nf-stock-comparison">
+            <summary>{locale === "pt-PT" ? "Conferir plano versus despensa" : "Compare plan and pantry"} · {data.requirements.length}</summary>
+            <p className="muted">{locale === "pt-PT" ? "Necessário para o plano, stock utilizável e quantidade em falta. Entregas previstas são apresentadas à parte." : "Plan needs, usable stock and missing quantity. Expected deliveries are shown separately."}</p>
+            {data.requirements.length === 0 ? <div className="empty-card">{copy.noRequirements}</div> : null}
+            {data.requirements.map((requirement) => (
+              <div className="requirement-row" key={requirement.food_item_id}>
+                <IngredientAlternativeLine name={requirement.food_item_name} alternatives={foodAlternativeNames(planRecipes,requirement.food_item_id)}/>
+                <span>{formatShoppingQuantity(requirement.required_quantity,locale)} {requirement.unit} {copy.required}</span>
+                <span>{formatShoppingQuantity(requirement.available_quantity,locale)} {requirement.unit} {copy.stock}</span>
+                <span>{formatShoppingQuantity(requirement.missing_quantity,locale)} {requirement.unit} {copy.missing}</span>
+                {Number(requirement.incoming_quantity??0)>0&&<div className="requirement-delivery-note"><span>{formatShoppingQuantity(requirement.incoming_quantity!,locale)} {requirement.unit} {locale==="pt-PT"?"previstos por receber (não é stock)":"expected to arrive (not stock)"}</span><span>{formatShoppingQuantity(requirement.to_buy_quantity??requirement.missing_quantity,locale)} {requirement.unit} {locale==="pt-PT"?"ainda por comprar":"still to buy"}</span></div>}
+              </div>
+            ))}
+          </details>
+
+          </div>
+          </div>
+          <aside className="nf-shopping-workspace-aside" aria-label={locale === "pt-PT" ? "Resumo e apoio às compras" : "Shopping guidance"}>
+            <section className="nf-shopping-aside-card">
+              <h2><Icon name="bag"/>{locale === "pt-PT" ? "Estado da lista" : "List status"}</h2>
+              <p>{locale === "pt-PT" ? "Acompanhe os artigos conforme são comprados e recebidos." : "Follow items as they are purchased and received."}</p>
+              <dl>
+                <div><dt>{locale === "pt-PT" ? "Por comprar" : "To buy"}</dt><dd>{summary.needed}</dd></div>
+                <div><dt>{locale === "pt-PT" ? "Comprados" : "Purchased"}</dt><dd>{summary.purchased}</dd></div>
+                <div><dt>{locale === "pt-PT" ? "Recebidos" : "Received"}</dt><dd>{summary.received}</dd></div>
+              </dl>
+              <div className="nf-shopping-aside-meter" role="progressbar"
+                aria-label={locale === "pt-PT" ? "Artigos comprados ou recebidos" : "Purchased or received items"}
+                aria-valuemin={0} aria-valuemax={100}
+                aria-valuenow={data.items.length ? Math.round((summary.purchased+summary.received)/data.items.length*100) : 0}>
+                <span style={{width:`${data.items.length ? Math.round((summary.purchased+summary.received)/data.items.length*100) : 0}%`}} />
+              </div>
+            </section>
+            <section className="nf-shopping-aside-card">
+              <h2><Icon name="pantry"/>{locale === "pt-PT" ? "Plano e despensa" : "Plan and pantry"}</h2>
+              <p>{locale === "pt-PT" ? "As necessidades são calculadas com as quantidades utilizáveis registadas. Uma compra só entra no stock após a receção." : "Needs account for recorded usable stock. Purchases enter stock only upon receipt."}</p>
+              <dl>
+                <div><dt>{locale === "pt-PT" ? "Ingredientes do plano" : "Plan ingredients"}</dt><dd>{data.requirements.length}</dd></div>
+                <div><dt>{locale === "pt-PT" ? "Questões a rever" : "Issues to review"}</dt><dd>{data.planning_issues.length}</dd></div>
+                <div><dt>{locale === "pt-PT" ? "Receções parciais" : "Partial receipts"}</dt><dd>{summary.partial}</dd></div>
+              </dl>
+              {onOpenPantry&&<button type="button" className="button ghost small" onClick={onOpenPantry}><Icon name="pantry"/>{locale === "pt-PT" ? "Consultar despensa" : "View pantry"}</button>}
+            </section>
+          </aside></div>
         </>
       ) : null}
     </div>

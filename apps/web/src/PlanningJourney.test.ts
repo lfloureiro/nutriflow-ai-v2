@@ -28,7 +28,35 @@ describe("guided week planning", () => {
     await saveWeekSetup("family",{week_start:"2026-10-19",version:1,person_ids:["a","b"],meal_types:["dinner"],excluded_food_item_ids:["garlic"]});
     const [url,init]=fetchMock.mock.calls[0]!;
     expect(url).toContain("/planning-setup/2026-10-19");
-    expect(JSON.parse(init.body)).toEqual({attendance:[],meal_sources:{},expected_version:1,person_ids:["a","b"],meal_types:["dinner"],excluded_food_item_ids:["garlic"]});
+    expect(JSON.parse(init.body)).toEqual({attendance:[],attendance_decisions:[],guest_notices:[],meal_sources:{},expected_version:1,person_ids:["a","b"],meal_types:["dinner"],excluded_food_item_ids:["garlic"]});
+  });
+  it("persists advisory guests separately from decisions and family meal attendance",async()=>{
+    const fetchMock=vi.fn().mockResolvedValue({ok:true,json:async()=>({version:2})});
+    vi.stubGlobal("fetch",fetchMock);
+    await saveWeekSetup("family",{
+      week_start:"2026-10-19",version:1,person_ids:["a","b"],
+      meal_types:["dinner"],excluded_food_item_ids:[],
+      guest_notices:[{planning_date:"2026-10-20",meal_type:"dinner",guest_count:2}],
+    });
+    const body=JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.guest_notices).toEqual([{planning_date:"2026-10-20",meal_type:"dinner",guest_count:2}]);
+    expect(body.attendance).toEqual([]);
+  });
+  it("preserves explicit pending, present and absent decisions in a full weekly setup save",async()=>{
+    const decisions=[{planning_date:"2026-10-20",meal_type:"dinner" as const,people:[
+      {person_id:"a",decision:"present" as const},
+      {person_id:"b",decision:"unconfirmed" as const},
+      {person_id:"c",decision:"absent" as const},
+    ]}];
+    const fetchMock=vi.fn().mockResolvedValue({ok:true,json:async()=>({version:2})});
+    vi.stubGlobal("fetch",fetchMock);
+    await saveWeekSetup("family",{
+      week_start:"2026-10-19",version:1,person_ids:["a","b","c"],
+      meal_types:["dinner"],excluded_food_item_ids:[],attendance_decisions:decisions,
+    });
+    const body=JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.attendance_decisions).toEqual(decisions);
+    expect(body.attendance).toEqual([]);
   });
   it("shows automatic adaptations only for the actual attendees and meal scope",()=>{
     const rules={excluded_food_item_ids:["onion"],warnings:[],sources:[{person_id:"p",source_id:"s",source_kind:"condition" as const,label:"SIBO",food_item_ids:["onion"],dates:["2026-10-20"],meal_types:["dinner"]}]};

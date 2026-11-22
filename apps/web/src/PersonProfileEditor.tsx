@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { useUnsavedChanges } from "./useUnsavedChanges";
 
 import { ApiError } from "./api/client";
 import { updatePerson } from "./api/setupClient";
@@ -198,6 +199,10 @@ export default function PersonProfileEditor({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const guard = useUnsavedChanges(values, locale === "pt-PT"
+    ? "Tens alterações no perfil por guardar. Sair e descartá-las?"
+    : "You have unsaved profile changes. Leave and discard them?");
+  const cancelEditing = () => { if (!busy && guard.confirmDiscard()) onCancel(); };
 
   function update<K extends keyof PersonProfileEditorValues>(
     key: K,
@@ -261,6 +266,7 @@ export default function PersonProfileEditor({
         timezone: values.timezone,
         ...(energyProfile ? { energy_profile: energyProfile } : {}),
       });
+      guard.markSaved();
       onSaved();
     } catch (caught: unknown) {
       setError(errorText(caught));
@@ -271,6 +277,7 @@ export default function PersonProfileEditor({
 
   return (
     <form className="person-profile-form" onSubmit={submit}>
+      {guard.dirty && <p className="nf-draft-state" role="status">{locale === "pt-PT" ? "Alterações por guardar" : "Unsaved changes"}</p>}
       {error ? (
         <div className="error-banner" role="alert">
           <strong>{copy.error}</strong>
@@ -375,7 +382,7 @@ export default function PersonProfileEditor({
         <button className="button primary" disabled={busy} type="submit">
           {busy ? copy.saving : copy.save}
         </button>
-        <button className="button ghost" disabled={busy} onClick={onCancel} type="button">
+        <button className="button ghost" disabled={busy} onClick={cancelEditing} type="button">
           {copy.cancel}
         </button>
       </div>

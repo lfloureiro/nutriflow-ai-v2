@@ -217,10 +217,11 @@ def test_variant_family_scope_duplicates_missing_evidence_and_immutability(
         ).status_code
         == 422
     )
-    assert (
-        client.delete(f"/api/families/{family.id}/recipes/{variant['recipe_id']}").status_code
-        == 422
-    )
+    assert client.delete(
+        f"/api/families/{family.id}/recipes/{variant['recipe_id']}"
+    ).status_code == 204
+    assert not db_session.get(Recipe, variant["recipe_id"]).is_active
+    assert next(item for item in client.get(path).json() if item["id"] == variant["id"])["status"] == "retired"
     assert db_session.get(Recipe, base.id).is_active
 
 
@@ -589,6 +590,92 @@ def test_recipe_edit_still_rejects_known_restrictions_and_changed_evidence(clien
     saved = client.patch(f"/api/families/{family.id}/meal-plan/{meal['id']}", json={"recipe_id": edit["recipe_id"]})
     assert saved.status_code == 422, saved.text
     assert "Base recipe changed" in saved.text
+
+
+
+def test_recipe_edit_reuses_identical_family_adaptation_without_new_rows(client, db_session, pilot):
+    from sqlalchemy import func, select
+
+    family, _, _, _, base, payload, _ = pilot
+    path = f"/api/families/{family.id}/recipe-variants/recipe-edit"
+    body = {"base_recipe_id": str(base.id), "name": "Esparguete · família",
+            "operations": payload["operations"]}
+    first = client.post(path, json=body)
+    assert first.status_code == 201, first.text
+    original = first.json()
+    counts_before = (
+        db_session.scalar(select(func.count()).select_from(Recipe)),
+        db_session.scalar(select(func.count()).select_from(FoodItem)),
+    )
+    second = client.post(path, json={**body, "name": "Outra designação · família"})
+    assert second.status_code == 201, second.text
+    assert second.json()["id"] == original["id"]
+    assert second.json()["recipe_id"] == original["recipe_id"]
+    assert (
+        db_session.scalar(select(func.count()).select_from(Recipe)),
+        db_session.scalar(select(func.count()).select_from(FoodItem)),
+    ) == counts_before
+
+    edited = [{**operation, "quantity": "121"} if index == 0 else operation
+              for index, operation in enumerate(payload["operations"])]
+    changed = client.post(path, json={**body, "operations": edited})
+    assert changed.status_code == 201, changed.text
+    assert changed.json()["recipe_id"] != original["recipe_id"]
+
+
+def test_recipe_edit_reuses_user_named_replacements_without_duplicate_foods(client, db_session, pilot):
+    from sqlalchemy import func, select
+
+    family, _, _, _, base, payload, _ = pilot
+    path = f"/api/families/{family.id}/recipe-variants/recipe-edit"
+    operations = [{**operation, "replacement_food_item_id": None,
+                   "replacement_name": "Natas sem lactose" if index == 0 else "Molho de ervas"}
+                  for index, operation in enumerate(payload["operations"])]
+    body = {"base_recipe_id": str(base.id), "name": "Receita adaptada · família",
+            "operations": operations}
+    first = client.post(path, json=body)
+    assert first.status_code == 201, first.text
+    before = db_session.scalar(select(func.count()).select_from(FoodItem))
+    second = client.post(path, json={**body, "name": "Renomeada",
+                                     "operations": [{**operation, "replacement_name":
+                                         operation["replacement_name"].upper()} for operation in operations]})
+    assert second.status_code == 201, second.text
+    assert second.json()["recipe_id"] == first.json()["recipe_id"]
+    assert db_session.scalar(select(func.count()).select_from(FoodItem)) == before
+
+
+
+def test_duplicate_family_adaptations_are_reported_without_deleting_history(
+    client, db_session, pilot, monkeypatch
+):
+    from app.services import recipe_edit as edits
+
+    family, _, _, _, base, payload, _ = pilot
+    url = f"/api/families/{family.id}/recipe-variants/recipe-edit"
+    body = {"base_recipe_id": str(base.id), "name": "Frango rápido · família",
+            "operations": payload["operations"]}
+    first = client.post(url, json=body)
+    assert first.status_code == 201, first.text
+
+    # Simulate the legacy code path that always materialized a new recipe.
+    with monkeypatch.context() as patch:
+        patch.setattr(edits, "_find_existing_edit", lambda *args: None)
+        second = client.post(url, json=body)
+    assert second.status_code == 201, second.text
+    assert second.json()["recipe_id"] != first.json()["recipe_id"]
+
+    audit = client.get(f"/api/families/{family.id}/recipe-variants/duplicates")
+    assert audit.status_code == 200, audit.text
+    groups = audit.json()
+    assert len(groups) == 1
+    assert groups[0]["count"] == 2
+    assert groups[0]["action"] == "manual_review_required"
+    assert {row["recipe_id"] for row in groups[0]["recipes"]} == {
+        first.json()["recipe_id"], second.json()["recipe_id"]
+    }
+    # Audit is read-only and the historical recipe IDs remain available.
+    assert db_session.get(Recipe, first.json()["recipe_id"]) is not None
+    assert db_session.get(Recipe, second.json()["recipe_id"]) is not None
 
 
 def test_recipe_edit_scope_invalid_operation_and_missing_description(client, pilot):

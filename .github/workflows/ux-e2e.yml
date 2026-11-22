@@ -1,0 +1,97 @@
+name: UX E2E (synthetic database)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ux-e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-synthetic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: nutriflow_e2e
+          POSTGRES_USER: nutriflow_e2e
+          POSTGRES_PASSWORD: isolated_ci_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nutriflow_e2e -d nutriflow_e2e"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+psycopg://nutriflow_e2e:isolated_ci_only@127.0.0.1:5432/nutriflow_e2e
+      APP_ENV: test
+      APP_DEBUG: "false"
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Install API and apply isolated migrations
+        run: |
+          python -m pip install -e "./apps/api[dev]"
+          python -m alembic upgrade head
+      - name: Install frontend and Chromium
+        working-directory: apps/web
+        run: |
+          npm install --global npm@11.12.1
+          npm install --no-package-lock --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Launch isolated API and Vite
+        run: |
+          python -m uvicorn app.main:app --app-dir apps/api --host 127.0.0.1 --port 8000 > "$RUNNER_TEMP/nutriflow-e2e-api.log" 2>&1 &
+          cd apps/web
+          npm run dev -- --host 127.0.0.1 --port 5173 --strictPort > "$RUNNER_TEMP/nutriflow-e2e-web.log" 2>&1 &
+          for i in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:8000/openapi.json >/dev/null && curl -fsS http://127.0.0.1:5173/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/nutriflow-e2e-api.log"
+          cat "$RUNNER_TEMP/nutriflow-e2e-web.log"
+          exit 1
+      - name: Run browser regressions against synthetic data
+        working-directory: apps/web
+        run: npx playwright test --config playwright.config.ts
+      - name: Upload synthetic screen visual review (dark, light, mobile)
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: screen-visual-${{ github.sha }}
+          path: |
+            apps/web/test-results/visual-week-*.png
+            apps/web/test-results/visual-home-*.png
+            apps/web/test-results/visual-screen-*.png
+            apps/web/test-results/reference-*.png
+            apps/web/test-results/shopping-live-synthetic-*.png
+          if-no-files-found: ignore
+          retention-days: 5
+      - name: Upload failing traces and service logs
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ux-e2e-debug-${{ github.run_id }}
+          path: |
+            apps/web/test-results/
+            ${{ runner.temp }}/nutriflow-e2e-api.log
+            ${{ runner.temp }}/nutriflow-e2e-web.log
+          retention-days: 5

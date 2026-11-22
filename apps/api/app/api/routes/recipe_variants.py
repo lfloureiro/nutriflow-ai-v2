@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -13,6 +13,8 @@ from app.schemas.recipe_variant import (
     VariantValidationRead,
     VariantValidationRequest,
 )
+from app.services.recipe_duplicate_audit import duplicate_family_adaptations
+from app.services.recipe_image_generation import generate_recipe_image
 from app.services.recipe_variant import (
     activate_variant,
     create_variant,
@@ -23,6 +25,11 @@ from app.services.recipe_variant import (
 
 router = APIRouter(prefix="/families/{family_id}/recipe-variants", tags=["recipe variants"])
 DB = Annotated[Session, Depends(get_db)]
+
+
+@router.get("/duplicates")
+def duplicate_family_adaptations_endpoint(family_id: uuid.UUID, db: DB):
+    return duplicate_family_adaptations(db, family_id)
 
 
 @router.get("", response_model=list[VariantRead])
@@ -57,7 +64,17 @@ def retire_endpoint(
 
 
 @router.post("/recipe-edit", response_model=VariantRead, status_code=201)
-def create_recipe_edit_endpoint(family_id: uuid.UUID, data: RecipeEditCreate, db: DB):
+def create_recipe_edit_endpoint(
+    family_id: uuid.UUID, data: RecipeEditCreate, background_tasks: BackgroundTasks, db: DB
+):
     from app.services.recipe_edit import create_recipe_edit
+    from app.services.recipe_variant_integrity import load_recipe
 
-    return create_recipe_edit(db, family_id, data)
+    result = create_recipe_edit(db, family_id, data)
+    recipe = load_recipe(db, result.recipe_id)
+    if recipe is not None:
+        background_tasks.add_task(
+            generate_recipe_image, recipe.id, recipe.name,
+            [ingredient.food_item.name for ingredient in recipe.ingredients],
+        )
+    return result
