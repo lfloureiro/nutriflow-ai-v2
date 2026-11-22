@@ -12,10 +12,10 @@ export function adaptationResearchItems(recipes: ReviewRecipe[], excluded: strin
   return recipes.flatMap(recipe =>
     recipe.ingredients
       .filter(ingredient => blocked.has(ingredient.food_item_id))
-      .filter(ingredient => !recipe.active_variants?.some(variant =>
-        variant.operations.some(operation => operation.recipe_ingredient_id === ingredient.id)))
       .map(ingredient => {
         const proposals = ingredient.substitutions.filter(row => row.status !== "rejected");
+        const hasVariant = Boolean(recipe.active_variants?.some(variant =>
+          variant.operations.some(operation => operation.recipe_ingredient_id === ingredient.id)));
         return {
           key: `${recipe.id}:${ingredient.id}`,
           recipeId: recipe.id,
@@ -25,7 +25,8 @@ export function adaptationResearchItems(recipes: ReviewRecipe[], excluded: strin
           quantity: ingredient.quantity,
           unit: ingredient.unit,
           proposals,
-          missing: proposals.length === 0,
+          hasVariant,
+          missing: proposals.length === 0 && !hasVariant,
         };
       }),
   );
@@ -108,7 +109,9 @@ export default function AdaptationResearchQueue({
                 <p>{item.ingredientName} · {item.quantity} {item.unit}</p>
                 <small>{item.missing
                   ? (pt ? "Sem substituição — pesquisa necessária" : "No substitute — research needed")
-                  : (pt ? `${item.proposals.length} proposta(s) por rever/aplicar` : `${item.proposals.length} proposal(s) awaiting review/application`)}</small>
+                  : item.hasVariant
+                    ? (pt ? "Variante existente — validar por pessoa e porção" : "Existing variant — verify for each person and serving")
+                    : (pt ? `${item.proposals.length} proposta(s) por rever/aplicar` : `${item.proposals.length} proposal(s) awaiting review/application`)}</small>
               </div>
               <nav aria-label={pt ? `Investigar ${item.ingredientName}` : `Research ${item.ingredientName}`}>
                 <a href={researchUrl("monashfodmap.com", item.ingredientName)} target="_blank" rel="noopener noreferrer">Monash</a>
