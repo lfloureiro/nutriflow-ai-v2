@@ -19,8 +19,8 @@ from app.demo_seed import (
     seed_demo_dataset,
 )
 from app.development_breakfast_seed import seed_development_breakfast_catalog
-from app.development_plant_milk_seed import seed_development_plant_milk_options
 from app.development_plan_fit_seed import seed_development_plan_fit
+from app.development_plant_milk_seed import seed_development_plant_milk_options
 from app.development_transformation_seed import seed_development_transformations
 from app.main import app
 from app.models.daily_nutrition_state import DailyNutritionState
