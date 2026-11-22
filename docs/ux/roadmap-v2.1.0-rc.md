@@ -490,3 +490,22 @@ O utilizador executou `NUTRIFLOW_WEEKLY_DEBUG=1`, `NUTRIFLOW_WEEKLY_DEBUG_VERBOS
 **Defeito no script:** a comparação de `Listener(5173)` agrupava escutas IPv4 e IPv6 e exigia que todos os seus PIDs fossem idênticos, embora o Vite seja lançado explicitamente em `127.0.0.1` (IPv4). Agora `SelectLoopbackSocketOwner` usa a escuta exclusiva de `127.0.0.1` / `0.0.0.0`, ignorando uma escuta IPv6 não relacionada apenas quando existe exatamente um proprietário IPv4. Se há zero proprietários IPv4, dois proprietários IPv4 diferentes, identidade do processo sem prova ou assinatura Vite inválida, mantém-se a recusa e são exibidos `Show-PortDiagnostics` com os PIDs sem matar processos. A seleção do Node lançado também usa o mesmo critério IPv4, verificando executável Node, script Vite real, data de arranque e assinatura HTTP Vite. CI sintético mantém um caminho próprio para fixture sem endpoint `/@vite/client`. Regressão pura incluída em `-VerifyApiCandidateOnly`.
 
 Commits `0e98765`, `598fc1d`, `df46631`. **Hipótese IPv4/IPv6 ainda não confirmada pelos PIDs do Windows real**, pois o log original não indicou os seus endereços. Esperar CI e repetir `.\\deploy.ps1 -Diagnose` após `git pull --ff-only origin codex/ux-drawer-next-batch-20261119`. Se houver proprietários IPv4 distintos, não os terminar automaticamente; pedir diagnóstico para identificar cada processo.
+
+
+## Lote de implementação — laboratório de IA independente (22/11/2026)
+
+Pedido do utilizador: retirar do planeamento semanal o painel de investigação de ingredientes (104 ocorrências visíveis em captura); criar ecrã separado em «Inteligência à mesa» com análise das receitas, pesquisa de produtos/FODMAP e possibilidade de importar respostas estruturadas da IA.
+
+**Implementado nesta branch:**
+- Nova rota navegável `#/ai`; o bloco lateral «Inteligência à mesa» passa a abrir o `AIWorkspace`, preservando a agenda e o planeamento existentes. `PlanningJourney` remove a fila longa e mostra apenas ligação «Abrir laboratório de IA».
+- `AIWorkspace` carrega as receitas familiares via serviço existente, procura configuração da próxima semana (ou semana corrente como fallback), obtém exclusões ativas e mostra métricas de receitas, ingredientes bloqueados e ausência de alternativas, reutilizando `AdaptationResearchQueue`.
+- Exportação de **pedido JSON estruturado**, com `recipe_id` e `ingredient_id` reais, porção original, exclusões e propostas existentes. Em alternativa, continua disponível o pedido textual de pesquisa para IA.
+- **Importação JSON v1**: formato `{"schema_version":"nutriflow.ai-review.v1","suggestions":[{"recipe_id":"...","ingredient_id":"...","replacement_name":"...","evidence_url":"https://...","notes":"...","evidence_status":"unverified"}]}`. Valida tamanho (até 200 KB), lista (até 200), pertença dos IDs ao catálogo familiar, campos/textos, URLs HTTPS, quantidade/unidade juntas e duplicados. Pré-visualiza toda a lista; guardar é uma ação **individual** e reconsulta o catálogo para prevenir duplicados em concorrência. Persiste somente em `recipe-adaptations` como **proposta não validada**, com fonte e notas; não grava novas receitas, não cria ingredientes, não marca alternativas como revistas, não altera planeamento/compras ou dietas.
+- Fontes de pesquisa Monash, FODMAP Friendly, Auchan/Continente continuam nas referências estáticas; não existe ainda backend autónomo para navegar esses serviços ou consultar a IA; a interação é por copiar pedido e colar/importar a resposta.
+- Testes `aiResearchImport.test.ts` cobrem exportação, validação, identidade familiar, URLs inseguras, duplicação, quantidade/dose. A rota e o ecrã devem passar por Web CI/UX E2E e teste manual antes de declarar «pronto».
+
+**Futuro trabalho e limites arquiteturais:**
+1. Serviço IA integrado com pesquisa e citações verificáveis, orquestração de fontes, revisão por participante, histórico/auditoria e consentimento; não assumir acesso a IA de terceiros.
+2. **Contratos de importação separados** para novos `FoodItem`, rótulos reais, perfis de transformação e novas `Recipe`/variantes. Não permitir que JSON arbitrário gere dados clínicos ou grave diretamente na base.
+3. Rever as classificações de evidência, dose FODMAP por porção, avaliação nutricional, alergias, duplicados por semântica e múltiplas substituições cumulativas (Issue #77).
+4. Na primeira abertura sem configuração da próxima semana, a lista pode ser incompleta; não reportar zero como «tudo seguro».
