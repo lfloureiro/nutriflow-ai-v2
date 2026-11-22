@@ -28,7 +28,7 @@ describe("family adaptation research backlog", () => {
     expect(items.some(item => item.ingredientName === "Batata")).toBe(false);
   });
 
-  it("removes ingredient from pending when an active family variant handles it", () => {
+  it("retains a variant ingredient for person-specific validation without requesting new evidence", () => {
     const withVariant = [{
       ...recipes[0],
       active_variants: [{
@@ -36,7 +36,10 @@ describe("family adaptation research backlog", () => {
         operations: [{ recipe_ingredient_id: "ingredient-1", replacement_name: "Cebolinho", quantity: "10", unit: "g", preparation: "" }],
       }],
     }] as ReviewRecipe[];
-    expect(adaptationResearchItems(withVariant, ["excluded-onion", "excluded-milk"]).map(item => item.ingredientName)).toEqual(["Leite"]);
+    const items = adaptationResearchItems(withVariant, ["excluded-onion", "excluded-milk"]);
+    expect(items.map(item => item.ingredientName)).toEqual(["Cebola", "Leite"]);
+    expect(items[0].hasVariant).toBe(true);
+    expect(items[0].missing).toBe(false);
   });
 
   it("renders research links and explicitly states missing evidence", () => {
