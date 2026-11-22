@@ -336,6 +336,16 @@ function StateEntry([int]$port,$entry) {
     if ($process.StartTime.ToUniversalTime().ToString('o') -ne [string]$entry.start_utc) {
         return $null
     }
+    if ($port -eq $WebPort) {
+        $loopbackOwner = SelectLoopbackSocketOwner $listeners
+        if ($null -ne $loopbackOwner -and $loopbackOwner -ne $process.Id) {
+            # Never stop a saved Node process that is not the listener serving
+            # 127.0.0.1, even if it happens to own an IPv6 socket.
+            Write-Warning ('Tracked frontend PID ' + $process.Id +
+                ' differs from IPv4 loopback listener PID ' + $loopbackOwner)
+            return $null
+        }
+    }
     if (@($listeners | Select-Object -ExpandProperty OwningProcess) -notcontains $process.Id) {
         # Legacy API: accept the exact saved PID only if the matching local
         # Uvicorn command and NutriFlow OpenAPI response still agree.
