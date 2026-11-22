@@ -48,7 +48,7 @@ const references: ResearchSuggestion[] = [
   },
   {
     key: "allium:garlic",
-    match: /alho/i,
+    match: /^(?!alho franc[eê]s).*alho/i,
     replacement: "Azeite aromatizado com alho, sem pedaços sólidos de alho",
     brand: "Preparação caseira / produto de azeite infundido por verificar",
     retailer: "Preparação culinária",
