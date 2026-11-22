@@ -492,6 +492,15 @@ export default function App() {
             <small>{item.view === "house" ? (locale === "pt-PT" ? "Receitas" : "Recipes") : item.view === "people" ? (locale === "pt-PT" ? "Família" : "Family") : t(item.labelKey)}</small>
           </button>
         ))}
+        <button
+          aria-current={view === "ai" ? "page" : undefined}
+          className={view === "ai" ? "active" : ""}
+          type="button"
+          onClick={() => navigate({view:"ai"})}
+        >
+          <span aria-hidden="true"><Icon name="spark"/></span>
+          <small>{locale === "pt-PT" ? "IA" : "AI"}</small>
+        </button>
       </nav>
     </div>
   );
