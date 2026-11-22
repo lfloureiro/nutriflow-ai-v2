@@ -15,7 +15,7 @@ export function variantDraftIssues(servings:string,operations:VariantOperation[]
   return issues;
 }
 
-export default function RecipeVariantEditor({familyId,recipe,planningDate,personIds,onChanged,mealType}:{familyId:string;mealType?:MealType;recipe:ReviewRecipe;planningDate?:string;personIds?:string[];onChanged?:()=>void}){
+export default function RecipeVariantEditor({familyId,recipe,planningDate,personIds,onChanged,mealType,initialIngredientIds}:{familyId:string;mealType?:MealType;recipe:ReviewRecipe;planningDate?:string;personIds?:string[];onChanged?:()=>void;initialIngredientIds?:string[]}){
   const {locale}=useI18n();const pt=locale==="pt-PT";
   const [foods,setFoods]=useState<Ingredient[]>([]);const [people,setPeople]=useState<Person[]>([]);const [variants,setVariants]=useState<RecipeVariant[]>([]);
   const [operations,setOperations]=useState<Record<string,VariantOperation>>({});const [name,setName]=useState("");const [servings,setServings]=useState(recipe.serving_count??"");
@@ -23,7 +23,20 @@ export default function RecipeVariantEditor({familyId,recipe,planningDate,person
   const [meal,setMeal]=useState<MealType>(mealType??"dinner");const [selected,setSelected]=useState<string[]>(personIds??[]);
   const [revisionOf,setRevisionOf]=useState("");const [checks,setChecks]=useState<Record<string,VariantValidation>>({});const [error,setError]=useState("");const [busy,setBusy]=useState(false);const [loading,setLoading]=useState(true);
   const [notice,setNotice]=useState("");
-  useEffect(()=>{let cancelled=false;setLoading(true);setFoods([]);setPeople([]);setVariants([]);setChecks({});setError("");setOperations({});setName("");setRevisionOf("");setServings(recipe.serving_count??"");setSelected(personIds??[]);
+  useEffect(()=>{let cancelled=false;setLoading(true);setFoods([]);setPeople([]);setVariants([]);setChecks({});setError("");
+    setOperations(Object.fromEntries(recipe.ingredients.filter(ingredient =>
+      initialIngredientIds?.includes(ingredient.id)).map(ingredient => {
+      const proposed = ingredient.substitutions.find(row => row.status !== "rejected");
+      // Do not guess missing weights, doses or preparation. The complete
+      // recipe cannot be saved/activated until the user fills these fields.
+      return [ingredient.id, {
+        recipe_ingredient_id: ingredient.id,
+        replacement_food_item_id: proposed?.replacement_food_item_id ?? "",
+        quantity: proposed?.replacement_quantity ?? "",
+        unit: proposed?.replacement_unit ?? "g",
+        preparation: "",
+      }];
+    })));setName("");setRevisionOf("");setServings(recipe.serving_count??"");setSelected(personIds??[]);
     void Promise.all([listFamilyIngredients(familyId),listFamilyPersons(familyId),listRecipeVariants(familyId,recipe.id)]).then(([f,p,v])=>{if(!cancelled){setFoods(f);setPeople(p);setVariants(v);}}).catch(e=>{if(!cancelled)setError(String(e));}).finally(()=>{if(!cancelled)setLoading(false);});
     return()=>{cancelled=true;};
   },[familyId,recipe.id]);
@@ -33,11 +46,14 @@ export default function RecipeVariantEditor({familyId,recipe,planningDate,person
   async function refresh(){setVariants(await listRecipeVariants(familyId,recipe.id));onChanged?.();}
   return <section className="journey-card" aria-label={pt?"Variante completa da receita":"Complete recipe variant"}>
     <h3>{pt?"Variante familiar completa":"Complete Family variant"}</h3>
+    {initialIngredientIds?.length ? <p role="status">{pt
+      ? `${initialIngredientIds.length} ingredientes da receita pré-selecionados. Confirma todas as quantidades e os produtos antes de guardar uma variante.`
+      : `${initialIngredientIds.length} recipe ingredients preselected. Check all quantities and products before saving a variant.`}</p> : null}
     <p>{pt?"Escolhe todas as trocas necessárias, identifica os ingredientes concretos e confirma as quantidades para a receita inteira. Guardar cria um rascunho; só uma variante validada pode ser ativada para aparecer no planeamento.":"Choose every required change, identify the actual ingredients and confirm whole-recipe quantities. Saving creates a draft; only a validated variant can be activated for planning."}</p>
     <button type="button" className="button secondary small" disabled={busy||loading} onClick={()=>void run(async()=>{setFoods(await listFamilyIngredients(familyId));setNotice(pt?"Ingredientes atualizados. Já podes escolher os produtos confirmados.":"Ingredients refreshed. Confirmed products are now available to select.");})}>{pt?"Atualizar ingredientes":"Refresh ingredients"}</button>
     {loading&&<p role="status">{pt?"A carregar ingredientes e variantes…":"Loading ingredients and variants…"}</p>}
     {error&&<p role="alert" className="error-banner">{error}</p>}{notice&&<p role="status">{notice}</p>}
-    <details><summary>{pt?"Preparar nova variante ou revisão":"Prepare a new variant or revision"}</summary>
+    <details open={initialIngredientIds?.length ? true : undefined}><summary>{pt?"Preparar nova variante ou revisão":"Prepare a new variant or revision"}</summary>
       <form className="dietary-form" onSubmit={e=>{e.preventDefault();void run(async()=>{await createRecipeVariant(familyId,{base_recipe_id:recipe.id,name,serving_count:servings,operations:ops,...(revisionOf?{revises_variant_id:revisionOf}:{})});await refresh();setNotice(pt?"Rascunho guardado. Valida para as pessoas e a refeição abaixo.":"Draft saved. Validate it for the people and meal below.");});}}>
         <label>{pt?"Nome da variante":"Variant name"}<input required maxLength={100} value={name} disabled={busy} onChange={e=>setName(e.target.value)}/></label>
         <label>{pt?"Número de doses confirmado":"Confirmed serving count"}<input required type="number" min="0.01" max="999999" step="0.01" value={servings} disabled={busy} onChange={e=>setServings(e.target.value)}/></label>
