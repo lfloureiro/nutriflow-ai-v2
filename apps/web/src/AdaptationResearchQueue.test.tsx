@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import AdaptationResearchQueue, { adaptationResearchItems, buildAdaptationResearchBrief } from "./AdaptationResearchQueue";
+import AdaptationResearchQueue, { adaptationResearchItems, buildAdaptationResearchBrief, groupAdaptationResearchItems } from "./AdaptationResearchQueue";
 import type { ReviewRecipe } from "./api/dietaryReviewClient";
 import { researchSuggestionsForIngredient } from "./adaptationResearchReferences";
 
@@ -31,6 +31,15 @@ describe("family adaptation research backlog", () => {
     expect(researchSuggestionsForIngredient("Cogumelos congelados")[0]?.replacement).toContain("conserva");
     expect(researchSuggestionsForIngredient("Lata de feijão vermelho")[0]?.reason).toContain("NÃO equivale");
     expect(researchSuggestionsForIngredient("Cenouras")).toHaveLength(0);
+  });
+
+  it("groups garlic and onion into one complete recipe review", () => {
+    const groups = groupAdaptationResearchItems(adaptationResearchItems(recipes, [
+      "excluded-onion", "excluded-milk",
+    ]));
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.recipeName).toBe("Jantar da família");
+    expect(groups[0]?.issues.map(issue => issue.ingredientName)).toEqual(["Cebola", "Leite"]);
   });
 
   it("finds unresolved excluded ingredients even without any substitution", () => {
