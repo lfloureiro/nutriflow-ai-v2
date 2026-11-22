@@ -78,6 +78,14 @@ export default function AdaptationResearchQueue({
   async function propose(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selected || !replacement.trim() || busy) return;
+    if (selected.proposals.some(proposal =>
+      proposal.replacement_name.trim().toLocaleLowerCase(locale) === replacement.trim().toLocaleLowerCase(locale)
+    )) {
+      setError(pt
+        ? "Esta alternativa já está registada para o ingrediente. Revê a proposta existente em vez de a duplicar."
+        : "This alternative already exists for the ingredient. Review the existing proposal instead of duplicating it.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
