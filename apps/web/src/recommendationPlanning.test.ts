@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { PlanningCandidate, PlanningMealType } from "./api/types";
 import {
   RECOMMENDATION_SOURCES,
+  MAX_RECOMMENDATION_CANDIDATES,
   recommendationCandidates,
   recommendationDates,
   recommendationDeliveryProviderKeys,
@@ -89,6 +90,20 @@ describe("recommendation planning helpers", () => {
         (item) => item.composition_id,
       ),
     ).toEqual(["dish-1"]);
+  });
+
+  it("covers the entire alphabetically sorted recipe list instead of the first 100", () => {
+    const catalogue = Array.from({ length: 240 }, (_, index) =>
+      candidate("recipe", "recipe", `recipe-${String(index).padStart(3, "0")}`),
+    );
+    const first = recommendationCandidates(catalogue, ["cooked"], "dinner");
+    const second = recommendationCandidates(catalogue, ["cooked"], "dinner");
+    expect(first).toHaveLength(MAX_RECOMMENDATION_CANDIDATES);
+    expect(first).toEqual(second);
+    expect(first[0]?.composition_id).toBe("recipe-000");
+    expect(first.at(-1)?.composition_id).toBe("recipe-239");
+    expect(first.some(row => row.composition_id === "recipe-180")).toBe(true);
+    expect(new Set(first.map(row => row.composition_id)).size).toBe(first.length);
   });
 
   it("keeps breakfast, snack and main-meal candidates in their own slots", () => {
