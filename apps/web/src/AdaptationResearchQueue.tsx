@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { createSubstitution, type ReviewRecipe } from "./api/dietaryReviewClient";
 import { useI18n } from "./i18n";
+import RecipeVariantEditor from "./RecipeVariantEditor";
 import { RESEARCH_REFERENCE_DATE, researchSuggestionsForIngredient } from "./adaptationResearchReferences";
 
 /**
@@ -68,12 +69,27 @@ export default function AdaptationResearchQueue({
   const items = useMemo(() => adaptationResearchItems(recipes, excluded), [recipes, excluded]);
   const missing = items.filter(item => item.missing).length;
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [replacement, setReplacement] = useState("");
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [copyNotice, setCopyNotice] = useState("");
   const selected = items.find(item => item.key === selectedId);
+  const byRecipe = useMemo(() => {
+    const groups = new Map<string, typeof items>();
+    for (const item of items) {
+      const current = groups.get(item.recipeId) ?? [];
+      current.push(item);
+      groups.set(item.recipeId, current);
+    }
+    return [...groups.entries()].map(([recipeId, issues]) => ({
+      recipeId,
+      recipeName: issues[0]?.recipeName ?? "",
+      issues,
+    }));
+  }, [items]);
+  const fullRecipe = recipes.find(recipe => recipe.id === selectedRecipeId);
 
   async function propose(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -144,6 +160,45 @@ export default function AdaptationResearchQueue({
           ? "Sem ingredientes associados às exclusões nesta consulta. Isso não equivale a validação FODMAP das restantes receitas."
           : "No ingredients matched the current exclusions. This does not certify FODMAP suitability of other recipes."}</p>
       ) : (
+        <>
+        <div className="nf-research-recipes" aria-label={pt ? "Revisão por receita" : "Recipe-level review"}>
+          <h3>{pt ? "Rever por receita completa" : "Review complete recipes"}</h3>
+          <p>{pt
+            ? "Uma receita pode exigir várias trocas. Escolhe-a uma vez e revê todas em conjunto; as propostas ainda não são ingredientes aprovados nem equivalências nutricionais."
+            : "A recipe can need several substitutions. Select it once to review all changes; proposals are not approved ingredients or nutritional equivalents."}</p>
+          {byRecipe.map(group => (
+            <article key={group.recipeId} className="nf-research-recipe">
+              <div>
+                <strong>{group.recipeName}</strong>
+                <small>{group.issues.length} {pt ? "ingredientes por verificar" : "ingredients to verify"}</small>
+                <p>{group.issues.map(issue => `${issue.ingredientName}: ${issue.proposals[0]?.replacement_name ?? (pt ? "alternativa por definir" : "alternative missing")}`).join(" · ")}</p>
+              </div>
+              <button type="button" className="button secondary small"
+                onClick={() => setSelectedRecipeId(old => old === group.recipeId ? null : group.recipeId)}>
+                {selectedRecipeId === group.recipeId
+                  ? (pt ? "Fechar revisão" : "Close review")
+                  : (pt ? "Rever todas as trocas" : "Review all changes")}
+              </button>
+            </article>
+          ))}
+        </div>
+        {fullRecipe && (
+          <section className="nf-research-full-recipe">
+            <h3>{pt ? `Adaptação completa: ${fullRecipe.name}` : `Complete adaptation: ${fullRecipe.name}`}</h3>
+            <p>{pt
+              ? "As substituições estão pré-selecionadas. Para criar uma variante utilizável, confirma no catálogo o ingrediente alternativo, a quantidade da receita inteira, a preparação, as doses e os participantes; depois usa «Validar conjunto» e «Ativar no planeamento»."
+              : "Substitutions are preselected. Confirm replacement catalogue item, whole-recipe quantity, preparation, servings and participants, then validate and activate."}</p>
+            <RecipeVariantEditor
+              key={fullRecipe.id}
+              familyId={familyId}
+              recipe={fullRecipe}
+              initialIngredientIds={items.filter(item => item.recipeId === fullRecipe.id).map(item => item.ingredientId)}
+              onChanged={onChanged}
+            />
+          </section>
+        )}
+        <details className="nf-research-advanced">
+          <summary>{pt ? "Modo avançado: investigar ingrediente a ingrediente" : "Advanced: research each ingredient individually"}</summary>
         <div className="nf-research-list">
           {items.map(item => (
             <article key={item.key} className={item.missing ? "is-missing" : "has-proposals"}>
@@ -222,6 +277,8 @@ export default function AdaptationResearchQueue({
             </article>
           ))}
         </div>
+        </details>
+        </>
       )}
     </details>
   );
