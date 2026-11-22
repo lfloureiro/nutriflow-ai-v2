@@ -318,6 +318,33 @@ function SelectFreshApiLaunch($launched,$listeners,[string]$executable,[string[]
     if ($otherOwners.Count -gt 0) { return $null }
     return $launched
 }
+function SelectFreshApiSocketChild($started,[string]$pythonPath,[int]$port,[object[]]$connections) {
+    # Windows venv launcher may start another python.exe as the real listener.
+    # Select ONLY the unique TCP owner of our IPv4 endpoint and verify the
+    # actual child's command, launch ancestry and start time. Never use an
+    # OpenAPI title alone to infer ownership.
+    if ($null -eq $started) { return $null }
+    $ownerId = SelectLoopbackSocketOwner $connections
+    if ($null -eq $ownerId -or $ownerId -eq $started.Id) { return $null }
+    $child = Get-Process -Id $ownerId -ErrorAction SilentlyContinue
+    $info = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $ownerId) -ErrorAction SilentlyContinue
+    if (-not $child -or -not $info -or $child.ProcessName -notmatch '^python') { return $null }
+    $cmd = ([string]$info.CommandLine).Replace('/', '\')
+    $expected = $pythonPath.Replace('/', '\')
+    $isOurCommand = $cmd.IndexOf($expected,[StringComparison]::OrdinalIgnoreCase) -ge 0 -and
+        $cmd -match 'uvicorn\s+app[.]main:app' -and
+        $cmd -match ('--port\s+' + $port + '(?:\s|$)') -and
+        $cmd -match '--host\s+127[.]0[.]0[.]1(?:\s|$)'
+    if (-not $isOurCommand) { return $null }
+    $isDirectChild = [int]$info.ParentProcessId -eq [int]$started.Id
+    # A launcher PID may terminate during hand-off, making ParentProcessId
+    # unreliable. Still require the exact command and a fresh creation time.
+    $fresh = $child.StartTime.ToUniversalTime() -ge
+        $started.StartTime.ToUniversalTime().AddSeconds(-2)
+    if (-not $isDirectChild -and -not $fresh) { return $null }
+    if (-not (Test-NutriFlowApi $port)) { return $null }
+    return $child
+}
 function IsTrustedLaunch($entry) {
     if ($null -eq $entry) { return $false }
     if ($entry -is [System.Collections.IDictionary]) {
@@ -505,6 +532,29 @@ function Launch([string]$exe,[string[]]$arg,[string]$cwd,[string]$name,[int]$por
         }
         $trustedLaunch = $false
         if (-not $proc -and $role -eq 'api') {
+            # Retry a briefly incomplete CIM identity before considering the
+            # launcher/child split. The socket owner can appear after HTTP
+            # starts responding on Windows.
+            for ($retry = 0; $retry -lt 4 -and -not $proc; $retry++) {
+                Start-Sleep -Milliseconds 250
+                $proc = VerifiedServiceProcess $port 'api'
+            }
+        }
+        if (-not $proc -and $role -eq 'api') {
+            $expectedPython = Join-Path $root '.venv\Scripts\python.exe'
+            if ($exe -ieq $expectedPython -and
+                $arg.Count -ge 7 -and
+                $arg[0] -eq '-m' -and
+                $arg[1] -eq 'uvicorn' -and
+                $arg[2] -eq 'app.main:app') {
+                $proc = SelectFreshApiSocketChild $started $expectedPython $port @(Listener $port)
+                if ($proc) {
+                    Write-Warning ('Verified Windows venv launcher PID ' + $started.Id +
+                        ' -> Uvicorn socket child PID ' + $proc.Id + '. Tracking the actual listener.')
+                }
+            }
+        }
+        if (-not $proc -and $role -eq 'api') {
             # Uvicorn has no --reload here: its exact Start-Process PID is
             # authoritative when TCP ownership is missing. Require the precise
             # checkout Python, exact app entrypoint/port, a healthy NutriFlow
@@ -609,6 +659,13 @@ if ($VerifyApiCandidateOnly) {
     $onlyIpv6 = @([pscustomobject]@{ LocalAddress='::1'; OwningProcess=202 })
     if ($null -ne (SelectLoopbackSocketOwner $onlyIpv6)) {
         throw 'IPv6 listener alone must not be trusted for IPv4 NutriFlow.'
+    }
+    # A unique loopback owner can differ from Start-Process's launcher PID.
+    $venvChildListeners = @([pscustomobject]@{
+        LocalAddress='127.0.0.1'; OwningProcess=65848
+    })
+    if ((SelectLoopbackSocketOwner $venvChildListeners) -ne 65848) {
+        throw 'Failed to identify the unique IPv4 child socket owner.'
     }
     # Verify executable identity using the same regex as the runtime path.
     $apiExePattern = '^(python(?:w)?|uvicorn)[.]exe$'
