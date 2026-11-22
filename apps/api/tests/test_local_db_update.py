@@ -38,7 +38,7 @@ def test_local_catalogue_update_adds_only_missing_reference_data_and_is_idempote
     )
 
     assert first == second == (5, 2)
-    assert count_after_first == count_after_second == 5
+    assert count_after_first == count_after_second == 9
     assert db_session.scalar(select(func.count()).select_from(Family)) == 1
     assert db_session.get(Family, family.id).name == "Família preservada"
     assert db_session.scalar(
@@ -65,7 +65,7 @@ def test_local_catalogue_update_bootstraps_breakfast_for_existing_family(
             MealCandidatePlanningProfile.source == "development-breakfast",
         )
     ) == 11
-    assert db_session.scalar(select(func.count()).select_from(FoodTransformationProfile)) == 5
+    assert db_session.scalar(select(func.count()).select_from(FoodTransformationProfile)) == 9
     assert apply_catalogue_updates(db_session) == (5, 2)
     assert db_session.scalar(
         select(func.count()).select_from(Recipe).where(
