@@ -386,3 +386,20 @@ A investigação do código revelou **11 receitas** comuns de pequeno-almoço, i
 - Teste de regressão: `e878deb5`, com duas pessoas sintéticas, receita de cereais com leite e exclusão explícita desse ingrediente. Exige proposta de transformação válida e seleção da refeição.
 - Não altera regras clínicas, dados familiares, configurações de utilizadores, rótulos ou receitas originais. Uma receita continua por confirmar se restarem bloqueios nutricionais, ingredientes sem evidência ou restrições incompatíveis.
 - **Verificação pendente:** API CI no SHA final; versão local do catálogo; execução e diagnóstico com as regras e presenças reais do dia 22, que não estão acessíveis a partir do GitHub. Os 11 candidatos da captura não provam, por si sós, que os perfis de leite já estejam no PostgreSQL local. O `deploy.ps1` só aplica `local_db_update` quando a API precisa de atualização/reinício; validar catálogo se a carga local ainda falhar.
+
+
+## v2.0.96 — catálogo de pães comerciais em revisão (22/11/2026)
+
+Os produtos foram confirmados nas páginas públicas do Auchan e Continente em 22/11/2026 e registados como **candidatos de substituição, não opções clinicamente low FODMAP**:
+
+| Chave estável | Marca / fornecedor | Embalagem | Fonte | Estado |
+| --- | --- | ---: | --- | --- |
+| `bread-review:auchan-white-400g` | Auchan / Auchan | 400 g | https://www.auchan.pt/pt/alimentacao/mercearia/tostas-e-pao-embalado/pao-embalado/pao-de-forma-auchan-sem-gluten-400g/3509556.html | FODMAP por validar |
+| `bread-review:schar-white-sliced-250g` | Schär / Continente | 250 g | https://www.continente.pt/produto/pao-branco-fatiado-sem-gluten-schar-6541632.html | FODMAP por validar |
+| `bread-review:auchan-white-300g` | Auchan / Auchan | 300 g | https://www.auchan.pt/pt/alimentacao/mercearia/tostas-e-pao-embalado/pao-embalado/pao-auchan-forma-sem-gluten-300g/3241708.html | FODMAP por validar |
+
+**Implementação:** `development_bread_review_seed.py` cria apenas três `FoodItem` partilhados com fonte comercial, lista publicada de ingredientes, indicação de alergénios/composição a confirmar e estado explícito de revisão em `description`. Não preenche `FoodCompositionSnapshot` com valores supostos, não cria receitas familiares nem altera as originais. A atualização local `local_db_update.apply_catalogue_updates` regista os três candidatos e associa, para cada família existente, quatro `FoodTransformationProfile` no grupo `bread-for-breakfast` (pão para torrada original mais três candidatos); **todos ficam inicialmente com `auto_transform_enabled=False`**. Não altera um perfil ou nome já existente nem volta a aplicar as escolhas padrão nos reinícios. Chaves e UUIDs estáveis impedem duplicação.
+
+A UI pode apresentar os produtos no catálogo de ingredientes com nome, fonte e estado, para substituição **manual e revista**. A substituição automática de pão e as duas trocas simultâneas na mesma receita (leite + pão) continuam pendentes de `#77` e de suporte a múltiplas operações no contrato e na persistência. Não afirmar conclusão dessa parte apenas por existir catálogo. Os testes `test_development_bread_review_seed.py` cobrem idempotência, perfis desativados, nutrição desconhecida e preservação de escolhas. Revalidar CI no último SHA.
+
+Nota: `sem glúten` não equivale a low FODMAP; o produto Auchan 400 g declara fibras vegetais sem origem suficiente na descrição comercial para concluir a adequação clínica. Confirmar sempre rótulo atual, porção, ingredientes e tolerâncias por pessoa. Nunca modificar dados familiares reais em E2E.
