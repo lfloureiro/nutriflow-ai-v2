@@ -23,3 +23,16 @@
   .nf-ai-workspace .screen-header { display: grid; }
   .nf-ai-metrics { grid-template-columns: 1fr; }
 }
+
+.nf-ai-git-handoff {
+  display: grid;
+  gap: 9px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+}
+.nf-ai-git-handoff h3 { font-size: 15px; margin: 0; }
+.nf-ai-git-handoff article { display: grid; gap: 4px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; }
+.nf-ai-git-handoff small { color: var(--muted); overflow-wrap: anywhere; }
+.nf-ai-git-handoff .button { justify-self: start; }
