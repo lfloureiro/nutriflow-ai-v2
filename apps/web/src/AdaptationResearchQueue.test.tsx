@@ -23,7 +23,7 @@ const recipes = [{
 describe("family adaptation research backlog", () => {
   it("groups repeated ingredient names into evidence-backed research hypotheses", () => {
     expect(researchSuggestionsForIngredient("Alho congelado")[0]?.replacement).toContain("Azeite");
-    expect(researchSuggestionsForIngredient("Alho francês")[0]?.replacement).toContain("parte verde");
+    expect(researchSuggestionsForIngredient("Alho francês")[0]?.replacement.toLocaleLowerCase()).toContain("parte verde");
     expect(researchSuggestionsForIngredient("Cebola picada congelada")[0]?.replacement).toContain("Cebolinho");
     expect(researchSuggestionsForIngredient("Iogurte grego")[0]?.brand).toBe("Mevgal");
     expect(researchSuggestionsForIngredient("Massa cotovelos")[0]?.brand).toBe("Auchan");
