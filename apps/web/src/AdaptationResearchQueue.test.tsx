@@ -38,8 +38,8 @@ describe("family adaptation research backlog", () => {
     }] as ReviewRecipe[];
     const items = adaptationResearchItems(withVariant, ["excluded-onion", "excluded-milk"]);
     expect(items.map(item => item.ingredientName)).toEqual(["Cebola", "Leite"]);
-    expect(items[0].hasVariant).toBe(true);
-    expect(items[0].missing).toBe(false);
+    expect(items[0]?.hasVariant).toBe(true);
+    expect(items[0]?.missing).toBe(false);
   });
 
   it("builds a sourced AI research brief without declaring any replacement safe", () => {
