@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import AdaptationResearchQueue, { adaptationResearchItems, buildAdaptationResearchBrief } from "./AdaptationResearchQueue";
 import { createSubstitution, listRecipeReviews, type ReviewRecipe } from "./api/dietaryReviewClient";
 import { getPlanningRestrictions, getWeekSetup } from "./api/planningWorkspaceClient";
-import { buildAIResearchExport, previewAIResearchImport, type AIResearchPreviewRow } from "./aiResearchImport";
+import { buildAIResearchExport, buildGitHandoff, previewAIResearchImport, readEngineeringChanges, type AIEngineeringChange, type AIResearchPreviewRow } from "./aiResearchImport";
 import { useI18n } from "./i18n";
 import "./planning-journey.css";
 import "./ai-workspace.css";
@@ -27,6 +27,7 @@ export default function AIWorkspace({ familyId, onOpenPlanning }: {
   const [notice, setNotice] = useState("");
   const [json, setJson] = useState("");
   const [preview, setPreview] = useState<AIResearchPreviewRow[] | null>(null);
+  const [engineering, setEngineering] = useState<AIEngineeringChange[]>([]);
   const [working, setWorking] = useState<string | null>(null);
   const [applied, setApplied] = useState<string[]>([]);
 
@@ -160,12 +161,36 @@ export default function AIWorkspace({ familyId, onOpenPlanning }: {
               : "Paste AI-generated JSON. Only this family's ingredient IDs, HTTPS sources and unverified status are accepted. Each proposal needs individual confirmation."}</p>
             <label htmlFor="nf-ai-json">{pt ? "Resposta JSON v1" : "JSON v1 response"}</label>
             <textarea id="nf-ai-json" rows={6} value={json} onChange={event => {
-              setJson(event.target.value); setPreview(null); setApplied([]);
+              setJson(event.target.value); setPreview(null); setEngineering([]); setApplied([]);
             }} placeholder={'{"schema_version":"nutriflow.ai-review.v1","suggestions":[]}'} />
             <button type="button" className="button secondary" disabled={!json.trim()} onClick={() => {
-              try { setPreview(previewAIResearchImport(json, recipes)); setError(""); }
-              catch (reason) { setPreview(null); setError(reason instanceof Error ? reason.message : String(reason)); }
+              try {
+                const suggestions = previewAIResearchImport(json, recipes);
+                const codeChanges = readEngineeringChanges(json);
+                setPreview(suggestions); setEngineering(codeChanges); setError("");
+              } catch (reason) {
+                setPreview(null); setEngineering([]);
+                setError(reason instanceof Error ? reason.message : String(reason));
+              }
             }}>{pt ? "Validar e pré-visualizar" : "Validate and preview"}</button>
+            {preview && engineering.length > 0 && (
+              <div className="nf-ai-git-handoff">
+                <h3>{pt ? "Alterações de algoritmos/código — encaminhar para GitHub" : "Algorithm/code changes — GitHub handoff"}</h3>
+                <p>{pt
+                  ? "Estes pedidos não são importados para a DB nem executados. Requerem alteração do código, testes e commit/PR revisto."
+                  : "These requests are neither imported into the DB nor executed. They require a reviewed code change, tests and a commit/PR."}</p>
+                {engineering.map((change, index) => (
+                  <article key={index}>
+                    <strong>{change.summary}</strong>
+                    <small>{change.kind} · {change.target_paths.join(", ")}</small>
+                    <p>{change.rationale}</p>
+                  </article>
+                ))}
+                <button type="button" className="button secondary" onClick={() => void copy(buildGitHandoff(engineering))}>
+                  {pt ? "Copiar instruções para replicar no GitHub" : "Copy GitHub implementation instructions"}
+                </button>
+              </div>
+            )}
             {preview && <div className="nf-ai-import-preview">
               <strong>{preview.length} {pt ? "propostas no ficheiro" : "proposals in file"}</strong>
               {preview.map((row, index) => {
