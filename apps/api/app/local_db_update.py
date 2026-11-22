@@ -13,8 +13,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import PROJECT_ROOT, settings
 from app.db.session import SessionLocal, engine
-from app.development_breakfast_seed import RECIPES, seed_development_breakfast_catalog
 from app.development_bread_review_seed import seed_development_bread_candidates
+from app.development_breakfast_seed import RECIPES, seed_development_breakfast_catalog
 from app.development_plant_milk_seed import seed_development_plant_milk_options
 from app.models.family import Family
 from app.models.food_catalog import Recipe
