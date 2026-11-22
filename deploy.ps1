@@ -538,12 +538,18 @@ function Launch([string]$exe,[string[]]$arg,[string]$cwd,[string]$name,[int]$por
             $noContradictoryOwner = $liveConnections.Count -eq 0 -or
                 ($null -ne $direct -and $null -ne $loopbackOwner -and
                     $loopbackOwner -eq $direct.Id)
+            $validFrontendResponse = if ($VerifyFrontendOnly -and $name -eq 'frontend-test') {
+                # Isolated CI fixture has no Vite /@vite/client endpoint.
+                Healthy $url
+            } else {
+                Test-NutriFlowFrontend $port
+            }
             if ($direct -and $direct.ProcessName -ieq 'node' -and
                 $exe -ieq (Executable 'node') -and
                 $arg.Count -gt 0 -and
                 [string]$arg[0] -ieq $expectedScript -and
                 $noContradictoryOwner -and
-                (Test-NutriFlowFrontend $port)) {
+                $validFrontendResponse) {
                 $proc = $direct
                 $trustedLaunch = $true
                 Write-Warning ('Using directly launched Node PID ' + $proc.Id +
