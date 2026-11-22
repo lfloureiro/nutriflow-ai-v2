@@ -83,3 +83,63 @@
 
 .nf-weekly-guests{margin:12px 0;max-width:350px}
 .nf-weekly-guests input[type=number]{width:100%;max-width:140px;min-height:40px}
+
+
+/* Ingredient research is a visible review backlog, never a clinical approval. */
+.nf-adaptation-research-queue {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid #b95458;
+  border-radius: 14px;
+  background: color-mix(in srgb, #ba3f46 8%, var(--surface, #222));
+}
+.nf-adaptation-research-queue > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.nf-adaptation-research-queue > summary small { margin-left: auto; font-weight: 400; }
+.nf-research-flag {
+  display: inline-flex;
+  width: 21px;
+  height: 21px;
+  align-items: center;
+  justify-content: center;
+  background: #b83c45;
+  border-radius: 50%;
+  color: #fff;
+}
+.nf-research-explanation { font-size: 13px; line-height: 1.5; }
+.nf-research-list { display: grid; gap: 8px; max-height: 390px; overflow-y: auto; }
+.nf-research-list article {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.nf-research-list article.is-missing { border-left: 3px solid #d3474c; }
+.nf-research-list article p { margin: 3px 0; font-size: 12px; }
+.nf-research-list article small { color: var(--muted); font-size: 11px; }
+.nf-research-list nav { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+.nf-research-list nav a { font-size: 12px; text-decoration: underline; }
+.nf-research-proposal { width: 100%; display: grid; gap: 8px; }
+.nf-research-proposal label { display: grid; gap: 5px; font-size: 12px; }
+.nf-research-proposal input, .nf-research-proposal textarea {
+  width: 100%; min-width: 0; padding: 8px; color: var(--text);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 7px;
+}
+.weekly-grid-meal.needs-investigation {
+  border-color: #bf424b !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #bf424b 48%, transparent);
+}
+.weekly-grid-meal.needs-investigation .nf-week-change-hint {
+  color: #ff8e97;
+  border-color: #bf424b;
+}
