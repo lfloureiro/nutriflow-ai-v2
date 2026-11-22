@@ -35,7 +35,7 @@ export function adaptationResearchItems(recipes: ReviewRecipe[], excluded: strin
 export function buildAdaptationResearchBrief(
   items: ReturnType<typeof adaptationResearchItems>,
 ) {
-  const unique = [...new Map(items.map(item => [item.key, item])).values()];
+  const unique = items; // Recipe/ingredient composite keys are unique in the backlog.
   return [
     "Investiga alternativas alimentares e produtos à venda em Portugal para adaptar receitas familiares.",
     "Consulta as fontes oficiais da Monash University/FODMAP Friendly e rótulos atuais de Auchan, Continente e outros supermercados.",
