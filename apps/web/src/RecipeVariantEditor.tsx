@@ -59,6 +59,15 @@ export default function RecipeVariantEditor({familyId,recipe,planningDate,person
         <label>{pt?"Número de doses confirmado":"Confirmed serving count"}<input required type="number" min="0.01" max="999999" step="0.01" value={servings} disabled={busy} onChange={e=>setServings(e.target.value)}/></label>
         <label>{pt?"Nova variante ou revisão de":"New variant or revision of"}<select value={revisionOf} disabled={busy} onChange={e=>setRevisionOf(e.target.value)}><option value="">{pt?"Nova variante independente":"New independent variant"}</option>{variants.map(v=><option key={v.id} value={v.id}>{v.name} · r{v.revision}</option>)}</select></label>
         {recipe.ingredients.map(i=><fieldset className="dietary-wide" key={i.id}><legend><label><input type="checkbox" disabled={busy} checked={!!operations[i.id]} onChange={e=>setOperations(old=>{const next={...old};if(e.target.checked){const suggested=i.substitutions.find(s=>s.status!=="rejected");next[i.id]={recipe_ingredient_id:i.id,replacement_food_item_id:suggested?.replacement_food_item_id??"",quantity:suggested?.replacement_quantity??"",unit:suggested?.replacement_unit??"g",preparation:""};}else delete next[i.id];return next;})}/>{i.name} · {i.quantity} {i.unit}</label></legend>
+          {operations[i.id] && i.substitutions.some(proposal => proposal.status !== "rejected") && (
+            <p className="dietary-help">{pt ? "Alternativas já propostas: " : "Existing proposals: "}
+              {i.substitutions.filter(proposal => proposal.status !== "rejected")
+                .map(proposal => proposal.replacement_name).join(" · ")}
+              . {pt
+                ? "Uma proposta por nome não é um ingrediente de catálogo validado. Seleciona o produto correto e confirma quantidade e preparação."
+                : "A name-only proposal is not a validated catalogue ingredient. Choose the correct product and verify quantity and preparation."}
+            </p>
+          )}
           {operations[i.id]&&<div className="dietary-form">
             <label>{pt?"Ingrediente alternativo identificado":"Identified replacement ingredient"}<select required disabled={busy} value={operations[i.id]!.replacement_food_item_id} onChange={e=>setOperations(old=>({...old,[i.id]:{...old[i.id]!,replacement_food_item_id:e.target.value}}))}><option value="">{pt?"Escolher no catálogo":"Choose from catalogue"}</option>{foods.filter(f=>f.id!==i.food_item_id).map(f=><option value={f.id} key={f.id}>{f.name}{f.brand?` · ${f.brand}`:""}{!f.latest_composition?" · sem composição":""}</option>)}</select></label>
             <label>{pt?"Quantidade na receita inteira":"Whole-recipe quantity"}<input required disabled={busy} type="number" min="0.0001" max="9999999999" step="0.0001" value={operations[i.id]!.quantity} onChange={e=>setOperations(old=>({...old,[i.id]:{...old[i.id]!,quantity:e.target.value}}))}/></label>
