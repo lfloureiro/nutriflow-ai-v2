@@ -421,3 +421,14 @@ Em `IngredientCatalogue.tsx`, as entradas `source=development-bread-review` apre
 **Diagnóstico necessário para verificar dados reais:** definir `NUTRIFLOW_WEEKLY_DEBUG=1` **antes de iniciar a API**; o backend regista `ROTATION dinner-pool` com número de candidatos oferecidos, avaliados e elegíveis em cada dia, e `SEARCH result` com `distinct_dinners` e `repeated_dinners`. Não ativar logs detalhados com informações sensíveis em produção. Verificar os candidatos eliminados (Plan-Fit/ingredients) antes de aumentar indiscriminadamente o limite de 100 ou as operações de substituição.
 
 Código: `shared_weekly_multi_slot_planning.py`, `shared_weekly_search.py`, `weekly_planning_api.py`. Testes `test_shared_weekly_search.py`: rotação de 3 e de 7 jantares elegíveis, respetivamente com pesquisa exaustiva e limitada. Commits `bae41bf`, `dd9f834`, `be8220f`, `632c50b`. CI ainda por confirmar no SHA final.
+
+
+## v2.0.98 — Windows deploy: Uvicorn saudável sem PID TCP (22/11/2026)
+
+**Regressão observada no Windows do utilizador:** após pull `26e75188..9d044db5`, PostgreSQL e `app.local_db_update` terminam; `StopManaged` termina o PID 60956 da API. O `Launch` inicia Python PID 42828, e `GET /openapi.json` responde com título `NutriFlow AI`, mas `Listener(8000)` devolve zero owners e `VerifiedServiceProcess` retorna `null`, abortando o deploy em `api responded but its listening process is not verified as NutriFlow`.
+
+**Correção:** o `Launch` da API só pode aceitar o **PID que o próprio script acabou de iniciar**, após porta livre confirmada, se o processo Python continuar ativo, executável `.venv/Scripts/python.exe` e argumentos `-m uvicorn app.main:app --host ... --port 8000` forem os mesmos, a API devolver identidade OpenAPI esperada, e não surgir um proprietário TCP contraditório. Marca `trusted_launch` apenas nesse caso. `StateEntry` admite o PID confiável em reinícios posteriores com verificação independente da data de início guardada e da assinatura HTTP; a exceção não se aplica a processos adotados. Teste puro `-VerifyApiCandidateOnly` cobre aceitação sem dono TCP e recusa de PID/executável alheios.
+
+Commit `93e8686`. Commits `34cc830` e `6ea1aab` corrigem a ordem de imports do seed de pão e teste associada à falha Ruff do CI anterior. A compilação e os testes Windows CI ainda têm de passar; não declarar o deploy corrigido no computador até execução local.
+
+**Instrução de atualização:** no terminal Windows, a branch deverá ter as alterações sincronizadas; `git pull --ff-only origin codex/ux-drawer-next-batch-20261119` e `.\\deploy.cmd`; se persistir, recolher `.\\deploy.ps1 -Diagnose` e os últimos registos em `.nutriflow-local\\api.err.log`. Não terminar manualmente processos que não sejam identificados como NutriFlow.
