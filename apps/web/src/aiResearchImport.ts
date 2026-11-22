@@ -26,7 +26,10 @@ export type AIResearchPreviewRow = AIResearchDraft & {
 const safeHttps = (value: string) => {
   try {
     const url = new URL(value);
-    return url.protocol === "https:" && !url.username && !url.password;
+    const host = url.hostname.toLowerCase();
+    const placeholder = ["localhost", "127.0.0.1", "::1"].includes(host) ||
+      [".example", ".invalid", ".test", ".localhost", ".local"].some(suffix => host.endsWith(suffix));
+    return url.protocol === "https:" && !url.username && !url.password && !placeholder;
   } catch {
     return false;
   }
