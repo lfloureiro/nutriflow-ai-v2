@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { createSubstitution, type ReviewRecipe } from "./api/dietaryReviewClient";
 import { useI18n } from "./i18n";
+import { RESEARCH_REFERENCE_DATE, researchSuggestionsForIngredient } from "./adaptationResearchReferences";
 
 /**
  * A live research backlog derived from persisted recipe ingredients and current
@@ -158,6 +159,40 @@ export default function AdaptationResearchQueue({
                   setNotes("");
                 }}>{pt ? "Registar alternativa" : "Record alternative"}</button>
               </nav>
+              {researchSuggestionsForIngredient(item.ingredientName).length > 0 && (
+                <details className="nf-research-suggestions">
+                  <summary>{pt ? "Alternativas investigadas · por validar" : "Researched alternatives · not verified"}</summary>
+                  {researchSuggestionsForIngredient(item.ingredientName).map(suggestion => (
+                    <div className="nf-research-suggestion" key={suggestion.key}>
+                      <strong>{suggestion.replacement}</strong>
+                      <small>{suggestion.brand} · {suggestion.retailer} · {RESEARCH_REFERENCE_DATE}</small>
+                      <p>{suggestion.reason}</p>
+                      <p>{pt ? "Ingredientes publicados: " : "Published ingredients: "}{suggestion.declaredIngredients ?? (pt ? "Rótulo por confirmar" : "Label to verify")}</p>
+                      <p>{suggestion.servingEvidence}</p>
+                      <div className="nf-research-links">
+                        <a href={suggestion.monashUrl} target="_blank" rel="noopener noreferrer">Monash</a>
+                        {suggestion.retailerUrl && (
+                          <a href={suggestion.retailerUrl} target="_blank" rel="noopener noreferrer">
+                            {suggestion.retailer}
+                          </a>
+                        )}
+                        <button type="button" className="button ghost small" onClick={() => {
+                          setSelectedId(item.key);
+                          setReplacement(suggestion.replacement);
+                          setNotes([
+                            suggestion.reason,
+                            suggestion.servingEvidence,
+                            `Fonte Monash: ${suggestion.monashUrl}`,
+                            suggestion.retailerUrl ? `Produto: ${suggestion.retailerUrl}` : "",
+                            `Consulta: ${RESEARCH_REFERENCE_DATE}. FODMAP por pessoa e porção: por validar.`,
+                          ].filter(Boolean).join("\n"));
+                          setError("");
+                        }}>{pt ? "Usar como proposta por rever" : "Use as unverified proposal"}</button>
+                      </div>
+                    </div>
+                  ))}
+                </details>
+              )}
               {selectedId === item.key && selected && (
                 <form onSubmit={event => void propose(event)} className="nf-research-proposal">
                   <label>{pt ? "Alternativa encontrada (nome concreto)" : "Researched alternative (specific name)"}
