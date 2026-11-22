@@ -525,3 +525,18 @@ No Windows do utilizador, `deploy.cmd -ForceRestart` atualizou `063cd32..7f7c34f
 - O importador valida `engineering_changes`, incluindo caminhos relativos permitidos, e mostra painel **«Alterações de algoritmos/código — encaminhar para GitHub»** e botão **«Copiar instruções para replicar no GitHub»**. Não executa conteúdo da IA nem faz git push/merge silenciosamente.
 - Os pedidos de código não entram no PostgreSQL; são instruções de implementação e não mudanças já realizadas. As propostas alimentares continuam a ser aprovadas individualmente. Não há servidor GitHub integrado na instalação local, nem permissões de escrita automática implícitas.
 - Testes `aiResearchImport.test.ts` cobrem encaminhamento e recusa de caminhos perigosos. Código `aiResearchImport.ts`, `AIWorkspace.tsx` e CSS correspondente.
+
+
+## Lote UX — importação JSON por ficheiro e validação por receita completa (22/11/2026)
+
+**Pedido:** evitar copiar/colar respostas JSON, permitir guardar várias propostas da IA de uma só vez e, sobretudo, revisar `Almondegas` com ambas as trocas (alho `→` azeite aromatizado e cebola `→` cebolinho) como UMA receita, não duas adaptações independentes.
+
+**Mudanças:**
+- `AIWorkspace`: `<input type=file accept=.json>`, leitura em memória com `File.text()`, verificação de extensão/tamanho 200 KB e validação do contrato `nutriflow.ai-review.v1` com a mesma função usada no copy/paste. Mantém caixa de texto como opção avançada.
+- Pré-visualização: checkboxes de cada proposta importável, `Selecionar válidas`, `Desmarcar todas`, `Guardar N propostas selecionadas para revisão`. Importação sequencial, sem promessa de atomicidade: antes de **cada** POST reconsulta o catálogo real da família e verifica duplicados/identidade. Para na primeira falha; mostra contador de propostas guardadas. Não executa sugestões de código nem ativa receitas, e mantém `engineering_changes` separado para GitHub.
+- `AdaptationResearchQueue`: em vez de uma lista principal com uma linha por ingrediente, agrupa os bloqueios por **receita**. Cada cartão mostra todas as trocas propostas e `Rever todas as trocas`. Um `RecipeVariantEditor` é aberto para a receita original com os ingredientes excluídos pré-selecionados. A lista antiga por ingrediente continua acessível em `Modo avançado`, recolhida por defeito.
+- `RecipeVariantEditor`: mostra propostas anteriormente registadas e pré-seleciona os ingredientes, MAS **não inventa** o ID de um produto de catálogo, quantidade de troca, preparação ou número de doses. Para ativar a variante é obrigatório completar estes dados, guardar rascunho, usar `Validar conjunto` com pessoas/data/tipo de refeição e só então `Ativar no planeamento`. O motor existente valida a variante completa e preserva a receita original.
+- Exemplo `Almondegas`: azeite aromatizado e cebolinho aparecem no mesmo editor. Caso estejam guardados só como nomes e não existam os produtos concretos e as respetivas composições no catálogo, a validação continuará a bloquear a ativação até serem definidos. «Guardar em lote» não substitui «Ativar no planeamento».
+- Teste de regressão `AdaptationResearchQueue.test.tsx` agrupa duas exclusões na mesma receita. Testes JSON anteriores continuam; CI e validação real no Windows pendentes.
+
+**Controlo de alterações:** propostas e variantes familiares apenas na DB local; instruções `engineering_changes` para alterar código, testar e atualizar a branch/PR no GitHub; nunca fazer commits com dados familiares nem execução automática de JSON da IA.
