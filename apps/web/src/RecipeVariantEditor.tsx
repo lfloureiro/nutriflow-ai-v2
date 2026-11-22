@@ -37,7 +37,13 @@ export default function RecipeVariantEditor({familyId,recipe,planningDate,person
         preparation: "",
       }];
     })));setName("");setRevisionOf("");setServings(recipe.serving_count??"");setSelected(personIds??[]);
-    void Promise.all([listFamilyIngredients(familyId),listFamilyPersons(familyId),listRecipeVariants(familyId,recipe.id)]).then(([f,p,v])=>{if(!cancelled){setFoods(f);setPeople(p);setVariants(v);}}).catch(e=>{if(!cancelled)setError(String(e));}).finally(()=>{if(!cancelled)setLoading(false);});
+    void Promise.all([listFamilyIngredients(familyId),listFamilyPersons(familyId),listRecipeVariants(familyId,recipe.id)]).then(([f,p,v])=>{if(!cancelled){setFoods(f);setPeople(p);setVariants(v);
+      if (initialIngredientIds?.length && !personIds?.length) {
+        // This is a whole-family review, not an automatic approval:
+        // validate every person unless the user deliberately deselects them.
+        setSelected(p.map(person => person.id));
+      }
+    }}).catch(e=>{if(!cancelled)setError(String(e));}).finally(()=>{if(!cancelled)setLoading(false);});
     return()=>{cancelled=true;};
   },[familyId,recipe.id]);
   const ops=Object.values(operations);const draftIssues=variantDraftIssues(servings,ops);
