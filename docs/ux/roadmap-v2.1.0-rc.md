@@ -540,3 +540,18 @@ No Windows do utilizador, `deploy.cmd -ForceRestart` atualizou `063cd32..7f7c34f
 - Teste de regressão `AdaptationResearchQueue.test.tsx` agrupa duas exclusões na mesma receita. Testes JSON anteriores continuam; CI e validação real no Windows pendentes.
 
 **Controlo de alterações:** propostas e variantes familiares apenas na DB local; instruções `engineering_changes` para alterar código, testar e atualizar a branch/PR no GitHub; nunca fazer commits com dados familiares nem execução automática de JSON da IA.
+
+
+## GitHub handoff IA — variante familiar sem duplicados e bloqueios visíveis (22/11/2026)
+
+Origem: pedido `engineering_changes` importado no laboratório NutriFlow para (1) reunir várias substituições numa única variante por receita, sem duplicação, e (2) indicar o progresso real da adaptação. **Sem quaisquer dados de receitas familiares incorporados no código ou commits.**
+
+Implementação:
+- `recipeAdaptationProgress.ts` compara variantes por conjunto de operações **independente da ordem**, com IDs de ingredientes e produtos, quantidades normalizadas, unidades, preparação e número de doses. `equivalentVariant` ignora variantes retiradas; as existentes `draft/active` são reutilizadas.
+- `RecipeVariantEditor.tsx` deteta variantes equivalentes enquanto edita, bloqueia «Guardar variante em rascunho» quando uma igual já existe e **reconsulta a API imediatamente antes de criar** para prevenir duplicações em outras sessões. Mantém a receita original e permite validar/ativar a variante existente. A garantia absoluta em caso de chamadas concorrentes simultâneas requer índice/contrato idempotente na API (pendência técnica); não afirmar atomicidade só com verificações frontend.
+- A pré-seleção cobre todos os ingredientes excluídos da receita, impedindo guardar involuntariamente uma variante parcial. Ainda exige os IDs reais de produtos, preparação, quantidade e dose; não inventa resultados da Monash, alergénios nem composição.
+- `recipeAdaptationProgress` classifica de modo conservador: `needs_research`, `needs_product`, `needs_quantity`, `awaiting_review` e `active`. Só `active_variants` contendo todas as operações necessárias recebe estado ativo; mesmo assim a elegibilidade para pessoas/porções depende do planeador e da validação.
+- `AdaptationResearchQueue.tsx`: cartões por receita mostram estado geral, número de ingredientes em revisão, propostas e **bloqueios concretos**. O editor interno mostra contadores de produtos, quantidades e preparação pendentes, e alerta sobre variante equivalente já existente.
+- `recipeAdaptationProgress.test.ts`: regressão para duas trocas simultâneas, ordem/quantidades equivalentes, variações de doses, estado com propostas apenas por nome, variante ativa parcial e falta de dados. Os testes não alteram a base familiar.
+
+Pendências: a detecção de rascunhos existentes é feita quando se abre a receita (API de variantes, não exportação de propostas); mudar opções após validar exige sempre nova validação; revisão FODMAP por dose e participante continua obrigatória; idempotência **atómica** e deduplicação de variantes por API deve ser revista antes de declarar garantia forte contra corrida.
