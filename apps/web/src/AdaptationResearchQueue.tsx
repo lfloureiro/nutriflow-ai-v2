@@ -50,6 +50,20 @@ export function buildAdaptationResearchBrief(
   ].join("\n");
 }
 
+export function groupAdaptationResearchItems(items: ReturnType<typeof adaptationResearchItems>) {
+  const groups = new Map<string, typeof items>();
+  for (const item of items) {
+    const current = groups.get(item.recipeId) ?? [];
+    current.push(item);
+    groups.set(item.recipeId, current);
+  }
+  return [...groups.entries()].map(([recipeId, issues]) => ({
+    recipeId,
+    recipeName: issues[0]?.recipeName ?? "",
+    issues,
+  }));
+}
+
 function researchUrl(domain: string, ingredient: string) {
   return `https://www.google.com/search?q=${encodeURIComponent(
     `site:${domain} ${ingredient} alternativa low FODMAP ingredientes`,
@@ -76,19 +90,7 @@ export default function AdaptationResearchQueue({
   const [error, setError] = useState("");
   const [copyNotice, setCopyNotice] = useState("");
   const selected = items.find(item => item.key === selectedId);
-  const byRecipe = useMemo(() => {
-    const groups = new Map<string, typeof items>();
-    for (const item of items) {
-      const current = groups.get(item.recipeId) ?? [];
-      current.push(item);
-      groups.set(item.recipeId, current);
-    }
-    return [...groups.entries()].map(([recipeId, issues]) => ({
-      recipeId,
-      recipeName: issues[0]?.recipeName ?? "",
-      issues,
-    }));
-  }, [items]);
+  const byRecipe = useMemo(() => groupAdaptationResearchItems(items), [items]);
   const fullRecipe = recipes.find(recipe => recipe.id === selectedRecipeId);
 
   async function propose(event: FormEvent<HTMLFormElement>) {
