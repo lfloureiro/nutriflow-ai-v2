@@ -408,28 +408,53 @@ def _debug_slot_plan_fit(
             or "none",
         )
 
-    rejected = [
-        candidate
-        for candidate in candidates
-        if not all(fit.eligible for fit in candidate.plan_fits)
-    ]
-    for candidate in rejected[:8]:
-        per_person = []
+    # Complete, deterministic trace (not just the first eight Plan-Fit
+    # failures). A candidate can be rejected by ingredient/exclusion rules,
+    # by its shared assessment, or by an individual mandatory Plan-Fit.
+    # Emit only when explicitly enabled in the local debugging environment.
+    reason_counts: Counter[str] = Counter()
+    for candidate in candidates:
+        reasons = set(candidate.evaluation.exclusion_reasons)
+        if not candidate.evaluation.eligible and not reasons:
+            reasons.add("shared_assessment:ineligible")
         for fit in candidate.plan_fits:
             if fit.eligible:
                 continue
             labels = _plan_fit_blocker_labels(fit)
-            per_person.append(
-                f"{fit.person_id}=>" + (",".join(labels[:8]) if labels else f"status:{fit.status}")
-            )
+            reasons.update(labels or [f"plan_fit:{fit.status}"])
+        if not reasons:
+            if candidate.evaluation.eligible and all(
+                fit.eligible for fit in candidate.plan_fits
+            ):
+                weekly_debug(
+                    "CANDIDATE-VERBOSE",
+                    "eligible",
+                    slot=slot_key,
+                    candidate=candidate.evaluation.candidate_key,
+                    name=candidate.evaluation.candidate_name,
+                )
+                continue
+            reasons.add("eligibility:unknown")
+        reason_counts.update(reasons)
         weekly_debug(
-            "PLANFIT-VERBOSE",
-            "candidate-rejected",
+            "CANDIDATE-VERBOSE",
+            "rejected",
             slot=slot_key,
             candidate=candidate.evaluation.candidate_key,
             name=candidate.evaluation.candidate_name,
-            blockers=" || ".join(per_person) or "unknown",
+            reasons="|".join(sorted(reasons)),
         )
+    weekly_debug(
+        "CANDIDATE-VERBOSE",
+        "rejection-summary",
+        slot=slot_key,
+        reasons="|".join(
+            f"{reason}:{count}"
+            for reason, count in sorted(
+                reason_counts.items(), key=lambda item: (-item[1], item[0])
+            )
+        ) or "none",
+    )
 
 
 def _with_requested_food_exclusions(
@@ -859,6 +884,18 @@ def _compute_shared_weekly_plan_uncached(
         rejected_daily_limit=result.rejected_by_person_daily_limit,
         truncated=result.search_truncated,
     )
+    if weekly_debug_verbose_enabled() and result.selected_plan is not None:
+        for choice in result.selected_plan.choices:
+            if choice.meal_type != "dinner":
+                continue
+            weekly_debug(
+                "ROTATION-VERBOSE",
+                "selected-dinner",
+                slot=choice.slot_key,
+                candidate=choice.candidate.evaluation.candidate_key,
+                name=choice.candidate.evaluation.candidate_name,
+                date=choice.planning_date,
+            )
 
     if result.family_id != family.id:
         raise WeeklyPlanningApiError("Weekly planning result belongs to a different Family.")
