@@ -509,3 +509,19 @@ Pedido do utilizador: retirar do planeamento semanal o painel de investigação 
 2. **Contratos de importação separados** para novos `FoodItem`, rótulos reais, perfis de transformação e novas `Recipe`/variantes. Não permitir que JSON arbitrário gere dados clínicos ou grave diretamente na base.
 3. Rever as classificações de evidência, dose FODMAP por porção, avaliação nutricional, alergias, duplicados por semântica e múltiplas substituições cumulativas (Issue #77).
 4. Na primeira abertura sem configuração da próxima semana, a lista pode ser incompleta; não reportar zero como «tudo seguro».
+
+
+## Correção deploy: Python venv launcher ≠ PID TCP Uvicorn (22/11/2026)
+
+No Windows do utilizador, `deploy.cmd -ForceRestart` atualizou `063cd32..7f7c34f`, migrations passaram e o frontend ficou `ready; managed PID 89952`. A API arrancou com o launcher `.venv\\Scripts\\python.exe` PID **84908**, mas o verdadeiro proprietário de `127.0.0.1:8000` era PID **65848**, executável `Python313\\python.exe`, command prefix `".venv\\Scripts\\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port 8000`, assinatura OpenAPI NutriFlow verdadeira. O deploy rejeitou esta diferença de PIDs.
+
+**Correção `5526be7`:** depois de verificar a assinatura HTTP, o script volta a consultar o proprietário da porta (retentativa curta após o listener surgir) e, se a identificação não resolver, seleciona o **PID IPv4 real do filho Python** apenas quando o processo foi criado no arranque atual, o comando Windows contém o Python da venv e Uvicorn com `app.main:app`, host e porta explícitos e a identidade NutriFlow continua válida. Não aceita outro dono nem mata processos sem identificação. Guarda no `deployment.json` o PID real que escuta, com start timestamp, para futuras paragens seguras. A validação Windows CI continua necessária. Não resetar base de dados nem desativar proteções.
+
+## Contrato de importação IA: DB local vs GitHub (22/11/2026)
+
+**Regra:** `suggestions` de substituição vão apenas para a DB da família após validação e aprovação individual; **nunca** são versionadas no GitHub. Se o resultado da IA exigir mudar algoritmo, código da app ou catálogo de referência, o contrato `nutriflow.ai-review.v1` aceita `engineering_changes[]` separado com `kind: algorithm|application_code|reference_catalogue`, `summary`, `target_paths`, `rationale`, `acceptance_tests`.
+
+- O pedido exportado contém `git_policy` com obrigação expressa de abrir trabalho na branch do PR #76 (ou sucessora), implementar no código-fonte, testar e fazer commit/PR revisto. Nunca incluir informação pessoal/clínica da DB familiar.
+- O importador valida `engineering_changes`, incluindo caminhos relativos permitidos, e mostra painel **«Alterações de algoritmos/código — encaminhar para GitHub»** e botão **«Copiar instruções para replicar no GitHub»**. Não executa conteúdo da IA nem faz git push/merge silenciosamente.
+- Os pedidos de código não entram no PostgreSQL; são instruções de implementação e não mudanças já realizadas. As propostas alimentares continuam a ser aprovadas individualmente. Não há servidor GitHub integrado na instalação local, nem permissões de escrita automática implícitas.
+- Testes `aiResearchImport.test.ts` cobrem encaminhamento e recusa de caminhos perigosos. Código `aiResearchImport.ts`, `AIWorkspace.tsx` e CSS correspondente.
