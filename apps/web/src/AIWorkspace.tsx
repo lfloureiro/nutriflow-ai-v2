@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import AdaptationResearchQueue, { adaptationResearchItems, buildAdaptationResearchBrief } from "./AdaptationResearchQueue";
 import { createSubstitution, listRecipeReviews, type ReviewRecipe } from "./api/dietaryReviewClient";
 import { getPlanningRestrictions, getWeekSetup } from "./api/planningWorkspaceClient";
@@ -30,6 +30,8 @@ export default function AIWorkspace({ familyId, onOpenPlanning }: {
   const [engineering, setEngineering] = useState<AIEngineeringChange[]>([]);
   const [working, setWorking] = useState<string | null>(null);
   const [applied, setApplied] = useState<string[]>([]);
+  const [selectedImports, setSelectedImports] = useState<string[]>([]);
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   async function reload() {
     const catalogue = await listRecipeReviews(familyId);
@@ -82,8 +84,8 @@ export default function AIWorkspace({ familyId, onOpenPlanning }: {
       setNotice(pt ? "Pedido copiado. Envia-o à IA e pede o resultado JSON v1." : "Prompt copied. Ask the AI for v1 JSON output.");
     } catch { setNotice(pt ? "Área de transferência indisponível." : "Clipboard unavailable."); }
   }
-  async function applyOne(row: AIResearchPreviewRow, index: number) {
-    if (row.issue || working) return;
+  async function applyOne(row: AIResearchPreviewRow, index: number, inBatch = false): Promise<boolean> {
+    if (row.issue || (working && !inBatch)) return false;
     const key = `${index}:${row.ingredient_id}`;
     setWorking(key);
     setError("");
@@ -112,9 +114,48 @@ export default function AIWorkspace({ familyId, onOpenPlanning }: {
       });
       setApplied(previous => [...previous, key]);
       await reload();
-      setNotice(pt ? "Proposta guardada para revisão; não foi aplicada à receita." : "Proposal saved for review only; the recipe is unchanged.");
-    } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
+      if (!inBatch) setNotice(pt ? "Proposta guardada para revisão; não foi aplicada à receita." : "Proposal saved for review only; the recipe is unchanged.");
+      return true;
+    } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); return false; }
     finally { setWorking(null); }
+  }
+  async function importFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".json") || file.size > 200_000) {
+      setError(pt ? "Seleciona um ficheiro .json até 200 KB." : "Select a .json file up to 200 KB.");
+      return;
+    }
+    try {
+      const content = await file.text();
+      const suggestions = previewAIResearchImport(content, recipes);
+      const codeChanges = readEngineeringChanges(content);
+      setJson(content); setPreview(suggestions); setEngineering(codeChanges);
+      setSelectedImports(suggestions.map((row, index) => !row.issue ? `${index}:${row.ingredient_id}` : "").filter(Boolean));
+      setApplied([]); setError("");
+      setNotice(pt ? `Ficheiro ${file.name} validado. Confirma as propostas selecionadas antes de guardar.`
+        : `File ${file.name} validated. Confirm selected proposals before saving.`);
+    } catch (reason) { setPreview(null); setSelectedImports([]); setError(reason instanceof Error ? reason.message : String(reason)); }
+  }
+  async function saveSelected() {
+    if (!preview || bulkSaving) return;
+    const pending = preview.map((row, index) => ({row, index, key:`${index}:${row.ingredient_id}`}))
+      .filter(item => selectedImports.includes(item.key) && !item.row.issue && !applied.includes(item.key));
+    if (!pending.length) return;
+    setBulkSaving(true);
+    let completed = 0;
+    for (const item of pending) {
+      // Sequential requests and fresh catalogue verification avoid duplicating
+      // proposals when the DB changes during an import.
+      const saved = await applyOne(item.row, item.index, true);
+      if (!saved) break;
+      completed++;
+    }
+    setBulkSaving(false);
+    setNotice(pt
+      ? `${completed} de ${pending.length} propostas guardadas apenas para revisão. Nenhuma receita foi ativada.`
+      : `${completed} of ${pending.length} proposals saved for review only. No recipe was activated.`);
   }
 
   return (
@@ -159,17 +200,24 @@ export default function AIWorkspace({ familyId, onOpenPlanning }: {
             <p>{pt
               ? "Cola o JSON gerado pela IA. Só são aceites IDs de ingredientes desta família, fontes HTTPS e o estado «unverified». O ficheiro é analisado localmente; cada proposta requer confirmação individual."
               : "Paste AI-generated JSON. Only this family's ingredient IDs, HTTPS sources and unverified status are accepted. Each proposal needs individual confirmation."}</p>
-            <label htmlFor="nf-ai-json">{pt ? "Resposta JSON v1" : "JSON v1 response"}</label>
+            <label className="nf-ai-upload">
+              <strong>{pt ? "Importar ficheiro JSON" : "Upload JSON file"}</strong>
+              <input aria-label={pt ? "Escolher ficheiro JSON da IA" : "Choose AI JSON file"}
+                type="file" accept=".json,application/json" onChange={event => { void importFile(event); }} />
+              <small>{pt ? "Seleciona diretamente o ficheiro descarregado. Colar texto continua opcional." : "Choose your downloaded file directly. Pasting remains optional."}</small>
+            </label>
+            <label htmlFor="nf-ai-json">{pt ? "Ou colar resposta JSON v1" : "Or paste JSON v1 response"}</label>
             <textarea id="nf-ai-json" rows={6} value={json} onChange={event => {
-              setJson(event.target.value); setPreview(null); setEngineering([]); setApplied([]);
+              setJson(event.target.value); setPreview(null); setEngineering([]); setApplied([]); setSelectedImports([]);
             }} placeholder={'{"schema_version":"nutriflow.ai-review.v1","suggestions":[]}'} />
             <button type="button" className="button secondary" disabled={!json.trim()} onClick={() => {
               try {
                 const suggestions = previewAIResearchImport(json, recipes);
                 const codeChanges = readEngineeringChanges(json);
                 setPreview(suggestions); setEngineering(codeChanges); setError("");
+                setSelectedImports(suggestions.map((row, index) => !row.issue ? `${index}:${row.ingredient_id}` : "").filter(Boolean));
               } catch (reason) {
-                setPreview(null); setEngineering([]);
+                setPreview(null); setEngineering([]); setSelectedImports([]);
                 setError(reason instanceof Error ? reason.message : String(reason));
               }
             }}>{pt ? "Validar e pré-visualizar" : "Validate and preview"}</button>
@@ -193,17 +241,44 @@ export default function AIWorkspace({ familyId, onOpenPlanning }: {
             )}
             {preview && <div className="nf-ai-import-preview">
               <strong>{preview.length} {pt ? "propostas no ficheiro" : "proposals in file"}</strong>
+              <div className="nf-ai-actions">
+                <button type="button" className="button ghost small" disabled={bulkSaving} onClick={() =>
+                  setSelectedImports(preview.map((row,index) => !row.issue && !applied.includes(`${index}:${row.ingredient_id}`)
+                    ? `${index}:${row.ingredient_id}` : "").filter(Boolean))}>
+                  {pt ? "Selecionar válidas" : "Select valid"}
+                </button>
+                <button type="button" className="button ghost small" disabled={bulkSaving}
+                  onClick={() => setSelectedImports([])}>{pt ? "Desmarcar todas" : "Clear all"}</button>
+                <button type="button" className="button primary"
+                  disabled={bulkSaving || !preview.some((row,index) =>
+                    !row.issue && !applied.includes(`${index}:${row.ingredient_id}`) &&
+                    selectedImports.includes(`${index}:${row.ingredient_id}`))}
+                  onClick={() => { void saveSelected(); }}>
+                  {bulkSaving ? (pt ? "A guardar…" : "Saving…")
+                    : (pt ? `Guardar ${selectedImports.length} propostas selecionadas para revisão`
+                      : `Save ${selectedImports.length} selected proposals for review`)}
+                </button>
+              </div>
+              <p>{pt
+                ? "Guardar em lote NÃO aprova a adequação nutricional nem ativa receitas. A validação da receita completa está na lista inferior."
+                : "Bulk saving does NOT approve nutritional suitability or activate recipes. Complete recipe validation is below."}</p>
               {preview.map((row, index) => {
                 const key = `${index}:${row.ingredient_id}`;
                 const done = applied.includes(key);
                 return <article key={key}>
-                  <strong>{row.recipeName}: {row.ingredientName} → {row.replacement_name}</strong>
+                  <label className="nf-ai-select-row">
+                    <input type="checkbox" disabled={!!row.issue || done || bulkSaving}
+                      checked={selectedImports.includes(key)}
+                      onChange={event => setSelectedImports(old => event.target.checked
+                        ? [...old, key] : old.filter(item => item !== key))} />
+                    <strong>{row.recipeName}: {row.ingredientName} → {row.replacement_name}</strong>
+                  </label>
                   <p>{row.notes}</p>
                   <small>{row.evidence_status} · <a target="_blank" rel="noopener noreferrer" href={row.evidence_url}>Fonte</a>
                     {row.retailer_url && <> · <a target="_blank" rel="noopener noreferrer" href={row.retailer_url}>Produto</a></>}</small>
                   {row.issue && <p role="status">{row.issue}</p>}
                   <button className="button secondary small" type="button"
-                    disabled={!!row.issue || done || working !== null}
+                    disabled={!!row.issue || done || working !== null || bulkSaving}
                     onClick={() => void applyOne(row, index)}>
                     {done ? (pt ? "Guardada para revisão" : "Saved for review")
                       : working === key ? (pt ? "A guardar…" : "Saving…")
