@@ -334,6 +334,9 @@ function StateEntry([int]$port,$entry) {
         if ($process.ProcessName -ieq 'node') {
             if (-not (Test-NutriFlowFrontend $port)) { return $null }
         } elseif ($process.ProcessName -match '^python') {
+            # Never keep managing a trusted Python PID if Windows now exposes
+            # a different socket owner: that is an identity conflict.
+            if ($listeners.Count -gt 0) { return $null }
             if (-not (Test-NutriFlowApi $port)) { return $null }
         } else {
             return $null
