@@ -281,6 +281,22 @@ function TestLocalApiPid([int]$port,[int]$processId) {
         $command -match ('--port\s+' + $port + '(?:\s|$)')
     )
 }
+function SelectFreshApiLaunch($launched,$listeners,[string]$executable,[string[]]$arguments,[string]$expectedPython) {
+    # Only for a process this invocation of deploy.ps1 created *after*
+    # observing a free port. Never use to adopt an arbitrary running server.
+    if ($null -eq $launched -or $launched.ProcessName -notmatch '^python') { return $null }
+    if ($executable -ine $expectedPython -or
+        $arguments.Count -lt 7 -or
+        $arguments[0] -ne '-m' -or
+        $arguments[1] -ne 'uvicorn' -or
+        $arguments[2] -ne 'app.main:app') {
+        return $null
+    }
+    # A different socket owner is a conflict, not proof this fresh launch owns it.
+    $otherOwners = @($listeners | Where-Object { [int]$_ -ne [int]$launched.Id })
+    if ($otherOwners.Count -gt 0) { return $null }
+    return $launched
+}
 function IsTrustedLaunch($entry) {
     if ($null -eq $entry) { return $false }
     if ($entry -is [System.Collections.IDictionary]) {
@@ -310,12 +326,16 @@ function StateEntry([int]$port,$entry) {
             (TestLocalFrontendPid $port $process.Id)) {
             return $process
         }
-        # The Vite PID was recorded by this deploy script immediately after
-        # starting Node on a previously free port; some Windows configurations
-        # report a different TCP owner. Never apply this to adopted processes.
-        if (-not (IsTrustedLaunch $entry) -or
-            $process.ProcessName -ine 'node' -or
-            -not (Healthy ('http://127.0.0.1:' + $port + '/'))) {
+        # A fresh process managed by this deploy can lack Windows TCP owner
+        # information. Trust its saved PID only with exact start time (checked
+        # above), expected process family and the live NutriFlow signature.
+        # This exemption never applies to adopted/legacy processes.
+        if (-not (IsTrustedLaunch $entry)) { return $null }
+        if ($process.ProcessName -ieq 'node') {
+            if (-not (Test-NutriFlowFrontend $port)) { return $null }
+        } elseif ($process.ProcessName -match '^python') {
+            if (-not (Test-NutriFlowApi $port)) { return $null }
+        } else {
             return $null
         }
     }
@@ -449,6 +469,30 @@ function Launch([string]$exe,[string[]]$arg,[string]$cwd,[string]$name,[int]$por
             }
         }
         $trustedLaunch = $false
+        if (-not $proc -and $role -eq 'api') {
+            # Uvicorn has no --reload here: its exact Start-Process PID is
+            # authoritative when TCP ownership is missing. Require the precise
+            # checkout Python, exact app entrypoint/port, a healthy NutriFlow
+            # OpenAPI response and no contradictory TCP owner.
+            $direct = Get-Process -Id $started.Id -ErrorAction SilentlyContinue
+            $expectedPython = Join-Path $root '.venv\Scripts\python.exe'
+            $isExpectedPort = $false
+            for ($i=0; $i -lt ($arg.Count - 1); $i++) {
+                if ($arg[$i] -eq '--port' -and [string]$arg[$i + 1] -eq [string]$port) {
+                    $isExpectedPort = $true
+                }
+            }
+            if ($isExpectedPort -and (Test-NutriFlowApi $port)) {
+                $owners = @(Listener $port | Select-Object -ExpandProperty OwningProcess -Unique)
+                $proc = SelectFreshApiLaunch $direct $owners $exe $arg $expectedPython
+                if ($proc) {
+                    $trustedLaunch = $true
+                    Write-Warning ('Accepted freshly launched NutriFlow API PID ' +
+                        $proc.Id + ' with verified launch arguments and OpenAPI identity; ' +
+                        'Windows reported no usable TCP owner.')
+                }
+            }
+        }
         if (-not $proc -and $role -eq 'frontend') {
             # Strong fallback: we observed a free port, launched a specific
             # local Vite Node process and then got a healthy response. Check
@@ -523,7 +567,22 @@ if ($VerifyApiCandidateOnly) {
     if ($null -ne $multiple) {
         throw 'Multiple socket owners must not select a process automatically.'
     }
-    Write-Host 'Windows duplicate-Uvicorn candidate selection tests passed.'
+    # Freshly launched API can be verified without a TCP owner, but not
+    # when an unrelated process owns the port or a different script was used.
+    $fakeApi = [pscustomobject]@{ Id=303; ProcessName='python' }
+    $pythonPath = Join-Path $root '.venv\Scripts\python.exe'
+    $apiArgs = @('-m','uvicorn','app.main:app','--host','127.0.0.1','--port',"$ApiPort")
+    $fresh = SelectFreshApiLaunch $fakeApi @() $pythonPath $apiArgs $pythonPath
+    if (-not $fresh -or $fresh.Id -ne 303) {
+        throw 'Fresh API process must be selectable without a TCP owner.'
+    }
+    if ($null -ne (SelectFreshApiLaunch $fakeApi @([int]404) $pythonPath $apiArgs $pythonPath)) {
+        throw 'Foreign socket owner must reject fresh API process.'
+    }
+    if ($null -ne (SelectFreshApiLaunch $fakeApi @() 'C:\other\python.exe' $apiArgs $pythonPath)) {
+        throw 'Unexpected Python executable must reject fresh API process.'
+    }
+    Write-Host 'Windows duplicate-Uvicorn and fresh API launch verification tests passed.'
     exit 0
 }
 if ($Diagnose) {
