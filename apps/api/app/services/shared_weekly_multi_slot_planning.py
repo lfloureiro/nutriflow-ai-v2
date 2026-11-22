@@ -69,6 +69,7 @@ class SharedWeeklyPlanEvaluation:
     adjacent_protein_repeat_count: int
     distinct_main_categories: int
     distinct_main_proteins: int
+    repeated_dinner_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -280,6 +281,10 @@ def _evaluate_choices(
     minimum_scores = tuple(plan.minimum_score for plan in person_plans)
     average_scores = tuple(plan.average_score for plan in person_plans)
     candidate_keys = tuple(choice.candidate.evaluation.candidate_key for choice in choices)
+    dinner_keys = tuple(
+        choice.candidate.evaluation.candidate_key
+        for choice in choices if choice.meal_type == "dinner"
+    )
     main_traits = [
         (
             choice.candidate.evaluation.planning_category,
@@ -313,6 +318,7 @@ def _evaluate_choices(
                 sum(average_scores, start=Decimal(0)) / Decimal(len(average_scores))
             ),
             repeated_candidate_count=len(candidate_keys) - len(set(candidate_keys)),
+            repeated_dinner_count=len(dinner_keys) - len(set(dinner_keys)),
             adjacent_category_repeat_count=adjacent_category_repeat_count,
             adjacent_protein_repeat_count=adjacent_protein_repeat_count,
             distinct_main_categories=len(set(known_categories)),
@@ -335,6 +341,7 @@ def _ranking_key(plan: SharedWeeklyPlanEvaluation) -> tuple[object, ...]:
         return (
             -plan.mandatory_support_participants,
             -plan.mandatory_support_total,
+            plan.repeated_dinner_count,
             -plan.advisory_support_participants,
             -plan.advisory_support_total,
             plan.repeated_candidate_count,
@@ -353,6 +360,7 @@ def _ranking_key(plan: SharedWeeklyPlanEvaluation) -> tuple[object, ...]:
     return (
         -plan.mandatory_support_participants,
         -plan.mandatory_support_total,
+        plan.repeated_dinner_count,
         -plan.advisory_support_participants,
         -plan.advisory_support_total,
         -diversity_adjusted_minimum,
