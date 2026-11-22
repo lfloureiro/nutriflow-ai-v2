@@ -95,6 +95,21 @@ export function recommendationDeliveryProviderKeys(
   return providers;
 }
 
+export const MAX_RECOMMENDATION_CANDIDATES = 150;
+
+/** Keep a bounded, representative candidate pool across the entire catalogue.
+ * The bootstrap is sorted alphabetically. Taking the first N silently
+ * excludes all recipes at the end of the alphabet when the catalogue grows.
+ * Evenly sample stable positions, without fabricating nutritional eligibility.
+ */
+export function representativeCandidates<T>(rows: T[], max = MAX_RECOMMENDATION_CANDIDATES): T[] {
+  if (rows.length <= max) return rows;
+  if (max < 1) return [];
+  return Array.from({ length: max }, (_, index) =>
+    rows[Math.floor((index + 0.5) * rows.length / max)]!,
+  );
+}
+
 export function recommendationCandidates(
   candidates: PlanningCandidate[],
   sources: RecommendationSource[],
@@ -105,13 +120,12 @@ export function recommendationCandidates(
     sources.includes("uber_eats") ||
     sources.includes("glovo") ||
     sources.includes("bolt_food");
-  return candidates
-    .filter((candidate) => {
-      if (!candidate.suitable_meal_types.includes(mealType)) return false;
-      if (candidate.candidate_kind === "recipe") return allowCooked;
-      return allowDelivery && candidate.category === "dish";
-    })
-    .slice(0, 100)
+  const suitable = candidates.filter((candidate) => {
+    if (!candidate.suitable_meal_types.includes(mealType)) return false;
+    if (candidate.candidate_kind === "recipe") return allowCooked;
+    return allowDelivery && candidate.category === "dish";
+  });
+  return representativeCandidates(suitable)
     .map((candidate) => ({
       candidate_kind: candidate.candidate_kind,
       composition_id: candidate.composition_id,
