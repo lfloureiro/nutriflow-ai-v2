@@ -1089,6 +1089,34 @@ export default function WeeklyProposalPreview({
           (candidate) => !rejected.has(candidate.catalog_key),
         );
         const candidates = recommendationCandidates(catalogue, sources, mealType);
+        // Opt-in frontend trace complements the backend's rejection report.
+        // Unlike backend evaluations, this records recipes removed *before*
+        // their nutritional constraints could even be examined.
+        if (window.localStorage.getItem("nutriflow.weekly.debug") === "1") {
+          const mealTypeMatches = catalogue.filter(row => row.suitable_meal_types.includes(mealType));
+          const sourceMatches = mealTypeMatches.filter(row =>
+            row.candidate_kind === "recipe"
+              ? sources.includes("cooked")
+              : row.category === "dish" && sources.some(source =>
+                source === "uber_eats" || source === "glovo" || source === "bolt_food"),
+          );
+          console.info("[NutriFlow WEEKLY] frontend candidate filter", {
+            date: planningDate,
+            mealType,
+            bootstrap: (catalogues.get(planningDate) ?? []).length,
+            manuallyRejected: rejected.size,
+            remaining: catalogue.length,
+            wrongMealType: catalogue.length - mealTypeMatches.length,
+            wrongSource: mealTypeMatches.length - sourceMatches.length,
+            suitableForBackend: sourceMatches.length,
+            forwarded: candidates.length,
+            capped: sourceMatches.length - candidates.length,
+            omittedByCap: sourceMatches.length > candidates.length
+              ? sourceMatches.filter(row => !candidates.some(candidate =>
+                  candidate.composition_id === row.composition_id)).map(row => row.name)
+              : [],
+          });
+        }
         if (candidates.length === 0) {
           skipped[key] = !sources.includes("cooked") ? (locale==="pt-PT" ? "Escolher prato de entrega ou restaurante; abre a refeição para consultar opções." : "Choose a delivery or restaurant dish; open the meal to browse options.") :
             mealType === "lunch" && !isWeekendDate(planningDate)
