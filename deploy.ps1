@@ -45,6 +45,7 @@ function Listener([int]$port) {
     if (-not ($VerifyFrontendOnly -and $VerifyNetstatOnly)) {
         try {
             $entries = @(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+                Where-Object { [int]$_.OwningProcess -gt 0 } |
                 ForEach-Object {
                     [pscustomobject]@{
                         LocalAddress = [string]$_.LocalAddress
@@ -105,11 +106,21 @@ function Show-PortDiagnostics([int]$port,[string]$role) {
         $ownerId = [int]$connection.OwningProcess
         Write-Host ('TCP: ' + $connection.LocalAddress + ':' + $connection.LocalPort +
             ' PID=' + $ownerId)
+        if ($ownerId -le 0) {
+            Write-Host 'Process: system/idle TCP observation (not a manageable service)'
+            continue
+        }
         $process = Get-Process -Id $ownerId -ErrorAction SilentlyContinue
         $cim = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $ownerId) -ErrorAction SilentlyContinue
-        if ($process) {
-            Write-Host ('Process: ' + $process.ProcessName + ' PID=' + $process.Id +
-                ' StartUTC=' + $process.StartTime.ToUniversalTime().ToString('o'))
+        if ($null -ne $process) {
+            try {
+                Write-Host ('Process: ' + $process.ProcessName + ' PID=' + $process.Id +
+                    ' StartUTC=' + $process.StartTime.ToUniversalTime().ToString('o'))
+            } catch {
+                Write-Host ('Process: PID ' + $ownerId + ' (metadata temporarily unavailable)')
+            }
+        } else {
+            Write-Host ('Process: PID ' + $ownerId + ' no longer exists')
         }
         if ($cim) {
             Write-Host ('Executable: ' + [string]$cim.ExecutablePath)
@@ -132,14 +143,16 @@ function SelectLoopbackSocketOwner([object[]]$connections) {
     # A wildcard IPv4 listener also covers loopback, but if both appear
     # with different PIDs the binding is ambiguous and must be rejected.
     $ipv4Owners = @($connections | Where-Object {
-        $_.LocalAddress -eq '127.0.0.1' -or $_.LocalAddress -eq '0.0.0.0'
+        [int]$_.OwningProcess -gt 0 -and
+        ($_.LocalAddress -eq '127.0.0.1' -or $_.LocalAddress -eq '0.0.0.0')
     } | Select-Object -ExpandProperty OwningProcess -Unique)
     if ($ipv4Owners.Count -eq 1) { return [int]$ipv4Owners[0] }
     return $null
 }
 function VerifiedServiceProcess([int]$port,[string]$role) {
     $connections = @(Listener $port)
-    $owners = @($connections | Select-Object -ExpandProperty OwningProcess -Unique)
+    $owners = @($connections | Where-Object { [int]$_.OwningProcess -gt 0 } |
+        Select-Object -ExpandProperty OwningProcess -Unique)
     if ($owners.Count -eq 0) { return $null }
     if ($owners.Count -eq 1) {
         $ownerId = [int]$owners[0]
@@ -419,11 +432,16 @@ function AdoptLegacy([int]$port,[string]$role) {
     }
     if (-not $process) {
         $owners = @(Listener $port | Select-Object -ExpandProperty OwningProcess -Unique)
-        foreach ($ownerId in $owners) {
-            $info = Get-CimInstance Win32_Process -Filter ('ProcessId = ' + $ownerId)
-            Write-Warning ('Port ' + $port + ' PID ' + $ownerId +
-                ' is not verified as NutriFlow; executable=' + $info.ExecutablePath +
-                '; command=' + $info.CommandLine)
+        foreach ($ownerId in @($owners | Where-Object { [int]$_ -gt 0 })) {
+            $info = Get-CimInstance Win32_Process -Filter ('ProcessId = ' + $ownerId) -ErrorAction SilentlyContinue
+            if ($null -ne $info) {
+                Write-Warning ('Port ' + $port + ' PID ' + $ownerId +
+                    ' is not verified as NutriFlow; executable=' + $info.ExecutablePath +
+                    '; command=' + $info.CommandLine)
+            } else {
+                Write-Warning ('Port ' + $port + ' PID ' + $ownerId +
+                    ' cannot be identified; no takeover authorized.')
+            }
         }
         throw ('Cannot safely adopt process on port ' + $port + '. No process was terminated.')
     }
@@ -655,6 +673,20 @@ if ($VerifyApiCandidateOnly) {
     )
     if ($null -ne (SelectLoopbackSocketOwner $conflictingListeners)) {
         throw 'Two distinct IPv4 owners must remain ambiguous.'
+    }
+    # Windows Get-NetTCPConnection can report PID 0 (Idle/System) alongside
+    # a real socket owner. PID 0 is not a process we can adopt or stop.
+    $systemAndReal = @(
+        [pscustomobject]@{ LocalAddress='127.0.0.1'; OwningProcess=0 },
+        [pscustomobject]@{ LocalAddress='127.0.0.1'; OwningProcess=101 },
+        [pscustomobject]@{ LocalAddress='::1'; OwningProcess=202 }
+    )
+    if ((SelectLoopbackSocketOwner $systemAndReal) -ne 101) {
+        throw 'System PID 0 must never mask the real NutriFlow IPv4 owner.'
+    }
+    $onlySystem = @([pscustomobject]@{ LocalAddress='127.0.0.1'; OwningProcess=0 })
+    if ($null -ne (SelectLoopbackSocketOwner $onlySystem)) {
+        throw 'System PID 0 must never be treated as a service owner.'
     }
     $onlyIpv6 = @([pscustomobject]@{ LocalAddress='::1'; OwningProcess=202 })
     if ($null -ne (SelectLoopbackSocketOwner $onlyIpv6)) {
