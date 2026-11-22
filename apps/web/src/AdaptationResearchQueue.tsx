@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { createSubstitution, type ReviewRecipe } from "./api/dietaryReviewClient";
 import { useI18n } from "./i18n";
 import RecipeVariantEditor from "./RecipeVariantEditor";
+import {recipeAdaptationProgress} from "./recipeAdaptationProgress";
 import { RESEARCH_REFERENCE_DATE, researchSuggestionsForIngredient } from "./adaptationResearchReferences";
 
 /**
@@ -168,21 +169,30 @@ export default function AdaptationResearchQueue({
           <p>{pt
             ? "Uma receita pode exigir várias trocas. Escolhe-a uma vez e revê todas em conjunto; as propostas ainda não são ingredientes aprovados nem equivalências nutricionais."
             : "A recipe can need several substitutions. Select it once to review all changes; proposals are not approved ingredients or nutritional equivalents."}</p>
-          {byRecipe.map(group => (
-            <article key={group.recipeId} className="nf-research-recipe">
-              <div>
-                <strong>{group.recipeName}</strong>
-                <small>{group.issues.length} {pt ? "ingredientes por verificar" : "ingredients to verify"}</small>
-                <p>{group.issues.map(issue => `${issue.ingredientName}: ${issue.proposals[0]?.replacement_name ?? (pt ? "alternativa por definir" : "alternative missing")}`).join(" · ")}</p>
-              </div>
-              <button type="button" className="button secondary small"
-                onClick={() => setSelectedRecipeId(old => old === group.recipeId ? null : group.recipeId)}>
-                {selectedRecipeId === group.recipeId
-                  ? (pt ? "Fechar revisão" : "Close review")
-                  : (pt ? "Rever todas as trocas" : "Review all changes")}
-              </button>
-            </article>
-          ))}
+          {byRecipe.map(group => {
+            const recipe = recipes.find(row => row.id === group.recipeId);
+            if (!recipe) return null;
+            const progress = recipeAdaptationProgress(recipe,group.issues.map(issue => issue.ingredientId));
+            const statusLabels = pt
+              ? {needs_research:"Falta investigar", needs_product:"Produtos por identificar", needs_quantity:"Quantidades por confirmar", awaiting_review:"Propostas a validar", active:"Variante ativa — verificar porção/pessoa"}
+              : {needs_research:"Research missing", needs_product:"Products not identified", needs_quantity:"Quantities not confirmed", awaiting_review:"Awaiting review", active:"Active variant — serving/person checks remain"};
+            return (
+              <article key={group.recipeId} className="nf-research-recipe">
+                <div>
+                  <strong>{group.recipeName}</strong>
+                  <small>{group.issues.length} {pt ? "ingredientes abrangidos" : "affected ingredients"} · {statusLabels[progress.status]}</small>
+                  <p>{group.issues.map(issue => `${issue.ingredientName}: ${issue.proposals[0]?.replacement_name ?? (pt ? "alternativa por definir" : "alternative missing")}`).join(" · ")}</p>
+                  {progress.issues.length > 0 && <p className="nf-research-blockers">{progress.issues.join(" · ")}</p>}
+                </div>
+                <button type="button" className="button secondary small"
+                  onClick={() => setSelectedRecipeId(old => old === group.recipeId ? null : group.recipeId)}>
+                  {selectedRecipeId === group.recipeId
+                    ? (pt ? "Fechar revisão" : "Close review")
+                    : (pt ? "Rever todas as trocas" : "Review all changes")}
+                </button>
+              </article>
+            );
+          })}
         </div>
         {fullRecipe && (
           <section className="nf-research-full-recipe">
