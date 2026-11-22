@@ -1447,13 +1447,18 @@ export default function WeeklyProposalPreview({
                         const pendingReason = skippedSlots[slotKey(planningDate, mealType)];
                         const state = entry ? "planned" : choice ? "proposed" : "empty";
                         const hasAppliedChanges = Boolean(entry?.variant_changes?.length || entry?.transformations.length);
+                        const currentRecipeId = entry?.recipe_id ?? choice?.recipe_id ?? null;
+                        const reviewRecord = currentReviews.find(review =>
+                          review.id === currentRecipeId ||
+                          review.active_variants?.some(variant => variant.recipe_id === currentRecipeId));
                         const requiresInvestigation = !hasAppliedChanges && Boolean(
-                          (entry?.recipe_id ?? choice?.recipe_id) &&
-                          (!currentReviews.some(review => review.id === (entry?.recipe_id ?? choice?.recipe_id) ||
-                            review.active_variants?.some(variant => variant.recipe_id === (entry?.recipe_id ?? choice?.recipe_id))) ||
-                          (slotAdaptations?.[entry?.recipe_id ?? choice?.recipe_id ?? ""]?.some(
-                            item => item.includes("alternativa por definir")
-                          ) ?? false))
+                          currentRecipeId && (
+                            !reviewRecord ||
+                            reviewRecord.ingredients.length === 0 ||
+                            (slotAdaptations?.[currentRecipeId]?.some(
+                              item => item.includes("alternativa por definir")
+                            ) ?? false)
+                          )
                         );
                         // An unassessed recipe is not "ready" simply because no
                         // substitute has been entered yet. All new proposals
