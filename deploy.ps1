@@ -126,13 +126,34 @@ function Show-PortDiagnostics([int]$port,[string]$role) {
     }
     Write-Host '--- end diagnostics ---'
 }
+function SelectLoopbackSocketOwner([object[]]$connections) {
+    # NutriFlow binds explicitly to IPv4 127.0.0.1. IPv6 listeners on the
+    # same numerical port do not own HTTP requests to 127.0.0.1.
+    # A wildcard IPv4 listener also covers loopback, but if both appear
+    # with different PIDs the binding is ambiguous and must be rejected.
+    $ipv4Owners = @($connections | Where-Object {
+        $_.LocalAddress -eq '127.0.0.1' -or $_.LocalAddress -eq '0.0.0.0'
+    } | Select-Object -ExpandProperty OwningProcess -Unique)
+    if ($ipv4Owners.Count -eq 1) { return [int]$ipv4Owners[0] }
+    return $null
+}
 function VerifiedServiceProcess([int]$port,[string]$role) {
-    $owners = @(Listener $port | Select-Object -ExpandProperty OwningProcess -Unique)
+    $connections = @(Listener $port)
+    $owners = @($connections | Select-Object -ExpandProperty OwningProcess -Unique)
     if ($owners.Count -eq 0) { return $null }
-    if ($owners.Count -ne 1) {
-        throw ('Port ' + $port + ' has multiple owners; inspect before restarting.')
+    if ($owners.Count -eq 1) {
+        $ownerId = [int]$owners[0]
+    } else {
+        $ownerId = SelectLoopbackSocketOwner $connections
+        if ($null -eq $ownerId) {
+            Write-Warning ('Port ' + $port + ' has multiple TCP owners without a ' +
+                'unique IPv4 loopback listener. No process selected.')
+            Show-PortDiagnostics $port $role
+            return $null
+        }
+        Write-Warning ('Port ' + $port + ' has multiple TCP owners; using unique ' +
+            'IPv4 loopback owner PID ' + $ownerId + ', ignoring unrelated IPv6 listeners.')
     }
-    $ownerId = [int]$owners[0]
     $info = Get-CimInstance Win32_Process -Filter ('ProcessId = ' + $ownerId)
     $proc = Get-Process -Id $ownerId -ErrorAction SilentlyContinue
     if (-not $info -or -not $proc) {
@@ -459,9 +480,10 @@ function Launch([string]$exe,[string[]]$arg,[string]$cwd,[string]$name,[int]$por
                 $isViteLaunch = $true
             }
             if ($launchProc -and $isViteLaunch) {
-                $candidates = @(Listener $port | Select-Object -ExpandProperty OwningProcess -Unique)
-                if ($candidates.Count -eq 1) {
-                    $socketProc = Get-Process -Id ([int]$candidates[0]) -ErrorAction SilentlyContinue
+                $connections = @(Listener $port)
+                $socketOwner = SelectLoopbackSocketOwner $connections
+                if ($null -ne $socketOwner) {
+                    $socketProc = Get-Process -Id $socketOwner -ErrorAction SilentlyContinue
                     if ($socketProc -and $socketProc.ProcessName -ieq 'node' -and
                         $socketProc.StartTime -ge $started.StartTime -and (Healthy $url)) {
                         $proc = $socketProc
@@ -508,11 +530,19 @@ function Launch([string]$exe,[string[]]$arg,[string]$cwd,[string]$name,[int]$por
             } else {
                 $knownVite
             }
+            $liveConnections = @(Listener $port)
+            $loopbackOwner = SelectLoopbackSocketOwner $liveConnections
+            # A directly launched process is trusted only if Windows does
+            # not show a different IPv4 listener. Other IPv6 owners are
+            # irrelevant to this explicit IPv4 Vite launch.
+            $noContradictoryOwner = $liveConnections.Count -eq 0 -or
+                ($null -ne $loopbackOwner -and $loopbackOwner -eq $direct.Id)
             if ($direct -and $direct.ProcessName -ieq 'node' -and
                 $exe -ieq (Executable 'node') -and
                 $arg.Count -gt 0 -and
                 [string]$arg[0] -ieq $expectedScript -and
-                (Healthy $url)) {
+                $noContradictoryOwner -and
+                (Test-NutriFlowFrontend $port)) {
                 $proc = $direct
                 $trustedLaunch = $true
                 Write-Warning ('Using directly launched Node PID ' + $proc.Id +
@@ -544,6 +574,25 @@ function Save($state) {
 }
 if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir | Out-Null }
 if ($VerifyApiCandidateOnly) {
+    # Pure tests for mixed IPv4/IPv6 ownership: no process access or sockets.
+    $mixedListeners = @(
+        [pscustomobject]@{ LocalAddress='127.0.0.1'; OwningProcess=101 },
+        [pscustomobject]@{ LocalAddress='::1'; OwningProcess=202 }
+    )
+    if ((SelectLoopbackSocketOwner $mixedListeners) -ne 101) {
+        throw 'IPv4 NutriFlow listener must win over unrelated IPv6 listener.'
+    }
+    $conflictingListeners = @(
+        [pscustomobject]@{ LocalAddress='127.0.0.1'; OwningProcess=101 },
+        [pscustomobject]@{ LocalAddress='0.0.0.0'; OwningProcess=202 }
+    )
+    if ($null -ne (SelectLoopbackSocketOwner $conflictingListeners)) {
+        throw 'Two distinct IPv4 owners must remain ambiguous.'
+    }
+    $onlyIpv6 = @([pscustomobject]@{ LocalAddress='::1'; OwningProcess=202 })
+    if ($null -ne (SelectLoopbackSocketOwner $onlyIpv6)) {
+        throw 'IPv6 listener alone must not be trusted for IPv4 NutriFlow.'
+    }
     # Verify executable identity using the same regex as the runtime path.
     $apiExePattern = '^(python(?:w)?|uvicorn)[.]exe$'
     if ('python.exe' -notmatch $apiExePattern -or
