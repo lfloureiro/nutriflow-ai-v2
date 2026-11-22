@@ -32,6 +32,22 @@ export function adaptationResearchItems(recipes: ReviewRecipe[], excluded: strin
   );
 }
 
+export function buildAdaptationResearchBrief(
+  items: ReturnType<typeof adaptationResearchItems>,
+) {
+  const unique = [...new Map(items.map(item => [item.key, item])).values()];
+  return [
+    "Investiga alternativas alimentares e produtos à venda em Portugal para adaptar receitas familiares.",
+    "Consulta as fontes oficiais da Monash University/FODMAP Friendly e rótulos atuais de Auchan, Continente e outros supermercados.",
+    "Para cada ingrediente indica: receita, motivo da substituição, opções específicas, ingredientes do rótulo, marca, URL, data da fonte, porção e limites FODMAP quando comprovados.",
+    "Distingue claramente evidência clínica por porção, informação comercial e hipótese a validar. Não classifiques produtos como seguros só por serem sem glúten ou terem batata/arroz.",
+    "Não inventes valores nutricionais, alergénios ou certificações. Não alteres receitas nem substituas ingredientes sem validação por participante.",
+    "",
+    ...unique.map(item =>
+      `- ${item.recipeName}: ${item.ingredientName} (${item.quantity} ${item.unit}). Estado: ${item.missing ? "sem alternativa registada" : item.hasVariant ? "variante por validar" : "proposta a rever"}.`),
+  ].join("\n");
+}
+
 function researchUrl(domain: string, ingredient: string) {
   return `https://www.google.com/search?q=${encodeURIComponent(
     `site:${domain} ${ingredient} alternativa low FODMAP ingredientes`,
@@ -55,6 +71,7 @@ export default function AdaptationResearchQueue({
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [copyNotice, setCopyNotice] = useState("");
   const selected = items.find(item => item.key === selectedId);
 
   async function propose(event: FormEvent<HTMLFormElement>) {
@@ -96,6 +113,23 @@ export default function AdaptationResearchQueue({
           ? "Lista calculada a partir das exclusões e dos ingredientes das receitas da família. A ausência de uma troca não torna a receita compatível. As propostas ficam guardadas para revisão; não alteram refeições, receitas originais ou compras."
           : "Derived from family exclusions and recipe ingredients. Missing swaps never imply compatibility. Proposals are saved for review only; they do not change meals, original recipes or shopping."}
       </p>
+      {items.length > 0 && (
+        <div className="nf-research-brief">
+          <button type="button" className="button secondary small"
+            onClick={() => {
+              void navigator.clipboard.writeText(buildAdaptationResearchBrief(items))
+                .then(() => setCopyNotice(pt
+                  ? "Pedido copiado. Cola-o na IA para pesquisar alternativas com fontes."
+                  : "Research brief copied. Paste it into your AI assistant for sourced alternatives."))
+                .catch(() => setCopyNotice(pt
+                  ? "Não foi possível copiar. Usa os links de pesquisa por ingrediente."
+                  : "Clipboard unavailable. Use the per-ingredient research links."));
+            }}>
+            {pt ? "Copiar investigação para IA" : "Copy AI research brief"}
+          </button>
+          {copyNotice && <small role="status">{copyNotice}</small>}
+        </div>
+      )}
       {!items.length ? (
         <p>{pt
           ? "Sem ingredientes associados às exclusões nesta consulta. Isso não equivale a validação FODMAP das restantes receitas."
